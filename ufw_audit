@@ -1,0 +1,126 @@
+#!/bin/bash
+# ==========================================================
+# ufw Audit - Minimal Checklist + Full Log (EN)
+# ==========================================================
+
+# --- Setup log path ---
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOGFILE="$SCRIPT_DIR/ufw_audit_$(date +%Y%m%d_%H%M%S).log"
+
+# --- Colors ---
+GREEN="\e[32m"
+RED="\e[31m"
+YELLOW="\e[33m"
+BOLD="\e[1m"
+RESET="\e[0m"
+
+# --- Counters ---
+OK_COUNT=0
+WARN_COUNT=0
+ALERT_COUNT=0
+
+ok()     { echo -e "[${GREEN}OK${RESET}] $1"; ((OK_COUNT++)); }
+warn()   { echo -e "[${YELLOW}WARNING${RESET}] $1"; ((WARN_COUNT++)); }
+alert()  { echo -e "[${RED}NOT OK${RESET}] $1"; ((ALERT_COUNT++)); }
+
+# --- Start Log (silent for terminal) ---
+{
+echo "=========================================================="
+echo "UFW AUDIT FULL REPORT - $(date)"
+echo "=========================================================="
+} > "$LOGFILE"
+
+# ==========================================================
+# CHECKLIST (Terminal Only)
+# ==========================================================
+
+echo -e "\n${BOLD}=== FIREWALL CHECKLIST ===${RESET}\n"
+
+# 1️⃣ UFW installed
+if command -v ufw &>/dev/null; then
+    ok "UFW installed"
+    echo "UFW version: $(ufw version)" >> "$LOGFILE"
+else
+    alert "UFW not installed"
+    exit 1
+fi
+
+# 2️⃣ UFW active
+if ufw status | grep -qi inactive; then
+    alert "Firewall inactive"
+else
+    ok "Firewall active"
+fi
+ufw status >> "$LOGFILE"
+
+# 3️⃣ Default policy
+DEFAULTS=$(ufw status verbose | grep "Default:")
+echo "$DEFAULTS" >> "$LOGFILE"
+
+if echo "$DEFAULTS" | grep -q "deny (incoming)"; then
+    ok "Incoming default = DENY"
+else
+    alert "Incoming default ≠ DENY"
+fi
+
+if echo "$DEFAULTS" | grep -q "allow (outgoing)"; then
+    ok "Outgoing default = ALLOW"
+else
+    warn "Outgoing default not standard"
+fi
+
+# 4️⃣ Broad rules
+if ufw status | grep -q "Anywhere"; then
+    warn "Rules allowing traffic from 'Anywhere' detected"
+else
+    ok "No broad 'Anywhere' rules detected"
+fi
+
+# 5️⃣ Listening ports
+LISTEN_COUNT=$(ss -tuln | awk 'NR>1' | wc -l)
+ss -tuln >> "$LOGFILE"
+
+if [ "$LISTEN_COUNT" -eq 0 ]; then
+    ok "No listening ports detected"
+else
+    warn "$LISTEN_COUNT listening port(s) detected"
+fi
+
+# 6️⃣ IPv6
+if grep -q "^IPV6=yes" /etc/default/ufw 2>/dev/null; then
+    ok "IPv6 enabled in UFW"
+else
+    warn "IPv6 disabled or not configured in UFW"
+fi
+
+# ==========================================================
+# FULL TOPOLOGY (Log Only)
+# ==========================================================
+
+{
+echo
+echo "---------------- FULL TOPOLOGY ----------------"
+echo
+echo "----- UFW STATUS VERBOSE -----"
+ufw status verbose
+echo
+echo "----- UFW NUMBERED RULES -----"
+ufw status numbered
+echo
+echo "----- UFW RAW TABLES -----"
+ufw show raw
+echo
+echo "----- LISTENING PORTS (SYSTEM STATE) -----"
+ss -tuln
+echo
+echo "=========================================================="
+echo "Audit completed."
+} >> "$LOGFILE"
+
+# ==========================================================
+# FINAL SUMMARY
+# ==========================================================
+
+echo -e "\n${BOLD}Summary:${RESET}"
+echo -e "OK: ${GREEN}$OK_COUNT${RESET}  |  WARNING: ${YELLOW}$WARN_COUNT${RESET}  |  NOT OK: ${RED}$ALERT_COUNT${RESET}"
+echo -e "\nFull log saved at: $LOGFILE\n"
