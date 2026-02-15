@@ -1,0 +1,10 @@
+# Ignore all UFW-audit log files
+*.log
+
+# Ignore system files (optional)
+.DS_Store
+Thumbs.db
+
+# Ignore editor temporary files (optional)
+*~
+*.swp
