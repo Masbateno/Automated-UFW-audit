@@ -1,20 +1,26 @@
 #!/bin/bash
 # ==========================================================
-# UFW-audit v0.1.1
+# UFW-audit v0.2
 # UFW Firewall Audit Script for Linux
 # ==========================================================
 
-# --- Check for sudo privileges ---
-if [ "$(id -u)" -ne 0 ]; then
-    echo -e "\e[31m[ERROR]\e[0m UFW-audit v0.1.1"
-    echo -e "This script requires root privileges to run UFW commands."
-    echo -e "Please run it with sudo: \e[1msudo $0\e[0m"
-    exit 1
-fi
+# ==========================================================
+# GLOBAL VARIABLES
+# ==========================================================
 
-# --- Setup log path ---
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOGFILE="$SCRIPT_DIR/ufw_audit_$(date +%Y%m%d_%H%M%S).log"
+set -o pipefail
+
+VERSION="0.2"
+
+OK_COUNT=0
+WARN_COUNT=0
+ALERT_COUNT=0
+SCORE=10
+
+VERBOSE=false
+HELP=false
+LOG_LEVEL="minimal"  # minimal par défaut
+LOGFILE=""
 
 # --- Colors ---
 GREEN="\e[32m"
@@ -24,60 +30,130 @@ CYAN="\e[36m"
 BOLD="\e[1m"
 RESET="\e[0m"
 
-# --- Counters ---
-OK_COUNT=0
-WARN_COUNT=0
-ALERT_COUNT=0
+# ==========================================================
+# ARGUMENT PARSER
+# ==========================================================
 
-# --- Security score ---
-SCORE=10
+parse_arguments() {
+    for ARG in "$@"; do
+        case "$ARG" in
+            -v|--verbose) VERBOSE=true ;;
+            -h|--help) HELP=true ;;
+            -d|--detailed) LOG_LEVEL="detailed" ;;
+        esac
+    done
+}
 
-# --- Options ---
-VERBOSE=false
-HELP=false
+# ==========================================================
+# HELP MESSAGE
+# ==========================================================
 
-# --- Parse arguments ---
-for ARG in "$@"; do
-    case "$ARG" in
-        -v|--verbose) VERBOSE=true ;;
-        -h|--help) HELP=true ;;
-        *) ;;
-    esac
-done
-
-# --- Help message ---
-if $HELP; then
-    echo -e "${BOLD}UFW-audit v0.1.1${RESET}"
-    echo -e "UFW Firewall Audit Script for Linux"
+show_help() {
+    echo -e "${BOLD}${GREEN}UFW-audit v$VERSION${RESET}"
+    echo -e "${BOLD}${GREEN}UFW Firewall Audit Script for Linux${RESET}"
     echo
-    echo "Usage: sudo ./UFW-audit.sh [options]"
+    echo "Usage: ./ufw_audit.sh [options]"
     echo
     echo "Options:"
     echo "  -v, --verbose     Show full audit details in terminal"
-    echo "  -h, --help        Show this help message"
+    echo "  -h, --help        Show help"
+    echo "  -d, --detailed    Generate detailed log (full rules, listening ports, etc.)"
+    echo
     exit 0
-fi
-
-# --- Functions ---
-ok() {
-    echo -e "[${GREEN}OK${RESET}] $1"
-    echo "[OK] $1" >> "$LOGFILE"
-    ((OK_COUNT++))
 }
 
-warn() {
-    echo -e "[${YELLOW}WARNING${RESET}] $1"
-    echo "[WARNING] $1" >> "$LOGFILE"
-    ((WARN_COUNT++))
-    ((SCORE--))
+# ==========================================================
+# ROOT CHECK
+# ==========================================================
+
+check_root() {
+    if (( EUID != 0 )); then
+        echo -e "${RED}[ERROR]${RESET} ${BOLD}${GREEN}UFW-audit v$VERSION${RESET}"
+        echo "This script requires root privileges."
+        echo -e "Run with: ${BOLD}sudo $0${RESET}"
+        exit 1
+    fi
 }
 
-alert() {
-    echo -e "[${RED}NOT OK${RESET}] $1"
-    echo "[ALERT] $1" >> "$LOGFILE"
-    ((ALERT_COUNT++))
-    ((SCORE-=2))
+# ==========================================================
+# LOGGING SYSTEM
+# ==========================================================
+
+log() {
+    local LEVEL="$1"
+    local MESSAGE="$2"
+    local TIMESTAMP
+    TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S')"
+    local COLOR=""
+    local PREFIX=""
+
+    case "$LEVEL" in
+        INFO) COLOR="$CYAN"; PREFIX="[INFO]" ;;
+        OK) COLOR="$GREEN"; PREFIX="[OK]"; ((OK_COUNT++)) ;;
+        WARN) COLOR="$YELLOW"; PREFIX="[WARNING]"; ((WARN_COUNT++)); ((SCORE--)) ;;
+        ALERT) COLOR="$RED"; PREFIX="[ALERT]"; ((ALERT_COUNT++)); ((SCORE-=2)) ;;
+        ERROR) COLOR="$RED"; PREFIX="[ERROR]" ;;
+    esac
+
+    echo -e "${COLOR}${PREFIX}${RESET} $MESSAGE"
+    echo "$TIMESTAMP $PREFIX $MESSAGE" >> "$LOGFILE"
 }
+
+# ==========================================================
+# LOGFILE INITIALIZATION (INTERACTIVE)
+# ==========================================================
+
+init_logfile() {
+    SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+    DEFAULT_LOG_DIR="$SCRIPT_DIR"
+
+    echo
+    echo -e "${BOLD}Log file destination${RESET}"
+    echo "Press ENTER to use default:"
+    echo "$DEFAULT_LOG_DIR"
+    echo
+
+    while true; do
+        read -r -p "Log directory: " USER_LOG_DIR
+        LOG_DIR="${USER_LOG_DIR:-$DEFAULT_LOG_DIR}"
+        LOG_DIR="$(eval echo "$LOG_DIR")"
+        if mkdir -p "$LOG_DIR" 2>/dev/null; then
+            break
+        else
+            echo -e "${RED}[ERROR]${RESET} Cannot create directory"
+        fi
+    done
+
+    TIMESTAMP="$(date +'%Y%m%d_%H%M%S')"
+    LOGFILE="$LOG_DIR/ufw_audit_$TIMESTAMP.log"
+
+    echo
+    echo -e "${GREEN}[OK]${RESET} Log file:"
+    echo "$LOGFILE"
+    echo
+}
+
+# ==========================================================
+# LOG HEADER
+# ==========================================================
+
+init_log_header() {
+    {
+        echo "=========================================================="
+        echo "UFW AUDIT REPORT v$VERSION - $(date)"
+        echo "=========================================================="
+        echo
+        echo "[SYSTEM]"
+        echo "Hostname: $(hostname)"
+        echo "Kernel: $(uname -r)"
+        echo "UFW Version: $(ufw version 2>/dev/null || echo "N/A")"
+        echo
+    } > "$LOGFILE"
+}
+
+# ==========================================================
+# LOG SECTION HANDLER
+# ==========================================================
 
 log_section() {
     if $VERBOSE; then
@@ -87,188 +163,202 @@ log_section() {
     fi
 }
 
-# --- Start Log ---
-{
-echo "=========================================================="
-echo "UFW AUDIT REPORT - $(date)"
-echo "=========================================================="
-echo
-echo "[SYSTEM]"
-echo "- Hostname: $(hostname)"
-echo "- UFW Version: $(ufw version 2>/dev/null || echo "N/A")"
-echo "- Kernel: $(uname -r)"
-echo
-} > "$LOGFILE"
-
 # ==========================================================
-# CHECKLIST (inchangé)
+# HEADER DISPLAY
 # ==========================================================
 
-echo -e "\e[1;32m==========================================================\e[0m"
-echo -e "\e[1;32mUFW-audit v0.1.1\e[0m"
-echo -e "\e[1;32mUFW Firewall Audit Script for Linux\e[0m"
-echo -e "\e[1;32m==========================================================\e[0m"
-echo -e
-echo -e "\n${BOLD}=== FIREWALL CHECKLIST ===${RESET}\n"
+show_banner() {
+    echo -e "${GREEN}==========================================================${RESET}"
+    echo -e "${GREEN}UFW-audit v$VERSION${RESET}"
+    echo -e "${GREEN}UFW Firewall Audit Script for Linux${RESET}"
+    echo -e "${GREEN}==========================================================${RESET}"
+    echo
+}
 
-# UFW installed (inchangé)
-if command -v ufw &>/dev/null; then
-    ok "UFW installed"
-    echo "UFW version: $(ufw version)" >> "$LOGFILE"
-else
-    alert "UFW not installed"
-    echo "[CRITICAL] UFW is required. Install with:" >> "$LOGFILE"
-    if [ -f /etc/debian_version ]; then
-        echo "  sudo apt update && sudo apt install ufw" >> "$LOGFILE"
-    elif [ -f /etc/redhat-release ]; then
-        echo "  sudo dnf install ufw" >> "$LOGFILE"
+# ==========================================================
+# FIREWALL CHECK
+# ==========================================================
+
+check_firewall() {
+    echo -e "\n${BOLD}=== FIREWALL CHECKLIST ===${RESET}\n"
+
+    if command -v ufw &>/dev/null; then
+        log OK "UFW installed"
+        [[ "$LOG_LEVEL" == "detailed" ]] && echo "UFW version: $(ufw version)" >> "$LOGFILE"
     else
-        echo "  Consult your distribution documentation" >> "$LOGFILE"
+        log ALERT "UFW not installed"
+        echo "[CRITICAL] Install UFW:" >> "$LOGFILE"
+        if [ -f /etc/debian_version ]; then
+            echo "sudo apt install ufw" >> "$LOGFILE"
+        elif [ -f /etc/redhat-release ]; then
+            echo "sudo dnf install ufw" >> "$LOGFILE"
+        fi
+        SCORE=0
+        exit 1
     fi
-    SCORE=0
-    exit 1
-fi
 
-# Firewall active (inchangé)
-if ufw status | grep -q "Status: inactive"; then
-    alert "Firewall inactive"
-    echo "[FIX] Enable with: sudo ufw enable" >> "$LOGFILE"
-else
-    ok "Firewall active"
-fi
-echo "----- UFW STATUS -----" >> "$LOGFILE"
-ufw status verbose >> "$LOGFILE"
-echo "----------------------" >> "$LOGFILE"
+    if ufw status | grep -q "inactive"; then
+        log ALERT "Firewall inactive"
+        [[ "$LOG_LEVEL" == "detailed" ]] && echo "[FIX] sudo ufw enable" >> "$LOGFILE"
+    else
+        log OK "Firewall active"
+    fi
 
-# Default policies (inchangé)
-DEFAULTS=$(ufw status verbose | grep "Default:")
-echo "[POLICIES]" >> "$LOGFILE"
-echo "$DEFAULTS" >> "$LOGFILE"
+    [[ "$LOG_LEVEL" == "detailed" ]] && {
+        echo "----- UFW STATUS -----" >> "$LOGFILE"
+        ufw status verbose >> "$LOGFILE"
+    }
 
-if echo "$DEFAULTS" | grep -q "deny (incoming)"; then
-    ok "Incoming default = DENY"
-else
-    alert "Incoming default is NOT deny"
-    echo "[RISK] Incoming traffic not blocked by default" >> "$LOGFILE"
-fi
+    DEFAULTS=$(ufw status verbose | grep "Default:")
+    [[ "$LOG_LEVEL" == "detailed" ]] && {
+        echo "[POLICIES]" >> "$LOGFILE"
+        echo "$DEFAULTS" >> "$LOGFILE"
+    }
 
-if echo "$DEFAULTS" | grep -q "allow (outgoing)"; then
-    ok "Outgoing default = ALLOW"
-else
-    warn "Outgoing default not standard"
-    echo "[NOTE] Outgoing traffic not allowed by default" >> "$LOGFILE"
-fi
+    if grep -q "deny (incoming)" <<< "$DEFAULTS"; then
+        log OK "Incoming default = DENY"
+    else
+        log ALERT "Incoming default is NOT deny"
+    fi
 
-# IPv6 (inchangé)
-if grep -qi "^IPV6=yes" /etc/default/ufw 2>/dev/null; then
-    ok "IPv6 enabled"
-    echo "[INFO] IPv6 is enabled" >> "$LOGFILE"
-else
-    warn "IPv6 not enabled"
-    echo "[INFO] Enable IPv6 in /etc/default/ufw if needed" >> "$LOGFILE"
-fi
+    if grep -q "allow (outgoing)" <<< "$DEFAULTS"; then
+        log OK "Outgoing default = ALLOW"
+    else
+        log WARN "Outgoing default not standard"
+    fi
+
+    if grep -qi "^IPV6=yes" /etc/default/ufw 2>/dev/null; then
+        log OK "IPv6 enabled"
+    else
+        log WARN "IPv6 not enabled"
+    fi
+}
 
 # ==========================================================
-# DANGEROUS RULE DETECTION (optimisé)
+# RULE ANALYSIS
 # ==========================================================
 
-echo -e "\n${BOLD}=== SECURITY ANALYSIS ===${RESET}\n"
-echo "[RULES ANALYSIS]" >> "$LOGFILE"
+check_rules() {
+    echo -e "\n${BOLD}=== SECURITY ANALYSIS ===${RESET}\n"
 
-UFW_RULES=$(ufw status numbered 2>/dev/null)
-echo "$UFW_RULES" >> "$LOGFILE"
+    UFW_RULES=$(ufw status numbered 2>/dev/null)
 
-# Analyse des règles Anywhere
-if echo "$UFW_RULES" | grep -q "Anywhere"; then
-    warn "Rules allowing access from Anywhere detected"
-    echo "[DANGER] Unrestricted access rules:" >> "$LOGFILE"
-    echo "$UFW_RULES" | grep "Anywhere" >> "$LOGFILE"
-else
-    ok "No unrestricted Anywhere allow rules"
-    echo "[SAFE] No unrestricted Anywhere rules" >> "$LOGFILE"
-fi
+    [[ "$LOG_LEVEL" == "detailed" ]] && {
+        echo "[RULES]" >> "$LOGFILE"
+        echo "$UFW_RULES" >> "$LOGFILE"
+    }
 
-# Sensitive ports check (optimisé)
-SENSITIVE_PORTS="21 22 23 3389 5900 3306 5432"
-echo "[SENSITIVE PORTS]" >> "$LOGFILE"
+    if grep -q "Anywhere" <<< "$UFW_RULES"; then
+        log WARN "Rules allowing access from Anywhere detected"
+        [[ "$LOG_LEVEL" == "detailed" ]] && grep "Anywhere" <<< "$UFW_RULES" >> "$LOGFILE"
+    else
+        log OK "No unrestricted Anywhere rules"
+    fi
 
-for PORT in $SENSITIVE_PORTS; do
-    RULE=$(echo "$UFW_RULES" | grep -E "\b$PORT(/tcp|/udp)?\b")
-    if [[ -n "$RULE" ]]; then
-        if echo "$RULE" | grep -q "Anywhere"; then
-            alert "Sensitive port $PORT open to Anywhere"
-            echo "[CRITICAL] Port $PORT exposed to Anywhere: $RULE" >> "$LOGFILE"
-        else
-            warn "Sensitive port $PORT open (restricted)"
-            echo "[NOTE] Port $PORT restricted: $RULE" >> "$LOGFILE"
+    SENSITIVE_PORTS="21 22 23 3389 5900 3306 5432"
+
+    for PORT in $SENSITIVE_PORTS; do
+        RULE=$(grep -E "\b$PORT(/tcp|/udp)?\b" <<< "$UFW_RULES")
+        if [[ -n "$RULE" ]]; then
+            if grep -q "Anywhere" <<< "$RULE"; then
+                log ALERT "Sensitive port $PORT open to Anywhere"
+            else
+                log WARN "Sensitive port $PORT open (restricted)"
+            fi
+            [[ "$LOG_LEVEL" == "detailed" ]] && echo "$RULE" >> "$LOGFILE"
+        fi
+    done
+}
+
+# ==========================================================
+# LISTENING PORTS
+# ==========================================================
+
+check_listening_ports() {
+    LISTEN=$(ss -tuln | awk 'NR>1')
+    COUNT=$(wc -l <<< "$LISTEN")
+
+    [[ "$LOG_LEVEL" == "detailed" ]] && {
+        echo "[LISTENING PORTS]" >> "$LOGFILE"
+        echo "$LISTEN" >> "$LOGFILE"
+    }
+
+    if (( COUNT == 0 )); then
+        log OK "No listening ports"
+    else
+        log WARN "$COUNT listening ports detected"
+        if grep -q "0.0.0.0:" <<< "$LISTEN"; then
+            log WARN "Services listening on all interfaces"
         fi
     fi
-done
+}
 
-# Listening ports (optimisé)
-LISTEN=$(ss -tuln | awk 'NR>1')
-LISTEN_COUNT=$(echo "$LISTEN" | wc -l)
-echo "[LISTENING PORTS]" >> "$LOGFILE"
-echo "$LISTEN" >> "$LOGFILE"
+# ==========================================================
+# FULL TOPOLOGY
+# ==========================================================
 
-if [ "$LISTEN_COUNT" -eq 0 ]; then
-    ok "No listening ports"
-    echo "[INFO] No listening ports detected" >> "$LOGFILE"
-else
-    warn "$LISTEN_COUNT listening ports detected"
-    echo "[WARNING] $LISTEN_COUNT listening ports:" >> "$LOGFILE"
-    if echo "$LISTEN" | grep -q "0.0.0.0:"; then
-        warn "Services listening on all interfaces"
-        echo "[DANGER] Services on 0.0.0.0:" >> "$LOGFILE"
-        echo "$LISTEN" | grep "0.0.0.0:" >> "$LOGFILE"
+show_topology() {
+    [[ "$LOG_LEVEL" == "detailed" ]] && {
+        {
+            echo
+            echo "=== FULL TOPOLOGY ==="
+            echo
+            ufw status numbered
+            echo
+            ss -tuln
+            echo
+            echo "=== AUDIT COMPLETED ==="
+        } | log_section
+    }
+}
+
+# ==========================================================
+# SUMMARY
+# ==========================================================
+
+show_summary() {
+    (( SCORE < 0 )) && SCORE=0
+
+    RISK="LOW"
+    if (( SCORE <= 4 )); then
+        RISK="HIGH"
+        COLOR="$RED"
+    elif (( SCORE <= 7 )); then
+        RISK="MEDIUM"
+        COLOR="$YELLOW"
+    else
+        COLOR="$GREEN"
     fi
-fi
+
+    echo -e "\n${BOLD}=== SUMMARY ===${RESET}"
+    echo -e "OK: ${GREEN}$OK_COUNT${RESET}"
+    echo -e "WARNING: ${YELLOW}$WARN_COUNT${RESET}"
+    echo -e "ALERT: ${RED}$ALERT_COUNT${RESET}"
+    echo -e "\nScore: ${CYAN}$SCORE/10${RESET}"
+    echo -e "Risk: ${COLOR}$RISK${RESET}"
+    echo
+    echo "Log file:"
+    echo "$LOGFILE"
+    echo
+}
 
 # ==========================================================
-# FULL TOPOLOGY (optimisé)
+# MAIN
 # ==========================================================
 
-{
-echo
-echo "=== FULL TOPOLOGY ==="
-echo
-echo "UFW STATUS:"
-ufw status numbered
-echo
-echo "LISTENING PORTS:"
-ss -tuln
-echo
-echo "=== AUDIT COMPLETED ==="
-} | log_section
+main() {
+    parse_arguments "$@"
+    $HELP && show_help
+    check_root
+    init_logfile
+    init_log_header
+    show_banner
+    log INFO "Starting audit"
+    check_firewall
+    check_rules
+    check_listening_ports
+    show_topology
+    show_summary
+}
 
-# ==========================================================
-# FINAL SCORE (inchangé)
-# ==========================================================
-
-if (( SCORE < 0 )); then
-    SCORE=0
-fi
-
-RISK="LOW"
-if (( SCORE <= 4 )); then
-    RISK="HIGH"
-elif (( SCORE <= 7 )); then
-    RISK="MEDIUM"
-fi
-
-COLOR=$GREEN
-if [[ "$RISK" == "MEDIUM" ]]; then COLOR=$YELLOW; fi
-if [[ "$RISK" == "HIGH" ]]; then COLOR=$RED; fi
-
-# ==========================================================
-# SUMMARY (inchangé)
-# ==========================================================
-
-echo -e "\n${BOLD}=== SUMMARY ===${RESET}"
-echo -e "OK: ${GREEN}$OK_COUNT${RESET}"
-echo -e "WARNING: ${YELLOW}$WARN_COUNT${RESET}"
-echo -e "NOT OK: ${RED}$ALERT_COUNT${RESET}"
-echo -e "\nSecurity score: ${CYAN}$SCORE/10${RESET}"
-echo -e "Risk level: ${COLOR}${RISK}${RESET}"
-echo -e "\nFull log saved at:"
-echo -e "$LOGFILE\n"
+main "$@"

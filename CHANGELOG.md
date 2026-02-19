@@ -19,3 +19,19 @@ All notable changes to this project are documented here.
 - Added system information in the log (hostname, UFW version, kernel)
 - Clearer and standardized messages for alerts, warnings, and notes
 - Minor fixes for compatibility and readability
+
+## [v0.2] - 2026-02-19
+
+- Major internal hardening and stability improvements
+- Added safe interruption handling (Ctrl+C trap)
+- Introduced dependency verification system before execution
+- Improved error resilience with set -o pipefail and controlled exit behavior
+- Secured logging mechanism to prevent undefined logfile writes
+- Added fallback mechanism for network socket detection (ss → netstat)
+- Improved internal command safety and variable handling
+- Enhanced execution robustness without altering scoring logic
+- Maintained full backward compatibility with v0.1.1 behavior
+- Added minimal vs. detailed log selection (-d for detailed, minimal by default)
+- Verbose terminal output (-v) now separated from log detail level
+- Option -h (help) accessible without root privileges
+- No functional changes or feature removals
