@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================================
-# UFW-audit v0.7.0
+# UFW-audit v0.4.0
 # UFW firewall security audit for Linux
 # Target  : Debian/Ubuntu and derivatives
 # Audience: regular user, non-system administrator
@@ -9,7 +9,7 @@
 set -uo pipefail
 export LC_ALL=C.UTF-8
 
-VERSION="0.7.0"
+VERSION="0.4.0"
 
 OK_COUNT=0
 WARN_COUNT=0
