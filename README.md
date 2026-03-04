@@ -67,7 +67,7 @@ ready-to-run remediation commands.
 
 ```bash
 # Download
-curl -O curl -O https://raw.githubusercontent.com/Masbateno/Automated-UFW-audit/main/ufw_audit.sh
+curl -O https://raw.githubusercontent.com/Masbateno/Automated-UFW-audit/main/ufw_audit.sh
 
 # Make executable
 chmod +x ufw_audit.sh
