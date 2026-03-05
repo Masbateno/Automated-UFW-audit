@@ -36,7 +36,7 @@ All notable changes to this project are documented here.
 - Option -h (help) accessible without root privileges
 - No functional changes or feature removals
 
-## [v0.2.1] - 2026-02-??
+## [v0.2.1] - 2026-02-20
 
 - Internal security hardening and defensive coding improvements
 - Added locale normalization (LC_ALL=C.UTF-8) for consistent command parsing
@@ -74,7 +74,7 @@ All notable changes to this project are documented here.
 - Improved modularity and readability without changing any scoring or existing feature
 - Maintains full backward compatibility with v0.2 behavior
 
-## [v0.4.0] - 2026-03-04
+## [v0.4] - 2026-03-04
 
 Major feature release — service-aware audit engine, internationalisation, and visual overhaul.
 
