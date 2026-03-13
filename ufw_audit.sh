@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================================
-# UFW-audit v0.4.0
+# UFW-audit v0.5
 # UFW firewall security audit for Linux
 # Target  : Debian/Ubuntu and derivatives
 # Audience: regular user, non-system administrator
@@ -9,12 +9,18 @@
 set -uo pipefail
 export LC_ALL=C.UTF-8
 
-VERSION="0.4.0"
+VERSION="0.5"
 
 OK_COUNT=0
 WARN_COUNT=0
 ALERT_COUNT=0
 SCORE=10
+
+# Structured audit items for categorized summary
+# Format: "level|nature|message"
+# level  : WARN | ALERT
+# nature : action | improvement | structural
+AUDIT_ITEMS=()
 
 VERBOSE=false
 HELP=false
@@ -30,6 +36,12 @@ DISTRO_NAME=""
 REAL_USER=""
 REAL_HOME=""
 CONFIG_FILE=""
+
+# --- Network context & scoring (v0.6.0) ---
+PUBLIC_IP=""           # Public IP if detected via curl
+HAS_PUBLIC_IP=false    # true if a public IP is confirmed
+NETWORK_CONTEXT=""     # "public" | "local"
+SCORE_BREAKDOWN=()     # Array of "reason|deduction" strings
 
 GREEN=$'\e[32m'
 RED=$'\e[31m'
@@ -142,6 +154,52 @@ t() {
             err_root_hint)      echo "Lancez-le avec" ;;
             err_unknown_opt)    echo "Option inconnue :" ;;
             err_use_help)       echo "Utilisez --help pour voir les options disponibles." ;;
+            # --- ufw rules audit ---
+            sec_rules)          echo "ANALYSE DES RÈGLES UFW" ;;
+            dup_none)           echo "Aucune règle UFW en doublon détectée" ;;
+            dup_found)          echo "Règle UFW en doublon détectée :" ;;
+            dup_fix)            echo "Pour supprimer le doublon (règle numérotée en second) :" ;;
+            any_none)           echo "Aucune règle \'allow from any\' sans restriction de port détectée" ;;
+            any_found)          echo "Règle autorisant toutes les connexions entrantes sans restriction de port :" ;;
+            any_fix)            echo "Pour restreindre ou supprimer cette règle :" ;;
+            ipv6_ok)            echo "Configuration IPv6 cohérente avec les règles UFW" ;;
+            ipv6_enabled_norules) echo "IPv6 activé dans UFW mais aucune règle (v6) présente" ;;
+            ipv6_disabled_rules)  echo "IPv6 désactivé dans UFW mais des règles (v6) sont présentes" ;;
+            ipv6_fix)           echo "Vérifiez votre configuration IPv6 : sudo ufw status verbose" ;;
+            # --- listen addresses ---
+            sec_listen)         echo "ADRESSES D\'ÉCOUTE DES SERVICES" ;;
+            listen_exposed)     echo "exposé sur toutes les interfaces (0.0.0.0 / ::)" ;;
+            listen_local)       echo "restreint à localhost uniquement" ;;
+            # --- uncovered ports ---
+            sec_uncovered)      echo "PORTS EN ÉCOUTE SANS RÈGLE UFW" ;;
+            uncov_none)         echo "Tous les ports en écoute sur 0.0.0.0 sont couverts par une règle UFW" ;;
+            uncov_alert)        echo "Port exposé sur toutes les interfaces sans aucune règle UFW :" ;;
+            uncov_info)         echo "Port en écoute uniquement en local, sans règle UFW (pas de risque)" ;;
+            uncov_fix)          echo "Pour bloquer ou créer une règle explicite :" ;;
+            uncov_sysport)      echo "Port système interne — aucun danger (service OS légitime, pas de règle UFW nécessaire)" ;;
+            uncov_ephemeral)    echo "Port éphémère ignoré (>32767) — port temporaire attribué par le noyau, pas un service" ;;
+            sec_ports_analysis) echo "ANALYSE DES PORTS EN ÉCOUTE" ;;
+            ports_exposed_norule) echo "exposé sur toutes les interfaces, aucune règle UFW" ;;
+            ports_exposed_ruled) echo "exposé sur toutes les interfaces, couvert par UFW" ;;
+            ports_local_norule) echo "restreint au réseau local, aucune règle UFW explicite" ;;
+            ports_local_ruled)  echo "restreint au réseau local, couvert par UFW" ;;
+            ports_netbios_warn) echo "NetBIOS/Samba écoute sur toutes les interfaces sans règle UFW explicite — risque faible derrière un NAT, envisagez de restreindre à votre réseau local" ;;
+            ports_netbios_fix)  echo "Pour restreindre NetBIOS à votre réseau local (adaptez la plage) :" ;;
+            # --- network context & score breakdown ---
+            ctx_public)         echo "IP publique détectée" ;;
+            ctx_local)          echo "Réseau local uniquement" ;;
+            ctx_label)          echo "Contexte réseau     :" ;;
+            score_breakdown)    echo "Détail du score" ;;
+            score_deduct)       echo "points perdus" ;;
+            score_pub_penalty)  echo "(contexte IP publique)" ;;
+            # --- categorized summary ---
+            sum_cat_action)       echo "À corriger" ;;
+            sum_cat_improvement)  echo "Améliorations possibles" ;;
+            sum_cat_structural)   echo "Configuration normale" ;;
+            sum_interp_clean)     echo "Votre configuration est saine. Aucune action requise." ;;
+            sum_interp_structural) echo "Les avertissements reflètent une configuration normale pour ce type de système. Aucune action immédiate requise." ;;
+            sum_interp_mixed)     echo "L'essentiel de votre configuration est normal. Traitez les points ci-dessus marqués \"À corriger\"." ;;
+            sum_interp_action)    echo "Des corrections sont nécessaires. Traitez en priorité les points marqués \"À corriger\"." ;;
         esac
     else
         case "$KEY" in
@@ -235,6 +293,52 @@ t() {
             err_root_hint)      echo "Run it with" ;;
             err_unknown_opt)    echo "Unknown option:" ;;
             err_use_help)       echo "Use --help to see available options." ;;
+            # --- ufw rules audit ---
+            sec_rules)          echo "UFW RULES ANALYSIS" ;;
+            dup_none)           echo "No duplicate UFW rules detected" ;;
+            dup_found)          echo "Duplicate UFW rule detected:" ;;
+            dup_fix)            echo "To remove the duplicate (the second numbered rule):" ;;
+            any_none)           echo "No \'allow from any\' rule without port restriction detected" ;;
+            any_found)          echo "Rule allowing all incoming connections without port restriction:" ;;
+            any_fix)            echo "To restrict or remove this rule:" ;;
+            ipv6_ok)            echo "IPv6 configuration is consistent with UFW rules" ;;
+            ipv6_enabled_norules) echo "IPv6 enabled in UFW but no (v6) rules present" ;;
+            ipv6_disabled_rules)  echo "IPv6 disabled in UFW but (v6) rules are present" ;;
+            ipv6_fix)           echo "Check your IPv6 configuration: sudo ufw status verbose" ;;
+            # --- listen addresses ---
+            sec_listen)         echo "SERVICE LISTEN ADDRESSES" ;;
+            listen_exposed)     echo "exposed on all interfaces (0.0.0.0 / ::)" ;;
+            listen_local)       echo "restricted to localhost only" ;;
+            # --- uncovered ports ---
+            sec_uncovered)      echo "LISTENING PORTS WITHOUT UFW RULE" ;;
+            uncov_none)         echo "All ports listening on 0.0.0.0 are covered by a UFW rule" ;;
+            uncov_alert)        echo "Port exposed on all interfaces with no UFW rule:" ;;
+            uncov_info)         echo "Port listening on localhost only, no UFW rule (no immediate risk):" ;;
+            uncov_fix)          echo "To block or create an explicit rule:" ;;
+            uncov_sysport)      echo "Internal system port — no danger (legitimate OS service, no UFW rule needed)" ;;
+            uncov_ephemeral)    echo "Ephemeral port skipped (>32767) — temporary port assigned by the kernel, not a service" ;;
+            sec_ports_analysis) echo "LISTENING PORTS ANALYSIS" ;;
+            ports_exposed_norule) echo "exposed on all interfaces, no UFW rule" ;;
+            ports_exposed_ruled) echo "exposed on all interfaces, covered by UFW" ;;
+            ports_local_norule) echo "local network only, no explicit UFW rule" ;;
+            ports_local_ruled)  echo "local network only, covered by UFW" ;;
+            ports_netbios_warn) echo "NetBIOS/Samba listening on all interfaces with no explicit UFW rule — low risk behind NAT, consider restricting to your local network" ;;
+            ports_netbios_fix)  echo "To restrict NetBIOS to your local network (adjust the range):" ;;
+            # --- network context & score breakdown ---
+            ctx_public)         echo "Public IP detected" ;;
+            ctx_local)          echo "Local network only" ;;
+            ctx_label)          echo "Network context     :" ;;
+            score_breakdown)    echo "Score breakdown" ;;
+            score_deduct)       echo "points lost" ;;
+            score_pub_penalty)  echo "(public IP context)" ;;
+            # --- categorized summary ---
+            sum_cat_action)       echo "Action required" ;;
+            sum_cat_improvement)  echo "Possible improvements" ;;
+            sum_cat_structural)   echo "Normal configuration" ;;
+            sum_interp_clean)     echo "Your configuration is healthy. No action required." ;;
+            sum_interp_structural) echo "Warnings reflect normal configuration for this type of system. No immediate action required." ;;
+            sum_interp_mixed)     echo "Most of your configuration is normal. Address the items marked \"Action required\" above." ;;
+            sum_interp_action)    echo "Corrections are needed. Prioritize items marked \"Action required\"." ;;
         esac
     fi
 }
@@ -637,6 +741,84 @@ use_logfile() { [[ -n "$LOGFILE" ]]; }
 is_detailed() { [[ "$LOG_LEVEL" == "detailed" ]] && use_logfile; }
 
 # ==========================================================
+# NETWORK CONTEXT DETECTION
+# ==========================================================
+
+detect_network_context() {
+    local HAS_LOCAL_PUBLIC=false
+
+    # 1. Check local interfaces for non-RFC1918 addresses
+    #    A public IP directly on an interface = machine is truly exposed
+    local IFACE_IPS
+    IFACE_IPS=$(ip addr show 2>/dev/null \
+        | grep -oE 'inet ([0-9]{1,3}\.){3}[0-9]{1,3}' \
+        | awk '{print $2}')
+
+    while IFS= read -r ip; do
+        [[ -z "$ip" ]] && continue
+        # Skip loopback and RFC1918
+        [[ "$ip" =~ ^127\. ]]       && continue
+        [[ "$ip" =~ ^10\. ]]        && continue
+        [[ "$ip" =~ ^172\.(1[6-9]|2[0-9]|3[01])\. ]] && continue
+        [[ "$ip" =~ ^192\.168\. ]]  && continue
+        # Skip link-local
+        [[ "$ip" =~ ^169\.254\. ]]  && continue
+        HAS_LOCAL_PUBLIC=true
+        break
+    done <<< "$IFACE_IPS"
+
+    # 2. Try to fetch external IP via curl (timeout 3s)
+    #    This confirms internet access but does NOT mean direct exposure —
+    #    the machine may be behind a NAT/router (typical home setup)
+    if command -v curl >/dev/null 2>&1; then
+        PUBLIC_IP=$(curl -s --max-time 3 https://ifconfig.me 2>/dev/null || echo "")
+        if [[ -n "$PUBLIC_IP" && "$PUBLIC_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            HAS_PUBLIC_IP=true
+        fi
+    fi
+
+    # Context = public ONLY if the machine has a public IP directly on a local
+    # interface (VPS, dedicated server). If curl returns a public IP but no local
+    # interface has one, the machine is behind NAT — treat as local.
+    if $HAS_LOCAL_PUBLIC; then
+        NETWORK_CONTEXT="public"
+    else
+        NETWORK_CONTEXT="local"
+        # Still record the public IP for display if we found one (informational)
+    fi
+}
+
+# ==========================================================
+# CONTEXTUAL SCORE DEDUCTION
+# ==========================================================
+
+# score_deduct REASON BASE_DEDUCT [force_context]
+# BASE_DEDUCT is the local penalty; public doubles it (except duplicates)
+# Records the deduction in SCORE_BREAKDOWN for display
+score_deduct() {
+    local REASON="$1"
+    local BASE="$2"
+    local DEDUCT="$BASE"
+
+    if [[ "$NETWORK_CONTEXT" == "public" ]]; then
+        # Duplicate rules: no context multiplier
+        if [[ "$REASON" != *"duplic"* && "$REASON" != *"doublon"* ]]; then
+            DEDUCT=$(( BASE * 2 ))
+            # Cap individual deduction at 4
+            (( DEDUCT > 4 )) && DEDUCT=4
+            SCORE_BREAKDOWN+=( "$REASON|$DEDUCT|public" )
+        else
+            SCORE_BREAKDOWN+=( "$REASON|$DEDUCT|" )
+        fi
+    else
+        SCORE_BREAKDOWN+=( "$REASON|$DEDUCT|" )
+    fi
+
+    SCORE=$(( SCORE - DEDUCT ))
+    (( SCORE < 0 )) && SCORE=0
+}
+
+# ==========================================================
 # ROOT CHECK + REAL USER HOME RESOLUTION
 # ==========================================================
 
@@ -716,7 +898,7 @@ detect_distro() {
 
     if [[ "$OS_ID" != "debian" && "$OS_ID" != "ubuntu" \
        && "$OS_ID_LIKE" != *"debian"* && "$OS_ID_LIKE" != *"ubuntu"* ]]; then
-        log WARN "$(t log_distro_warn)" ""
+        log WARN "$(t log_distro_warn)" "" "--nature=improvement"
     fi
 }
 
@@ -728,6 +910,18 @@ log() {
     local LEVEL="$1"
     local MESSAGE="$2"
     local RECOMMENDATION="${3:-}"
+
+    # Parse optional flags from arguments 4+
+    # --no-score  : skip score deduction (intentionally configured services)
+    # --nature=X  : override item nature in summary (action|improvement|structural)
+    local NO_SCORE=false
+    local NATURE=""
+    local arg
+    for arg in "${@:4}"; do
+        [[ "$arg" == "--no-score" ]]    && NO_SCORE=true
+        [[ "$arg" == --nature=* ]]      && NATURE="${arg#--nature=}"
+    done
+
     local TIMESTAMP
     TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S')"
     local COLOR="" PREFIX="" ICON=""
@@ -737,10 +931,18 @@ log() {
                $LANG_FR && PREFIX="[INFO]"    || PREFIX="[INFO]" ;;
         OK)    COLOR="$GREEN";  ICON="✔";  OK_COUNT=$(( OK_COUNT + 1 ))
                PREFIX="[OK]" ;;
-        WARN)  COLOR="$YELLOW"; ICON="⚠";  WARN_COUNT=$(( WARN_COUNT + 1 )); SCORE=$(( SCORE - 1 ))
-               $LANG_FR && PREFIX="[ATTENTION]" || PREFIX="[WARNING]" ;;
-        ALERT) COLOR="$RED";    ICON="✖";  ALERT_COUNT=$(( ALERT_COUNT + 1 )); SCORE=$(( SCORE - 2 ))
-               $LANG_FR && PREFIX="[ALERTE]"    || PREFIX="[ALERT]" ;;
+        WARN)  COLOR="$YELLOW"; ICON="⚠";  WARN_COUNT=$(( WARN_COUNT + 1 ))
+               $LANG_FR && PREFIX="[ATTENTION]" || PREFIX="[WARNING]"
+               $NO_SCORE || score_deduct "$MESSAGE" 1
+               # Default nature for WARN: improvement (unless overridden)
+               local ITEM_NATURE="${NATURE:-improvement}"
+               AUDIT_ITEMS+=( "WARN|${ITEM_NATURE}|${MESSAGE}" ) ;;
+        ALERT) COLOR="$RED";    ICON="✖";  ALERT_COUNT=$(( ALERT_COUNT + 1 ))
+               $LANG_FR && PREFIX="[ALERTE]"    || PREFIX="[ALERT]"
+               $NO_SCORE || score_deduct "$MESSAGE" 2
+               # Default nature for ALERT: action (unless overridden)
+               local ITEM_NATURE="${NATURE:-action}"
+               AUDIT_ITEMS+=( "ALERT|${ITEM_NATURE}|${MESSAGE}" ) ;;
         ERROR) COLOR="$RED";    ICON="✖"
                $LANG_FR && PREFIX="[ERREUR]"    || PREFIX="[ERROR]" ;;
     esac
@@ -850,7 +1052,21 @@ finalize_log() {
         echo "Alert   : $ALERT_COUNT"
         echo "Score   : $SCORE/10"
         echo "Risk    : $(get_risk_level)"
+        echo "Context : $NETWORK_CONTEXT${PUBLIC_IP:+ ($PUBLIC_IP)}"
         echo
+        if [[ ${#SCORE_BREAKDOWN[@]} -gt 0 ]]; then
+            echo "[SCORE BREAKDOWN]"
+            for entry in "${SCORE_BREAKDOWN[@]}"; do
+                local REASON DEDUCT CTX
+                REASON=$(echo "$entry" | cut -d'|' -f1)
+                DEDUCT=$(echo "$entry" | cut -d'|' -f2)
+                CTX=$(echo "$entry"    | cut -d'|' -f3)
+                local SUFFIX=""
+                [[ "$CTX" == "public" ]] && SUFFIX=" (public IP context)"
+                printf "  %-50s  -%s%s\n" "$REASON" "$DEDUCT" "$SUFFIX"
+            done
+            echo
+        fi
         echo "[NEXT STEPS]"
         echo "1. Address all alerts first."
         echo "2. Review warnings and assess their impact."
@@ -1028,7 +1244,7 @@ check_dependencies() {
     if command -v ufw >/dev/null 2>&1; then
         log OK "$(t log_ufw_ok)"
     else
-        log ALERT "$(t log_ufw_missing)" "$(t log_ufw_install)"
+        log ALERT "$(t log_ufw_missing)" "$(t log_ufw_install)" "--nature=action"
         echo -e "\n  ${YELLOW}→ sudo apt install ufw${RESET}\n"
         log ERROR "$(t log_ufw_abort)"
         exit 1
@@ -1039,11 +1255,243 @@ check_dependencies() {
         log OK "$(t log_ss_ok)"
     elif command -v netstat >/dev/null 2>&1; then
         PORT_TOOL="netstat"
-        log WARN "$(t log_netstat_warn)" "$(t log_netstat_fix)"
+        log WARN "$(t log_netstat_warn)" "$(t log_netstat_fix)" "--nature=improvement"
     else
         PORT_TOOL=""
-        log WARN "$(t log_notool_warn)" "$(t log_netstat_fix)"
+        log WARN "$(t log_notool_warn)" "$(t log_netstat_fix)" "--nature=improvement"
     fi
+}
+
+# ==========================================================
+# UFW RULES ANALYSIS
+# ==========================================================
+
+# --- 1. Duplicate and redundant rules ---
+check_ufw_duplicates() {
+    local UFW_NUMBERED
+    UFW_NUMBERED=$(ufw status numbered 2>/dev/null)
+
+    # Extract rules stripping the number prefix: "[ 1] ..." -> "..."
+    local RULES
+    RULES=$(echo "$UFW_NUMBERED" | grep -E "^\[ *[0-9]+\]" | sed 's/^\[ *[0-9]*\] *//')
+
+    local DUPLICATES=false
+    declare -A SEEN
+
+    while IFS= read -r rule; do
+        [[ -z "$rule" ]] && continue
+        if [[ -n "${SEEN[$rule]+_}" ]]; then
+            DUPLICATES=true
+            log WARN "$(t dup_found) $rule" "" "--nature=improvement"
+            # Find the rule numbers for both occurrences
+            local NUMS
+            NUMS=$(echo "$UFW_NUMBERED" | grep -F "$rule" \
+                | grep -oE "^\[ *[0-9]+" | grep -oE "[0-9]+" | tr '\n' ' ')
+            local SECOND
+            SECOND=$(echo "$NUMS" | awk '{print $2}')
+            log_recommendation "$(t dup_fix)\n  sudo ufw delete $SECOND"
+        fi
+        SEEN[$rule]=1
+    done <<< "$RULES"
+
+    $DUPLICATES || log OK "$(t dup_none)"
+}
+
+# --- 2. allow from any without port restriction ---
+check_ufw_allow_any() {
+    local UFW_NUMBERED
+    UFW_NUMBERED=$(ufw status numbered 2>/dev/null)
+
+    # Match rules that ALLOW from Anywhere without a specific port (just "ALLOW IN" or "ALLOW")
+    # These look like: "ALLOW IN    Anywhere" with no port on the left side
+    local DANGEROUS
+    DANGEROUS=$(echo "$UFW_NUMBERED" | grep -E "^\[ *[0-9]+\]" \
+        | grep -iE "ALLOW (IN |FWD )?\s+Anywhere\s*$")
+
+    if [[ -z "$DANGEROUS" ]]; then
+        log OK "$(t any_none)"
+        return
+    fi
+
+    while IFS= read -r rule; do
+        [[ -z "$rule" ]] && continue
+        local NUM
+        NUM=$(echo "$rule" | grep -oE "^\[ *[0-9]+" | grep -oE "[0-9]+")
+        local RULE_TEXT
+        RULE_TEXT=$(echo "$rule" | sed 's/^\[ *[0-9]*\] *//')
+        log ALERT "$(t any_found) $RULE_TEXT" "" "--nature=action"
+        log_recommendation "$(t any_fix)\n  sudo ufw delete $NUM"
+    done <<< "$DANGEROUS"
+}
+
+# --- 3. IPv6 consistency ---
+check_ipv6_consistency() {
+    local IPV6_SETTING
+    IPV6_SETTING=$(grep -E "^IPV6=" /etc/default/ufw 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr '[:upper:]' '[:lower:]')
+
+    local UFW_STATUS
+    UFW_STATUS=$(ufw status verbose 2>/dev/null)
+
+    local HAS_V6_RULES=false
+    echo "$UFW_STATUS" | grep -q "(v6)" && HAS_V6_RULES=true
+
+    if [[ "$IPV6_SETTING" == "yes" ]]; then
+        if $HAS_V6_RULES; then
+            log OK "$(t ipv6_ok)"
+        else
+            log WARN "$(t ipv6_enabled_norules)" "" "--nature=improvement"
+            log_recommendation "$(t ipv6_fix)"
+        fi
+    else
+        if $HAS_V6_RULES; then
+            log WARN "$(t ipv6_disabled_rules)" "" "--nature=improvement"
+            log_recommendation "$(t ipv6_fix)"
+        else
+            log OK "$(t ipv6_ok)"
+        fi
+    fi
+}
+
+# ==========================================================
+# PORT MAP BUILDER + MERGED LISTENING PORTS ANALYSIS
+# Single pass: builds exposure map, then logs once per port.
+# "exposed" (0.0.0.0 / [::]) wins over "local" — worst-case kept.
+# ==========================================================
+
+# Known system ports — no UFW rule needed, informational only
+declare -A _SYS_PORTS=(
+    [53]="DNS (systemd-resolved / libvirt)"
+    [67]="DHCP server (libvirt/virbr0)"
+    [68]="DHCP client"
+    [546]="DHCPv6 client"
+    [631]="CUPS (localhost only)"
+    [5353]="mDNS/Avahi (audited in services section)"
+)
+declare -A _SYS_PORTS_SHORT=(
+    [53]="DNS" [67]="DHCP" [68]="DHCP client"
+    [546]="DHCPv6" [631]="CUPS" [5353]="mDNS/Avahi"
+)
+
+# NetBIOS ports — Samba-managed, low risk behind NAT, WARN not ALERT
+declare -A _NETBIOS_PORTS=( [137]="NetBIOS Name Service" [138]="NetBIOS Datagram" )
+
+build_listen_map() {
+    unset _LM_MAP _LM_ADDR
+    declare -gA _LM_MAP=()
+    declare -gA _LM_ADDR=()
+
+    local LISTEN
+    [[ "$PORT_TOOL" == "ss" ]] \
+        && LISTEN=$(ss -tulnH 2>/dev/null) \
+        || LISTEN=$(netstat -tuln 2>/dev/null | awk 'NR>2')
+    [[ -z "$LISTEN" ]] && return
+
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        local PROTO_RAW LOCAL_ADDR PORT PROTO
+        if [[ "$PORT_TOOL" == "ss" ]]; then
+            PROTO_RAW=$(echo "$line" | awk '{print $1}')
+            LOCAL_ADDR=$(echo "$line" | awk '{print $5}')
+        else
+            PROTO_RAW=$(echo "$line" | awk '{print $1}')
+            LOCAL_ADDR=$(echo "$line" | awk '{print $4}')
+        fi
+        PORT=$(echo "$LOCAL_ADDR" | grep -oE '[0-9]+$')
+        [[ -z "$PORT" ]] && continue
+        PROTO="tcp"; echo "$PROTO_RAW" | grep -qi "udp" && PROTO="udp"
+        local KEY="${PROTO}:${PORT}"
+
+        # Ephemeral
+        if (( PORT > 32767 )); then
+            [[ -z "${_LM_MAP[$KEY]+_}" ]] && _LM_MAP[$KEY]="ephemeral"
+            continue
+        fi
+        # Known system ports
+        if [[ -n "${_SYS_PORTS[$PORT]+_}" ]]; then
+            [[ -z "${_LM_MAP[$KEY]+_}" ]] && {
+                _LM_MAP[$KEY]="sysport:${_SYS_PORTS[$PORT]}"
+                _LM_ADDR[$KEY]="$LOCAL_ADDR"
+            }
+            continue
+        fi
+        # Determine exposure — worst-case wins
+        local LINE_EXPOSED=false
+        echo "$LOCAL_ADDR" | grep -qE "^(0\.0\.0\.0|\*|\[::\]):" && LINE_EXPOSED=true
+        if [[ -z "${_LM_MAP[$KEY]+_}" ]]; then
+            _LM_ADDR[$KEY]="$LOCAL_ADDR"
+            $LINE_EXPOSED && _LM_MAP[$KEY]="exposed" || _LM_MAP[$KEY]="local"
+        elif [[ "${_LM_MAP[$KEY]}" == "local" ]] && $LINE_EXPOSED; then
+            _LM_MAP[$KEY]="exposed"
+            _LM_ADDR[$KEY]="$LOCAL_ADDR"
+        fi
+    done <<< "$LISTEN"
+}
+
+# Merged section: one log per port, score counted once
+check_listening_ports_analysis() {
+    log_section "$(t sec_ports_analysis)"
+
+    if [[ -z "$PORT_TOOL" ]]; then
+        log INFO "$(t log_ports_skip)"
+        return
+    fi
+
+    build_listen_map
+
+    if [[ ${#_LM_MAP[@]} -eq 0 ]]; then
+        log OK "$(t log_no_ports)"
+        return
+    fi
+
+    local FOUND_ISSUES=false
+
+    for KEY in "${!_LM_MAP[@]}"; do
+        local PROTO PORT STATUS
+        PROTO="${KEY%%:*}"
+        PORT="${KEY##*:}"
+        STATUS="${_LM_MAP[$KEY]}"
+
+        # Silent: ephemeral and system ports — log_detail only
+        case "$STATUS" in
+            ephemeral)
+                log_detail "$(t uncov_ephemeral): $PORT/$PROTO"
+                continue ;;
+            sysport:*)
+                local DESC="${STATUS#sysport:}"
+                log_detail "$(t uncov_sysport): $PORT/$PROTO (${_SYS_PORTS_SHORT[$PORT]:-$DESC})"
+                continue ;;
+        esac
+
+        # Check UFW coverage for this port
+        local UFW_EXPOSURE
+        UFW_EXPOSURE=$(analyze_port_exposure "$PORT")
+
+        if [[ "$STATUS" == "exposed" ]]; then
+            if [[ "$UFW_EXPOSURE" == "no_rule" ]]; then
+                FOUND_ISSUES=true
+                # NetBIOS ports (137/138) — WARN, not ALERT (Samba-managed, low risk behind NAT)
+                if [[ -n "${_NETBIOS_PORTS[$PORT]+_}" ]]; then
+                    log WARN "$(t ports_netbios_warn)" "" "--nature=structural"
+                    log_recommendation "$(t ports_netbios_fix)\n  sudo ufw allow from 192.168.1.0/24 to any port $PORT proto $PROTO\n  sudo ufw deny $PORT/$PROTO"
+                else
+                    log ALERT "$PORT/$PROTO — $(t ports_exposed_norule)" "" "--nature=action"
+                    log_recommendation "$(t uncov_fix)\n  sudo ufw deny $PORT/$PROTO"
+                fi
+            else
+                # Has a UFW rule but binds on 0.0.0.0 — informational
+                log_detail "$PORT/$PROTO — $(t ports_exposed_ruled)"
+            fi
+        else
+            # Local bind
+            if [[ "$UFW_EXPOSURE" == "no_rule" ]]; then
+                log INFO "$PORT/$PROTO — $(t ports_local_norule)"
+            else
+                log_detail "$PORT/$PROTO — $(t ports_local_ruled)"
+            fi
+        fi
+    done
+
+    $FOUND_ISSUES || log OK "$(t uncov_none)"
 }
 
 # ==========================================================
@@ -1058,7 +1506,7 @@ check_firewall_status() {
     if grep -q "Status: active" <<< "$UFW_STATUS"; then
         log OK "$(t log_fw_active)"
     else
-        log ALERT "$(t log_fw_inactive)" ""
+        log ALERT "$(t log_fw_inactive)" "" "--nature=action"
         log_recommendation "$(t log_fw_enable)"
     fi
 
@@ -1069,14 +1517,20 @@ check_firewall_status() {
     if [[ "$DEFAULT_IN" == "deny" || "$DEFAULT_IN" == "reject" ]]; then
         log OK "$(t log_policy_ok)"
     elif [[ -z "$DEFAULT_IN" ]]; then
-        log WARN "$(t log_policy_warn)" ""
+        log WARN "$(t log_policy_warn)" "" "--nature=improvement"
     else
-        log ALERT "$(t log_policy_alert)" ""
+        log ALERT "$(t log_policy_alert)" "" "--nature=action"
         log_recommendation "$(t log_policy_fix)"
     fi
 
     if $VERBOSE; then echo; echo "$UFW_STATUS"; echo; fi
     is_detailed && { { echo; echo "[UFW STATUS]"; echo "$UFW_STATUS"; echo; } >> "$LOGFILE"; }
+
+    # --- v0.5.0: UFW rules deep analysis ---
+    log_section "$(t sec_rules)"
+    check_ufw_duplicates
+    check_ufw_allow_any
+    check_ipv6_consistency
 }
 
 # ==========================================================
@@ -1089,20 +1543,44 @@ get_ufw_rules_for_port() {
 }
 
 # Returns: open_world | open_local | deny | no_rule
+# ufw status numbered format: [ N] To/Port    Action    From
+#   ALLOW IN    Anywhere       -> open_world
+#   ALLOW IN    192.168.1.11   -> open_local (source IP in From column)
 analyze_port_exposure() {
     local PORT="$1"
     local RULES
     RULES=$(get_ufw_rules_for_port "$PORT")
     [[ -z "$RULES" ]] && { echo "no_rule"; return; }
+
+    # Check DENY first
     echo "$RULES" | grep -qi "DENY" && { echo "deny"; return; }
+
     if echo "$RULES" | grep -qi "ALLOW"; then
-        if echo "$RULES" | grep -qE "from [0-9]+\.[0-9]|from [0-9a-fA-F]+:"; then
-            echo "open_local"
-        else
-            echo "open_world"
-        fi
-        return
+        local HAS_WORLD=false
+        local HAS_LOCAL=false
+        while IFS= read -r rule; do
+            echo "$rule" | grep -qi "ALLOW" || continue
+            # Extract From column: last whitespace-delimited token after stripping
+            # the rule number prefix e.g. "[ 1] 445/tcp   ALLOW IN   192.168.1.11"
+            # The From field is the last column
+            local FROM_FIELD
+            FROM_FIELD=$(echo "$rule" | awk '{print $NF}')
+            # "Anywhere" (or v6 "Anywhere (v6)") = open to the world
+            if echo "$FROM_FIELD" | grep -qiE "^Anywhere$|^\(v6\)$"; then
+                HAS_WORLD=true
+            elif echo "$FROM_FIELD" | grep -qE "^[0-9]+\.[0-9]|^[0-9a-fA-F:]+(/[0-9]+)?$"; then
+                # Specific IPv4/IPv6 address or subnet = source-restricted
+                HAS_LOCAL=true
+            else
+                # Unknown format — conservative: treat as world
+                HAS_WORLD=true
+            fi
+        done <<< "$RULES"
+
+        $HAS_WORLD && { echo "open_world"; return; }
+        $HAS_LOCAL && { echo "open_local"; return; }
     fi
+
     echo "no_rule"
 }
 
@@ -1168,12 +1646,12 @@ audit_services() {
 
         case "$SVC_STATE" in
             active_enabled)   log OK   "$(t log_svc_active)" ;;
-            active_disabled)  log WARN "$(t log_svc_nodaemon)" "" ;;
+            active_disabled)  log WARN "$(t log_svc_nodaemon)" "" "--nature=improvement" ;;
             inactive_enabled)
                 local EXPL RECO
                 EXPL=$(get_risk_explanation "$LABEL" "inactive")
                 RECO=$(get_recommendation  "$LABEL" "inactive" "$DEFAULT_PORTS")
-                log WARN "$EXPL" ""
+                log WARN "$EXPL" "" "--nature=improvement"
                 [[ -n "$RECO" ]] && log_recommendation "$RECO"
                 continue ;;
             unknown) log INFO "$(t log_svc_unknown)" ;;
@@ -1208,15 +1686,21 @@ audit_services() {
         case "$WORST_EXPOSURE" in
             open_world)
                 case "$RISK" in
-                    critical|high) log ALERT "$EXPL" "$RECO" ;;
-                    medium)        log WARN  "$EXPL" "$RECO" ;;
-                    low)           log INFO  "$EXPL" ;;
+                    critical|high)
+                        log ALERT "$EXPL" "$RECO" "--nature=action"
+                        # Extra penalty for critical/high services exposed on public IP
+                        if [[ "$NETWORK_CONTEXT" == "public" ]]; then
+                            score_deduct "$LABEL open_world high/critical (public IP extra)" 2
+                        fi
+                        ;;
+                    medium) log WARN  "$EXPL" "$RECO" "--nature=action" ;;
+                    low)    log INFO  "$EXPL" ;;
                 esac
                 [[ -n "$RECO" ]] && log_recommendation "$RECO"
                 ;;
             open_local)
                 case "$RISK" in
-                    critical|high) log WARN "$EXPL" "" ;;
+                    critical|high) log WARN "$EXPL" "" "--no-score" "--nature=structural" ;;
                     *)             log OK   "$EXPL" ;;
                 esac
                 RECO=$(get_recommendation "$LABEL" "open_local" "$RESOLVED_PORTS")
@@ -1273,31 +1757,128 @@ show_summary() {
     else                        RISK="$(t sum_risk_low)";  RISK_COLOR="$GREEN";  RISK_ICON="✔"
     fi
 
+    # Network context label and color
+    local CTX_LABEL CTX_COLOR CTX_ICON
+    if [[ "$NETWORK_CONTEXT" == "public" ]]; then
+        CTX_LABEL="$(t ctx_public)"
+        [[ -n "$PUBLIC_IP" ]] && CTX_LABEL="$CTX_LABEL ($PUBLIC_IP)"
+        CTX_COLOR="$RED"; CTX_ICON="⚡"
+    else
+        CTX_LABEL="$(t ctx_local)"
+        CTX_COLOR="$GREEN"; CTX_ICON="🏠"
+    fi
+
+    # Separate AUDIT_ITEMS into 3 buckets
+    local ACTION_ITEMS=() IMPROVEMENT_ITEMS=() STRUCTURAL_ITEMS=()
+    local item
+    for item in "${AUDIT_ITEMS[@]}"; do
+        local LVL NAT MSG
+        LVL=$(echo "$item" | cut -d'|' -f1)
+        NAT=$(echo "$item" | cut -d'|' -f2)
+        MSG=$(echo "$item" | cut -d'|' -f3-)
+        case "$NAT" in
+            action)       ACTION_ITEMS+=( "$LVL|$MSG" ) ;;
+            improvement)  IMPROVEMENT_ITEMS+=( "$LVL|$MSG" ) ;;
+            structural)   STRUCTURAL_ITEMS+=( "$LVL|$MSG" ) ;;
+        esac
+    done
+
+    # Determine interpretation phrase
+    local HAS_ACTION=false HAS_IMPROVE=false HAS_STRUCT=false
+    [[ ${#ACTION_ITEMS[@]}       -gt 0 ]] && HAS_ACTION=true
+    [[ ${#IMPROVEMENT_ITEMS[@]}  -gt 0 ]] && HAS_IMPROVE=true
+    [[ ${#STRUCTURAL_ITEMS[@]}   -gt 0 ]] && HAS_STRUCT=true
+
+    local INTERP_KEY
+    if   ! $HAS_ACTION && ! $HAS_IMPROVE && ! $HAS_STRUCT; then
+        INTERP_KEY="sum_interp_clean"
+    elif ! $HAS_ACTION && ! $HAS_IMPROVE && $HAS_STRUCT; then
+        INTERP_KEY="sum_interp_structural"
+    elif $HAS_ACTION && $HAS_STRUCT; then
+        INTERP_KEY="sum_interp_mixed"
+    elif $HAS_ACTION; then
+        INTERP_KEY="sum_interp_action"
+    else
+        INTERP_KEY="sum_interp_structural"
+    fi
+
     local W=58
 
+    # --- Header ---
     echo
     echo -e "${BLUE}${BOLD}╔══════════════════════════════════════════════════════════════╗${RESET}"
-    banner_row "${BOLD}$(t sec_summary)${RESET}"   ""              $W
+    banner_row "${BOLD}$(t sec_summary)${RESET}" "" $W
     echo -e "${BLUE}${BOLD}╠══════════════════════════════════════════════════════════════╣${RESET}"
-    banner_row "${GREEN}${BOLD}$(t sum_ok)${RESET}"    " $OK_COUNT"    $W
-    banner_row "${YELLOW}${BOLD}$(t sum_warn)${RESET}" " $WARN_COUNT"  $W
-    banner_row "${RED}${BOLD}$(t sum_alert)${RESET}"   " $ALERT_COUNT" $W
-    echo -e "${BLUE}${BOLD}╠══════════════════════════════════════════════════════════════╣${RESET}"
-    banner_row "$(t sum_score)" " ${CYAN}${BOLD}${SCORE}/10${RESET}"                    $W
-    banner_row "$(t sum_risk)"  " ${RISK_COLOR}${BOLD}${RISK_ICON} ${RISK}${RESET}"     $W
-    echo -e "${BLUE}${BOLD}╚══════════════════════════════════════════════════════════════╝${RESET}"
-    echo
+    banner_row "$(t sum_score)" " ${CYAN}${BOLD}${SCORE}/10${RESET}"                       $W
+    banner_row "$(t sum_risk)"  " ${RISK_COLOR}${BOLD}${RISK_ICON} ${RISK}${RESET}"        $W
+    banner_row "$(t ctx_label)" " ${CTX_COLOR}${BOLD}${CTX_ICON} ${CTX_LABEL}${RESET}"     $W
 
-    if   (( ALERT_COUNT > 0 )); then
-        echo -e "  ${RED}${BOLD}$(t sum_msg_alert)${RESET}"
-        echo -e "  ${RED}$(t sum_msg_alert2)${RESET}"
-    elif (( WARN_COUNT  > 0 )); then
-        echo -e "  ${YELLOW}${BOLD}$(t sum_msg_warn)${RESET}"
-        echo -e "  ${YELLOW}$(t sum_msg_warn2)${RESET}"
-    else
-        echo -e "  ${GREEN}${BOLD}$(t sum_msg_ok)${RESET}"
-        echo -e "  ${GREEN}$(t sum_msg_ok2)${RESET}"
+    # --- ACTION block ---
+    if [[ ${#ACTION_ITEMS[@]} -gt 0 ]]; then
+        echo -e "${BLUE}${BOLD}╠══════════════════════════════════════════════════════════════╣${RESET}"
+        banner_row "${RED}${BOLD}✖ $(t sum_cat_action)${RESET}" "" $W
+        echo -e "${BLUE}${BOLD}╠══════════════════════════════════════════════════════════════╣${RESET}"
+        for entry in "${ACTION_ITEMS[@]}"; do
+            local LVL MSG ICON_C
+            LVL="${entry%%|*}"; MSG="${entry#*|}"
+            [[ "$LVL" == "ALERT" ]] && ICON_C="${RED}✖${RESET}" || ICON_C="${YELLOW}⚠${RESET}"
+            local DISP="${MSG:0:50}"; [[ ${#MSG} -gt 50 ]] && DISP="${DISP}…"
+            banner_row "  ${ICON_C}  ${DIM}${DISP}${RESET}" "" $W
+        done
     fi
+
+    # --- IMPROVEMENT block ---
+    if [[ ${#IMPROVEMENT_ITEMS[@]} -gt 0 ]]; then
+        echo -e "${BLUE}${BOLD}╠══════════════════════════════════════════════════════════════╣${RESET}"
+        banner_row "${YELLOW}${BOLD}⚠ $(t sum_cat_improvement)${RESET}" "" $W
+        echo -e "${BLUE}${BOLD}╠══════════════════════════════════════════════════════════════╣${RESET}"
+        for entry in "${IMPROVEMENT_ITEMS[@]}"; do
+            local LVL MSG ICON_C
+            LVL="${entry%%|*}"; MSG="${entry#*|}"
+            [[ "$LVL" == "ALERT" ]] && ICON_C="${RED}✖${RESET}" || ICON_C="${YELLOW}⚠${RESET}"
+            local DISP="${MSG:0:50}"; [[ ${#MSG} -gt 50 ]] && DISP="${DISP}…"
+            banner_row "  ${ICON_C}  ${DIM}${DISP}${RESET}" "" $W
+        done
+    fi
+
+    # --- STRUCTURAL block ---
+    if [[ ${#STRUCTURAL_ITEMS[@]} -gt 0 ]]; then
+        echo -e "${BLUE}${BOLD}╠══════════════════════════════════════════════════════════════╣${RESET}"
+        banner_row "${GREEN}${BOLD}ℹ $(t sum_cat_structural)${RESET}" "" $W
+        echo -e "${BLUE}${BOLD}╠══════════════════════════════════════════════════════════════╣${RESET}"
+        for entry in "${STRUCTURAL_ITEMS[@]}"; do
+            local LVL MSG
+            LVL="${entry%%|*}"; MSG="${entry#*|}"
+            local DISP="${MSG:0:50}"; [[ ${#MSG} -gt 50 ]] && DISP="${DISP}…"
+            banner_row "  ${GREEN}ℹ${RESET}  ${DIM}${DISP}${RESET}" "" $W
+        done
+    fi
+
+    # --- Score breakdown (context deductions) ---
+    if [[ ${#SCORE_BREAKDOWN[@]} -gt 0 ]]; then
+        echo -e "${BLUE}${BOLD}╠══════════════════════════════════════════════════════════════╣${RESET}"
+        banner_row "${BOLD}$(t score_breakdown)${RESET}" "" $W
+        echo -e "${BLUE}${BOLD}╠══════════════════════════════════════════════════════════════╣${RESET}"
+        for entry in "${SCORE_BREAKDOWN[@]}"; do
+            local REASON DEDUCT CTX
+            REASON=$(echo "$entry" | cut -d'|' -f1)
+            DEDUCT=$(echo "$entry" | cut -d'|' -f2)
+            CTX=$(echo "$entry"    | cut -d'|' -f3)
+            local DISP="${REASON:0:42}"; [[ ${#REASON} -gt 42 ]] && DISP="${DISP}…"
+            local CTX_SUFFIX=""
+            [[ "$CTX" == "public" ]] && CTX_SUFFIX=" ${DIM}$(t score_pub_penalty)${RESET}"
+            banner_row "${RED}-${DEDUCT}${RESET}  ${DIM}${DISP}${RESET}" "${CTX_SUFFIX}" $W
+        done
+    fi
+
+    echo -e "${BLUE}${BOLD}╚══════════════════════════════════════════════════════════════╝${RESET}"
+
+    # Interpretation phrase
+    echo
+    local INTERP_COLOR="$GREEN"
+    $HAS_ACTION  && INTERP_COLOR="$RED"
+    ! $HAS_ACTION && $HAS_IMPROVE && INTERP_COLOR="$YELLOW"
+    echo -e "  ${INTERP_COLOR}${BOLD}$(t $INTERP_KEY)${RESET}"
 
     echo
     echo -e "  ${DIM}$(t sum_cfg_ports) $CONFIG_FILE${RESET}"
@@ -1331,9 +1912,11 @@ main() {
 
         init_logfile
         log INFO "$(t log_start)"
+        detect_network_context
         check_dependencies
         check_firewall_status
         audit_services
+        check_listening_ports_analysis
         check_listening_ports
         show_summary
         finalize_log
