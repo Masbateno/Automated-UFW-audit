@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================================
-# UFW-audit v0.5
+# UFW-audit v0.6
 # UFW firewall security audit for Linux
 # Target  : Debian/Ubuntu and derivatives
 # Audience: regular user, non-system administrator
@@ -9,18 +9,28 @@
 set -uo pipefail
 export LC_ALL=C.UTF-8
 
-VERSION="0.5"
+VERSION="0.6"
 
 OK_COUNT=0
 WARN_COUNT=0
 ALERT_COUNT=0
 SCORE=10
 
-# Structured audit items for categorized summary
-# Format: "level|nature|message"
-# level  : WARN | ALERT
-# nature : action | improvement | structural
+# Structured audit items for categorized summary and --fix mode
+# Format: "level|nature|message|command"
+# level   : WARN | ALERT
+# nature  : action | improvement | structural
+# command : UFW command to apply (empty = manual fix required)
 AUDIT_ITEMS=()
+
+FIX_MODE=false     # --fix       : show fix section after summary
+FIX_YES=false      # --yes       : apply all fixes without confirmation (requires --fix)
+NO_COLOR=false     # --no-color  : disable ANSI colour output
+FW_INACTIVE=false  # set true when firewall is off — score capped at 3 in show_summary
+JSON_MODE=false    # --json      : export summary as JSON (stdout, or file with -d)
+JSON_FULL=false    # --json-full : export full audit details as JSON
+declare -A AUDITED_PORTS=()  # ports already audited in audit_services() — skip in port analysis
+IMPLICIT_POLICY_SVCS=()      # high/critical services relying on default policy (no explicit UFW rule)
 
 VERBOSE=false
 HELP=false
@@ -43,14 +53,24 @@ HAS_PUBLIC_IP=false    # true if a public IP is confirmed
 NETWORK_CONTEXT=""     # "public" | "local"
 SCORE_BREAKDOWN=()     # Array of "reason|deduction" strings
 
-GREEN=$'\e[32m'
-RED=$'\e[31m'
-YELLOW=$'\e[33m'
-CYAN=$'\e[36m'
-BLUE=$'\e[34m'
-BOLD=$'\e[1m'
-DIM=$'\e[2m'
-RESET=$'\e[0m'
+GREEN=""
+RED=""
+YELLOW=""
+CYAN=""
+BLUE=""
+BOLD=""
+DIM=""
+RESET=""
+
+setup_colors() {
+    if $NO_COLOR; then
+        GREEN=""; RED=""; YELLOW=""; CYAN=""
+        BLUE=""; BOLD=""; DIM=""; RESET=""
+    else
+        GREEN=$'\e[32m'; RED=$'\e[31m'; YELLOW=$'\e[33m'; CYAN=$'\e[36m'
+        BLUE=$'\e[34m';  BOLD=$'\e[1m'; DIM=$'\e[2m';     RESET=$'\e[0m'
+    fi
+}
 
 # ==========================================================
 # INTERNATIONALISATION
@@ -192,6 +212,7 @@ t() {
             score_breakdown)    echo "Détail du score" ;;
             score_deduct)       echo "points perdus" ;;
             score_pub_penalty)  echo "(contexte IP publique)" ;;
+            score_cap_fw)       echo "score plafonné à 3 — pare-feu désactivé" ;;
             # --- categorized summary ---
             sum_cat_action)       echo "À corriger" ;;
             sum_cat_improvement)  echo "Améliorations possibles" ;;
@@ -200,6 +221,39 @@ t() {
             sum_interp_structural) echo "Les avertissements reflètent une configuration normale pour ce type de système. Aucune action immédiate requise." ;;
             sum_interp_mixed)     echo "L'essentiel de votre configuration est normal. Traitez les points ci-dessus marqués \"À corriger\"." ;;
             sum_interp_action)    echo "Des corrections sont nécessaires. Traitez en priorité les points marqués \"À corriger\"." ;;
+            # --- fix mode ---
+            fix_title)          echo "CORRECTIONS DISPONIBLES" ;;
+            fix_none)           echo "Aucune correction automatique disponible." ;;
+            fix_applying)       echo "Application des corrections..." ;;
+            fix_apply_prompt)   echo "Appliquer cette correction ?" ;;
+            fix_applied)        echo "Appliqué" ;;
+            fix_skipped)        echo "Ignoré" ;;
+            fix_manual)         echo "manuel — appliquez la commande manuellement" ;;
+            fix_done)           echo "Corrections terminées. Relancez l'audit pour vérifier." ;;
+            fix_none_applied)   echo "Aucune correction appliquée." ;;
+            fix_summary_auto)   echo "correction(s) automatique(s) disponible(s)" ;;
+            fix_summary_manual) echo "correction(s) manuelle(s)" ;;
+            # --- help additions ---
+            help_fix)           echo "  --fix               Proposer les corrections après l'audit" ;;
+            help_yes)           echo "  --yes               Appliquer toutes les corrections sans confirmation (avec --fix)" ;;
+            help_nocolor)       echo "  --no-color          Désactiver les couleurs (utile pour redirection)" ;;
+            help_json)          echo "  --json              Exporter le résumé au format JSON" ;;
+            help_jsonfull)      echo "  --json-full         Exporter l'audit complet au format JSON" ;;
+            # --- docker ---
+            sec_docker)         echo "ANALYSE DOCKER" ;;
+            docker_missing)     echo "Docker non installé — section ignorée" ;;
+            docker_no_daemon)   echo "Docker installé mais le service n'est pas actif" ;;
+            docker_bypass_warn) echo "Docker est installé et actif. Par défaut, Docker modifie directement iptables et contourne les règles UFW — les ports exposés via Docker (-p) sont accessibles même si UFW les bloque." ;;
+            docker_bypass_fix)  echo "Pour désactiver le bypass iptables de Docker, ajoutez dans /etc/docker/daemon.json :\n  {\"iptables\": false}\npuis redémarrez Docker :\n  sudo systemctl restart docker\nAttention : ceci désactive la gestion réseau automatique de Docker." ;;
+            docker_iptables_ok) echo "Docker est configuré avec iptables désactivé (daemon.json). Les règles UFW s'appliquent normalement." ;;
+            docker_ports_title) echo "Ports exposés par Docker :" ;;
+            docker_port_warn)   echo "Port Docker exposé sans règle UFW DENY explicite — potentiellement accessible malgré UFW" ;;
+            docker_port_ok)     echo "Port Docker couvert par une règle UFW DENY" ;;
+            docker_no_ports)    echo "Aucun container Docker en cours d'exécution avec ports exposés" ;;
+            # --- json ---
+            json_written)       echo "Export JSON :" ;;
+            sum_implicit_note)  echo "Note : service(s) à risque élevé s'appuient sur la politique par défaut UFW plutôt que des règles explicites. C'est correct si la politique est deny, mais une règle explicite est plus robuste." ;;
+            sum_implicit_svcs)  echo "Service(s) concerné(s) :" ;;
         esac
     else
         case "$KEY" in
@@ -331,6 +385,7 @@ t() {
             score_breakdown)    echo "Score breakdown" ;;
             score_deduct)       echo "points lost" ;;
             score_pub_penalty)  echo "(public IP context)" ;;
+            score_cap_fw)       echo "score capped at 3 — firewall disabled" ;;
             # --- categorized summary ---
             sum_cat_action)       echo "Action required" ;;
             sum_cat_improvement)  echo "Possible improvements" ;;
@@ -339,6 +394,39 @@ t() {
             sum_interp_structural) echo "Warnings reflect normal configuration for this type of system. No immediate action required." ;;
             sum_interp_mixed)     echo "Most of your configuration is normal. Address the items marked \"Action required\" above." ;;
             sum_interp_action)    echo "Corrections are needed. Prioritize items marked \"Action required\"." ;;
+            # --- fix mode ---
+            fix_title)          echo "AVAILABLE FIXES" ;;
+            fix_none)           echo "No automatic fix available." ;;
+            fix_applying)       echo "Applying fixes..." ;;
+            fix_apply_prompt)   echo "Apply this fix?" ;;
+            fix_applied)        echo "Applied" ;;
+            fix_skipped)        echo "Skipped" ;;
+            fix_manual)         echo "manual — apply the command manually" ;;
+            fix_done)           echo "Fixes complete. Re-run the audit to verify." ;;
+            fix_none_applied)   echo "No fixes applied." ;;
+            fix_summary_auto)   echo "automatic fix(es) available" ;;
+            fix_summary_manual) echo "manual fix(es)" ;;
+            # --- help additions ---
+            help_fix)           echo "  --fix               Propose fixes after the audit" ;;
+            help_yes)           echo "  --yes               Apply all fixes without confirmation (requires --fix)" ;;
+            help_nocolor)       echo "  --no-color          Disable colours (useful for redirected output)" ;;
+            help_json)          echo "  --json              Export summary as JSON" ;;
+            help_jsonfull)      echo "  --json-full         Export full audit details as JSON" ;;
+            # --- docker ---
+            sec_docker)         echo "DOCKER ANALYSIS" ;;
+            docker_missing)     echo "Docker not installed — section skipped" ;;
+            docker_no_daemon)   echo "Docker installed but service is not active" ;;
+            docker_bypass_warn) echo "Docker is installed and active. By default, Docker modifies iptables directly and bypasses UFW rules — ports exposed via Docker (-p) are reachable even if UFW blocks them." ;;
+            docker_bypass_fix)  echo "To disable Docker iptables bypass, add to /etc/docker/daemon.json:\n  {\"iptables\": false}\nthen restart Docker:\n  sudo systemctl restart docker\nNote: this disables Docker's automatic network management." ;;
+            docker_iptables_ok) echo "Docker is configured with iptables disabled (daemon.json). UFW rules apply normally." ;;
+            docker_ports_title) echo "Ports exposed by Docker:" ;;
+            docker_port_warn)   echo "Docker port exposed without explicit UFW DENY rule — potentially reachable despite UFW" ;;
+            docker_port_ok)     echo "Docker port covered by a UFW DENY rule" ;;
+            docker_no_ports)    echo "No running Docker containers with exposed ports" ;;
+            # --- json ---
+            json_written)       echo "JSON export:" ;;
+            sum_implicit_note)  echo "Note: high-risk service(s) rely on UFW's default policy rather than explicit rules. This is correct if the policy is deny, but an explicit rule is more robust." ;;
+            sum_implicit_svcs)  echo "Affected service(s):" ;;
         esac
     fi
 }
@@ -420,6 +508,11 @@ SERVICES=(
     "Avahi (local network discovery)|avahi-daemon|avahi-daemon|5353/udp|low|fixed"
     "CUPS (network printing)|cups|cups|631/tcp|low|auto"
     "Cockpit (web admin)|cockpit|cockpit|9090/tcp|medium|auto"
+    "WireGuard VPN|wireguard|wg-quick@|51820/udp|high|fixed"
+    "Redis|redis-server|redis|6379/tcp|high|fixed"
+    "Jellyfin|jellyfin|jellyfin|8096/tcp|medium|fixed"
+    "Plex Media Server|plexmediaserver|plexmediaserver|32400/tcp|medium|fixed"
+    "Home Assistant|homeassistant python3-homeassistant|home-assistant homeassistant|8123/tcp|medium|ask"
 )
 
 # ==========================================================
@@ -530,6 +623,51 @@ get_risk_explanation() {
                     no_rule)    echo "Cockpit est actif. Vérifiez qu'il n'est pas accessible depuis internet." ;;
                     inactive)   echo "Cockpit est installé et actif, mais ne redémarrera pas automatiquement." ;;
                     disabled)   echo "Cockpit est installé mais arrêté et désactivé. Pas de risque immédiat." ;;
+                esac ;;
+            "WireGuard VPN")
+                case "$SITUATION" in
+                    open_world) echo "WireGuard est exposé sur internet — c'est son fonctionnement normal en tant que VPN. Assurez-vous que la règle UFW autorise uniquement le port WireGuard et rien d'autre." ;;
+                    open_local) echo "WireGuard est restreint au réseau local. Configuration correcte si vous ne l'utilisez qu'en local." ;;
+                    deny)       echo "WireGuard est bloqué par UFW. Si vous utilisez le VPN depuis internet, cette règle l'empêchera de fonctionner." ;;
+                    no_rule)    echo "WireGuard est actif mais aucune règle UFW ne couvre son port. Si la politique par défaut est deny, les clients VPN externes ne pourront pas se connecter." ;;
+                    inactive)   echo "WireGuard est installé et actif, mais ne redémarrera pas automatiquement." ;;
+                    disabled)   echo "WireGuard est installé mais arrêté et désactivé. Pas de risque immédiat." ;;
+                esac ;;
+            "Redis")
+                case "$SITUATION" in
+                    open_world) echo "Redis est accessible depuis internet. C'est un risque critique — Redis n'a pas d'authentification forte par défaut et ne devrait jamais être exposé publiquement." ;;
+                    open_local) echo "Redis est restreint au réseau local. Idéalement, il ne devrait écouter que sur localhost." ;;
+                    deny)       echo "L'accès à Redis est bloqué par UFW. Bonne configuration." ;;
+                    no_rule)    echo "Redis est actif. Par défaut il écoute sur 127.0.0.1, ce qui est correct. Vérifiez que la configuration bind n'a pas été modifiée." ;;
+                    inactive)   echo "Redis est installé et actif, mais ne redémarrera pas automatiquement." ;;
+                    disabled)   echo "Redis est installé mais arrêté et désactivé. Pas de risque immédiat." ;;
+                esac ;;
+            "Jellyfin")
+                case "$SITUATION" in
+                    open_world) echo "Jellyfin (media server) est accessible depuis internet. Assurez-vous que l'authentification est activée et que le service est à jour." ;;
+                    open_local) echo "Jellyfin est restreint au réseau local. Configuration normale pour un usage domestique." ;;
+                    deny)       echo "L'accès à Jellyfin est bloqué par UFW." ;;
+                    no_rule)    echo "Jellyfin est actif. Vérifiez qu'il n'est pas accessible depuis internet si ce n'est pas intentionnel." ;;
+                    inactive)   echo "Jellyfin est installé et actif, mais ne redémarrera pas automatiquement." ;;
+                    disabled)   echo "Jellyfin est installé mais arrêté et désactivé. Pas de risque immédiat." ;;
+                esac ;;
+            "Plex Media Server")
+                case "$SITUATION" in
+                    open_world) echo "Plex est accessible depuis internet. C'est souvent intentionnel pour le streaming distant — vérifiez que votre compte Plex est sécurisé et que le service est à jour." ;;
+                    open_local) echo "Plex est restreint au réseau local. Configuration normale pour un usage domestique." ;;
+                    deny)       echo "L'accès à Plex est bloqué par UFW." ;;
+                    no_rule)    echo "Plex est actif. Vérifiez son niveau d'exposition selon votre usage." ;;
+                    inactive)   echo "Plex est installé et actif, mais ne redémarrera pas automatiquement." ;;
+                    disabled)   echo "Plex est installé mais arrêté et désactivé. Pas de risque immédiat." ;;
+                esac ;;
+            "Home Assistant")
+                case "$SITUATION" in
+                    open_world) echo "Home Assistant est accessible depuis internet. Il contrôle vos équipements domotiques — assurez-vous que l'authentification à deux facteurs est activée et que le service est à jour." ;;
+                    open_local) echo "Home Assistant est restreint au réseau local. Configuration normale pour un usage domestique." ;;
+                    deny)       echo "L'accès à Home Assistant est bloqué par UFW." ;;
+                    no_rule)    echo "Home Assistant est actif. Vérifiez qu'il n'est pas accessible depuis internet si ce n'est pas intentionnel." ;;
+                    inactive)   echo "Home Assistant est installé et actif, mais ne redémarrera pas automatiquement." ;;
+                    disabled)   echo "Home Assistant est installé mais arrêté et désactivé. Pas de risque immédiat." ;;
                 esac ;;
             *)
                 case "$SITUATION" in
@@ -642,6 +780,51 @@ get_risk_explanation() {
                     inactive)   echo "Cockpit is installed and currently active, but will not restart automatically." ;;
                     disabled)   echo "Cockpit is installed but stopped and disabled. No immediate risk." ;;
                 esac ;;
+            "WireGuard VPN")
+                case "$SITUATION" in
+                    open_world) echo "WireGuard is exposed to the internet — this is its normal behaviour as a VPN. Make sure the UFW rule only allows the WireGuard port and nothing else." ;;
+                    open_local) echo "WireGuard is restricted to the local network. Correct if you only use it locally." ;;
+                    deny)       echo "WireGuard is blocked by UFW. If you use the VPN from the internet, this rule will prevent it from working." ;;
+                    no_rule)    echo "WireGuard is active but no UFW rule covers its port. If the default policy is deny, external VPN clients will not be able to connect." ;;
+                    inactive)   echo "WireGuard is installed and currently active, but will not restart automatically." ;;
+                    disabled)   echo "WireGuard is installed but stopped and disabled. No immediate risk." ;;
+                esac ;;
+            "Redis")
+                case "$SITUATION" in
+                    open_world) echo "Redis is reachable from the internet. This is a critical risk — Redis has no strong authentication by default and should never be publicly exposed." ;;
+                    open_local) echo "Redis is restricted to the local network. Ideally it should only listen on localhost." ;;
+                    deny)       echo "Redis access is blocked by UFW. Good configuration." ;;
+                    no_rule)    echo "Redis is active. By default it listens on 127.0.0.1, which is correct. Check the bind configuration has not been changed." ;;
+                    inactive)   echo "Redis is installed and currently active, but will not restart automatically." ;;
+                    disabled)   echo "Redis is installed but stopped and disabled. No immediate risk." ;;
+                esac ;;
+            "Jellyfin")
+                case "$SITUATION" in
+                    open_world) echo "Jellyfin (media server) is reachable from the internet. Make sure authentication is enabled and the service is up to date." ;;
+                    open_local) echo "Jellyfin is restricted to the local network. Normal setup for home use." ;;
+                    deny)       echo "Jellyfin access is blocked by UFW." ;;
+                    no_rule)    echo "Jellyfin is active. Check that it is not reachable from the internet if unintentional." ;;
+                    inactive)   echo "Jellyfin is installed and currently active, but will not restart automatically." ;;
+                    disabled)   echo "Jellyfin is installed but stopped and disabled. No immediate risk." ;;
+                esac ;;
+            "Plex Media Server")
+                case "$SITUATION" in
+                    open_world) echo "Plex is reachable from the internet. This is often intentional for remote streaming — make sure your Plex account is secured and the service is up to date." ;;
+                    open_local) echo "Plex is restricted to the local network. Normal setup for home use." ;;
+                    deny)       echo "Plex access is blocked by UFW." ;;
+                    no_rule)    echo "Plex is active. Check its exposure level based on your intended use." ;;
+                    inactive)   echo "Plex is installed and currently active, but will not restart automatically." ;;
+                    disabled)   echo "Plex is installed but stopped and disabled. No immediate risk." ;;
+                esac ;;
+            "Home Assistant")
+                case "$SITUATION" in
+                    open_world) echo "Home Assistant is reachable from the internet. It controls your home automation devices — make sure two-factor authentication is enabled and the service is up to date." ;;
+                    open_local) echo "Home Assistant is restricted to the local network. Normal setup for home use." ;;
+                    deny)       echo "Home Assistant access is blocked by UFW." ;;
+                    no_rule)    echo "Home Assistant is active. Check that it is not reachable from the internet if unintentional." ;;
+                    inactive)   echo "Home Assistant is installed and currently active, but will not restart automatically." ;;
+                    disabled)   echo "Home Assistant is installed but stopped and disabled. No immediate risk." ;;
+                esac ;;
             *)
                 case "$SITUATION" in
                     open_world) echo "This service is reachable from the internet without restriction." ;;
@@ -710,10 +893,12 @@ get_recommendation() {
                         echo "To restrict Samba to your local network (replace 192.168.1.0/24 with your network range) :\n  sudo ufw delete allow 445/tcp\n  sudo ufw delete allow 139/tcp\n  sudo ufw allow from 192.168.1.0/24 to any port 445\n  sudo ufw allow from 192.168.1.0/24 to any port 139" ;;
                     "FTP Server")
                         echo "As FTP is unencrypted, we recommend stopping it and using SFTP (included with SSH) :\n  sudo systemctl stop vsftpd\n  sudo systemctl disable vsftpd\nIf you must keep FTP, restrict it to the local network :\n  sudo ufw delete allow $MAIN_PORT/tcp\n  sudo ufw allow from 192.168.1.0/24 to any port $MAIN_PORT" ;;
-                    "MySQL / MariaDB"|"PostgreSQL")
+                    "MySQL / MariaDB"|"PostgreSQL"|"Redis")
                         echo "Block internet access — a database must not be publicly exposed :\n  sudo ufw delete allow $MAIN_PORT/tcp\n  sudo ufw deny $MAIN_PORT/tcp" ;;
-                    "Transmission (web UI)"|"qBittorrent (web UI)"|"Cockpit (web admin)"|"Apache Web Server"|"Nginx Web Server")
+                    "Transmission (web UI)"|"qBittorrent (web UI)"|"Cockpit (web admin)"|"Apache Web Server"|"Nginx Web Server"|"Jellyfin"|"Plex Media Server"|"Home Assistant")
                         echo "To restrict access to your local network (replace 192.168.1.0/24 with your network range) :\n  sudo ufw delete allow $MAIN_PORT/tcp\n  sudo ufw allow from 192.168.1.0/24 to any port $MAIN_PORT" ;;
+                    "WireGuard VPN")
+                        echo "WireGuard is designed to be internet-facing. Make sure only the VPN port is open :\n  sudo ufw allow $MAIN_PORT/udp\n  sudo ufw deny $MAIN_PORT/tcp" ;;
                     "CUPS (network printing)"|"Avahi (local network discovery)")
                         echo "To block internet access :\n  sudo ufw delete allow $MAIN_PORT\n  sudo ufw deny $MAIN_PORT" ;;
                     *)
@@ -721,7 +906,7 @@ get_recommendation() {
                 esac ;;
             open_local)
                 case "$LABEL" in
-                    "MySQL / MariaDB"|"PostgreSQL")
+                    "MySQL / MariaDB"|"PostgreSQL"|"Redis")
                         echo "If this service is only used on your own machine, restrict it to localhost only by editing its configuration." ;;
                 esac ;;
             inactive|disabled)
@@ -840,12 +1025,15 @@ check_root() {
 parse_arguments() {
     if [[ $# -eq 0 ]]; then
         AUDIT_REQUESTED=true
+        setup_colors
         return
     fi
-    # First pass: detect --french early so t() works for error messages
+    # First pass: detect --french and --no-color early
     for arg in "$@"; do
-        [[ "$arg" == "--french" ]] && LANG_FR=true
+        [[ "$arg" == "--french" ]]   && LANG_FR=true
+        [[ "$arg" == "--no-color" ]] && NO_COLOR=true
     done
+    setup_colors
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -v|--verbose)      VERBOSE=true;        AUDIT_REQUESTED=true ;;
@@ -854,9 +1042,14 @@ parse_arguments() {
             -V|--version)      VERSION_ONLY=true ;;
             -r|--reconfigure)  RECONFIGURE=true;     AUDIT_REQUESTED=true ;;
             --french)          LANG_FR=true;          AUDIT_REQUESTED=true ;;
+            --fix)             FIX_MODE=true;         AUDIT_REQUESTED=true ;;
+            --yes)             FIX_YES=true ;;
+            --no-color)        NO_COLOR=true ;;
+            --json)            JSON_MODE=true;         AUDIT_REQUESTED=true ;;
+            --json-full)       JSON_MODE=true; JSON_FULL=true; AUDIT_REQUESTED=true ;;
             *)
-                echo -e "${RED}[ERROR]${RESET} $(t err_unknown_opt) $1"
-                echo -e "$(t err_use_help)"
+                echo "${RED}[ERROR]${RESET} $(t err_unknown_opt) $1"
+                echo "$(t err_use_help)"
                 exit 1 ;;
         esac
         shift
@@ -877,6 +1070,11 @@ show_help() {
     echo "$(t help_verbose)"
     echo "$(t help_detailed)"
     echo "$(t help_reconf)"
+    echo "$(t help_fix)"
+    echo "$(t help_yes)"
+    echo "$(t help_nocolor)"
+    echo "$(t help_json)"
+    echo "$(t help_jsonfull)"
     echo "$(t help_french)"
     echo "$(t help_version)"
     echo "$(t help_help)"
@@ -916,10 +1114,12 @@ log() {
     # --nature=X  : override item nature in summary (action|improvement|structural)
     local NO_SCORE=false
     local NATURE=""
+    local FIX_CMD=""
     local arg
     for arg in "${@:4}"; do
         [[ "$arg" == "--no-score" ]]    && NO_SCORE=true
         [[ "$arg" == --nature=* ]]      && NATURE="${arg#--nature=}"
+        [[ "$arg" == --cmd=* ]]         && FIX_CMD="${arg#--cmd=}"
     done
 
     local TIMESTAMP
@@ -934,15 +1134,13 @@ log() {
         WARN)  COLOR="$YELLOW"; ICON="⚠";  WARN_COUNT=$(( WARN_COUNT + 1 ))
                $LANG_FR && PREFIX="[ATTENTION]" || PREFIX="[WARNING]"
                $NO_SCORE || score_deduct "$MESSAGE" 1
-               # Default nature for WARN: improvement (unless overridden)
                local ITEM_NATURE="${NATURE:-improvement}"
-               AUDIT_ITEMS+=( "WARN|${ITEM_NATURE}|${MESSAGE}" ) ;;
+               AUDIT_ITEMS+=( "WARN|${ITEM_NATURE}|${MESSAGE}|${FIX_CMD}" ) ;;
         ALERT) COLOR="$RED";    ICON="✖";  ALERT_COUNT=$(( ALERT_COUNT + 1 ))
                $LANG_FR && PREFIX="[ALERTE]"    || PREFIX="[ALERT]"
                $NO_SCORE || score_deduct "$MESSAGE" 2
-               # Default nature for ALERT: action (unless overridden)
                local ITEM_NATURE="${NATURE:-action}"
-               AUDIT_ITEMS+=( "ALERT|${ITEM_NATURE}|${MESSAGE}" ) ;;
+               AUDIT_ITEMS+=( "ALERT|${ITEM_NATURE}|${MESSAGE}|${FIX_CMD}" ) ;;
         ERROR) COLOR="$RED";    ICON="✖"
                $LANG_FR && PREFIX="[ERREUR]"    || PREFIX="[ERROR]" ;;
     esac
@@ -1100,6 +1298,7 @@ config_load() {
             echo
         } > "$CONFIG_FILE"
         chown "$REAL_USER:$REAL_USER" "$CONFIG_FILE" 2>/dev/null || true
+        chmod 600 "$CONFIG_FILE" 2>/dev/null || true
     fi
 }
 
@@ -1117,6 +1316,7 @@ config_set() {
         echo "${KEY}=${VALUE}" >> "$CONFIG_FILE"
     fi
     chown "$REAL_USER:$REAL_USER" "$CONFIG_FILE" 2>/dev/null || true
+    chmod 600 "$CONFIG_FILE" 2>/dev/null || true
 }
 
 config_delete_key() {
@@ -1152,6 +1352,20 @@ detect_port_auto() {
         "Cockpit (web admin)")
             local P; P=$(grep -E "^Port" /etc/cockpit/cockpit.conf 2>/dev/null | cut -d'=' -f2 | tr -d ' ' | head -1)
             [[ -n "$P" ]] && echo "${P}/tcp" && return ;;
+        "Redis")
+            local P; P=$(grep -E "^port " /etc/redis/redis.conf 2>/dev/null | awk '{print $2}' | head -1)
+            [[ -n "$P" ]] && echo "${P}/tcp" && return
+            echo "6379/tcp" && return ;;
+        "Jellyfin")
+            local P; P=$(grep -E "PublicPort|HttpServerPortNumber" /etc/jellyfin/network.xml 2>/dev/null | grep -oE '[0-9]+' | head -1)
+            [[ -n "$P" ]] && echo "${P}/tcp" && return
+            echo "8096/tcp" && return ;;
+        "Plex Media Server")
+            echo "32400/tcp" && return ;;
+        "Home Assistant")
+            local P; P=$(grep -E "^http:" -A5 /etc/homeassistant/configuration.yaml 2>/dev/null | grep "server_port" | grep -oE '[0-9]+' | head -1)
+            [[ -n "$P" ]] && echo "${P}/tcp" && return
+            echo "8123/tcp" && return ;;
     esac
     echo ""
 }
@@ -1244,7 +1458,7 @@ check_dependencies() {
     if command -v ufw >/dev/null 2>&1; then
         log OK "$(t log_ufw_ok)"
     else
-        log ALERT "$(t log_ufw_missing)" "$(t log_ufw_install)" "--nature=action"
+        log ALERT "$(t log_ufw_missing)" "$(t log_ufw_install)" "--nature=action" "--cmd=sudo apt install -y ufw"
         echo -e "\n  ${YELLOW}→ sudo apt install ufw${RESET}\n"
         log ERROR "$(t log_ufw_abort)"
         exit 1
@@ -1319,7 +1533,7 @@ check_ufw_allow_any() {
         NUM=$(echo "$rule" | grep -oE "^\[ *[0-9]+" | grep -oE "[0-9]+")
         local RULE_TEXT
         RULE_TEXT=$(echo "$rule" | sed 's/^\[ *[0-9]*\] *//')
-        log ALERT "$(t any_found) $RULE_TEXT" "" "--nature=action"
+        log ALERT "$(t any_found) $RULE_TEXT" "" "--nature=action" "--cmd=sudo ufw --force delete $NUM"
         log_recommendation "$(t any_fix)\n  sudo ufw delete $NUM"
     done <<< "$DANGEROUS"
 }
@@ -1335,12 +1549,22 @@ check_ipv6_consistency() {
     local HAS_V6_RULES=false
     echo "$UFW_STATUS" | grep -q "(v6)" && HAS_V6_RULES=true
 
+    # Check if any UFW rules exist at all (v4 or v6)
+    local HAS_ANY_RULES=false
+    ufw status numbered 2>/dev/null | grep -qE "^\[ *[0-9]+" && HAS_ANY_RULES=true
+
     if [[ "$IPV6_SETTING" == "yes" ]]; then
         if $HAS_V6_RULES; then
             log OK "$(t ipv6_ok)"
         else
-            log WARN "$(t ipv6_enabled_norules)" "" "--nature=improvement"
-            log_recommendation "$(t ipv6_fix)"
+            # Only penalise if user has configured some UFW rules — otherwise
+            # IPv6 without rules on a fresh system is expected and harmless
+            if $HAS_ANY_RULES; then
+                log WARN "$(t ipv6_enabled_norules)" "" "--nature=improvement"
+                log_recommendation "$(t ipv6_fix)"
+            else
+                log OK "$(t ipv6_ok)"
+            fi
         fi
     else
         if $HAS_V6_RULES; then
@@ -1451,6 +1675,9 @@ check_listening_ports_analysis() {
         PORT="${KEY##*:}"
         STATUS="${_LM_MAP[$KEY]}"
 
+        # Skip ports already covered by audit_services() — avoids duplicate reporting
+        [[ -n "${AUDITED_PORTS[$KEY]+_}" ]] && continue
+
         # Silent: ephemeral and system ports — log_detail only
         case "$STATUS" in
             ephemeral)
@@ -1474,7 +1701,7 @@ check_listening_ports_analysis() {
                     log WARN "$(t ports_netbios_warn)" "" "--nature=structural"
                     log_recommendation "$(t ports_netbios_fix)\n  sudo ufw allow from 192.168.1.0/24 to any port $PORT proto $PROTO\n  sudo ufw deny $PORT/$PROTO"
                 else
-                    log ALERT "$PORT/$PROTO — $(t ports_exposed_norule)" "" "--nature=action"
+                    log ALERT "$PORT/$PROTO — $(t ports_exposed_norule)" "" "--nature=action" "--cmd=sudo ufw deny $PORT/$PROTO"
                     log_recommendation "$(t uncov_fix)\n  sudo ufw deny $PORT/$PROTO"
                 fi
             else
@@ -1508,6 +1735,8 @@ check_firewall_status() {
     else
         log ALERT "$(t log_fw_inactive)" "" "--nature=action"
         log_recommendation "$(t log_fw_enable)"
+        # Mark firewall as inactive — score will be capped at 3 in show_summary()
+        FW_INACTIVE=true
     fi
 
     local DEFAULT_IN
@@ -1519,7 +1748,8 @@ check_firewall_status() {
     elif [[ -z "$DEFAULT_IN" ]]; then
         log WARN "$(t log_policy_warn)" "" "--nature=improvement"
     else
-        log ALERT "$(t log_policy_alert)" "" "--nature=action"
+        log ALERT "$(t log_policy_alert)" "" "--nature=action" "--no-score" "--cmd=sudo ufw default deny incoming"
+        score_deduct "$(t log_policy_alert)" 3
         log_recommendation "$(t log_policy_fix)"
     fi
 
@@ -1598,16 +1828,34 @@ is_package_installed() {
 # Returns: active_enabled | active_disabled | inactive_enabled | inactive_disabled | unknown
 get_service_state() {
     for SVC in $1; do
-        if systemctl list-units --all 2>/dev/null | grep -q "$SVC"; then
+        # Handle systemd template services (e.g. wg-quick@) — check for any instance
+        local SVC_PATTERN="$SVC"
+        [[ "$SVC" == *"@" ]] && SVC_PATTERN="${SVC}*"
+
+        if systemctl list-units --all 2>/dev/null | grep -q "$SVC_PATTERN"; then
+            # For template services, get the first active instance name
+            local REAL_SVC="$SVC"
+            if [[ "$SVC" == *"@" ]]; then
+                REAL_SVC=$(systemctl list-units --all 2>/dev/null \
+                    | grep "${SVC}" | awk '{print $1}' | head -1)
+                [[ -z "$REAL_SVC" ]] && REAL_SVC="$SVC"
+            fi
             local ACTIVE ENABLED
-            ACTIVE=$(systemctl is-active  "$SVC" 2>/dev/null || echo "inactive")
-            ENABLED=$(systemctl is-enabled "$SVC" 2>/dev/null || echo "disabled")
+            ACTIVE=$(systemctl is-active  "$REAL_SVC" 2>/dev/null || echo "inactive")
+            ENABLED=$(systemctl is-enabled "$REAL_SVC" 2>/dev/null || echo "disabled")
             if   [[ "$ACTIVE" == "active" && "$ENABLED" == "enabled" ]]; then echo "active_enabled"
             elif [[ "$ACTIVE" == "active"                             ]]; then echo "active_disabled"
             elif [[ "$ENABLED" == "enabled"                           ]]; then echo "inactive_enabled"
             else                                                              echo "inactive_disabled"
             fi
             return
+        fi
+
+        # Also check if the package is installed even if no unit is loaded
+        # For WireGuard: check for wg tool availability
+        if [[ "$SVC" == *"@" ]]; then
+            local BASE="${SVC%@}"
+            command -v wg >/dev/null 2>&1 && { echo "inactive_disabled"; return; }
         fi
     done
     echo "unknown"
@@ -1670,8 +1918,11 @@ audit_services() {
         for PORT_PROTO in $RESOLVED_PORTS; do
             local PORT EXPOSURE
             PORT=$(echo "$PORT_PROTO" | cut -d'/' -f1)
+            PROTO_ONLY=$(echo "$PORT_PROTO" | cut -d'/' -f2)
             EXPOSURE=$(analyze_port_exposure "$PORT")
             log_detail "Port $PORT_PROTO: exposure = $EXPOSURE"
+            # Register as audited so check_listening_ports_analysis skips it
+            AUDITED_PORTS["${PROTO_ONLY}:${PORT}"]=1
             case "$EXPOSURE" in
                 open_world) WORST_EXPOSURE="open_world" ;;
                 open_local) [[ "$WORST_EXPOSURE" != "open_world" ]] && WORST_EXPOSURE="open_local" ;;
@@ -1685,16 +1936,20 @@ audit_services() {
 
         case "$WORST_EXPOSURE" in
             open_world)
+                # Extract first sudo ufw command from recommendation for --fix mode
+                local FIX_FIRST_CMD=""
+                if [[ -n "$RECO" ]]; then
+                    FIX_FIRST_CMD=$(echo -e "$RECO" | grep -m1 "sudo ufw" | sed 's/^[[:space:]]*//' || true)
+                fi
                 case "$RISK" in
                     critical|high)
-                        log ALERT "$EXPL" "$RECO" "--nature=action"
-                        # Extra penalty for critical/high services exposed on public IP
+                        log ALERT "$EXPL" "$RECO" "--nature=action" "--cmd=${FIX_FIRST_CMD}"
                         if [[ "$NETWORK_CONTEXT" == "public" ]]; then
                             score_deduct "$LABEL open_world high/critical (public IP extra)" 2
                         fi
                         ;;
-                    medium) log WARN  "$EXPL" "$RECO" "--nature=action" ;;
-                    low)    log INFO  "$EXPL" ;;
+                    medium) log WARN "$EXPL" "$RECO" "--nature=action" "--cmd=${FIX_FIRST_CMD}" ;;
+                    low)    log INFO "$EXPL" ;;
                 esac
                 [[ -n "$RECO" ]] && log_recommendation "$RECO"
                 ;;
@@ -1707,7 +1962,14 @@ audit_services() {
                 [[ -n "$RECO" ]] && log_recommendation "$RECO"
                 ;;
             deny)    log OK   "$(t log_svc_blocked)" ;;
-            no_rule) log INFO "$EXPL" ;;
+            no_rule)
+                log INFO "$EXPL"
+                # Track high/critical services with no explicit UFW rule
+                # They rely on default policy — noted in summary without score penalty
+                if [[ "$RISK" == "high" || "$RISK" == "critical" ]]; then
+                    IMPLICIT_POLICY_SVCS+=( "$LABEL" )
+                fi
+                ;;
         esac
     done
 
@@ -1746,11 +2008,217 @@ check_listening_ports() {
 }
 
 # ==========================================================
+# DOCKER ANALYSIS
+# Separate section — detects bypass of UFW via iptables,
+# then lists exposed container ports and checks UFW DENY coverage.
+# ==========================================================
+
+audit_docker() {
+    log_section "$(t sec_docker)"
+
+    # Docker installed?
+    if ! command -v docker >/dev/null 2>&1; then
+        log INFO "$(t docker_missing)"
+        return
+    fi
+
+    # Docker service active?
+    if ! systemctl is-active docker >/dev/null 2>&1; then
+        log INFO "$(t docker_no_daemon)"
+        return
+    fi
+
+    # --- Check 1: iptables bypass ---
+    local IPTABLES_DISABLED=false
+    if [[ -f /etc/docker/daemon.json ]]; then
+        grep -q '"iptables"[[:space:]]*:[[:space:]]*false' /etc/docker/daemon.json \
+            && IPTABLES_DISABLED=true
+    fi
+
+    if $IPTABLES_DISABLED; then
+        log OK "$(t docker_iptables_ok)"
+    else
+        log ALERT "$(t docker_bypass_warn)" "" "--nature=action" "--cmd="
+        log_recommendation "$(t docker_bypass_fix)"
+    fi
+
+    # --- Check 2: exposed container ports ---
+    echo
+    echo -e "  ${BOLD}$(t docker_ports_title)${RESET}"
+
+    local DOCKER_PORTS
+    DOCKER_PORTS=$(docker ps --format '{{.Names}} {{.Ports}}' 2>/dev/null \
+        | grep -v '^$' || true)
+
+    if [[ -z "$DOCKER_PORTS" ]]; then
+        log OK "$(t docker_no_ports)"
+        return
+    fi
+
+    local FOUND_ISSUE=false
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        local CONTAINER_NAME
+        CONTAINER_NAME=$(echo "$line" | awk '{print $1}')
+        # Extract host ports — format: 0.0.0.0:PORT->CPORT/proto or :::PORT->...
+        local HOST_PORTS
+        HOST_PORTS=$(echo "$line" | grep -oE '(0\.0\.0\.0|:::|\[::\]):([0-9]+)' \
+            | grep -oE '[0-9]+$' | sort -u || true)
+
+        [[ -z "$HOST_PORTS" ]] && continue
+
+        while IFS= read -r PORT; do
+            [[ -z "$PORT" ]] && continue
+            local EXPOSURE
+            EXPOSURE=$(analyze_port_exposure "$PORT")
+            if [[ "$EXPOSURE" == "deny" ]]; then
+                log_detail "${CONTAINER_NAME}:${PORT} — $(t docker_port_ok)"
+            else
+                FOUND_ISSUE=true
+                # --no-score: port already counted by check_listening_ports_analysis
+                # --nature=improvement: contextual Docker warning, not a duplicate action
+                log WARN "${CONTAINER_NAME} — $(t docker_port_warn): ${PORT}/tcp" \
+                    "" "--no-score" "--nature=improvement"
+                if ! $IPTABLES_DISABLED; then
+                    log_detail "$(t docker_bypass_warn | cut -c1-80)…"
+                fi
+            fi
+        done <<< "$HOST_PORTS"
+    done <<< "$DOCKER_PORTS"
+
+    $FOUND_ISSUE || log OK "$(t docker_no_ports)"
+}
+
+# ==========================================================
+# FIX MODE
+# Called at end of show_summary() when --fix is passed.
+# Iterates AUDIT_ITEMS of nature "action", proposes each
+# fix interactively (or applies all with --yes).
+# Items with empty command are shown as manual.
+# ==========================================================
+
+run_fixes() {
+    local W=58
+
+    # Collect action items
+    local AUTO_ITEMS=() MANUAL_ITEMS=()
+    local item
+    for item in "${AUDIT_ITEMS[@]}"; do
+        local LVL NAT MSG CMD
+        LVL=$(echo "$item" | cut -d'|' -f1)
+        NAT=$(echo "$item" | cut -d'|' -f2)
+        MSG=$(echo "$item" | cut -d'|' -f3)
+        CMD=$(echo "$item" | cut -d'|' -f4-)
+        [[ "$NAT" != "action" ]] && continue
+        if [[ -n "$CMD" ]]; then
+            AUTO_ITEMS+=( "$MSG|$CMD" )
+        else
+            MANUAL_ITEMS+=( "$MSG" )
+        fi
+    done
+
+    local TOTAL_AUTO=${#AUTO_ITEMS[@]}
+    local TOTAL_MANUAL=${#MANUAL_ITEMS[@]}
+
+    echo
+    echo -e "${BLUE}${BOLD}╔══════════════════════════════════════════════════════════════╗${RESET}"
+    banner_row "${BOLD}$(t fix_title)${RESET}" "" $W
+    echo -e "${BLUE}${BOLD}╠══════════════════════════════════════════════════════════════╣${RESET}"
+
+    if (( TOTAL_AUTO == 0 && TOTAL_MANUAL == 0 )); then
+        banner_row "  $(t fix_none)" "" $W
+        echo -e "${BLUE}${BOLD}╚══════════════════════════════════════════════════════════════╝${RESET}"
+        return
+    fi
+
+    # Show counts
+    (( TOTAL_AUTO   > 0 )) && banner_row "  ${GREEN}✔${RESET}  ${TOTAL_AUTO} $(t fix_summary_auto)"   "" $W
+    (( TOTAL_MANUAL > 0 )) && banner_row "  ${YELLOW}⚠${RESET}  ${TOTAL_MANUAL} $(t fix_summary_manual)" "" $W
+    echo -e "${BLUE}${BOLD}╚══════════════════════════════════════════════════════════════╝${RESET}"
+
+    # ---- Manual items (display only) ----
+    if (( TOTAL_MANUAL > 0 )); then
+        echo
+        echo -e "  ${YELLOW}${BOLD}[$(t fix_manual | tr '[:lower:]' '[:upper:]')]${RESET}"
+        for item in "${MANUAL_ITEMS[@]}"; do
+            local DISP="${item:0:56}"; [[ ${#item} -gt 56 ]] && DISP="${DISP}…"
+            echo -e "  ${YELLOW}⚠${RESET}  ${DIM}${DISP}${RESET}"
+        done
+    fi
+
+    # ---- Automatic items ----
+    if (( TOTAL_AUTO == 0 )); then return; fi
+
+    local APPLIED=0
+
+    echo
+    if $FIX_YES; then
+        echo -e "  ${CYAN}${BOLD}$(t fix_applying)${RESET}"
+    fi
+
+    for item in "${AUTO_ITEMS[@]}"; do
+        local MSG CMD
+        MSG="${item%%|*}"
+        CMD="${item#*|}"
+        local DISP="${MSG:0:52}"; [[ ${#MSG} -gt 52 ]] && DISP="${DISP}…"
+
+        echo
+        echo -e "  ${RED}${BOLD}✖${RESET}  ${DISP}"
+        echo -e "  ${DIM}→ ${CMD}${RESET}"
+
+        local DO_APPLY=false
+
+        if $FIX_YES; then
+            DO_APPLY=true
+        else
+            # Interactive prompt — loop until valid input
+            while true; do
+                printf "  %s [y/N] " "$(t fix_apply_prompt)"
+                local REPLY
+                read -r REPLY < /dev/tty
+                case "${REPLY,,}" in
+                    y|yes|o|oui) DO_APPLY=true;  break ;;
+                    n|no|"")     DO_APPLY=false; break ;;
+                    *) echo -e "  ${YELLOW}y/n${RESET}" ;;
+                esac
+            done
+        fi
+
+        if $DO_APPLY; then
+            if eval "$CMD" < /dev/null > /dev/null 2>&1; then
+                echo -e "  ${GREEN}✔ $(t fix_applied)${RESET}"
+                APPLIED=$(( APPLIED + 1 ))
+                use_logfile && echo "  [FIX APPLIED] $CMD" >> "$LOGFILE"
+            else
+                echo -e "  ${RED}✖ $(t fix_manual)${RESET}"
+                use_logfile && echo "  [FIX FAILED]  $CMD" >> "$LOGFILE"
+            fi
+        else
+            echo -e "  ${DIM}$(t fix_skipped)${RESET}"
+        fi
+    done
+
+    echo
+    if (( APPLIED > 0 )); then
+        echo -e "  ${GREEN}${BOLD}$(t fix_done)${RESET}"
+    else
+        echo -e "  ${DIM}$(t fix_none_applied)${RESET}"
+    fi
+    echo
+}
+
+# ==========================================================
 # FINAL SUMMARY
 # ==========================================================
 
 show_summary() {
     (( SCORE < 0 )) && SCORE=0
+    # Firewall inactive — cap score at 3 regardless of other checks
+    # Applied here (after all score_deduct calls) so the cap always wins
+    if $FW_INACTIVE && (( SCORE > 3 )); then
+        SCORE=3
+        SCORE_BREAKDOWN+=( "$(t score_cap_fw)|⚠|cap" )
+    fi
     local RISK RISK_COLOR RISK_ICON
     if   (( SCORE <= 4 )); then RISK="$(t sum_risk_high)"; RISK_COLOR="$RED";    RISK_ICON="✖"
     elif (( SCORE <= 7 )); then RISK="$(t sum_risk_med)";  RISK_COLOR="$YELLOW"; RISK_ICON="⚠"
@@ -1866,8 +2334,12 @@ show_summary() {
             CTX=$(echo "$entry"    | cut -d'|' -f3)
             local DISP="${REASON:0:42}"; [[ ${#REASON} -gt 42 ]] && DISP="${DISP}…"
             local CTX_SUFFIX=""
-            [[ "$CTX" == "public" ]] && CTX_SUFFIX=" ${DIM}$(t score_pub_penalty)${RESET}"
-            banner_row "${RED}-${DEDUCT}${RESET}  ${DIM}${DISP}${RESET}" "${CTX_SUFFIX}" $W
+            if [[ "$CTX" == "cap" ]]; then
+                banner_row "${YELLOW}⚠  ${DIM}${DISP}${RESET}" "" $W
+            else
+                [[ "$CTX" == "public" ]] && CTX_SUFFIX=" ${DIM}$(t score_pub_penalty)${RESET}"
+                banner_row "${RED}-${DEDUCT}${RESET}  ${DIM}${DISP}${RESET}" "${CTX_SUFFIX}" $W
+            fi
         done
     fi
 
@@ -1880,10 +2352,139 @@ show_summary() {
     ! $HAS_ACTION && $HAS_IMPROVE && INTERP_COLOR="$YELLOW"
     echo -e "  ${INTERP_COLOR}${BOLD}$(t $INTERP_KEY)${RESET}"
 
+    # Implicit policy note — shown only when score is clean but high/critical
+    # services have no explicit UFW rule (relying on default deny policy)
+    if [[ ${#IMPLICIT_POLICY_SVCS[@]} -gt 0 ]] && ! $HAS_ACTION; then
+        local DEFAULT_IN
+        DEFAULT_IN=$(ufw status verbose 2>/dev/null | grep "Default:" \
+            | grep -oE "(deny|reject|allow)" | head -1 || echo "")
+        if [[ "$DEFAULT_IN" == "deny" || "$DEFAULT_IN" == "reject" ]]; then
+            echo
+            echo -e "  ${CYAN}ℹ $(t sum_implicit_note)${RESET}"
+            local SVC_LIST
+            SVC_LIST=$(IFS=", "; echo "${IMPLICIT_POLICY_SVCS[*]}")
+            echo -e "  ${DIM}  $(t sum_implicit_svcs) ${SVC_LIST}${RESET}"
+        fi
+    fi
+
     echo
     echo -e "  ${DIM}$(t sum_cfg_ports) $CONFIG_FILE${RESET}"
     use_logfile && echo -e "  ${DIM}$(t sum_cfg_report) $LOGFILE${RESET}"
     echo
+
+    # --fix mode: propose/apply corrections after summary
+    $FIX_MODE && run_fixes
+}
+
+# ==========================================================
+# JSON EXPORT
+# --json      : summary only (score, risk, context, items)
+# --json-full : full audit (adds ports, services, UFW rules)
+# Output: stdout always; file alongside .log if -d is set.
+# ==========================================================
+
+export_json() {
+    local TIMESTAMP
+    TIMESTAMP="$(date '+%Y-%m-%dT%H:%M:%S')"
+
+    # --- helpers ---
+    json_str()  { local S="$1"; S="${S//\\/\\\\}"; S="${S//\"/\\\"}";
+                  S="${S//$'\n'/\\n}"; echo "\"$S\""; }
+    json_bool() { $1 && echo "true" || echo "false"; }
+
+    # --- build items arrays ---
+    local ACTION_JSON="" IMPROVE_JSON="" STRUCT_JSON=""
+    local item
+    for item in "${AUDIT_ITEMS[@]}"; do
+        local LVL NAT MSG CMD
+        LVL=$(echo "$item" | cut -d'|' -f1)
+        NAT=$(echo "$item" | cut -d'|' -f2)
+        MSG=$(echo "$item" | cut -d'|' -f3)
+        CMD=$(echo "$item" | cut -d'|' -f4-)
+        local ENTRY="{\"level\":$(json_str "$LVL"),\"message\":$(json_str "$MSG"),\"command\":$(json_str "$CMD")}"
+        case "$NAT" in
+            action)      ACTION_JSON="${ACTION_JSON:+$ACTION_JSON,}$ENTRY" ;;
+            improvement) IMPROVE_JSON="${IMPROVE_JSON:+$IMPROVE_JSON,}$ENTRY" ;;
+            structural)  STRUCT_JSON="${STRUCT_JSON:+$STRUCT_JSON,}$ENTRY" ;;
+        esac
+    done
+
+    # --- score breakdown ---
+    local BREAKDOWN_JSON=""
+    for entry in "${SCORE_BREAKDOWN[@]}"; do
+        local REASON DEDUCT CTX
+        REASON=$(echo "$entry" | cut -d'|' -f1)
+        DEDUCT=$(echo "$entry" | cut -d'|' -f2)
+        CTX=$(echo "$entry"    | cut -d'|' -f3)
+        local E="{\"reason\":$(json_str "$REASON"),\"deduct\":$(json_str "$DEDUCT"),\"context\":$(json_str "$CTX")}"
+        BREAKDOWN_JSON="${BREAKDOWN_JSON:+$BREAKDOWN_JSON,}$E"
+    done
+
+    # --- summary block (always present) ---
+    local RISK_STR
+    (( SCORE <= 4 )) && RISK_STR="$(t sum_risk_high)" \
+        || { (( SCORE <= 7 )) && RISK_STR="$(t sum_risk_med)" \
+        || RISK_STR="$(t sum_risk_low)"; }
+
+    local JSON
+    JSON="{"
+    JSON+="\"version\":$(json_str "$VERSION"),"
+    JSON+="\"timestamp\":$(json_str "$TIMESTAMP"),"
+    JSON+="\"host\":$(json_str "$(hostname)"),"
+    JSON+="\"summary\":{"
+    JSON+="\"score\":$SCORE,"
+    JSON+="\"risk\":$(json_str "$RISK_STR"),"
+    JSON+="\"network_context\":$(json_str "$NETWORK_CONTEXT"),"
+    JSON+="\"fw_inactive\":$(json_bool $FW_INACTIVE),"
+    JSON+="\"counts\":{\"ok\":$OK_COUNT,\"warn\":$WARN_COUNT,\"alert\":$ALERT_COUNT}"
+    JSON+="},"
+    JSON+="\"items\":{"
+    JSON+="\"action\":[${ACTION_JSON}],"
+    JSON+="\"improvement\":[${IMPROVE_JSON}],"
+    JSON+="\"structural\":[${STRUCT_JSON}]"
+    JSON+="},"
+    JSON+="\"score_breakdown\":[${BREAKDOWN_JSON}]"
+
+    # --- full mode: append ports + UFW rules ---
+    if $JSON_FULL; then
+        local UFW_RULES_JSON=""
+        while IFS= read -r rule; do
+            [[ -z "$rule" ]] && continue
+            UFW_RULES_JSON="${UFW_RULES_JSON:+$UFW_RULES_JSON,}$(json_str "$rule")"
+        done <<< "$(ufw status numbered 2>/dev/null | grep -E '^\[' || true)"
+
+        local PORTS_JSON=""
+        for KEY in "${!_LM_MAP[@]}"; do
+            local P_PROTO P_PORT P_STATUS
+            P_PROTO="${KEY%%:*}"; P_PORT="${KEY##*:}"
+            P_STATUS="${_LM_MAP[$KEY]}"
+            local E="{\"port\":$(json_str "$P_PORT"),\"proto\":$(json_str "$P_PROTO"),\"status\":$(json_str "$P_STATUS")}"
+            PORTS_JSON="${PORTS_JSON:+$PORTS_JSON,}$E"
+        done
+
+        JSON+=",\"ufw_rules\":[${UFW_RULES_JSON}]"
+        JSON+=",\"listening_ports\":[${PORTS_JSON}]"
+    fi
+
+    JSON+="}"
+
+    # Pretty-print if python3 available, else raw
+    local PRETTY
+    if command -v python3 >/dev/null 2>&1; then
+        PRETTY=$(echo "$JSON" | python3 -m json.tool 2>/dev/null || echo "$JSON")
+    else
+        PRETTY="$JSON"
+    fi
+
+    # Always print to stdout
+    echo "$PRETTY"
+
+    # Write to file alongside .log if -d is set
+    if use_logfile && [[ -n "$LOGFILE" ]]; then
+        local JSONFILE="${LOGFILE%.log}.json"
+        echo "$PRETTY" > "$JSONFILE"
+        echo -e "  ${DIM}$(t json_written) $JSONFILE${RESET}"
+    fi
 }
 
 # ==========================================================
@@ -1918,8 +2519,10 @@ main() {
         audit_services
         check_listening_ports_analysis
         check_listening_ports
+        audit_docker
         show_summary
         finalize_log
+        $JSON_MODE && export_json
     fi
 }
 

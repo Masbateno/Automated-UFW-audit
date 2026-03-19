@@ -4,6 +4,82 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.6] — 2026-03-19
+
+Major release — Docker analysis, new services, JSON export, --fix mode, contextual scoring improvements, and false positive fixes.
+
+### New: --fix mode
+
+- **`run_fixes()`** — interactive fix section displayed after the summary when `--fix` is passed
+- Each `action` item with an automatable command gets a `[y/N]` prompt
+- Items without a safe automated fix (e.g. firewall disabled) are shown as `[manual]` with no execution
+- `--fix --yes` applies all fixes without confirmation
+- `eval "$CMD" < /dev/null` prevents blocking on interactive prompts (e.g. `ufw delete`)
+- `sudo ufw --force delete` used for rule deletion to suppress UFW confirmation
+
+### New: Docker analysis
+
+- **`audit_docker()`** — dedicated section after network services:
+  - Detects if Docker is installed and active
+  - Checks `daemon.json` for `"iptables": false` — OK if present, ALERT if absent (UFW bypass risk)
+  - Lists running container ports via `docker ps` and checks for explicit UFW DENY coverage
+  - Container ports without DENY shown as `improvement` (no extra score — already counted by port section)
+  - Removes duplicate `log_section` call that generated spurious blue frame inside Docker section
+
+### New: JSON export
+
+- **`export_json()`** — two modes:
+  - `--json` : summary (score, risk, context, categorised items, score breakdown)
+  - `--json-full` : adds listening ports and UFW rules
+- Output always on stdout; file `.json` written alongside `.log` when `-d` is active
+- Pretty-printed via `python3 -m json.tool` when available
+
+### New services (5)
+
+- **WireGuard VPN** — `wg-quick@` template service detection; `fixed` port 51820/udp; contextual message (VPN exposure is intentional)
+- **Redis** — `fixed` port 6379/tcp; warns if bound outside localhost; INFO when correctly on 127.0.0.1
+- **Jellyfin** — `fixed` port 8096/tcp
+- **Plex Media Server** — `fixed` port 32400/tcp
+- **Home Assistant** — `ask` port 8123/tcp; two-factor authentication reminder when internet-facing
+
+### New: --no-color
+
+- **`setup_colors()`** — replaces static ANSI variable definitions; called after argument parsing
+- All colour variables set to empty strings when `--no-color` is passed
+- Detected in first-pass argument loop so colours are never emitted even in early error messages
+
+### Scoring improvements
+
+- **Firewall inactive → score capped at 3** — `FW_INACTIVE` flag set in `check_firewall_status()`, cap applied in `show_summary()` after all `score_deduct()` calls complete; annotated in score breakdown with `⚠` marker
+- **Open incoming policy → −3** (was −2) — `--no-score` + manual `score_deduct 3` to override default ALERT penalty
+- **IPv6 without rules** — WARN and −1 only when UFW rules exist; silent OK on fresh installs with no rules configured
+
+### Summary improvements
+
+- **Implicit policy note** — shown after the interpretation phrase when score is clean but `high`/`critical` services rely on default `deny` policy rather than explicit rules; lists affected services; suppressed when actions are pending
+- **Score cap annotation** — `⚠ score capped at 3 — firewall disabled` displayed in score breakdown as a distinct entry (yellow `⚠`, no `-X` prefix)
+
+### False positive fixes
+
+- **`AUDITED_PORTS[]`** — ports processed by `audit_services()` are registered and skipped in `check_listening_ports_analysis()`, eliminating duplicate port reporting (e.g. Redis 6379, Samba 445/139)
+- **`get_service_state()`** — handles systemd template services (`wg-quick@*`); falls back to `wg` binary check for WireGuard when no unit is loaded
+- Redis, Jellyfin, Plex changed from `auto`/`ask` to `fixed` — eliminates interactive port prompts for services with standard ports
+
+### Security hardening
+
+- **`chmod 600`** applied to `~/.ufw_audit.conf` on creation (`config_load`) and on every write (`config_set`)
+
+### New CLI flags
+
+- `--fix` — propose fixes after audit
+- `--yes` — apply all fixes without confirmation (requires `--fix`)
+- `--no-color` — disable ANSI colour output
+- `--json` — export summary as JSON
+- `--json-full` — export full audit as JSON
+
+
+---
+
 ## [v0.5] — 2026-03-13
 
 Major release — audit engine overhaul, contextual scoring system, and redesigned summary.
