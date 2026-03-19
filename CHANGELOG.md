@@ -4,6 +4,16 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.6.1] — 2026-03-19
+
+Patch release — bug fix for interactive port prompt.
+
+### Bug fix
+
+- **`resolve_ports()` — `ask` config_key now saves port after first prompt** — services with `config_key=ask` (Nginx, Apache, VNC, qBittorrent, Home Assistant) were asking for the port on every run instead of saving the answer. The fix converts `ask` into a stable key derived from the service label (e.g. `nginx_web_server_port`) and saves it to `~/.ufw_audit.conf` like any named key. Subsequent runs read the saved value without prompting. `--reconfigure` correctly clears these dynamic keys.
+
+---
+
 ## [v0.6] — 2026-03-19
 
 Major release — Docker analysis, new services, JSON export, --fix mode, contextual scoring improvements, and false positive fixes.

@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================================
-# UFW-audit v0.6
+# UFW-audit v0.5.0
 # UFW firewall security audit for Linux
 # Target  : Debian/Ubuntu and derivatives
 # Audience: regular user, non-system administrator
@@ -9,7 +9,7 @@
 set -uo pipefail
 export LC_ALL=C.UTF-8
 
-VERSION="0.6"
+VERSION="0.6.1"
 
 OK_COUNT=0
 WARN_COUNT=0
@@ -1381,7 +1381,13 @@ resolve_ports() {
 
     [[ "$CONFIG_KEY" == "fixed" ]] && { echo "$DEFAULT_PORTS"; return; }
 
-    if $RECONFIGURE && [[ "$CONFIG_KEY" != "auto" && "$CONFIG_KEY" != "ask" ]]; then
+    # 'ask' means: prompt on first run, then save like any named key
+    # Generate a stable key from the service label (lowercase, spaces→underscores)
+    if [[ "$CONFIG_KEY" == "ask" ]]; then
+        CONFIG_KEY=$(echo "$LABEL" | tr '[:upper:]' '[:lower:]' | tr ' /()' '_' | tr -s '_' | sed 's/_$//')_port
+    fi
+
+    if $RECONFIGURE && [[ "$CONFIG_KEY" != "auto" ]]; then
         config_delete_key "$CONFIG_KEY"
     fi
 
@@ -1389,7 +1395,7 @@ resolve_ports() {
     PROTO=$(echo "$DEFAULT_PORTS" | awk '{print $1}' | cut -d'/' -f2)
 
     # 1. From ~/.ufw_audit.conf
-    if [[ "$CONFIG_KEY" != "auto" && "$CONFIG_KEY" != "ask" ]]; then
+    if [[ "$CONFIG_KEY" != "auto" ]]; then
         local SAVED
         SAVED=$(config_get "$CONFIG_KEY")
         if [[ -n "$SAVED" ]]; then
@@ -1401,16 +1407,14 @@ resolve_ports() {
     fi
 
     # 2. Auto-detection
-    if [[ "$CONFIG_KEY" != "ask" ]]; then
-        local AUTO_PORT
-        AUTO_PORT=$(detect_port_auto "$LABEL")
-        if [[ -n "$AUTO_PORT" ]]; then
-            $VERBOSE    && echo -e "    ${DIM}↳ $(t port_auto): $AUTO_PORT${RESET}" > /dev/tty
-            is_detailed && echo    "    ↳ $(t port_auto): $AUTO_PORT" >> "$LOGFILE"
-            [[ "$CONFIG_KEY" != "auto" ]] && config_set "$CONFIG_KEY" "$(echo "$AUTO_PORT" | cut -d'/' -f1)"
-            echo "$AUTO_PORT"
-            return
-        fi
+    local AUTO_PORT
+    AUTO_PORT=$(detect_port_auto "$LABEL")
+    if [[ -n "$AUTO_PORT" ]]; then
+        $VERBOSE    && echo -e "    ${DIM}↳ $(t port_auto): $AUTO_PORT${RESET}" > /dev/tty
+        is_detailed && echo    "    ↳ $(t port_auto): $AUTO_PORT" >> "$LOGFILE"
+        [[ "$CONFIG_KEY" != "auto" ]] && config_set "$CONFIG_KEY" "$(echo "$AUTO_PORT" | cut -d'/' -f1)"
+        echo "$AUTO_PORT"
+        return
     fi
 
     # 3. Interactive prompt — all output to /dev/tty, only resolved port on stdout
@@ -1444,7 +1448,7 @@ resolve_ports() {
         RESOLVED_PORT="$DEFAULT_PORT_DISPLAY"
     fi
 
-    [[ "$CONFIG_KEY" != "auto" && "$CONFIG_KEY" != "ask" ]] && config_set "$CONFIG_KEY" "$RESOLVED_PORT"
+    [[ "$CONFIG_KEY" != "auto" ]] && config_set "$CONFIG_KEY" "$RESOLVED_PORT"
     echo "${RESOLVED_PORT}/${PROTO}"
 }
 
