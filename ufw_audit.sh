@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================================
-# UFW-audit v0.5.0
+# UFW-audit v0.6.1
 # UFW firewall security audit for Linux
 # Target  : Debian/Ubuntu and derivatives
 # Audience: regular user, non-system administrator
