@@ -4,7 +4,7 @@ All notable changes to this project are documented here.
 
 ---
 
-## [v0.8.0] — 2026-03-20
+## [v0.8] — 2026-03-20
 
 ### IP geolocation in UFW log analysis
 
