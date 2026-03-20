@@ -4,6 +4,19 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.8.0] — 2026-03-20
+
+### IP geolocation in UFW log analysis
+
+- **`get_ip_geo()`** — new function resolving country and operator for any IP address via `whois`
+- Private/loopback ranges (`10.x`, `192.168.x`, `172.16-31.x`, `127.x`) returned as "réseau local" / "local network" without network query
+- Results cached in `GEO_CACHE[]` — each IP looked up only once per run
+- Geolocation displayed in terminal on top source IP and bruteforce hits
+- Geolocation displayed in detailed report (`-d`) on full top-10 IP table and bruteforce table
+- If `whois` is not installed: single informational note displayed, audit continues normally without geo data
+
+---
+
 ## [v0.7] — 2026-03-20
 
 Major release — risk classification overhaul, UFW log analysis, DDNS/external exposure detection, new services, and multiple bug fixes.
