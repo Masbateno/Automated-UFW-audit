@@ -4,6 +4,77 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.7] — 2026-03-20
+
+Major release — risk classification overhaul, UFW log analysis, DDNS/external exposure detection, new services, and multiple bug fixes.
+
+### Risk classification overhaul
+
+- **New risk levels** — 7 services reclassified based on two-axis framework (exposure surface + potential threat):
+  - SSH Server, VNC Server, MySQL/MariaDB, PostgreSQL, Redis → `critical` (was `high`)
+  - Cockpit, Home Assistant → `high` (was `medium`)
+- **`get_risk_context()`** — new function returning exposure and threat strings per service (FR + EN); covers all `high` and `critical` services
+- **`log_risk_context()`** — displays risk context block in terminal and log for active `high`/`critical` services (skipped for `inactive_disabled`)
+- **`finalize_log()`** — new `[RISK CONTEXT]` section in detailed report listing all detected `high`/`critical` services with full two-axis context; inactive/disabled services excluded
+
+### UFW log analysis — `audit_ufw_logs()`
+
+- New dedicated section parsing `/var/log/ufw.log`
+- Supports both syslog (`Mar 19 10:23:14`) and systemd ISO (`2026-03-19T18:20:08`) formats
+- Fast single-pass `awk` filtering by date — no `date` subprocess per line
+- Configurable period via `--log-days=N` (default: 7)
+- Terminal summary: total blocked attempts, top source IP, top targeted port, bruteforce detection, attempts on installed service ports
+- Detailed report: full top-10 tables for IPs and ports
+- Bruteforce detection: >10 attempts from same IP on same port within 60 seconds
+
+### DDNS / external exposure detection — `audit_ddns()`
+
+- New section detecting active DDNS clients: ddclient, inadyn, No-IP DUC, DuckDNS script
+- Extracts configured domain from client config file
+- Crosses active DDNS with unrestricted UFW `ALLOW` rules to identify internet-exposed ports
+- Identifies high/critical services among exposed ports
+- Score: −1 global if DDNS active + open ports (not per port)
+- Conseil Fail2ban displayed when exposure is detected
+- Detailed report section included
+
+### New services (4)
+
+- **Nextcloud** — `high`; snap + apt detection; two-axis risk context
+- **Gitea / Forgejo** — `medium`; binary + systemd + apt detection; port auto-detected from `app.ini`
+- **Mosquitto (MQTT)** — `high`; `fixed` ports 1883/8883; two-axis risk context
+- **Syncthing** — `medium`; port auto-detected from `config.xml`
+
+### Detection improvements
+
+- **`is_package_installed()`** — extended beyond dpkg: snap packages (`snap list`) and binary installations (gitea, forgejo)
+- **`get_service_state()`** — snap service state detection via `snap services`
+- **`AUDITED_PORTS[]`** — ports processed by `audit_services()` now excluded from `check_listening_ports_analysis()` — eliminates duplicate port reporting
+
+### --fix improvements
+
+- **Sort ufw delete commands in descending rule number order** — prevents renumbering failures when deleting multiple rules sequentially
+- **`eval "$CMD" < /dev/null`** — prevents blocking on interactive prompts
+
+### Scoring
+
+- **`IMPLICIT_POLICY_SVCS[]`** — tracks `high`/`critical` services with no explicit UFW rule; displayed as a contextual note under the summary phrase (no score penalty)
+- **Mosquitto** correctly added to implicit policy note when active without explicit rule
+
+### Bug fixes
+
+- UFW version `N/A` in report header — `grep -oE` now applied to full `ufw version` output, not just `head -1`
+- `grep -c` replaced by `wc -l` in log analysis — prevents `0\n0` arithmetic errors on some grep versions
+- `mawk` compatibility — `awk` date filtering rewritten using `substr()` instead of `match()` with capture groups
+- WireGuard `inactive_disabled` no longer shown in risk context (terminal or report)
+
+### README
+
+- Service table updated with `Basis` column explaining risk classification
+- Note added distinguishing validated services from implemented-but-untested services
+- Beta tester call to action with GitHub issue link
+
+---
+
 ## [v0.6.1] — 2026-03-19
 
 Patch release — bug fix for interactive port prompt.

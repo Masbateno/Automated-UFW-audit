@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================================
-# UFW-audit v0.6.1
+# UFW-audit v0.7
 # UFW firewall security audit for Linux
 # Target  : Debian/Ubuntu and derivatives
 # Audience: regular user, non-system administrator
@@ -9,7 +9,7 @@
 set -uo pipefail
 export LC_ALL=C.UTF-8
 
-VERSION="0.6.1"
+VERSION="0.7"
 
 OK_COUNT=0
 WARN_COUNT=0
@@ -29,6 +29,7 @@ NO_COLOR=false     # --no-color  : disable ANSI colour output
 FW_INACTIVE=false  # set true when firewall is off — score capped at 3 in show_summary
 JSON_MODE=false    # --json      : export summary as JSON (stdout, or file with -d)
 JSON_FULL=false    # --json-full : export full audit details as JSON
+LOG_DAYS=7         # --log-days=N : number of days to analyse in UFW log (default 7)
 declare -A AUDITED_PORTS=()  # ports already audited in audit_services() — skip in port analysis
 IMPLICIT_POLICY_SVCS=()      # high/critical services relying on default policy (no explicit UFW rule)
 
@@ -47,7 +48,7 @@ REAL_USER=""
 REAL_HOME=""
 CONFIG_FILE=""
 
-# --- Network context & scoring (v0.6.0) ---
+# --- Network context & scoring (v0.7) ---
 PUBLIC_IP=""           # Public IP if detected via curl
 HAS_PUBLIC_IP=false    # true if a public IP is confirmed
 NETWORK_CONTEXT=""     # "public" | "local"
@@ -254,6 +255,42 @@ t() {
             json_written)       echo "Export JSON :" ;;
             sum_implicit_note)  echo "Note : service(s) à risque élevé s'appuient sur la politique par défaut UFW plutôt que des règles explicites. C'est correct si la politique est deny, mais une règle explicite est plus robuste." ;;
             sum_implicit_svcs)  echo "Service(s) concerné(s) :" ;;
+            # --- risk context ---
+            risk_ctx_title)     echo "Contexte de risque" ;;
+            risk_ctx_exposure)  echo "Exposition" ;;
+            risk_ctx_threat)    echo "Menace potentielle" ;;
+            risk_ctx_level)     echo "Niveau de risque" ;;
+            risk_log_section)   echo "CONTEXTE DE RISQUE — SERVICES DÉTECTÉS" ;;
+            # --- log analysis ---
+            sec_logs)           echo "ANALYSE DES LOGS UFW" ;;
+            log_no_logfile)     echo "Fichier de log UFW introuvable (/var/log/ufw.log) — journalisation désactivée ?" ;;
+            log_empty)          echo "Aucun événement UFW BLOCK dans les logs sur la période analysée" ;;
+            log_period)         echo "Période analysée" ;;
+            log_days_unit)      echo "jour(s)" ;;
+            log_available)      echo "jours de logs disponibles" ;;
+            log_total_blocks)   echo "tentative(s) bloquée(s) détectée(s)" ;;
+            log_top_ips)        echo "Top IPs sources" ;;
+            log_top_ports)      echo "Top ports ciblés" ;;
+            log_brute_title)    echo "Bruteforce détecté" ;;
+            log_brute_none)     echo "Aucun bruteforce détecté sur la période" ;;
+            log_brute_found)    echo "tentative(s) depuis" ;;
+            log_brute_on)       echo "sur" ;;
+            log_svc_hits)       echo "Tentatives sur services installés" ;;
+            log_svc_hits_none)  echo "Aucune tentative sur les ports des services installés" ;;
+            log_attempts)       echo "tentative(s)" ;;
+            log_help_days)      echo "  --log-days=N        Analyser les N derniers jours de logs UFW (défaut : 7)" ;;
+            # --- ddns / external exposure ---
+            sec_ddns)           echo "EXPOSITION EXTERNE (DDNS)" ;;
+            ddns_none)          echo "Aucun client DDNS détecté — pas d'exposition externe via DDNS identifiée" ;;
+            ddns_found)         echo "Client DDNS actif détecté" ;;
+            ddns_domain)        echo "Domaine configuré" ;;
+            ddns_no_domain)     echo "Domaine non extrait (vérifiez la configuration manuellement)" ;;
+            ddns_no_ports)      echo "Aucun port UFW ouvert sans restriction de source détecté" ;;
+            ddns_ports_title)   echo "Ports potentiellement exposés publiquement" ;;
+            ddns_warn)          echo "DDNS actif avec port(s) ouverts sans restriction — vérifiez que l'exposition est intentionnelle" ;;
+            ddns_high_warn)     echo "Service à risque élevé potentiellement exposé sur internet via DDNS" ;;
+            ddns_advice)        echo "Si cette exposition est intentionnelle : maintenez les services à jour, activez l'authentification, et envisagez Fail2ban." ;;
+            ddns_inactive)      echo "Client DDNS installé mais service inactif" ;;
         esac
     else
         case "$KEY" in
@@ -427,6 +464,42 @@ t() {
             json_written)       echo "JSON export:" ;;
             sum_implicit_note)  echo "Note: high-risk service(s) rely on UFW's default policy rather than explicit rules. This is correct if the policy is deny, but an explicit rule is more robust." ;;
             sum_implicit_svcs)  echo "Affected service(s):" ;;
+            # --- risk context ---
+            risk_ctx_title)     echo "Risk context" ;;
+            risk_ctx_exposure)  echo "Exposure" ;;
+            risk_ctx_threat)    echo "Potential threat" ;;
+            risk_ctx_level)     echo "Risk level" ;;
+            risk_log_section)   echo "RISK CONTEXT — DETECTED SERVICES" ;;
+            # --- log analysis ---
+            sec_logs)           echo "UFW LOG ANALYSIS" ;;
+            log_no_logfile)     echo "UFW log file not found (/var/log/ufw.log) — logging disabled?" ;;
+            log_empty)          echo "No UFW BLOCK events found in logs for the analysed period" ;;
+            log_period)         echo "Period analysed" ;;
+            log_days_unit)      echo "day(s)" ;;
+            log_available)      echo "days of logs available" ;;
+            log_total_blocks)   echo "blocked attempt(s) detected" ;;
+            log_top_ips)        echo "Top source IPs" ;;
+            log_top_ports)      echo "Top targeted ports" ;;
+            log_brute_title)    echo "Bruteforce detected" ;;
+            log_brute_none)     echo "No bruteforce detected in the analysed period" ;;
+            log_brute_found)    echo "attempt(s) from" ;;
+            log_brute_on)       echo "on" ;;
+            log_svc_hits)       echo "Attempts on installed service ports" ;;
+            log_svc_hits_none)  echo "No attempts on installed service ports" ;;
+            log_attempts)       echo "attempt(s)" ;;
+            log_help_days)      echo "  --log-days=N        Analyse the last N days of UFW logs (default: 7)" ;;
+            # --- ddns / external exposure ---
+            sec_ddns)           echo "EXTERNAL EXPOSURE (DDNS)" ;;
+            ddns_none)          echo "No DDNS client detected — no DDNS-based external exposure identified" ;;
+            ddns_found)         echo "Active DDNS client detected" ;;
+            ddns_domain)        echo "Configured domain" ;;
+            ddns_no_domain)     echo "Domain not extracted (check configuration manually)" ;;
+            ddns_no_ports)      echo "No UFW port open without source restriction detected" ;;
+            ddns_ports_title)   echo "Ports potentially exposed to the internet" ;;
+            ddns_warn)          echo "DDNS active with open port(s) without source restriction — verify exposure is intentional" ;;
+            ddns_high_warn)     echo "High-risk service potentially internet-exposed via DDNS" ;;
+            ddns_advice)        echo "If this exposure is intentional: keep services up to date, enable authentication, and consider Fail2ban." ;;
+            ddns_inactive)      echo "DDNS client installed but service is inactive" ;;
         esac
     fi
 }
@@ -460,7 +533,7 @@ show_banner() {
     SYS_HOST="$(hostname 2>/dev/null || echo "$(t banner_unknown)")"
     SYS_DATE="$(date '+%d/%m/%Y %H:%M')"
     SYS_USER="${REAL_USER:-$(whoami)}"
-    SYS_UFW="$(ufw version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' || echo "N/A")"
+    SYS_UFW="$(ufw version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 || echo "N/A")"
 
     SYS_NAME="${SYS_NAME:0:40}"
     SYS_HOST="${SYS_HOST:0:40}"
@@ -495,24 +568,28 @@ show_banner() {
 # ==========================================================
 
 SERVICES=(
-    "SSH Server|openssh-server|ssh|22/tcp|high|ssh_port"
-    "VNC Server|x11vnc tigervnc-standalone-server|x11vnc vncserver|5900/tcp|high|ask"
+    "SSH Server|openssh-server|ssh|22/tcp|critical|ssh_port"
+    "VNC Server|x11vnc tigervnc-standalone-server|x11vnc vncserver|5900/tcp|critical|ask"
     "Samba (Windows file sharing)|samba|smbd|445/tcp 139/tcp|critical|fixed"
     "FTP Server|vsftpd proftpd|vsftpd proftpd|21/tcp|critical|auto"
     "Apache Web Server|apache2|apache2|80/tcp 443/tcp|medium|ask"
     "Nginx Web Server|nginx|nginx|80/tcp 443/tcp|medium|ask"
-    "MySQL / MariaDB|mysql-server mariadb-server|mysql mariadb|3306/tcp|high|auto"
-    "PostgreSQL|postgresql|postgresql|5432/tcp|high|auto"
+    "MySQL / MariaDB|mysql-server mariadb-server|mysql mariadb|3306/tcp|critical|auto"
+    "PostgreSQL|postgresql|postgresql|5432/tcp|critical|auto"
     "Transmission (web UI)|transmission-daemon|transmission-daemon|9091/tcp|medium|auto"
     "qBittorrent (web UI)|qbittorrent-nox|qbittorrent-nox|8080/tcp|medium|ask"
     "Avahi (local network discovery)|avahi-daemon|avahi-daemon|5353/udp|low|fixed"
     "CUPS (network printing)|cups|cups|631/tcp|low|auto"
-    "Cockpit (web admin)|cockpit|cockpit|9090/tcp|medium|auto"
+    "Cockpit (web admin)|cockpit|cockpit|9090/tcp|high|auto"
     "WireGuard VPN|wireguard|wg-quick@|51820/udp|high|fixed"
-    "Redis|redis-server|redis|6379/tcp|high|fixed"
+    "Redis|redis-server|redis|6379/tcp|critical|fixed"
     "Jellyfin|jellyfin|jellyfin|8096/tcp|medium|fixed"
     "Plex Media Server|plexmediaserver|plexmediaserver|32400/tcp|medium|fixed"
-    "Home Assistant|homeassistant python3-homeassistant|home-assistant homeassistant|8123/tcp|medium|ask"
+    "Home Assistant|homeassistant python3-homeassistant|home-assistant homeassistant|8123/tcp|high|ask"
+    "Nextcloud|nextcloud|nextcloud apache2 nginx|80/tcp 443/tcp|high|ask"
+    "Gitea|gitea forgejo|gitea forgejo|3000/tcp|medium|auto"
+    "Mosquitto (MQTT)|mosquitto|mosquitto|1883/tcp 8883/tcp|high|fixed"
+    "Syncthing|syncthing|syncthing|8384/tcp 22000/tcp|medium|auto"
 )
 
 # ==========================================================
@@ -668,6 +745,42 @@ get_risk_explanation() {
                     no_rule)    echo "Home Assistant est actif. Vérifiez qu'il n'est pas accessible depuis internet si ce n'est pas intentionnel." ;;
                     inactive)   echo "Home Assistant est installé et actif, mais ne redémarrera pas automatiquement." ;;
                     disabled)   echo "Home Assistant est installé mais arrêté et désactivé. Pas de risque immédiat." ;;
+                esac ;;
+            "Nextcloud")
+                case "$SITUATION" in
+                    open_world) echo "Nextcloud est accessible depuis internet. Vérifiez que l'authentification à deux facteurs est activée, que le service est à jour et que HTTPS est configuré." ;;
+                    open_local) echo "Nextcloud est restreint au réseau local. Configuration correcte pour un usage domestique." ;;
+                    deny)       echo "L'accès à Nextcloud est bloqué par UFW." ;;
+                    no_rule)    echo "Nextcloud est actif. Vérifiez son niveau d'exposition selon votre usage." ;;
+                    inactive)   echo "Nextcloud est installé et actif, mais ne redémarrera pas automatiquement." ;;
+                    disabled)   echo "Nextcloud est installé mais arrêté et désactivé. Pas de risque immédiat." ;;
+                esac ;;
+            "Gitea")
+                case "$SITUATION" in
+                    open_world) echo "Gitea (forge Git) est accessible depuis internet. Désactivez les inscriptions publiques si non nécessaires et maintenez le service à jour." ;;
+                    open_local) echo "Gitea est restreint au réseau local. Configuration adaptée pour un usage personnel." ;;
+                    deny)       echo "L'accès à Gitea est bloqué par UFW." ;;
+                    no_rule)    echo "Gitea est actif. Vérifiez qu'il n'est pas accessible depuis internet si ce n'est pas intentionnel." ;;
+                    inactive)   echo "Gitea est installé et actif, mais ne redémarrera pas automatiquement." ;;
+                    disabled)   echo "Gitea est installé mais arrêté et désactivé. Pas de risque immédiat." ;;
+                esac ;;
+            "Mosquitto (MQTT)")
+                case "$SITUATION" in
+                    open_world) echo "Mosquitto (broker MQTT) est accessible depuis internet. MQTT sans authentification est un risque critique — n'importe qui peut publier ou s'abonner à vos topics domotiques." ;;
+                    open_local) echo "Mosquitto est restreint au réseau local. Configuration normale pour la domotique locale." ;;
+                    deny)       echo "L'accès à Mosquitto est bloqué par UFW." ;;
+                    no_rule)    echo "Mosquitto est actif. Par défaut il écoute sur toutes les interfaces — vérifiez qu'il n'est pas accessible depuis internet." ;;
+                    inactive)   echo "Mosquitto est installé et actif, mais ne redémarrera pas automatiquement." ;;
+                    disabled)   echo "Mosquitto est installé mais arrêté et désactivé. Pas de risque immédiat." ;;
+                esac ;;
+            "Syncthing")
+                case "$SITUATION" in
+                    open_world) echo "Syncthing est accessible depuis internet. L'interface web (8384) ne devrait pas être exposée publiquement — restreignez-la au réseau local." ;;
+                    open_local) echo "Syncthing est restreint au réseau local. Configuration correcte pour la synchronisation domestique." ;;
+                    deny)       echo "L'accès à Syncthing est bloqué par UFW." ;;
+                    no_rule)    echo "Syncthing est actif. L'interface web écoute sur localhost par défaut, ce qui est correct." ;;
+                    inactive)   echo "Syncthing est installé et actif, mais ne redémarrera pas automatiquement." ;;
+                    disabled)   echo "Syncthing est installé mais arrêté et désactivé. Pas de risque immédiat." ;;
                 esac ;;
             *)
                 case "$SITUATION" in
@@ -825,6 +938,42 @@ get_risk_explanation() {
                     inactive)   echo "Home Assistant is installed and currently active, but will not restart automatically." ;;
                     disabled)   echo "Home Assistant is installed but stopped and disabled. No immediate risk." ;;
                 esac ;;
+            "Nextcloud")
+                case "$SITUATION" in
+                    open_world) echo "Nextcloud is reachable from the internet. Make sure two-factor authentication is enabled, the service is up to date, and HTTPS is configured." ;;
+                    open_local) echo "Nextcloud is restricted to the local network. Suitable for home use." ;;
+                    deny)       echo "Nextcloud access is blocked by UFW." ;;
+                    no_rule)    echo "Nextcloud is active. Check its exposure level based on your intended use." ;;
+                    inactive)   echo "Nextcloud is installed and currently active, but will not restart automatically." ;;
+                    disabled)   echo "Nextcloud is installed but stopped and disabled. No immediate risk." ;;
+                esac ;;
+            "Gitea")
+                case "$SITUATION" in
+                    open_world) echo "Gitea (Git forge) is reachable from the internet. Disable public registration if not needed and keep the service up to date." ;;
+                    open_local) echo "Gitea is restricted to the local network. Suitable for personal use." ;;
+                    deny)       echo "Gitea access is blocked by UFW." ;;
+                    no_rule)    echo "Gitea is active. Check that it is not reachable from the internet if unintentional." ;;
+                    inactive)   echo "Gitea is installed and currently active, but will not restart automatically." ;;
+                    disabled)   echo "Gitea is installed but stopped and disabled. No immediate risk." ;;
+                esac ;;
+            "Mosquitto (MQTT)")
+                case "$SITUATION" in
+                    open_world) echo "Mosquitto (MQTT broker) is reachable from the internet. MQTT without authentication is a critical risk — anyone can publish or subscribe to your home automation topics." ;;
+                    open_local) echo "Mosquitto is restricted to the local network. Normal setup for local home automation." ;;
+                    deny)       echo "Mosquitto access is blocked by UFW." ;;
+                    no_rule)    echo "Mosquitto is active. By default it listens on all interfaces — check that it is not reachable from the internet." ;;
+                    inactive)   echo "Mosquitto is installed and currently active, but will not restart automatically." ;;
+                    disabled)   echo "Mosquitto is installed but stopped and disabled. No immediate risk." ;;
+                esac ;;
+            "Syncthing")
+                case "$SITUATION" in
+                    open_world) echo "Syncthing is reachable from the internet. The web UI (8384) should not be publicly exposed — restrict it to the local network." ;;
+                    open_local) echo "Syncthing is restricted to the local network. Suitable for home synchronisation." ;;
+                    deny)       echo "Syncthing access is blocked by UFW." ;;
+                    no_rule)    echo "Syncthing is active. The web UI listens on localhost by default, which is correct." ;;
+                    inactive)   echo "Syncthing is installed and currently active, but will not restart automatically." ;;
+                    disabled)   echo "Syncthing is installed but stopped and disabled. No immediate risk." ;;
+                esac ;;
             *)
                 case "$SITUATION" in
                     open_world) echo "This service is reachable from the internet without restriction." ;;
@@ -895,8 +1044,10 @@ get_recommendation() {
                         echo "As FTP is unencrypted, we recommend stopping it and using SFTP (included with SSH) :\n  sudo systemctl stop vsftpd\n  sudo systemctl disable vsftpd\nIf you must keep FTP, restrict it to the local network :\n  sudo ufw delete allow $MAIN_PORT/tcp\n  sudo ufw allow from 192.168.1.0/24 to any port $MAIN_PORT" ;;
                     "MySQL / MariaDB"|"PostgreSQL"|"Redis")
                         echo "Block internet access — a database must not be publicly exposed :\n  sudo ufw delete allow $MAIN_PORT/tcp\n  sudo ufw deny $MAIN_PORT/tcp" ;;
-                    "Transmission (web UI)"|"qBittorrent (web UI)"|"Cockpit (web admin)"|"Apache Web Server"|"Nginx Web Server"|"Jellyfin"|"Plex Media Server"|"Home Assistant")
+                    "Transmission (web UI)"|"qBittorrent (web UI)"|"Cockpit (web admin)"|"Apache Web Server"|"Nginx Web Server"|"Jellyfin"|"Plex Media Server"|"Home Assistant"|"Nextcloud"|"Gitea"|"Syncthing")
                         echo "To restrict access to your local network (replace 192.168.1.0/24 with your network range) :\n  sudo ufw delete allow $MAIN_PORT/tcp\n  sudo ufw allow from 192.168.1.0/24 to any port $MAIN_PORT" ;;
+                    "Mosquitto (MQTT)")
+                        echo "Restrict MQTT to your local network :\n  sudo ufw delete allow $MAIN_PORT/tcp\n  sudo ufw allow from 192.168.1.0/24 to any port $MAIN_PORT\nAlso enable authentication in /etc/mosquitto/mosquitto.conf" ;;
                     "WireGuard VPN")
                         echo "WireGuard is designed to be internet-facing. Make sure only the VPN port is open :\n  sudo ufw allow $MAIN_PORT/udp\n  sudo ufw deny $MAIN_PORT/tcp" ;;
                     "CUPS (network printing)"|"Avahi (local network discovery)")
@@ -915,6 +1066,196 @@ get_recommendation() {
                     "SSH Server")   [[ "$SITUATION" == "disabled" ]] && echo "If you do not use SSH, you can cleanly remove it :\n  sudo apt remove openssh-server" ;;
                 esac ;;
         esac
+    fi
+}
+
+# ==========================================================
+# RISK CONTEXT — two-axis classification per service
+# Returns exposure and threat strings for display in audit
+# and detailed report. Only called for high/critical services.
+# ==========================================================
+
+get_risk_context() {
+    local LABEL="$1"
+    local AXIS="$2"   # "exposure" | "threat" | "level"
+
+    if $LANG_FR; then
+        case "$LABEL" in
+            "SSH Server")
+                case "$AXIS" in
+                    exposure) echo "Port très ciblé par les scans automatisés et attaques bruteforce — exposé sur internet par défaut" ;;
+                    threat)   echo "Accès shell complet à la machine, escalade de privilèges, pivot vers d'autres systèmes du réseau" ;;
+                    level)    echo "CRITIQUE" ;;
+                esac ;;
+            "VNC Server")
+                case "$AXIS" in
+                    exposure) echo "Protocole souvent sans chiffrement natif, authentification faible ou absente sur les anciennes versions" ;;
+                    threat)   echo "Contrôle visuel et interactif complet du bureau — équivalent à un accès physique à la machine" ;;
+                    level)    echo "CRITIQUE" ;;
+                esac ;;
+            "Samba (Windows file sharing)")
+                case "$AXIS" in
+                    exposure) echo "Conçu exclusivement pour les réseaux locaux — dangereux par nature si exposé sur internet" ;;
+                    threat)   echo "Accès et chiffrement de fichiers (ransomware), mouvement latéral (EternalBlue/WannaCry), exfiltration de données" ;;
+                    level)    echo "CRITIQUE" ;;
+                esac ;;
+            "FTP Server")
+                case "$AXIS" in
+                    exposure) echo "Protocole non chiffré — identifiants et données transmis en clair sur le réseau" ;;
+                    threat)   echo "Vol de credentials, accès et exfiltration de fichiers, potentiel pivot si les credentials sont réutilisés" ;;
+                    level)    echo "CRITIQUE" ;;
+                esac ;;
+            "MySQL / MariaDB")
+                case "$AXIS" in
+                    exposure) echo "Authentification par mot de passe, nombreuses CVE historiques d'accès non authentifié" ;;
+                    threat)   echo "Exfiltration complète de la base de données, destruction de données, accès applicatif si credentials partagés" ;;
+                    level)    echo "CRITIQUE" ;;
+                esac ;;
+            "PostgreSQL")
+                case "$AXIS" in
+                    exposure) echo "Authentification par mot de passe ou méthodes configurables — exposition directe rarement intentionnelle" ;;
+                    threat)   echo "Exfiltration complète de la base de données, exécution de commandes système via extensions (pg_execute_server_program)" ;;
+                    level)    echo "CRITIQUE" ;;
+                esac ;;
+            "Redis")
+                case "$AXIS" in
+                    exposure) echo "Pas d'authentification par défaut historiquement, très fréquemment mal configuré et exposé" ;;
+                    threat)   echo "Lecture/écriture de toutes les données, exécution de code à distance (RCE) via configuration — vecteur d'attaque documenté et exploité activement" ;;
+                    level)    echo "CRITIQUE" ;;
+                esac ;;
+            "Cockpit (web admin)")
+                case "$AXIS" in
+                    exposure) echo "Interface web d'administration système — authentification requise mais surface d'attaque significative" ;;
+                    threat)   echo "Administration complète du système si compromis : gestion services, utilisateurs, réseau, terminal root" ;;
+                    level)    echo "ÉLEVÉ" ;;
+                esac ;;
+            "WireGuard VPN")
+                case "$AXIS" in
+                    exposure) echo "Exposition intentionnelle sur internet pour fonction VPN — surface d'attaque limitée par conception" ;;
+                    threat)   echo "Accès complet au réseau interne si tunnel compromis ou clés privées volées" ;;
+                    level)    echo "ÉLEVÉ" ;;
+                esac ;;
+            "Home Assistant")
+                case "$AXIS" in
+                    exposure) echo "Interface web contrôlant des équipements physiques — authentification intégrée mais souvent exposée pour accès distant" ;;
+                    threat)   echo "Contrôle d'équipements physiques (serrures, alarmes, prises), accès réseau local via automations, exfiltration de données domotiques" ;;
+                    level)    echo "ÉLEVÉ" ;;
+                esac ;;
+            "Nextcloud")
+                case "$AXIS" in
+                    exposure) echo "Serveur de fichiers personnel exposé sur internet — authentification requise mais surface d'attaque importante selon les apps installées" ;;
+                    threat)   echo "Accès à tous les fichiers personnels, contacts et calendriers stockés, potentiel pivot si credentials compromis" ;;
+                    level)    echo "ÉLEVÉ" ;;
+                esac ;;
+            "Mosquitto (MQTT)")
+                case "$AXIS" in
+                    exposure) echo "Broker MQTT souvent sans authentification par défaut, écoute sur toutes les interfaces" ;;
+                    threat)   echo "Publication/abonnement non autorisé aux topics domotiques, contrôle d'équipements, interception des données capteurs" ;;
+                    level)    echo "ÉLEVÉ" ;;
+                esac ;;
+        esac
+    else
+        case "$LABEL" in
+            "SSH Server")
+                case "$AXIS" in
+                    exposure) echo "Heavily targeted by automated scanners and brute-force attacks — internet-exposed by default" ;;
+                    threat)   echo "Full shell access to the machine, privilege escalation, lateral movement to other network systems" ;;
+                    level)    echo "CRITICAL" ;;
+                esac ;;
+            "VNC Server")
+                case "$AXIS" in
+                    exposure) echo "Often lacks native encryption; weak or absent authentication on older versions" ;;
+                    threat)   echo "Full visual and interactive desktop control — equivalent to physical access to the machine" ;;
+                    level)    echo "CRITICAL" ;;
+                esac ;;
+            "Samba (Windows file sharing)")
+                case "$AXIS" in
+                    exposure) echo "Designed exclusively for local networks — inherently dangerous if exposed to the internet" ;;
+                    threat)   echo "File access and encryption (ransomware), lateral movement (EternalBlue/WannaCry), data exfiltration" ;;
+                    level)    echo "CRITICAL" ;;
+                esac ;;
+            "FTP Server")
+                case "$AXIS" in
+                    exposure) echo "Unencrypted protocol — credentials and data transmitted in plain text over the network" ;;
+                    threat)   echo "Credential theft, file access and exfiltration, potential pivot if credentials are reused" ;;
+                    level)    echo "CRITICAL" ;;
+                esac ;;
+            "MySQL / MariaDB")
+                case "$AXIS" in
+                    exposure) echo "Password-based authentication, history of unauthenticated access CVEs" ;;
+                    threat)   echo "Full database exfiltration, data destruction, application-level access if credentials are shared" ;;
+                    level)    echo "CRITICAL" ;;
+                esac ;;
+            "PostgreSQL")
+                case "$AXIS" in
+                    exposure) echo "Password or configurable authentication — direct exposure is rarely intentional" ;;
+                    threat)   echo "Full database exfiltration, system command execution via extensions (pg_execute_server_program)" ;;
+                    level)    echo "CRITICAL" ;;
+                esac ;;
+            "Redis")
+                case "$AXIS" in
+                    exposure) echo "No authentication by default historically, very frequently misconfigured and exposed" ;;
+                    threat)   echo "Read/write access to all data, remote code execution (RCE) via configuration — documented and actively exploited attack vector" ;;
+                    level)    echo "CRITICAL" ;;
+                esac ;;
+            "Cockpit (web admin)")
+                case "$AXIS" in
+                    exposure) echo "Web-based system administration interface — authentication required but significant attack surface" ;;
+                    threat)   echo "Full system administration if compromised: service management, users, network, root terminal" ;;
+                    level)    echo "HIGH" ;;
+                esac ;;
+            "WireGuard VPN")
+                case "$AXIS" in
+                    exposure) echo "Intentionally internet-facing for VPN function — limited attack surface by design" ;;
+                    threat)   echo "Full internal network access if tunnel is compromised or private keys are stolen" ;;
+                    level)    echo "HIGH" ;;
+                esac ;;
+            "Home Assistant")
+                case "$AXIS" in
+                    exposure) echo "Web interface controlling physical devices — built-in authentication but often exposed for remote access" ;;
+                    threat)   echo "Control of physical devices (locks, alarms, switches), local network access via automations, home automation data exfiltration" ;;
+                    level)    echo "HIGH" ;;
+                esac ;;
+            "Nextcloud")
+                case "$AXIS" in
+                    exposure) echo "Personal file server exposed to the internet — authentication required but significant attack surface depending on installed apps" ;;
+                    threat)   echo "Access to all personal files, contacts and calendars stored, potential pivot if credentials are compromised" ;;
+                    level)    echo "HIGH" ;;
+                esac ;;
+            "Mosquitto (MQTT)")
+                case "$AXIS" in
+                    exposure) echo "MQTT broker often without authentication by default, listens on all interfaces" ;;
+                    threat)   echo "Unauthorised publish/subscribe to home automation topics, device control, sensor data interception" ;;
+                    level)    echo "HIGH" ;;
+                esac ;;
+        esac
+    fi
+}
+
+# Helper: display risk context block for a service (terminal + log)
+log_risk_context() {
+    local LABEL="$1"
+    local EXPOSURE THREAT LEVEL
+    EXPOSURE=$(get_risk_context "$LABEL" "exposure")
+    THREAT=$(get_risk_context  "$LABEL" "threat")
+    LEVEL=$(get_risk_context   "$LABEL" "level")
+    [[ -z "$EXPOSURE" ]] && return  # service not in context table
+
+    local LEVEL_COLOR="$YELLOW"
+    [[ "$LEVEL" == "CRITIQUE" || "$LEVEL" == "CRITICAL" ]] && LEVEL_COLOR="$RED"
+
+    echo -e "    ${DIM}┄ $(t risk_ctx_title) — ${LEVEL_COLOR}${BOLD}${LEVEL}${RESET}"
+    echo -e "    ${DIM}$(t risk_ctx_exposure) : ${RESET}${DIM}${EXPOSURE}${RESET}"
+    echo -e "    ${DIM}$(t risk_ctx_threat)   : ${RESET}${DIM}${THREAT}${RESET}"
+    echo
+
+    if use_logfile; then
+        {
+            echo "  [$(t risk_ctx_title) — $LEVEL]"
+            echo "  $(t risk_ctx_exposure) : $EXPOSURE"
+            echo "  $(t risk_ctx_threat)   : $THREAT"
+            echo
+        } >> "$LOGFILE"
     fi
 }
 
@@ -1047,6 +1388,8 @@ parse_arguments() {
             --no-color)        NO_COLOR=true ;;
             --json)            JSON_MODE=true;         AUDIT_REQUESTED=true ;;
             --json-full)       JSON_MODE=true; JSON_FULL=true; AUDIT_REQUESTED=true ;;
+            --log-days=*)      LOG_DAYS="${1#--log-days=}"
+                               [[ "$LOG_DAYS" =~ ^[0-9]+$ ]] || { echo "$(t err_unknown_opt) $1"; exit 1; } ;;
             *)
                 echo "${RED}[ERROR]${RESET} $(t err_unknown_opt) $1"
                 echo "$(t err_use_help)"
@@ -1075,6 +1418,7 @@ show_help() {
     echo "$(t help_nocolor)"
     echo "$(t help_json)"
     echo "$(t help_jsonfull)"
+    echo "$(t log_help_days)"
     echo "$(t help_french)"
     echo "$(t help_version)"
     echo "$(t help_help)"
@@ -1229,7 +1573,7 @@ init_logfile() {
         echo "System      : ${DISTRO_NAME:-unknown}"
         echo "Host        : $(hostname)"
         echo "Kernel      : $(uname -r)"
-        echo "UFW         : $(ufw version 2>/dev/null | head -1 || echo "N/A")"
+        echo "UFW         : $(ufw version 2>/dev/null | head -1 | grep -oE 'ufw [0-9.]+' || echo "N/A")"
         echo "User        : $REAL_USER"
         echo "Port config : $CONFIG_FILE"
         echo
@@ -1265,6 +1609,36 @@ finalize_log() {
             done
             echo
         fi
+
+        # Risk context section — all high/critical services detected on this machine
+        local HAS_CTX=false
+        for ENTRY in "${SERVICES[@]}"; do
+            IFS='|' read -r LABEL PACKAGES SVCS DEFAULT_PORTS RISK CONFIG_KEY <<< "$ENTRY"
+            [[ "$RISK" != "high" && "$RISK" != "critical" ]] && continue
+            local INSTALLED_PKG
+            INSTALLED_PKG=$(is_package_installed "$PACKAGES")
+            [[ -z "$INSTALLED_PKG" ]] && continue
+            # Skip services that are inactive and disabled — no immediate risk
+            local SVC_STATE
+            SVC_STATE=$(get_service_state "$SVCS")
+            [[ "$SVC_STATE" == "inactive_disabled" ]] && continue
+            local EXPOSURE THREAT LEVEL
+            EXPOSURE=$(get_risk_context "$LABEL" "exposure")
+            THREAT=$(get_risk_context   "$LABEL" "threat")
+            LEVEL=$(get_risk_context    "$LABEL" "level")
+            [[ -z "$EXPOSURE" ]] && continue
+            if ! $HAS_CTX; then
+                echo "=========================================================="
+                echo "[$(t risk_log_section)]"
+                echo
+                HAS_CTX=true
+            fi
+            printf "  %-32s  [%s]\n" "$LABEL" "$LEVEL"
+            echo "  $(t risk_ctx_exposure) : $EXPOSURE"
+            echo "  $(t risk_ctx_threat)   : $THREAT"
+            echo
+        done
+
         echo "[NEXT STEPS]"
         echo "1. Address all alerts first."
         echo "2. Review warnings and assess their impact."
@@ -1366,6 +1740,22 @@ detect_port_auto() {
             local P; P=$(grep -E "^http:" -A5 /etc/homeassistant/configuration.yaml 2>/dev/null | grep "server_port" | grep -oE '[0-9]+' | head -1)
             [[ -n "$P" ]] && echo "${P}/tcp" && return
             echo "8123/tcp" && return ;;
+        "Gitea")
+            local P; P=$(grep -E "^HTTP_PORT\s*=" /etc/gitea/app.ini 2>/dev/null | cut -d'=' -f2 | tr -d ' ' | head -1)
+            [[ -n "$P" ]] && echo "${P}/tcp" && return
+            # Forgejo uses same config structure
+            P=$(grep -E "^HTTP_PORT\s*=" /etc/forgejo/app.ini 2>/dev/null | cut -d'=' -f2 | tr -d ' ' | head -1)
+            [[ -n "$P" ]] && echo "${P}/tcp" && return
+            echo "3000/tcp" && return ;;
+        "Nextcloud")
+            # Snap Nextcloud uses port 80/443 via its own nginx
+            snap list nextcloud 2>/dev/null | grep -q "nextcloud" && { echo "80/tcp" && return; }
+            ;;
+        "Syncthing")
+            local P; P=$(grep -rE "address.*:[0-9]+" /root/.config/syncthing/config.xml /home/*/.config/syncthing/config.xml 2>/dev/null \
+                | grep -oE ':[0-9]+' | head -1 | tr -d ':')
+            [[ -n "$P" ]] && echo "${P}/tcp" && return
+            echo "8384/tcp" && return ;;
     esac
     echo ""
 }
@@ -1823,8 +2213,28 @@ analyze_port_exposure() {
 # ==========================================================
 
 is_package_installed() {
-    for PKG in $1; do
+    local PACKAGES="$1"
+    for PKG in $PACKAGES; do
+        # Standard dpkg check
         dpkg -l "$PKG" 2>/dev/null | grep -q "^ii" && { echo "$PKG"; return; }
+
+        # Snap check — for packages like nextcloud installed via snap
+        snap list "$PKG" 2>/dev/null | grep -q "^$PKG" && { echo "$PKG (snap)"; return; }
+
+        # Binary check — for self-installed services like gitea
+        case "$PKG" in
+            gitea)
+                for BIN in /usr/local/bin/gitea /usr/bin/gitea /opt/gitea/gitea; do
+                    [[ -x "$BIN" ]] && { echo "$PKG (binary)"; return; }
+                done
+                systemctl list-units --all 2>/dev/null | grep -q "gitea" && { echo "$PKG (service)"; return; }
+                ;;
+            forgejo)
+                for BIN in /usr/local/bin/forgejo /usr/bin/forgejo; do
+                    [[ -x "$BIN" ]] && { echo "$PKG (binary)"; return; }
+                done
+                ;;
+        esac
     done
     echo ""
 }
@@ -1855,10 +2265,17 @@ get_service_state() {
             return
         fi
 
+        # Snap services — check snap service state
+        if snap services "$SVC" 2>/dev/null | grep -q "active"; then
+            echo "active_enabled"; return
+        fi
+        if snap list "$SVC" 2>/dev/null | grep -q "^$SVC"; then
+            echo "inactive_disabled"; return
+        fi
+
         # Also check if the package is installed even if no unit is loaded
         # For WireGuard: check for wg tool availability
         if [[ "$SVC" == *"@" ]]; then
-            local BASE="${SVC%@}"
             command -v wg >/dev/null 2>&1 && { echo "inactive_disabled"; return; }
         fi
     done
@@ -1894,6 +2311,11 @@ audit_services() {
             log INFO "$EXPL"
             [[ -n "$RECO" ]] && log_recommendation "$RECO"
             continue
+        fi
+
+        # Show risk context for high/critical active services only
+        if [[ "$RISK" == "high" || "$RISK" == "critical" ]]; then
+            log_risk_context "$LABEL"
         fi
 
         case "$SVC_STATE" in
@@ -2012,6 +2434,412 @@ check_listening_ports() {
 }
 
 # ==========================================================
+# UFW LOG ANALYSIS
+# Parses /var/log/ufw.log for BLOCK events over LOG_DAYS days.
+# Extracts: total blocks, top IPs, top ports, bruteforce
+# detection, and attempts on installed service ports.
+# Terminal: short summary. Detailed report: full tables.
+# ==========================================================
+
+audit_ufw_logs() {
+    log_section "$(t sec_logs)"
+
+    local LOGF="/var/log/ufw.log"
+    if [[ ! -f "$LOGF" ]]; then
+        log INFO "$(t log_no_logfile)"
+        return
+    fi
+
+    # Count days actually available in log — handle both syslog and systemd ISO formats
+    local DAYS_AVAILABLE
+    DAYS_AVAILABLE=$(grep -oE '(^[A-Za-z]+ +[0-9]+|^[0-9]{4}-[0-9]{2}-[0-9]{2})' "$LOGF" 2>/dev/null \
+        | sort -u | wc -l | tr -d '[:space:]')
+    DAYS_AVAILABLE=$(( ${DAYS_AVAILABLE:-0} ))
+
+    # Extract BLOCK lines — fast awk-based date filtering
+    # Supports ISO 8601 format: 2026-03-19T18:20:08.xxx+01:00
+    # and syslog format: Mar 19 10:23:14
+    local CUTOFF_DATE
+    CUTOFF_DATE=$(date -d "-${LOG_DAYS} days" '+%Y-%m-%d' 2>/dev/null || \
+                  date -v-${LOG_DAYS}d '+%Y-%m-%d' 2>/dev/null || \
+                  date '+%Y-%m-%d')
+
+    local BLOCKS
+    BLOCKS=$(awk -v cutoff="$CUTOFF_DATE" '
+        /\[UFW BLOCK\]/ {
+            # ISO format: 2026-03-19T18:20:08... — use substr for mawk/gawk compat
+            if ($1 ~ /^[0-9]{4}-[0-9]{2}-[0-9]{2}/) {
+                if (substr($1, 1, 10) >= cutoff) print $0
+            }
+            # Syslog format: Mar 19 10:23:14 — always include (year unknown)
+            else if ($1 ~ /^[A-Za-z]+$/) {
+                print $0
+            }
+        }
+    ' "$LOGF" 2>/dev/null || true)
+
+    local TOTAL
+    if [[ -z "$BLOCKS" ]]; then
+        TOTAL=0
+    else
+        TOTAL=$(printf '%s' "$BLOCKS" | grep -F "[UFW BLOCK]" | wc -l | tr -d '[:space:]')
+        TOTAL=$(( ${TOTAL:-0} ))
+    fi
+
+    if [[ "${TOTAL:-0}" -eq 0 ]]; then
+        log OK "$(t log_empty)"
+        echo -e "  ${DIM}$(t log_period) : ${LOG_DAYS} $(t log_days_unit) — ${DAYS_AVAILABLE} $(t log_available)${RESET}"
+        return
+    fi
+
+    # --- Extract fields ---
+    local SRC_IPS DEST_PORTS
+    SRC_IPS=$(echo "$BLOCKS"   | grep -oP 'SRC=\K[\d.]+' | sort | uniq -c | sort -rn | head -10)
+    DEST_PORTS=$(echo "$BLOCKS" | grep -oP 'DPT=\K\d+'   | sort | uniq -c | sort -rn | head -10)
+
+    # --- Bruteforce detection ---
+    # Group by SRC+DPT, flag if >10 attempts within any 60s window
+    local BRUTE_HITS
+    BRUTE_HITS=$(echo "$BLOCKS" | awk '
+    /\[UFW BLOCK\]/ {
+        # Extract timestamp (seconds since epoch via date)
+        ts_str = $1" "$2" "$3
+        cmd = "date -d \""ts_str"\" +%s 2>/dev/null"
+        cmd | getline ts; close(cmd)
+        src=""; dpt=""
+        for(i=1;i<=NF;i++){
+            if($i~/^SRC=/) src=substr($i,5)
+            if($i~/^DPT=/) dpt=substr($i,5)
+        }
+        if(src!="" && dpt!="" && ts!=""){
+            key=src":"dpt
+            n=split(times[key],arr,",")
+            # Slide window: keep only last 60s
+            new_times=""
+            count=0
+            for(j=1;j<=n;j++){
+                if(ts-arr[j]<=60){ new_times=(new_times=="")?arr[j]:new_times","arr[j]; count++ }
+            }
+            times[key]=(new_times=="")?ts:new_times","ts
+            count++
+            if(count>10 && !flagged[key]){
+                flagged[key]=1
+                total[key]+=count
+            }
+            total[key]++
+        }
+    }
+    END {
+        for(key in flagged){
+            split(key,parts,":")
+            printf "%d %s %s\n", total[key], parts[1], parts[2]
+        }
+    }' | sort -rn | head -5)
+
+    # --- Attempts on installed service ports ---
+    local SVC_HITS=""
+    for ENTRY in "${SERVICES[@]}"; do
+        IFS='|' read -r LABEL PACKAGES SVCS DEFAULT_PORTS RISK CONFIG_KEY <<< "$ENTRY"
+        local INSTALLED_PKG
+        INSTALLED_PKG=$(is_package_installed "$PACKAGES")
+        [[ -z "$INSTALLED_PKG" ]] && continue
+        for PORT_PROTO in $DEFAULT_PORTS; do
+            local PORT
+            PORT=$(echo "$PORT_PROTO" | cut -d'/' -f1)
+            local COUNT
+            if [[ -z "$BLOCKS" ]]; then
+                COUNT=0
+            else
+                COUNT=$(printf '%s' "$BLOCKS" | grep -F "DPT=${PORT}" | wc -l | tr -d '[:space:]')
+                COUNT=$(( ${COUNT:-0} ))
+            fi
+            if [[ "$COUNT" -gt 0 ]]; then
+                SVC_HITS="${SVC_HITS}${COUNT} ${LABEL} (${PORT_PROTO})\n"
+            fi
+        done
+    done
+
+    # --- Terminal: short summary ---
+    echo -e "  ${DIM}$(t log_period) : ${LOG_DAYS} $(t log_days_unit) — ${DAYS_AVAILABLE} $(t log_available)${RESET}"
+    echo
+
+    # Total blocks
+    if [[ "${TOTAL:-0}" -gt 0 ]]; then
+        local BLOCK_COLOR="$CYAN"
+        (( TOTAL > 1000 )) && BLOCK_COLOR="$YELLOW"
+        (( TOTAL > 5000 )) && BLOCK_COLOR="$RED"
+        echo -e "  ${BLOCK_COLOR}${BOLD}✖ ${TOTAL} $(t log_total_blocks)${RESET}"
+    fi
+
+    # Bruteforce
+    if [[ -n "$BRUTE_HITS" ]]; then
+        echo
+        echo -e "  ${RED}${BOLD}⚠ $(t log_brute_title) :${RESET}"
+        while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            local CNT IP PORT
+            CNT=$(echo "$line" | awk '{print $1}')
+            IP=$(echo "$line"  | awk '{print $2}')
+            PORT=$(echo "$line" | awk '{print $3}')
+            echo -e "  ${RED}  → ${CNT} $(t log_brute_found) ${IP} $(t log_brute_on) ${PORT}/tcp${RESET}"
+            log WARN "${CNT} $(t log_brute_found) ${IP} $(t log_brute_on) ${PORT}" \
+                "" "--nature=improvement"
+        done <<< "$BRUTE_HITS"
+    else
+        echo -e "  ${GREEN}✔ $(t log_brute_none)${RESET}"
+    fi
+
+    # Top IP (just the first one on terminal)
+    local TOP_IP TOP_IP_COUNT
+    TOP_IP=$(echo "$SRC_IPS" | head -1 | awk '{print $2}')
+    TOP_IP_COUNT=$(echo "$SRC_IPS" | head -1 | awk '{print $1}')
+    if [[ -n "$TOP_IP" ]]; then
+        echo -e "  ${DIM}ℹ $(t log_top_ips) : ${TOP_IP} — ${TOP_IP_COUNT} $(t log_attempts)${RESET}"
+    fi
+
+    # Top port (just the first one on terminal)
+    local TOP_PORT TOP_PORT_COUNT
+    TOP_PORT=$(echo "$DEST_PORTS" | head -1 | awk '{print $2}')
+    TOP_PORT_COUNT=$(echo "$DEST_PORTS" | head -1 | awk '{print $1}')
+    if [[ -n "$TOP_PORT" ]]; then
+        echo -e "  ${DIM}ℹ $(t log_top_ports) : ${TOP_PORT}/tcp — ${TOP_PORT_COUNT} $(t log_attempts)${RESET}"
+    fi
+
+    # Service hits on terminal
+    if [[ -n "$SVC_HITS" ]]; then
+        echo
+        echo -e "  ${YELLOW}⚠ $(t log_svc_hits) :${RESET}"
+        echo -e "$SVC_HITS" | while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            local CNT SVC
+            CNT=$(echo "$line" | awk '{print $1}')
+            SVC=$(echo "$line" | cut -d' ' -f2-)
+            echo -e "  ${YELLOW}  → ${SVC} — ${CNT} $(t log_attempts)${RESET}"
+        done
+    fi
+
+    echo
+
+    # --- Detailed report ---
+    if is_detailed; then
+        {
+            echo
+            echo "=== $(t sec_logs) — $(t log_period) : ${LOG_DAYS} $(t log_days_unit) ==="
+            echo "$(t log_total_blocks) : $TOTAL"
+            echo "$(t log_available)    : $DAYS_AVAILABLE"
+            echo
+            echo "--- $(t log_top_ips) ---"
+            echo "$SRC_IPS" | while read -r cnt ip; do
+                printf "  %-20s %s $(t log_attempts)\n" "$ip" "$cnt"
+            done
+            echo
+            echo "--- $(t log_top_ports) ---"
+            echo "$DEST_PORTS" | while read -r cnt port; do
+                printf "  %-10s %s $(t log_attempts)\n" "${port}/tcp" "$cnt"
+            done
+            echo
+            echo "--- $(t log_brute_title) ---"
+            if [[ -n "$BRUTE_HITS" ]]; then
+                echo "$BRUTE_HITS" | while read -r cnt ip port; do
+                    printf "  %-20s %-10s %s $(t log_attempts)\n" "$ip" "${port}/tcp" "$cnt"
+                done
+            else
+                echo "  $(t log_brute_none)"
+            fi
+            echo
+            echo "--- $(t log_svc_hits) ---"
+            if [[ -n "$SVC_HITS" ]]; then
+                echo -e "$SVC_HITS" | while IFS= read -r line; do
+                    [[ -z "$line" ]] && continue
+                    echo "  $line $(t log_attempts)"
+                done
+            else
+                echo "  $(t log_svc_hits_none)"
+            fi
+            echo
+        } >> "$LOGFILE"
+    fi
+}
+
+# ==========================================================
+# DDNS / EXTERNAL EXPOSURE ANALYSIS
+# Detects active DDNS clients, extracts configured domain,
+# and crosses with unrestricted UFW ALLOW rules to identify
+# ports potentially exposed to the internet.
+# Score: -1 global if DDNS active + open ports (not per port)
+# ==========================================================
+
+audit_ddns() {
+    log_section "$(t sec_ddns)"
+
+    # --- DDNS client registry ---
+    # Format: "label|packages|services|config_files"
+    local DDNS_CLIENTS=(
+        "ddclient|ddclient|ddclient|/etc/ddclient.conf"
+        "inadyn|inadyn|inadyn|/etc/inadyn.conf /etc/inadyn/inadyn.conf"
+        "No-IP DUC|noip2|noip2|/etc/no-ip2.conf"
+        "DuckDNS (script)|duckdns||/etc/cron.d/duckdns /root/duckdns/duck.sh"
+    )
+
+    local FOUND_CLIENT=false
+    local CLIENT_LABEL="" CLIENT_DOMAIN="" CLIENT_ACTIVE=false
+
+    for ENTRY in "${DDNS_CLIENTS[@]}"; do
+        IFS='|' read -r LABEL PACKAGES SERVICES CONFIG_FILES <<< "$ENTRY"
+
+        # Check package installed
+        local INSTALLED=false
+        for PKG in $PACKAGES; do
+            dpkg -l "$PKG" 2>/dev/null | grep -q "^ii" && INSTALLED=true && break
+        done
+        # Also check for script-based clients (DuckDNS)
+        for CFG in $CONFIG_FILES; do
+            [[ -f "$CFG" ]] && INSTALLED=true && break
+        done
+        $INSTALLED || continue
+
+        FOUND_CLIENT=true
+        CLIENT_LABEL="$LABEL"
+
+        # Check service active
+        CLIENT_ACTIVE=false
+        for SVC in $SERVICES; do
+            systemctl is-active "$SVC" >/dev/null 2>&1 && CLIENT_ACTIVE=true && break
+        done
+        # DuckDNS: check cron entry
+        if [[ "$LABEL" == "DuckDNS (script)" ]]; then
+            (crontab -l 2>/dev/null; cat /etc/cron.d/duckdns 2>/dev/null) \
+                | grep -q "duckdns" && CLIENT_ACTIVE=true
+        fi
+
+        # Extract domain from config
+        CLIENT_DOMAIN=""
+        for CFG in $CONFIG_FILES; do
+            [[ ! -f "$CFG" ]] && continue
+            case "$LABEL" in
+                "ddclient")
+                    # Try standard host/hostname key first
+                    CLIENT_DOMAIN=$(grep -E "^(host|hostname)\s*=" "$CFG" 2>/dev/null \
+                        | head -1 | cut -d'=' -f2 | tr -d ' "' || true)
+                    # DuckDNS format: domain on last non-comment line, may have http:// prefix
+                    if [[ -z "$CLIENT_DOMAIN" ]]; then
+                        CLIENT_DOMAIN=$(grep -vE "^\s*#|^\s*$|protocol=|use=|login=|password=" "$CFG" 2>/dev/null \
+                            | tail -1 | tr -d ' \\' | sed 's|^http://||;s|^https://||' || true)
+                    fi ;;
+                "inadyn")
+                    CLIENT_DOMAIN=$(grep -E "hostname\s*=" "$CFG" 2>/dev/null \
+                        | head -1 | cut -d'=' -f2 | tr -d ' "' || true) ;;
+                "No-IP DUC")
+                    CLIENT_DOMAIN=$(grep -E "^hostname" "$CFG" 2>/dev/null \
+                        | head -1 | awk '{print $2}' || true) ;;
+                "DuckDNS (script)")
+                    CLIENT_DOMAIN=$(grep -oE '[a-z0-9-]+\.duckdns\.org' "$CFG" 2>/dev/null \
+                        | head -1 || true) ;;
+            esac
+            [[ -n "$CLIENT_DOMAIN" ]] && break
+        done
+
+        break  # Use first detected client
+    done
+
+    if ! $FOUND_CLIENT; then
+        log OK "$(t ddns_none)"
+        return
+    fi
+
+    # Display client info
+    if $CLIENT_ACTIVE; then
+        echo -e "  ${YELLOW}${BOLD}⚠ $(t ddns_found) : ${CLIENT_LABEL}${RESET}"
+    else
+        log INFO "$(t ddns_inactive) : ${CLIENT_LABEL}"
+        return
+    fi
+
+    if [[ -n "$CLIENT_DOMAIN" ]]; then
+        echo -e "  ${DIM}  $(t ddns_domain) : ${CLIENT_DOMAIN}${RESET}"
+    else
+        echo -e "  ${DIM}  $(t ddns_no_domain)${RESET}"
+    fi
+    echo
+
+    # --- Cross with UFW open rules (ALLOW without source restriction) ---
+    local OPEN_RULES
+    OPEN_RULES=$(ufw status numbered 2>/dev/null \
+        | grep -E "ALLOW IN" \
+        | grep -v "from [0-9]\|from [0-9a-fA-F]*:" \
+        | grep -v "Anywhere.*ALLOW IN.*Anywhere" || true)
+
+    if [[ -z "$OPEN_RULES" ]]; then
+        log OK "$(t ddns_no_ports)"
+        return
+    fi
+
+    # List exposed ports + check for high/critical services
+    echo -e "  ${YELLOW}${BOLD}$(t ddns_ports_title) :${RESET}"
+    local HAS_HIGH_RISK=false
+
+    while IFS= read -r rule; do
+        [[ -z "$rule" ]] && continue
+        local PORT_PROTO
+        PORT_PROTO=$(echo "$rule" | grep -oE '[0-9]+/(tcp|udp)' | head -1)
+        [[ -z "$PORT_PROTO" ]] && PORT_PROTO=$(echo "$rule" | grep -oE '[0-9]+' | head -1)
+
+        # Check if port belongs to a high/critical service
+        local MATCH_SVC="" MATCH_RISK=""
+        for ENTRY in "${SERVICES[@]}"; do
+            IFS='|' read -r LABEL PACKAGES SVCS DEFAULT_PORTS RISK CONFIG_KEY <<< "$ENTRY"
+            for PP in $DEFAULT_PORTS; do
+                local P; P=$(echo "$PP" | cut -d'/' -f1)
+                if echo "$PORT_PROTO" | grep -q "^${P}"; then
+                    INSTALLED_PKG=$(is_package_installed "$PACKAGES")
+                    if [[ -n "$INSTALLED_PKG" ]]; then
+                        MATCH_SVC="$LABEL"; MATCH_RISK="$RISK"; break 2
+                    fi
+                fi
+            done
+        done
+
+        local LINE_COLOR="$DIM"
+        local RISK_TAG=""
+        if [[ "$MATCH_RISK" == "critical" || "$MATCH_RISK" == "high" ]]; then
+            LINE_COLOR="$YELLOW"
+            RISK_TAG=" ${RED}[${MATCH_RISK}]${RESET}"
+            HAS_HIGH_RISK=true
+        fi
+        echo -e "  ${LINE_COLOR}  → ${PORT_PROTO}${MATCH_SVC:+ (${MATCH_SVC})}${RESET}${RISK_TAG}"
+    done <<< "$OPEN_RULES"
+
+    echo
+
+    # Score — single -1 regardless of port count
+    if $HAS_HIGH_RISK; then
+        log WARN "$(t ddns_high_warn)" "" "--nature=action"
+    else
+        log WARN "$(t ddns_warn)" "" "--nature=improvement"
+    fi
+
+    echo -e "  ${DIM}ℹ $(t ddns_advice)${RESET}"
+    echo
+
+    # Detailed report
+    if is_detailed; then
+        {
+            echo
+            echo "--- $(t sec_ddns) ---"
+            echo "Client   : $CLIENT_LABEL"
+            echo "Active   : $CLIENT_ACTIVE"
+            [[ -n "$CLIENT_DOMAIN" ]] && echo "Domain   : $CLIENT_DOMAIN"
+            echo "$(t ddns_ports_title) :"
+            echo "$OPEN_RULES" | while IFS= read -r r; do
+                [[ -n "$r" ]] && echo "  $r"
+            done
+            echo "$(t ddns_advice)"
+            echo
+        } >> "$LOGFILE"
+    fi
+}
+
+# ==========================================================
 # DOCKER ANALYSIS
 # Separate section — detects bypass of UFW via iptables,
 # then lists exposed container ports and checks UFW DENY coverage.
@@ -2120,6 +2948,29 @@ run_fixes() {
             MANUAL_ITEMS+=( "$MSG" )
         fi
     done
+
+    # Sort ufw delete commands in descending rule number order
+    # to avoid renumbering issues when deleting multiple rules
+    local SORTED_ITEMS=()
+    local UFW_DELETE_ITEMS=() OTHER_ITEMS=()
+    for item in "${AUTO_ITEMS[@]}"; do
+        local CMD="${item#*|}"
+        if echo "$CMD" | grep -qE "ufw.*--force delete [0-9]+$"; then
+            UFW_DELETE_ITEMS+=( "$item" )
+        else
+            OTHER_ITEMS+=( "$item" )
+        fi
+    done
+    # Sort ufw delete items by rule number descending (last word of CMD)
+    if [[ ${#UFW_DELETE_ITEMS[@]} -gt 0 ]]; then
+        while IFS= read -r sorted_item; do
+            [[ -n "$sorted_item" ]] && SORTED_ITEMS+=( "$sorted_item" )
+        done < <(printf '%s\n' "${UFW_DELETE_ITEMS[@]}" | awk -F'|' '{
+            cmd=$2; n=split(cmd,a," "); num=a[n]+0; print num, $0
+        }' | sort -rn | cut -d' ' -f2-)
+    fi
+    SORTED_ITEMS+=( "${OTHER_ITEMS[@]}" )
+    AUTO_ITEMS=( "${SORTED_ITEMS[@]}" )
 
     local TOTAL_AUTO=${#AUTO_ITEMS[@]}
     local TOTAL_MANUAL=${#MANUAL_ITEMS[@]}
@@ -2523,6 +3374,8 @@ main() {
         audit_services
         check_listening_ports_analysis
         check_listening_ports
+        audit_ufw_logs
+        audit_ddns
         audit_docker
         show_summary
         finalize_log

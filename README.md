@@ -1,7 +1,7 @@
-# UFW-audit v0.6.0
+# UFW-audit v0.7
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.6.0-blue)
+![Release](https://img.shields.io/badge/version-v0.7-blue)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu-informational)
 ![Language](https://img.shields.io/badge/language-Bash-lightgrey)
 
@@ -22,30 +22,37 @@ ready-to-run remediation commands.
 - **Contextual scoring** — network context detection (public IP vs NAT); penalties doubled on internet-exposed machines; firewall inactive caps score at 3/10
 - **Service-aware audit engine** — detects 18 common network services and analyses their UFW exposure:
 
-  | Service                          | Default port      | Risk     |
-  |----------------------------------|-------------------|----------|
-  | SSH Server                       | 22/tcp            | High     |
-  | VNC Server                       | 5900/tcp          | High     |
-  | Samba (Windows file sharing)     | 445/tcp, 139/tcp  | Critical |
-  | FTP Server                       | 21/tcp            | Critical |
-  | Apache Web Server                | 80/tcp, 443/tcp   | Medium   |
-  | Nginx Web Server                 | 80/tcp, 443/tcp   | Medium   |
-  | MySQL / MariaDB                  | 3306/tcp          | High     |
-  | PostgreSQL                       | 5432/tcp          | High     |
-  | Transmission (web UI)            | 9091/tcp          | Medium   |
-  | qBittorrent (web UI)             | 8080/tcp          | Medium   |
-  | Avahi (local network discovery)  | 5353/udp          | Low      |
-  | CUPS (network printing)          | 631/tcp           | Low      |
-  | Cockpit (web admin)              | 9090/tcp          | Medium   |
-  | WireGuard VPN                    | 51820/udp         | High     |
-  | Redis                            | 6379/tcp          | High     |
-  | Jellyfin                         | 8096/tcp          | Medium   |
-  | Plex Media Server                | 32400/tcp         | Medium   |
-  | Home Assistant                   | 8123/tcp          | Medium   |
+  | Service                          | Default port      | Risk     | Basis |
+  |----------------------------------|-------------------|----------|-------|
+  | SSH Server                       | 22/tcp            | Critical | Heavily targeted by automated brute-force; full shell access if compromised |
+  | VNC Server                       | 5900/tcp          | Critical | Often unencrypted, weak auth; equivalent to physical machine access |
+  | Samba (Windows file sharing)     | 445/tcp, 139/tcp  | Critical | LAN-only by design; ransomware vector (EternalBlue/WannaCry) if exposed |
+  | FTP Server                       | 21/tcp            | Critical | Unencrypted protocol; credentials and files transmitted in plain text |
+  | Apache Web Server                | 80/tcp, 443/tcp   | Medium   | Standard web exposure; risk depends on hosted content |
+  | Nginx Web Server                 | 80/tcp, 443/tcp   | Medium   | Standard web exposure; risk depends on hosted content |
+  | MySQL / MariaDB                  | 3306/tcp          | Critical | Password auth, CVE history; full database exfiltration if exposed |
+  | PostgreSQL                       | 5432/tcp          | Critical | Password auth; RCE possible via pg_execute_server_program extension |
+  | Transmission (web UI)            | 9091/tcp          | Medium   | Download control and file access limited to torrent directory |
+  | qBittorrent (web UI)             | 8080/tcp          | Medium   | Download control and file access limited to torrent directory |
+  | Avahi (local network discovery)  | 5353/udp          | Low      | LAN-only mDNS; no data access, discovery only |
+  | CUPS (network printing)          | 631/tcp           | Low      | Listens on localhost by default; negligible if not exposed |
+  | Cockpit (web admin)              | 9090/tcp          | High     | Web admin interface; full system control (services, users, root terminal) if compromised |
+  | WireGuard VPN                    | 51820/udp         | High     | Intentional internet exposure; full internal network access if keys stolen |
+  | Redis                            | 6379/tcp          | Critical | No auth by default; documented RCE via configuration — actively exploited |
+  | Jellyfin                         | 8096/tcp          | Medium   | Media library access; no critical system data |
+  | Plex Media Server                | 32400/tcp         | Medium   | Media library access; no critical system data |
+  | Home Assistant                   | 8123/tcp          | High     | Controls physical devices (locks, alarms); local network access via automations |
+  | Nextcloud                        | 80/tcp, 443/tcp   | High     | Personal cloud; full file/contact/calendar access if compromised |
+  | Gitea                            | 3000/tcp          | Medium   | Git forge; disable public registration if not needed |
+  | Mosquitto (MQTT)                 | 1883/tcp, 8883/tcp| High     | No auth by default; anyone can control IoT devices if exposed |
+  | Syncthing                        | 8384/tcp, 22000/tcp| Medium  | Web UI on localhost by default; sync port may be internet-facing |
 
 - **Docker analysis** — dedicated section detecting iptables bypass risk and listing exposed container ports
 - **Listening ports analysis** — unified single-pass analysis; ephemeral and system ports silently skipped; NetBIOS handled with contextual warning
 - **Exposure classification** per service: `open to internet` / `local network only` / `blocked by UFW` / `no rule`
+
+> **ℹ Note on service coverage:** Detection and classification for the following services has been validated through real-world testing: SSH, Samba, Avahi, CUPS, Redis, WireGuard, Docker, Mosquitto, Syncthing, Nginx.
+> Other services (Nextcloud, Gitea, Jellyfin, Plex, Home Assistant, FTP, MySQL/MariaDB, PostgreSQL, VNC, Transmission, qBittorrent, Cockpit) are implemented but **not yet validated by a formal test protocol**. If you run one of these services and notice incorrect behaviour, please open an issue on GitHub — beta tester feedback is very welcome.
 - **Contextual explanations** — plain-language description of the risk for each detected situation
 - **Ready-to-run remediation commands** — exact `ufw` commands to fix each issue
 - **--fix mode** — interactive fix section after the summary; each automatable fix requires `[y/N]` confirmation; manual-only items displayed without execution
@@ -162,7 +169,7 @@ sudo ./ufw_audit.sh --reconfigure
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║   ██╗   ██╗███████╗██╗    ██╗  ┌──────────────────────────┐  ║
-║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.6.0       │  ║
+║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.7         │  ║
 ║   ██║   ██║█████╗  ██║ █╗ ██║  │  UFW firewall audit      │  ║
 ║   ██║   ██║██╔══╝  ██║███╗██║  └──────────────────────────┘  ║
 ║   ╚██████╔╝██║     ╚███╔███╔╝              _ _               ║
