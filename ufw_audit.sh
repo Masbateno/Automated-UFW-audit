@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================================
-# UFW-audit v0.7
+# UFW-audit v0.8
 # UFW firewall security audit for Linux
 # Target  : Debian/Ubuntu and derivatives
 # Audience: regular user, non-system administrator
@@ -9,7 +9,7 @@
 set -uo pipefail
 export LC_ALL=C.UTF-8
 
-VERSION="0.7"
+VERSION="0.8"
 
 OK_COUNT=0
 WARN_COUNT=0
@@ -48,7 +48,7 @@ REAL_USER=""
 REAL_HOME=""
 CONFIG_FILE=""
 
-# --- Network context & scoring (v0.7) ---
+# --- Network context & scoring (v0.8) ---
 PUBLIC_IP=""           # Public IP if detected via curl
 HAS_PUBLIC_IP=false    # true if a public IP is confirmed
 NETWORK_CONTEXT=""     # "public" | "local"
@@ -279,6 +279,7 @@ t() {
             log_svc_hits_none)  echo "Aucune tentative sur les ports des services installés" ;;
             log_attempts)       echo "tentative(s)" ;;
             log_help_days)      echo "  --log-days=N        Analyser les N derniers jours de logs UFW (défaut : 7)" ;;
+            geo_no_whois)       echo "whois non disponible — installez-le pour enrichir l'analyse avec la géolocalisation des IPs (sudo apt install whois)" ;;
             # --- ddns / external exposure ---
             sec_ddns)           echo "EXPOSITION EXTERNE (DDNS)" ;;
             ddns_none)          echo "Aucun client DDNS détecté — pas d'exposition externe via DDNS identifiée" ;;
@@ -488,6 +489,7 @@ t() {
             log_svc_hits_none)  echo "No attempts on installed service ports" ;;
             log_attempts)       echo "attempt(s)" ;;
             log_help_days)      echo "  --log-days=N        Analyse the last N days of UFW logs (default: 7)" ;;
+            geo_no_whois)       echo "whois not available — install it to enrich analysis with IP geolocation (sudo apt install whois)" ;;
             # --- ddns / external exposure ---
             sec_ddns)           echo "EXTERNAL EXPOSURE (DDNS)" ;;
             ddns_none)          echo "No DDNS client detected — no DDNS-based external exposure identified" ;;
@@ -2441,6 +2443,60 @@ check_listening_ports() {
 # Terminal: short summary. Detailed report: full tables.
 # ==========================================================
 
+# ==========================================================
+# IP GEOLOCATION — via whois (no external dependency)
+# Returns "CC, OrgName" or empty string if unavailable.
+# IPs in private ranges are returned as "réseau local" / "local network".
+# Results cached in GEO_CACHE[] to avoid duplicate lookups.
+# ==========================================================
+
+declare -A GEO_CACHE
+
+get_ip_geo() {
+    local IP="$1"
+
+    # Return cached result if available
+    if [[ -n "${GEO_CACHE[$IP]+_}" ]]; then
+        echo "${GEO_CACHE[$IP]}"
+        return
+    fi
+
+    # Private/loopback ranges — no lookup needed
+    if echo "$IP" | grep -qE \
+        '^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|127\.|::1$|fc|fd)'; then
+        local LABEL
+        $LANG_FR && LABEL="réseau local" || LABEL="local network"
+        GEO_CACHE[$IP]="$LABEL"
+        echo "$LABEL"
+        return
+    fi
+
+    # whois not available — return empty
+    if ! command -v whois >/dev/null 2>&1; then
+        GEO_CACHE[$IP]=""
+        echo ""
+        return
+    fi
+
+    # Query whois — extract country and org/netname
+    local WHOIS_OUT
+    WHOIS_OUT=$(whois "$IP" 2>/dev/null | head -40)
+
+    local COUNTRY ORG
+    COUNTRY=$(echo "$WHOIS_OUT" | grep -iE "^country:" \
+        | head -1 | awk '{print $2}' | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
+    ORG=$(echo "$WHOIS_OUT" | grep -iE "^(org-name|orgname|netname|descr):" \
+        | head -1 | sed 's/^[^:]*:[[:space:]]*//' | cut -c1-30 | tr -d '\n')
+
+    local RESULT=""
+    [[ -n "$COUNTRY" && -n "$ORG" ]] && RESULT="${COUNTRY}, ${ORG}"
+    [[ -n "$COUNTRY" && -z "$ORG" ]] && RESULT="${COUNTRY}"
+    [[ -z "$COUNTRY" && -n "$ORG" ]] && RESULT="${ORG}"
+
+    GEO_CACHE[$IP]="$RESULT"
+    echo "$RESULT"
+}
+
 audit_ufw_logs() {
     log_section "$(t sec_logs)"
 
@@ -2455,6 +2511,11 @@ audit_ufw_logs() {
     DAYS_AVAILABLE=$(grep -oE '(^[A-Za-z]+ +[0-9]+|^[0-9]{4}-[0-9]{2}-[0-9]{2})' "$LOGF" 2>/dev/null \
         | sort -u | wc -l | tr -d '[:space:]')
     DAYS_AVAILABLE=$(( ${DAYS_AVAILABLE:-0} ))
+
+    # Note once if whois unavailable
+    if ! command -v whois >/dev/null 2>&1; then
+        echo -e "  ${DIM}ℹ $(t geo_no_whois)${RESET}"
+    fi
 
     # Extract BLOCK lines — fast awk-based date filtering
     # Supports ISO 8601 format: 2026-03-19T18:20:08.xxx+01:00
@@ -2581,8 +2642,10 @@ audit_ufw_logs() {
             CNT=$(echo "$line" | awk '{print $1}')
             IP=$(echo "$line"  | awk '{print $2}')
             PORT=$(echo "$line" | awk '{print $3}')
-            echo -e "  ${RED}  → ${CNT} $(t log_brute_found) ${IP} $(t log_brute_on) ${PORT}/tcp${RESET}"
-            log WARN "${CNT} $(t log_brute_found) ${IP} $(t log_brute_on) ${PORT}" \
+            local GEO; GEO=$(get_ip_geo "$IP")
+            local GEO_STR=""; [[ -n "$GEO" ]] && GEO_STR=" (${GEO})"
+            echo -e "  ${RED}  → ${CNT} $(t log_brute_found) ${IP}${GEO_STR} $(t log_brute_on) ${PORT}/tcp${RESET}"
+            log WARN "${CNT} $(t log_brute_found) ${IP}${GEO_STR} $(t log_brute_on) ${PORT}" \
                 "" "--nature=improvement"
         done <<< "$BRUTE_HITS"
     else
@@ -2594,7 +2657,9 @@ audit_ufw_logs() {
     TOP_IP=$(echo "$SRC_IPS" | head -1 | awk '{print $2}')
     TOP_IP_COUNT=$(echo "$SRC_IPS" | head -1 | awk '{print $1}')
     if [[ -n "$TOP_IP" ]]; then
-        echo -e "  ${DIM}ℹ $(t log_top_ips) : ${TOP_IP} — ${TOP_IP_COUNT} $(t log_attempts)${RESET}"
+        local GEO; GEO=$(get_ip_geo "$TOP_IP")
+        local GEO_STR=""; [[ -n "$GEO" ]] && GEO_STR=" (${GEO})"
+        echo -e "  ${DIM}ℹ $(t log_top_ips) : ${TOP_IP}${GEO_STR} — ${TOP_IP_COUNT} $(t log_attempts)${RESET}"
     fi
 
     # Top port (just the first one on terminal)
@@ -2630,7 +2695,9 @@ audit_ufw_logs() {
             echo
             echo "--- $(t log_top_ips) ---"
             echo "$SRC_IPS" | while read -r cnt ip; do
-                printf "  %-20s %s $(t log_attempts)\n" "$ip" "$cnt"
+                local geo; geo=$(get_ip_geo "$ip")
+                local geo_str=""; [[ -n "$geo" ]] && geo_str=" (${geo})"
+                printf "  %-20s%-32s %s $(t log_attempts)\n" "$ip" "$geo_str" "$cnt"
             done
             echo
             echo "--- $(t log_top_ports) ---"
@@ -2641,7 +2708,9 @@ audit_ufw_logs() {
             echo "--- $(t log_brute_title) ---"
             if [[ -n "$BRUTE_HITS" ]]; then
                 echo "$BRUTE_HITS" | while read -r cnt ip port; do
-                    printf "  %-20s %-10s %s $(t log_attempts)\n" "$ip" "${port}/tcp" "$cnt"
+                    local geo; geo=$(get_ip_geo "$ip")
+                    local geo_str=""; [[ -n "$geo" ]] && geo_str=" (${geo})"
+                    printf "  %-20s%-32s %-10s %s $(t log_attempts)\n" "$ip" "$geo_str" "${port}/tcp" "$cnt"
                 done
             else
                 echo "  $(t log_brute_none)"

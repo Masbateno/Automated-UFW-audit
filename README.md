@@ -1,7 +1,7 @@
-# UFW-audit v0.7
+# UFW-audit v0.8
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.7-blue)
+![Release](https://img.shields.io/badge/version-v0.8-blue)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu-informational)
 ![Language](https://img.shields.io/badge/language-Bash-lightgrey)
 
@@ -49,6 +49,9 @@ ready-to-run remediation commands.
 
 - **Docker analysis** — dedicated section detecting iptables bypass risk and listing exposed container ports
 - **Listening ports analysis** — unified single-pass analysis; ephemeral and system ports silently skipped; NetBIOS handled with contextual warning
+- **UFW log analysis** — parses `/var/log/ufw.log` over a configurable period (`--log-days=N`, default 7); reports total blocked attempts, top source IPs with geolocation, top targeted ports, bruteforce detection (>10 attempts/60s), and attempts on installed service ports
+- **IP geolocation** — source IPs enriched with country and operator via `whois`; private ranges identified as local network; results cached per run; graceful fallback if `whois` not installed
+- **DDNS / external exposure detection** — detects active DDNS clients (ddclient, inadyn, No-IP, DuckDNS); extracts configured domain; crosses with unrestricted UFW ALLOW rules to identify internet-exposed ports; −1 score penalty if active DDNS + open ports
 - **Exposure classification** per service: `open to internet` / `local network only` / `blocked by UFW` / `no rule`
 
 > **ℹ Note on service coverage:** Detection and classification for the following services has been validated through real-world testing: SSH, Samba, Avahi, CUPS, Redis, WireGuard, Docker, Mosquitto, Syncthing, Nginx.
@@ -169,7 +172,7 @@ sudo ./ufw_audit.sh --reconfigure
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║   ██╗   ██╗███████╗██╗    ██╗  ┌──────────────────────────┐  ║
-║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.7         │  ║
+║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.8       │  ║
 ║   ██║   ██║█████╗  ██║ █╗ ██║  │  UFW firewall audit      │  ║
 ║   ██║   ██║██╔══╝  ██║███╗██║  └──────────────────────────┘  ║
 ║   ╚██████╔╝██║     ╚███╔███╔╝              _ _               ║
