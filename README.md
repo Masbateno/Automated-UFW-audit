@@ -1,9 +1,9 @@
 *[Lire en français](README_FR.md)*
 
-# ufw-audit v0.9.0
+# ufw-audit v0.9
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.9.0-blue)
+![Release](https://img.shields.io/badge/version-v0.9-blue)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
 
@@ -176,7 +176,7 @@ sudo ufw-audit --reconfigure
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║   ██╗   ██╗███████╗██╗    ██╗  ┌────────────────────────┐    ║
-║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.9.0     │    ║
+║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.9       │    ║
 ║   ██║   ██║█████╗  ██║ █╗ ██║  │  UFW firewall audit    │    ║
 ║   ██║   ██║██╔══╝  ██║███╗██║  └────────────────────────┘    ║
 ║   ╚██████╔╝██║     ╚███╔███╔╝              _ _               ║
