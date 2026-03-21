@@ -23,8 +23,7 @@ transparent installer with manifest, bash completion, bilingual EN/FR,
 **v0.10** — Optional GeoIP2 geolocation, whois removal,
 short CLI flags, bash completion improvements
 
-**v0.11** — CLI consolidation, field testing,
-non-interactive mode
+**v0.11** —  CLI consolidation, field testing, non-interactive mode, check_virtualization() — libvirt/KVM/VirtualBox and Snap confinement detection (iptables bypass risk, similar to Docker)
 
 **v1.0** — Stable, complete, validated CLI
 
