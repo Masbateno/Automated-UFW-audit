@@ -1,0 +1,41 @@
+# bash completion for ufw-audit
+# Installed to /etc/bash_completion.d/ufw-audit by install.sh
+
+_ufw_audit() {
+    local cur prev
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    # Handle --log-days=N — suggest the = sign and a default value
+    if [[ "${cur}" == --log-days* ]]; then
+        COMPREPLY=( "--log-days=7" "--log-days=14" "--log-days=30" )
+        return 0
+    fi
+
+    # All options
+    local short_opts="-v -d -f -y -r -n -V -h"
+    local long_opts="
+        --verbose
+        --detailed
+        --fix
+        --yes
+        --reconfigure
+        --no-color
+        --json
+        --json-full
+        --log-days=
+        --french
+        --version
+        --help
+    "
+
+    if [[ "${cur}" == --* ]]; then
+        COMPREPLY=( $(compgen -W "${long_opts}" -- "${cur}") )
+    elif [[ "${cur}" == -* ]]; then
+        COMPREPLY=( $(compgen -W "${short_opts} ${long_opts}" -- "${cur}") )
+    fi
+
+    return 0
+}
+
+complete -F _ufw_audit ufw-audit

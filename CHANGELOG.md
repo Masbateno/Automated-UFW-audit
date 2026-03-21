@@ -4,6 +4,78 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.9] — 2026-03-20
+
+Complete rewrite in Python — all functionality preserved and extended, architecture overhauled.
+
+### Complete Python rewrite
+
+- **Language** — rewritten from Bash to Python 3.8+ (stdlib only, zero PyPI dependencies)
+- **Architecture** — each check module split into two strict layers:
+  - `XxxSnapshot.from_system()` — system data collection via subprocess
+  - `check_xxx(snapshot, t)` — pure logic, fully unit-testable without system calls
+- **421 unit tests** across 13 test files — zero failures; all tests run without sudo and without UFW installed
+- **Package structure** — `ufw_audit/` with `checks/` subpackage, `locales/`, `data/`
+- **Entry point** — `/usr/local/bin/ufw-audit` installed by `install.sh`
+
+### Installer
+
+- **`install.sh`** — transparent installer with explicit output for every action
+- Detects Python 3.8+, copies files to standard Linux locations (`/usr/local/`)
+- Writes an exhaustive install manifest to `/usr/local/share/ufw-audit/install.manifest`
+- **`--uninstall`** — reads the manifest, removes exactly what was installed, removes directories only if empty, offers user configuration removal separately
+- **`--dry-run`** — shows all actions without making any changes
+
+### New modules
+
+| Module | Role |
+|---|---|
+| `cli.py` | `AuditConfig` dataclass + `parse_args()` |
+| `config.py` | `UserConfig` — `~/.config/ufw-audit/config.conf` (replaces `~/.ufw_audit.conf`) |
+| `i18n.py` | `t("key.sub_key")` with dot notation, `UFW_AUDIT_SHARE` env var for installed layout |
+| `output.py` | All terminal display functions — banner, sections, findings, summary box |
+| `registry.py` | `ServiceRegistry.load()` from `services.json` — declarative service definitions |
+| `report.py` | `AuditReport` + `NullReport` — immediate flush on every write, no buffering |
+| `scoring.py` | `ScoreEngine`, `CheckResult`, `Finding`, `Deduction`, `RiskLevel` |
+| `checks/firewall.py` | `FirewallStatus` + `check_firewall()` |
+| `checks/services.py` | `ServiceSnapshot` + `check_services()` + `Exposure` enum |
+| `checks/ports.py` | `PortsSnapshot` + `check_ports()` + `PortCategory` enum |
+| `checks/logs.py` | `LogsSnapshot` + `check_logs()` + `get_ip_geo()` + bruteforce detection |
+| `checks/ddns.py` | `DdnsSnapshot` + `check_ddns()` + domain extraction per client type |
+| `checks/docker.py` | `DockerSnapshot` + `check_docker()` + `ExposedPort` |
+
+### Declarative service registry (`services.json`)
+
+- 22 services defined declaratively — no hardcoded service logic in Python
+- Each service carries: id, label, packages, systemd services, default ports, risk level, config_key, detection hints (binary, snap, config files)
+- Adding a new service requires editing `services.json` only — no Python changes
+
+### Internationalisation
+
+- 183 translation keys in `en.json` and `fr.json` — full parity verified
+- New `service_risk` section — 12 critical/high services with three keys each: `level`, `exposure`, `threat`
+- `UFW_AUDIT_SHARE` environment variable — locales and `services.json` read from the installed share directory in production, from the source tree in development
+
+### Bug fixes (post first run)
+
+| # | Problem | Fix |
+|---|---|---|
+| 1 | Banner misaligned — badge width hardcoded | `_build_logo()` — dynamic badge width from content |
+| 2 | No blank line before section boxes | `print()` added at the start of `print_section()` |
+| 3 | Summary box `⚠  :` — colon on empty value | Conditional separator in `print_summary_box()` |
+| 4 | WireGuard shown as "unknown state" | Template service `wg-quick@` with no instance → `INACTIVE_DISABLED` |
+| 5 | DNS port reported twice | `reported_system_ports` set — deduplicates by `(port, proto)` |
+| 6 | Listening ports list absent from terminal | `ss_output` now printed to terminal in ports overview section |
+| 7 | Config path shows `/root/` under sudo | `_get_user_home()` via `SUDO_USER` + `pwd.getpwnam()` |
+| 8 | `ModuleNotFoundError: ufw_audit` | Entry point uses parent of `LIB_DIR` in `sys.path`, not `LIB_DIR` itself |
+
+### Documentation
+
+- **`README.md`** — complete user documentation for v0.9.0 (English): features, service table, requirements, installation, usage, options reference, file locations
+- **`README_DEV.md`** — developer documentation (English): architecture, project structure, running tests, adding a service, adding a language, code conventions, execution flow, scoring system, internationalisation
+
+---
+
 ## [v0.8] — 2026-03-20
 
 ### IP geolocation in UFW log analysis
