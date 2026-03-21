@@ -14,6 +14,27 @@ ready-to-run remediation commands.
 
 ---
 
+## Roadmap
+
+**v0.9** — Complete Python rewrite, 421 unit tests,
+transparent installer with manifest, bash completion, bilingual EN/FR,
+22 services with two-axis risk context
+
+**v0.10** — Optional GeoIP2 geolocation, whois removal,
+short CLI flags, bash completion improvements
+
+**v0.11** — CLI consolidation, field testing,
+non-interactive mode
+
+**v1.0** — Stable, complete, validated CLI
+
+**Post v1.0**
+- Web UI (`--gui`) — graphical interface for non-technical users,
+  pedagogical approach, simplified scope
+- Launchpad PPA / `.deb` package if adoption warrants it
+
+---
+
 ## Features
 
 - **Coloured ASCII banner** with system info (distro, host, UFW version, user, date)
