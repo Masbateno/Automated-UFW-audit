@@ -1,9 +1,9 @@
 *[Lire en français](README_FR.md)*
 
-# ufw-audit v0.9
+# ufw-audit v0.9.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.9-blue)
+![Release](https://img.shields.io/badge/version-v0.9.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
 
@@ -94,6 +94,7 @@ The installer:
 - Copies the package to `/usr/local/lib/ufw_audit/`
 - Copies data files to `/usr/local/share/ufw-audit/`
 - Creates the entry point at `/usr/local/bin/ufw-audit`
+- Installs bash completion to `/etc/bash_completion.d/ufw-audit`
 - Writes an installation manifest to `/usr/local/share/ufw-audit/install.manifest`
 - Displays every action taken
 
@@ -131,25 +132,25 @@ sudo ufw-audit -v
 sudo ufw-audit -d
 
 # Fix mode — propose and apply corrections interactively
-sudo ufw-audit --fix
+sudo ufw-audit -f
 
 # Fix mode — apply all corrections without confirmation
-sudo ufw-audit --fix --yes
+sudo ufw-audit -f -y
 
 # No-colour output (useful for pipes and redirection)
-sudo ufw-audit --no-color > audit.txt
+sudo ufw-audit -n > audit.txt
 
 # Analyse logs over 14 days instead of 7
 sudo ufw-audit --log-days=14
 
 # Reconfigure custom ports
-sudo ufw-audit --reconfigure
+sudo ufw-audit -r
 
-# Show version
-ufw-audit --version
+# Show version (no sudo required)
+ufw-audit -V
 
-# Show help
-ufw-audit --help
+# Show help (no sudo required)
+ufw-audit -h
 ```
 
 Options can be combined:
@@ -175,7 +176,7 @@ sudo ufw-audit --reconfigure
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║   ██╗   ██╗███████╗██╗    ██╗  ┌────────────────────────┐    ║
-║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.9       │    ║
+║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.9.0     │    ║
 ║   ██║   ██║█████╗  ██║ █╗ ██║  │  UFW firewall audit    │    ║
 ║   ██║   ██║██╔══╝  ██║███╗██║  └────────────────────────┘    ║
 ║   ╚██████╔╝██║     ╚███╔███╔╝              _ _               ║
@@ -249,14 +250,16 @@ The report contains: system information, all timestamped findings, complete list
 | *(no option)*           | Standard audit                                                     |
 | `-v`, `--verbose`       | Show technical details (port table, per-port exposure)             |
 | `-d`, `--detailed`      | Generate a full report file                                        |
+| `-f`, `--fix`           | Propose and apply corrections interactively                        |
+| `-y`, `--yes`           | Apply all corrections without confirmation (use with `-f`)         |
 | `-r`, `--reconfigure`   | Reconfigure all custom ports                                       |
-| `--fix`                 | Propose and apply corrections interactively                        |
-| `--yes`                 | Apply all corrections without confirmation (requires `--fix`)      |
-| `--no-color`            | Disable ANSI colour output                                         |
-| `--french`              | Switch interface to French                                         |
+| `-n`, `--no-color`      | Disable ANSI colour output                                         |
+| `--json`                | Export summary as JSON                                             |
+| `--json-full`           | Export full audit details as JSON                                  |
 | `--log-days=N`          | Analyse logs over N days (default: 7)                              |
-| `--version`             | Show version and exit                                              |
-| `--help`                | Show help and exit                                                 |
+| `--french`              | Switch interface to French                                         |
+| `-V`, `--version`       | Show version and exit (no sudo required)                           |
+| `-h`, `--help`          | Show help and exit (no sudo required)                              |
 
 ---
 
@@ -268,8 +271,33 @@ The report contains: system information, all timestamped findings, complete list
 | `/usr/local/lib/ufw_audit/`          | Python package                                                       |
 | `/usr/local/share/ufw-audit/`        | Data files (locales, services.json, manifest)                        |
 | `/usr/local/share/doc/ufw-audit/`    | Documentation                                                        |
+| `/etc/bash_completion.d/ufw-audit`   | Bash completion                                                      |
 | `~/.config/ufw-audit/config.conf`    | User configuration (custom ports, auto-created, permissions 600)     |
 | `ufw_audit_YYYYMMDD_HHMMSS.log`      | Detailed report (created with `-d`, in the current directory)        |
+
+---
+
+## Important note
+
+ufw-audit is an audit and diagnostic tool, not a security shield. It analyses your configuration and flags problems — but it does not apply corrections automatically without your consent, and it cannot detect everything. Some software like Docker can bypass UFW by manipulating iptables directly: ufw-audit detects this specific case and flags it, but other similar vectors exist that fall outside the current scope of the project. In short: ufw-audit helps you see more clearly — it does not replace good general security hygiene.
+
+---
+
+## Roadmap
+
+**v0.9** — Complete Python rewrite, 421 unit tests, transparent installer with manifest, bash completion, bilingual EN/FR, 22 services with two-axis risk context
+
+**v0.10** — Optional GeoIP2 geolocation, whois removal, short CLI flags, bash completion improvements
+
+**v0.11** — CLI consolidation, field testing, non-interactive mode (`--quiet`, meaningful exit codes), `check_virtualization()` — libvirt/KVM/VirtualBox and Snap confinement detection (iptables bypass risk, similar to Docker)
+
+**v0.12** — Cron/email automation support, `AUTOMATION.md`
+
+**v1.0** — Stable, complete, validated CLI
+
+**Post v1.0**
+- Web UI (`--gui`) — graphical interface for non-technical users, pedagogical approach, simplified scope
+- Launchpad PPA / `.deb` package if adoption warrants it
 
 ---
 
