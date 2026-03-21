@@ -23,7 +23,12 @@ transparent installer with manifest, bash completion, bilingual EN/FR,
 **v0.10** — Optional GeoIP2 geolocation, whois removal,
 short CLI flags, bash completion improvements
 
-**v0.11** —  CLI consolidation, field testing, non-interactive mode, check_virtualization() — libvirt/KVM/VirtualBox and Snap confinement detection (iptables bypass risk, similar to Docker)
+**v0.11** — CLI consolidation, field testing,
+non-interactive mode (`--quiet`, meaningful exit codes),
+`check_virtualization()` — libvirt/KVM/VirtualBox and Snap confinement
+detection (iptables bypass risk, similar to Docker)
+
+**v0.12** — Cron/email automation support, `AUTOMATION.md`
 
 **v1.0** — Stable, complete, validated CLI
 
