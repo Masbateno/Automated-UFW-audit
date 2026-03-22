@@ -229,8 +229,11 @@ sudo ufw-audit --reconfigure
 │  DOCKER ANALYSIS                                             │
 └──────────────────────────────────────────────────────────────┘
 
-✖ [ALERT] Docker bypasses UFW rules via iptables (daemon.json missing)
-    → sudo mkdir -p /etc/docker && echo '{"iptables": false}' | sudo tee /etc/docker/daemon.json
+⚠ [WARNING] Docker may bypass UFW rules — iptables is not disabled in daemon.json
+  ℹ This is an architectural choice, not a simple fix — three options:
+  ℹ   1. Disable Docker iptables (advanced): set {"iptables": false} in daemon.json
+  ℹ   2. Add explicit UFW rules for your container ports (safer, recommended)
+  ℹ   → Read before acting: https://docs.docker.com/network/iptables/
 
 ╔══════════════════════════════════════════════════════════════╗
 ║  Security score : 7/10                                       ║
