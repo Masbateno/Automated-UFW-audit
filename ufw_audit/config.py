@@ -147,9 +147,9 @@ class UserConfig:
     # ------------------------------------------------------------------
 
     def _ensure_dir(self) -> None:
-        """Create the config directory if it does not exist."""
+        """Create the config directory if it does not exist (mode 0700)."""
         try:
-            self._path.parent.mkdir(parents=True, exist_ok=True)
+            self._path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
         except OSError as exc:
             logger.warning("Could not create config directory %s: %s", self._path.parent, exc)
 
@@ -194,7 +194,8 @@ class UserConfig:
         """
         self._ensure_dir()
         try:
-            with self._path.open("w", encoding="utf-8") as fh:
+            fd = os.open(str(self._path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
                 for key in sorted(self._data.keys()):
                     fh.write(f"{key}={self._data[key]}\n")
         except OSError as exc:

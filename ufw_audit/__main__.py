@@ -933,10 +933,13 @@ def _detect_network_context() -> tuple[str, str]:
 
 def _get_public_ip() -> str:
     """Attempt to determine public IP via a lightweight HTTP request."""
-    import urllib.error, urllib.request
+    import re, urllib.error, urllib.request
     try:
         with urllib.request.urlopen("https://api.ipify.org", timeout=3) as resp:
-            return resp.read().decode().strip()
+            ip = resp.read(64).decode().strip()
+        if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip):
+            return ip
+        return ""
     except (OSError, urllib.error.URLError, ValueError):
         return ""
 
@@ -947,8 +950,9 @@ def _get_public_ip() -> str:
 
 def _get_user_home() -> Path:
     """Return the real user home directory, respecting SUDO_USER."""
-    sudo_user = os.environ.get("SUDO_USER")
-    if sudo_user:
+    import re
+    sudo_user = os.environ.get("SUDO_USER", "")
+    if sudo_user and re.match(r"^[a-zA-Z0-9_.-]{1,256}$", sudo_user):
         import pwd
         try:
             return Path(pwd.getpwnam(sudo_user).pw_dir)

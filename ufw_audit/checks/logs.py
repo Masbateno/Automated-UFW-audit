@@ -369,7 +369,7 @@ def _geo_via_geoip2(ip: str) -> str:
     """
     for db_path in _GEOIP2_DB_PATHS:
         path = Path(db_path)
-        if not path.exists():
+        if not path.exists() or path.is_symlink():
             continue
         try:
             with geoip2.database.Reader(str(path)) as reader:
@@ -404,7 +404,8 @@ def geoip2_status() -> str:
         return "unavailable"
 
     for db_path in _GEOIP2_DB_PATHS:
-        if Path(db_path).exists():
+        p = Path(db_path)
+        if p.exists() and not p.is_symlink():
             return "available"
 
     return "no_database"

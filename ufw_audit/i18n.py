@@ -42,7 +42,16 @@ _initialized: bool = False
 import os as _os
 _share = _os.environ.get("UFW_AUDIT_SHARE", "")
 if _share:
-    _LOCALES_DIR = Path(_share) / "locales"
+    _share_path = Path(_share)
+    if (
+        _share_path.is_absolute()
+        and not _share_path.is_symlink()
+        and _share_path.is_dir()
+    ):
+        _LOCALES_DIR = _share_path / "locales"
+    else:
+        logger.warning("UFW_AUDIT_SHARE is invalid or unsafe, ignoring: %r", _share)
+        _LOCALES_DIR = Path(__file__).parent / "locales"
 else:
     _LOCALES_DIR = Path(__file__).parent / "locales"
 
@@ -87,8 +96,12 @@ def init(lang: str = DEFAULT_LANG) -> None:
             f"Expected files: {_LOCALES_DIR}/<lang>.json"
         )
 
+    _MAX_LOCALE_SIZE = 512 * 1024  # 512 KB
     with locale_path.open(encoding="utf-8") as fh:
-        _translations = json.load(fh)
+        content = fh.read(_MAX_LOCALE_SIZE + 1)
+    if len(content) > _MAX_LOCALE_SIZE:
+        raise ValueError(f"Locale file {locale_path} exceeds maximum allowed size (512 KB)")
+    _translations = json.loads(content)
 
     _lang = lang
     _initialized = True
