@@ -91,7 +91,7 @@ _no_color: bool = False
 _quiet:    bool = False
 
 # Terminal width — used for section boxes and banner
-_TERM_WIDTH: int = 64
+_TERM_WIDTH: int = 80
 
 
 def init(no_color: bool = False, quiet: bool = False) -> None:
@@ -280,45 +280,24 @@ def print_summary_box(lines: list[tuple[str, str]]) -> None:
 # Banner
 # ---------------------------------------------------------------------------
 
-def _build_logo(version: str, subtitle: str) -> str:
+def _build_logo() -> str:
     """
-    Build the ASCII art logo: UFW art in left ~2/3, badge in right ~1/3.
-
-    Layout (inner = 62):
-      art_width (38) + gap (2) + badge_outer (22) = 62
-    Badge covers the top 4 art lines; no mascot.
+    ASCII art for 'UFW-AUDIT' spanning the full banner width (inner=78).
+    6 rows, figlet Doom style. Each row is 76 chars (1 leading space + letters).
+    The dash '-' is rendered as '═══' on row 3 (vertical midpoint).
     """
-    inner = _TERM_WIDTH - 2  # 62
+    U    = ["██╗   ██╗", "██║   ██║", "██║   ██║", "██║   ██║", "╚██████╔╝", " ╚═════╝ "]
+    F    = ["███████╗",  "██╔════╝",  "█████╗  ",  "██╔══╝  ",  "██║     ",  "╚═╝     "]
+    W    = ["██╗    ██╗", "██║    ██║", "██║ █╗ ██║", "██║███╗██║", "╚███╔███╔╝", " ╚══╝╚══╝ "]
+    DASH = ["   ",        "   ",        "═══",        "   ",        "   ",        "   "      ]
+    A    = [" █████╗ ",  "██╔══██╗",  "███████║",  "██╔══██║",  "██║  ██║",  "╚═╝  ╚═╝"]
+    D    = ["██████╗ ",  "██╔══██╗",  "██║  ██║",  "██║  ██║",  "██████╔╝",  "╚═════╝ "]
+    I    = ["██╗",       "██║",        "██║",        "██║",        "██║",        "╚═╝"     ]
+    T    = ["████████╗", "╚══██╔══╝",  "   ██║   ", "   ██║   ", "   ██║   ", "   ╚═╝   "]
 
-    line1_content = f"UFW-AUDIT  {version}"
-    content_w   = max(len(line1_content), len(subtitle))
-    badge_inner = content_w + 2          # "  " left padding
-    badge_outer = badge_inner + 2        # │ borders
-    gap         = 2
-    art_width   = inner - gap - badge_outer
-
-    raw_art = [
-        "   ██╗   ██╗███████╗██╗    ██╗",
-        "   ██║   ██║██╔════╝██║    ██║",
-        "   ██║   ██║█████╗  ██║ █╗ ██║",
-        "   ██║   ██║██╔══╝  ██║███╗██║",
-        "   ╚██████╔╝██║     ╚███╔███╔╝",
-        "    ╚═════╝ ╚═╝      ╚══╝╚══╝ ",
-    ]
-
-    bar = "─" * badge_inner
-    badge_parts = [
-        f"┌{bar}┐",
-        f"│  {line1_content:<{content_w}}│",
-        f"│  {subtitle:<{content_w}}│",
-        f"└{bar}┘",
-        "",
-        "",
-    ]
-
-    sp = " " * gap
-    lines = [a.ljust(art_width) + sp + b for a, b in zip(raw_art, badge_parts)]
-    return "\n".join(lines)
+    groups = [U, F, W, DASH, A, U, D, I, T]
+    rows = [" " + " ".join(grp[i] for grp in groups) for i in range(6)]
+    return "\n".join(rows)
 
 
 def print_banner(
@@ -347,13 +326,19 @@ def print_banner(
     inner = _TERM_WIDTH - 2
     bar_double = "═" * inner
 
-    logo = _build_logo(version, subtitle)
+    logo = _build_logo()
 
     print(f"{_c.blue_bold}╔{bar_double}╗{_c.reset}")
     for line in logo.splitlines():
         padding = inner - len(_strip_ansi(line))
         padding = max(0, padding)
         print(f"{_c.blue_bold}║{_c.reset}{line}{' ' * padding}{_c.blue_bold}║{_c.reset}")
+
+    # Étage: version + subtitle between art and system info
+    print(f"{_c.blue_bold}╠{bar_double}╣{_c.reset}")
+    etage = f"  UFW-AUDIT {version}  │  {subtitle}"
+    etage_pad = max(0, inner - len(_strip_ansi(etage)))
+    print(f"{_c.blue_bold}║{_c.reset}{etage}{' ' * etage_pad}{_c.blue_bold}║{_c.reset}")
     print(f"{_c.blue_bold}╠{bar_double}╣{_c.reset}")
 
     info_rows = [
