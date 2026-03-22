@@ -86,7 +86,7 @@
     "empty": "No UFW BLOCK events found in logs for the analysed period",
     "period": "Period analysed",
     "days_unit": "day(s)",
-    "days_available": "days of logs available",
+    "days_available": "day(s) of logs available",
     "total_blocks": "blocked attempt(s) detected",
     "verdict_ok": "Normal activity — {total} blocked attempt(s) over {days} day(s), no threat detected",
     "verdict_warn": "Suspicious activity — {total} blocked attempt(s) over {days} day(s)",

@@ -271,7 +271,6 @@ def main(argv=None) -> int:
 
     if not config.quiet:
         print_section(t("sections.logs"))
-    report.write_section(t("sections.logs"))
 
     logs_snapshot = LogsSnapshot.from_system(log_days=config.log_days)
 
