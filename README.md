@@ -82,11 +82,10 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 
 ```bash
 # Clone or download the repository
-git clone https://github.com/Masbateno/Automated-UFW-audit.git
+git clone https://github.com/Masbateno/ufw-audit.git
 cd ufw-audit
 
 # Install (requires root)
-chmod +x install.sh
 sudo ./install.sh
 ```
 
@@ -104,6 +103,22 @@ The installer:
 ```bash
 sudo ./install.sh --dry-run
 ```
+
+### Bash completion
+
+After installation, activate bash completion for the current session:
+
+```bash
+source /etc/bash_completion.d/ufw-audit
+```
+
+To activate permanently (all future sessions):
+
+```bash
+echo "source /etc/bash_completion.d/ufw-audit" >> ~/.bashrc
+```
+
+Then use `ufw-audit --<TAB>` to complete options.
 
 ---
 

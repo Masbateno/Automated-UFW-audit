@@ -40,6 +40,7 @@ _SYSTEM_PORTS: list[tuple[int, str, str]] = [
     (67,  "udp", "DHCP"),
     (68,  "udp", "DHCP"),
     (5353,"udp", "mDNS"),
+    (6666,"udp", "clipboard sync (qlipper/KDE)"),
 ]
 
 # Private/loopback address patterns — ports on these are not internet-exposed
@@ -50,7 +51,7 @@ _PRIVATE_ADDR = re.compile(
 )
 
 _LOOPBACK = re.compile(r"^(127\.|::1$)")
-_ALL_INTERFACES = re.compile(r"^(0\.0\.0\.0|::)$")
+_ALL_INTERFACES = re.compile(r"^(0\.0\.0\.0|::|\*)$")
 
 
 # ---------------------------------------------------------------------------
@@ -356,6 +357,11 @@ def _split_addr_port(local_addr: str) -> tuple[str | None, str | None]:
     ipv6_match = re.match(r"^\[([^\]]+)\]:(\d+)$", local_addr)
     if ipv6_match:
         return ipv6_match.group(1), ipv6_match.group(2)
+
+    # Wildcard notation: *:port (some ss versions)
+    wild_match = re.match(r"^\*:(\d+)$", local_addr)
+    if wild_match:
+        return "*", wild_match.group(1)
 
     # IPv4 with optional %iface: addr%iface:port or addr:port
     ipv4_match = re.match(r"^([^:]+?)(?:%\S+)?:(\d+)$", local_addr)

@@ -86,7 +86,6 @@ git clone https://github.com/Masbateno/Automated-UFW-audit.git
 cd Automated-UFW-audit
 
 # Installer (nécessite les droits root)
-chmod +x install.sh
 sudo ./install.sh
 ```
 
@@ -104,6 +103,22 @@ L'installateur :
 ```bash
 sudo ./install.sh --dry-run
 ```
+
+### Autocomplétion bash
+
+Après l'installation, activez l'autocomplétion pour la session courante :
+
+```bash
+source /etc/bash_completion.d/ufw-audit
+```
+
+Pour l'activer en permanence (toutes les sessions futures) :
+
+```bash
+echo "source /etc/bash_completion.d/ufw-audit" >> ~/.bashrc
+```
+
+Puis utilisez `ufw-audit --<TAB>` pour compléter les options.
 
 ---
 
