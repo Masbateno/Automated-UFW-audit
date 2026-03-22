@@ -141,15 +141,12 @@ def check_virtualization(snapshot: VirtSnapshot, t=None) -> CheckResult:
               name=tech.name,
               iface=tech.iface,
               note=tech.risk_note),
-            points=1,
-            fix_cmd=f"sudo iptables -L FORWARD | grep {tech.iface}",
-            fix_manual=True,
+            cmd=f"sudo iptables -L FORWARD | grep {tech.iface}",
         )
 
     for snap_pkg in snapshot.snap_net:
         result.warn(
             t("virt.snap_network", pkg=snap_pkg),
-            points=0,
         )
 
     return result
