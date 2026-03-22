@@ -1,9 +1,9 @@
 *[Lire en français](README_FR.md)*
 
-# ufw-audit v0.10
+# ufw-audit v0.11
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.10-blue)
+![Release](https://img.shields.io/badge/version-v0.11-blue)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
 
@@ -326,9 +326,9 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v0.9** — Complete Python rewrite, 421 unit tests, transparent installer with manifest, bash completion, bilingual EN/FR, 22 services with two-axis risk context
 
-**v0.10** *(current)* — Optional GeoIP2 geolocation, whois removal, short CLI flags, bash completion for install.sh, score scope disclaimer
+**v0.10** — Optional GeoIP2 geolocation, whois removal, short CLI flags, bash completion for install.sh, score scope disclaimer
 
-**v0.11** — CLI consolidation, field testing, non-interactive mode (`--quiet`, meaningful exit codes), `check_virtualization()` — libvirt/KVM/VirtualBox and Snap confinement detection (iptables bypass risk, similar to Docker)
+**v0.11** *(current)* — CLI consolidation & field testing (Mint/Debian/Kali), non-interactive mode (`--quiet`, exit codes 0-3), `check_virtualization()`, port deduplication, scoring fixes
 
 **v0.12** — Cron/email automation support, `AUTOMATION.md`
 

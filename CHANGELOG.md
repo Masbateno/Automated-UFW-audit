@@ -4,6 +4,51 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.11] — 2026-03-22
+
+### CLI consolidation & field testing
+
+- Tested on 3 distributions: Linux Mint 22.3, Debian 13 (trixie), Kali Linux Rolling
+- Python versions covered: 3.12, 3.13
+- All bugs found during field testing fixed (see below)
+
+### Bug fixes
+
+- **`_command_exists()` returncode** — `subprocess.run` does not raise on missing command; returncode was not checked, causing removed packages (`rc` dpkg state) to be detected as installed. Fixed in `firewall.py` and `docker.py`.
+- **Wildcard address `*`** — some `ss` versions use `*` instead of `0.0.0.0` for "all interfaces"; added to `_ALL_INTERFACES` regex and `_split_addr_port()` parser in `ports.py`.
+- **qlipper port 6666/udp** — KDE clipboard sync tool; added to `_SYSTEM_PORTS` to suppress false positive.
+- **Verbose mode double display** — port exposure lines were printed twice with `-v`; removed redundant block in `__main__.py`.
+- **Score breakdown `-0`** — when firewall is inactive, cap was displayed as `-0` instead of a clear note; replaced with `⚠ Score capped at 3 (firewall inactive)`.
+- **Port deduplication** — NetBIOS ports 137/138 and other multi-address ports were reported once per bound address instead of once per port; added `reported_warn_ports` and `reported_alert_ports` sets in `ports.py`.
+- **UPnP/SSDP port 1900/udp** — local multicast discovery; added to `_SYSTEM_PORTS`.
+- **DHCPv6 ports 546/547/udp** — added to `_SYSTEM_PORTS`.
+- **IPv6 warning duplicate** — appeared in both `FIREWALL STATUS` and `UFW RULES ANALYSIS` sections; removed from `firewall.py`, kept only in `_check_rules()`.
+
+### Non-interactive mode (`--quiet`)
+
+- New `-q` / `--quiet` flag — suppresses all terminal output via stdout redirect to `/dev/null`
+- Meaningful exit codes for scripting and cron automation:
+  - `0` — clean audit, no alerts or warnings
+  - `1` — warnings detected
+  - `2` — alerts detected, action required
+  - `3` — technical error
+- `--quiet` is incompatible with `--fix` (validated at parse time)
+- Exit codes documented in `--help` and README
+
+### `check_virtualization()`
+
+- New `ufw_audit/checks/virtualization.py` module — same pattern as `check_docker()`
+- Detects: libvirt/KVM (`virsh`, `virbr*`), VirtualBox (`vboxmanage`, `vboxnet*`), VMware (`vmware`, `vmnet*`), LXD/LXC (`lxd`/`lxc`, `lxdbr*`)
+- Also detects Snap packages with active network connections
+- Warning displayed without score penalty — informational, not a misconfiguration
+- Validated on Linux Mint 22.3 with active libvirt/KVM + `virbr0`
+
+### Bash completion
+
+- `install.sh` completion added — `./install.sh --<TAB>` completes `--dry-run`, `--uninstall`, `--help`
+
+---
+
 ## [v0.10] — 2026-03-22
 
 ### IP geolocation — whois removed, GeoIP2 optional
