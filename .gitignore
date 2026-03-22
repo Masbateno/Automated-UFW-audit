@@ -1,10 +1,30 @@
-# Ignore all UFW-audit log files
+# UFW-audit log reports
 *.log
 
-# Ignore system files (optional)
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Editor temporary files
+*~
+*.swp
 .DS_Store
 Thumbs.db
 
-# Ignore editor temporary files (optional)
-*~
-*.swp
+# VSCode
+.vscode/
+
+# MyPy
+.mypy_cache/
