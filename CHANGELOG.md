@@ -4,6 +4,43 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.11.1] — 2026-03-22
+
+### Security hardening — 20 fixes across 3 passes
+
+Patch release addressing security vulnerabilities found during internal code review. No functional changes — all v0.11 features remain identical.
+
+#### Critical / High
+
+- **Shell injection** — `subprocess.run(cmd, shell=True)` in fix mode replaced by `shlex.split()` + list form; virtualization interface name quoted with `shlex.quote()`
+- **Daemon.json overwrite** — Docker fix command replaced by a safe Python one-liner that merges existing keys instead of blindly overwriting the file with `tee`
+- **ANSI injection** — new `output.sanitize()` strips ANSI escape sequences and non-printable characters from all external data (container names, hostnames, domains) before terminal display
+- **Path traversal / symlink attacks** — `_is_safe_config_path()` added to `ddns.py` and `services.py`; all config file reads guarded by `path.is_absolute() and not path.is_symlink()`
+- **GeoIP2 symlink attack** — `_geo_via_geoip2()` and `geoip2_status()` skip symlinked database files
+- **`SUDO_USER` injection** — validated against `^[a-zA-Z0-9_.-]{1,256}$` before `pwd.getpwnam()`
+
+#### Medium
+
+- **ReDoS** — `\S+` in `_extract_field()` bounded to `\S{1,256}`
+- **JSON bomb / DoS** — `registry.py` and `i18n.py` cap JSON file reads at 1 MB and 512 KB respectively before `json.loads()`
+- **Memory DoS** — `/var/log/ufw.log` read capped at 100 MB; `/etc/os-release` line capped at 512 bytes
+- **`UFW_AUDIT_SHARE` injection** — validated: must be absolute, non-symlink, existing directory before use in `registry.py` and `i18n.py`
+- **HTTP response validation** — ipify.org response limited to 64 bytes and validated against IPv4 regex
+- **Domain injection** — extracted DDNS domain validated against domain regex; sanitized with `output.sanitize(max_len=253)` before display
+- **Port / protocol injection** — `services.py` validates port number (1–65535) and protocol (`tcp`/`udp`) from registry before use
+- **TOCTOU** — `docker.py` daemon.json existence check replaced with atomic `try/except FileNotFoundError`
+
+#### Low
+
+- **File permissions** — report files created with `0o600` via `os.open()`; user config directory created with `0o700`; config file written with `0o600`
+- **Subprocess returncode** — fix mode checks `proc.returncode` and reports success/failure explicitly
+- **Broad exception clauses** — `except Exception` replaced by specific exception types throughout
+- **FD leak** — quiet mode `/dev/null` file descriptor registered with `atexit` for clean closure
+- **Hostname / OS name injection** — sanitized with `output.sanitize(max_len=64)` before terminal display
+- **Unused import** — `import io` removed from quiet mode path
+
+---
+
 ## [v0.11] — 2026-03-22
 
 ### CLI consolidation & field testing
