@@ -502,16 +502,16 @@ def _display_log_results(logs_result, snapshot, config, t, report) -> None:
         top_ip, top_count = data["top_ips"][0]
         geo = get_ip_geo(top_ip, lang=config.lang)
         geo_str = f" ({geo})" if geo else ""
-        print_dim(
-            f"ℹ {t('logs.top_ips')} : {top_ip}{geo_str} "
+        print_info(
+            f"{t('logs.top_ips')} : {top_ip}{geo_str} "
             f"— {top_count} {t('logs.attempts')}"
         )
 
     # Top port
     if data["top_ports"]:
         top_port, top_count = data["top_ports"][0]
-        print_dim(
-            f"ℹ {t('logs.top_ports')} : {top_port} "
+        print_info(
+            f"{t('logs.top_ports')} : {top_port} "
             f"— {top_count} {t('logs.attempts')}"
         )
 
