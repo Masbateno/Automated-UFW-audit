@@ -398,40 +398,31 @@ def _classify_exposure(port: str, ufw_rules: str) -> Exposure:
         r"(?:192\.168\.|10\.|172\.(?:1[6-9]|2\d|3[01])\.|127\.)"
     )
 
-    found_allow = False
-    found_deny  = False
-    found_local = False
+    port_pattern = re.compile(
+        r"\b" + re.escape(port_num) + r"(?:/" + re.escape(proto) + r")?\b",
+        re.IGNORECASE,
+    )
 
+    # UFW uses first-match semantics — process rules in order and return immediately
     for line in ufw_rules.splitlines():
         # Skip non-rule lines
         if not re.match(r"\s*\[\s*\d+\]", line):
             continue
 
-        # Match this port in the rule
-        port_pattern = re.compile(
-            r"\b" + re.escape(port_num) + r"(?:/" + re.escape(proto) + r")?\b",
-            re.IGNORECASE,
-        )
         if not port_pattern.search(line):
             continue
 
         line_upper = line.upper()
 
         if "DENY" in line_upper:
-            found_deny = True
+            return Exposure.DENY
         elif "ALLOW" in line_upper:
             # Check if rule has a source restriction to a private range
             if _PRIVATE.search(line):
-                found_local = True
+                return Exposure.OPEN_LOCAL
             else:
-                found_allow = True
+                return Exposure.OPEN_WORLD
 
-    if found_deny and not found_allow:
-        return Exposure.DENY
-    if found_allow:
-        return Exposure.OPEN_WORLD
-    if found_local:
-        return Exposure.OPEN_LOCAL
     return Exposure.NO_RULE
 
 

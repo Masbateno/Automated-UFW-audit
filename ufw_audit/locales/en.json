@@ -121,7 +121,8 @@
     "iptables_bypass_detail1": "This is an architectural choice, not a simple fix — three options:",
     "iptables_bypass_detail2": "  1. Disable Docker iptables (advanced): set {\"iptables\": false} in daemon.json — you manage networking yourself",
     "iptables_bypass_detail3": "  2. Add explicit UFW rules for your container ports (safer, recommended)",
-    "iptables_bypass_docs": "  → Read before acting: https://docs.docker.com/network/iptables/"
+    "iptables_bypass_docs": "  → Read before acting: https://docs.docker.com/network/iptables/",
+    "exposed_bypass_ufw": "bypasses UFW via iptables"
   },
   "scoring": {
     "score_label": "Security score",

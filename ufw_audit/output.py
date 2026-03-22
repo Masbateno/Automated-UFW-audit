@@ -68,12 +68,13 @@ _COLOURS_OFF = _Colours(
 
 _c: _Colours = _COLOURS_ON
 _no_color: bool = False
+_quiet:    bool = False
 
 # Terminal width — used for section boxes and banner
 _TERM_WIDTH: int = 64
 
 
-def init(no_color: bool = False) -> None:
+def init(no_color: bool = False, quiet: bool = False) -> None:
     """
     Initialise the output module.
 
@@ -82,10 +83,18 @@ def init(no_color: bool = False) -> None:
 
     Args:
         no_color: If True, all ANSI codes are suppressed.
+        quiet:    If True, all print_* functions are silenced.
     """
-    global _c, _no_color
+    global _c, _no_color, _quiet
     _no_color = no_color
-    _c = _COLOURS_OFF if no_color else _COLOURS_ON
+    _quiet    = quiet
+    _c = _COLOURS_OFF if (no_color or quiet) else _COLOURS_ON
+
+
+def _p(*args, **kwargs) -> None:
+    """Internal print wrapper — respects quiet mode."""
+    if not _quiet:
+        print(*args, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -146,11 +155,11 @@ def print_section(title: str) -> None:
     padding = inner - 2 - len(_strip_ansi(title))
     padding = max(0, padding)
 
-    print()  # blank line before each section
-    print(f"{_c.blue}┌{bar}┐{_c.reset}")
-    print(f"{_c.blue}│{_c.reset}  {_c.bold}{title}{_c.reset}{' ' * padding}  {_c.blue}│{_c.reset}")
-    print(f"{_c.blue}└{bar}┘{_c.reset}")
-    print()
+    _p()  # blank line before each section
+    _p(f"{_c.blue}┌{bar}┐{_c.reset}")
+    _p(f"{_c.blue}│{_c.reset}  {_c.bold}{title}{_c.reset}{' ' * padding}  {_c.blue}│{_c.reset}")
+    _p(f"{_c.blue}└{bar}┘{_c.reset}")
+    _p()
 
 
 def print_service_header(label: str) -> None:
@@ -159,12 +168,12 @@ def print_service_header(label: str) -> None:
     Example:
         ▶ SSH Server
     """
-    print(f"\n  {_c.bold}▶ {label}{_c.reset}")
+    _p(f"\n  {_c.bold}▶ {label}{_c.reset}")
 
 
 def print_port_detail(message: str) -> None:
     """Print an indented port detail line (↳ prefix)."""
-    print(f"    {_c.dim}↳ {message}{_c.reset}")
+    _p(f"    {_c.dim}↳ {message}{_c.reset}")
 
 
 def print_recommendation(lines: str | list[str]) -> None:
@@ -176,15 +185,15 @@ def print_recommendation(lines: str | list[str]) -> None:
     """
     if isinstance(lines, str):
         lines = lines.splitlines()
-    print(f"\n    {_c.dim}Que faire ?{_c.reset}")
+    _p(f"\n    {_c.dim}Que faire ?{_c.reset}")
     for line in lines:
-        print(f"    {_c.cyan}→ {line}{_c.reset}")
-    print()
+        _p(f"    {_c.cyan}→ {line}{_c.reset}")
+    _p()
 
 
 def print_dim(message: str) -> None:
     """Print a dimmed informational line."""
-    print(f"  {_c.dim}{message}{_c.reset}")
+    _p(f"  {_c.dim}{message}{_c.reset}")
 
 
 def print_risk_context(

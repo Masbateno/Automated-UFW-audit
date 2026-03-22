@@ -91,12 +91,6 @@ def main(argv=None) -> int:
     global _QUIET
     _QUIET = config.quiet
 
-    # --- Redirect stdout to /dev/null in quiet mode ---
-    if config.quiet:
-        import io
-        _devnull = open(os.devnull, 'w')
-        sys.stdout = _devnull
-
     # --- Initialise i18n ---
     from ufw_audit import i18n
     i18n.init(lang=config.lang)
@@ -104,7 +98,7 @@ def main(argv=None) -> int:
 
     # --- Initialise output ---
     from ufw_audit import output
-    output.init(no_color=config.no_color or config.quiet)
+    output.init(no_color=config.no_color, quiet=config.quiet)
 
     # --- Load registry ---
     from ufw_audit.registry import ServiceRegistry
@@ -372,10 +366,6 @@ def main(argv=None) -> int:
     # --fix mode
     if config.fix:
         _run_fixes(engine, config, t)
-
-    # Restore stdout before exit
-    if config.quiet:
-        sys.stdout = sys.__stdout__
 
     # Exit code based on audit results
     if engine.alert_count > 0:
@@ -722,20 +712,25 @@ def _check_rules(ufw_verbose: str, ufw_numbered: str, t) -> "CheckResult":
     lines = [l for l in ufw_numbered.splitlines()
              if re.match(r"\s*\[\s*\d+\]", l)]
 
-    # Duplicate check
-    seen: dict[str, int] = {}
+    # Duplicate check — use real UFW index from ufw status numbered output
+    seen: dict[str, int] = {}  # rule_text -> real UFW index
     for line in lines:
+        idx_match = re.match(r"\[\s*(\d+)\]", line)
+        real_index = int(idx_match.group(1)) if idx_match else None
         rule = re.sub(r"\[\s*\d+\]\s*", "", line).strip()
         if rule in seen:
+            # Delete the duplicate (higher index) to avoid renumbering the first
+            del_index = real_index if real_index else seen[rule]
             result.alert(
                 message=t("rules.duplicate_found", rule=rule),
                 nature="action",
-                cmd=f"sudo ufw --force delete {seen[rule]}",
+                cmd=f"sudo ufw --force delete {del_index}",
             )
             result.add_deduction(reason=t("rules.duplicate_found", rule=rule),
                                  points=1)
         else:
-            seen[rule] = len(seen) + 1
+            if real_index is not None:
+                seen[rule] = real_index
 
     if not any(f.message.startswith(t("rules.duplicate_found")[:20])
                for f in result.findings):
@@ -746,12 +741,14 @@ def _check_rules(ufw_verbose: str, ufw_numbered: str, t) -> "CheckResult":
         r"Anywhere\s+ALLOW\s+IN\s+Anywhere$", re.IGNORECASE
     )
     found_open_any = False
-    for i, line in enumerate(lines):
+    for line in lines:
         if open_any_pattern.search(line):
+            idx_match = re.match(r"\[\s*(\d+)\]", line)
+            real_index = int(idx_match.group(1)) if idx_match else "?"
             result.alert(
                 message=t("rules.open_any_found", rule=line.strip()),
                 nature="action",
-                cmd=f"sudo ufw --force delete {len(lines) - i}",
+                cmd=f"sudo ufw --force delete {real_index}",
             )
             result.add_deduction(
                 reason=t("rules.open_any_found", rule=""),
@@ -921,7 +918,7 @@ def _detect_network_context() -> tuple[str, str]:
         # Look for non-private, non-loopback IP
         for match in re.finditer(r"inet\s+([\d.]+)/", result.stdout):
             ip = match.group(1)
-            if not re.match(r"^(10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|127\.)", ip):
+            if not re.match(r"^(10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|127\.|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)", ip):
                 return "public", ip
     except Exception:
         pass

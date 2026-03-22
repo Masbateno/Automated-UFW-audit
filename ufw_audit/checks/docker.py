@@ -189,15 +189,24 @@ def check_docker(
         result.ok(message=_t("docker.no_containers"))
     else:
         for port in public_ports:
-            result.warn(
-                message=(
-                    f"{port.container_name}: {port.port_proto} "
-                    f"→ {port.container_port}/{port.proto}"
-                ),
-                nature="improvement",
-            )
-            # Additional deduction if iptables is NOT disabled
-            # (port is truly bypassing UFW)
+            if not snapshot.iptables_disabled:
+                # Port truly bypassing UFW — escalate to alert
+                result.alert(
+                    message=(
+                        f"{port.container_name}: {port.port_proto} "
+                        f"→ {port.container_port}/{port.proto} "
+                        f"({_t('docker.exposed_bypass_ufw')})"
+                    ),
+                    nature="action",
+                )
+            else:
+                result.warn(
+                    message=(
+                        f"{port.container_name}: {port.port_proto} "
+                        f"→ {port.container_port}/{port.proto}"
+                    ),
+                    nature="improvement",
+                )
             if not snapshot.iptables_disabled:
                 result.add_deduction(
                     reason=f"Docker bypass: {port.container_name} {port.port_proto}",
