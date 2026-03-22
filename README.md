@@ -1,9 +1,9 @@
 *[Lire en français](README_FR.md)*
 
-# ufw-audit v0.11.1
+# ufw-audit v0.11.2
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.11.1-blue)
+![Release](https://img.shields.io/badge/version-v0.11.2-blue)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
 
@@ -199,7 +199,7 @@ sudo ufw-audit --reconfigure
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║   ██╗   ██╗███████╗██╗    ██╗  ┌────────────────────────┐    ║
-║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.9.0     │    ║
+║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.11.2    │    ║
 ║   ██║   ██║█████╗  ██║ █╗ ██║  │  UFW firewall audit    │    ║
 ║   ██║   ██║██╔══╝  ██║███╗██║  └────────────────────────┘    ║
 ║   ╚██████╔╝██║     ╚███╔███╔╝              _ _               ║
@@ -337,7 +337,9 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v0.11** — CLI consolidation & field testing (Mint/Debian/Kali), non-interactive mode (`--quiet`, exit codes 0-3), `check_virtualization()`, port deduplication, scoring fixes
 
-**v0.11.1** *(current)* — Security hardening patch: 20 vulnerabilities fixed (shell injection, ANSI injection, path traversal, symlink attacks, ReDoS, JSON bomb, file permission hardening)
+**v0.11.1** — Security hardening patch: 20 vulnerabilities fixed (shell injection, ANSI injection, path traversal, symlink attacks, ReDoS, JSON bomb, file permission hardening)
+
+**v0.11.2** *(current)* — Output & UX pass: banner redesigned (full "UFW-AUDIT" block art, 80-char width, version étage), log verdict line, report file section consistency fixes, locale grammar fixes
 
 **v0.12** — Cron/email automation support, `AUTOMATION.md`
 

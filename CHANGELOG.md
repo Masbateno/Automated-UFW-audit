@@ -4,6 +4,32 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.11.2] — 2026-03-22
+
+### Output & UX improvements
+
+- **Banner redesigned** — "UFW-AUDIT" in full block ASCII art (figlet Doom style) spanning the full 80-char banner width; dash rendered as `═══` on the vertical midpoint; mascot removed; new étage row (`╠═╣ / UFW-AUDIT vX.X  │  subtitle / ╠═╣`) inserted between the art and system info
+- **Log verdict** — replaced raw block count with a coloured verdict line: `[OK] Normal activity` or `[WARNING] Suspicious activity`
+- **Top IPs / ports** — promoted from `print_dim` to `print_info` (`ℹ [INFO]`) for consistent visual weight
+- **Port dump (ss)** — conditioned to verbose mode (`-v`); non-verbose shows a `Use -v to display the full port table` hint instead
+- **Port exposure messages** — made fully self-explanatory: `open to internet — no source restriction in UFW`, `restricted to local network by UFW rule`, `explicitly blocked by a UFW rule`, `covered by default deny policy (no explicit UFW rule needed)`
+- **Installation docs** — added `chmod +x install.sh` step to README and README_FR
+
+### Report file fixes
+
+- Removed duplicate log section header (written twice: from main flow and from `_display_log_results`)
+- `LISTENING PORTS` section title now uses the active locale instead of hardcoded English
+- Virtualisation findings now have their own `=== ANALYSE DE VIRTUALISATION ===` section header (were appended inside the Docker section)
+- Removed duplicate `PORTS EN ÉCOUTE (VUE GÉNÉRALE)` header (the ss dump header was redundant with the section header two lines above)
+- Added blank line separator between the port count line and the ss dump in the report
+
+### Locale fixes
+
+- French: `"jours de logs disponibles"` → `"jour(s) de logs disponibles"` (grammar for count=1)
+- English: `"days of logs available"` → `"day(s) of logs available"` (consistency)
+
+---
+
 ## [v0.11.1] — 2026-03-22
 
 ### Security hardening — 20 fixes across 3 passes

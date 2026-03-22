@@ -20,7 +20,7 @@ from pathlib import Path
 # Version
 # ---------------------------------------------------------------------------
 
-VERSION = "0.11.1"
+VERSION = "0.11.2"
 
 # Exit codes
 EXIT_OK       = 0  # clean audit — no alerts, no warnings
