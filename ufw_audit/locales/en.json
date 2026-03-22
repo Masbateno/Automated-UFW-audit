@@ -24,7 +24,8 @@
     "docker": "DOCKER ANALYSIS",
     "summary": "AUDIT SUMMARY",
     "fixes": "AVAILABLE FIXES",
-    "risk_context": "RISK CONTEXT — DETECTED SERVICES"
+    "risk_context": "RISK CONTEXT — DETECTED SERVICES",
+    "virtualization": "VIRTUALISATION ANALYSIS"
   },
   "status": {
     "ok": "OK",
@@ -96,7 +97,7 @@
     "attempts": "attempt(s)",
     "geo_unavailable": "whois not available — install it for IP geolocation (sudo apt install whois)",
     "local_network": "local network",
-    "geoip2_unavailable": "GeoIP2 not available — install it with: sudo apt install python3-geoip2 geoip-database",
+    "geoip2_unavailable": "GeoIP2 not available — install python3-geoip2 for IP geolocation",
     "geoip2_no_db": "GeoIP2 installed but no GeoLite2 database found — install it with: sudo apt install geoip-database"
   },
   "ddns": {
@@ -261,5 +262,10 @@
       "exposure": "MQTT broker often without authentication by default, listens on all interfaces",
       "threat": "Unauthorised publish/subscribe to home automation topics, device control, sensor data interception"
     }
+  },
+  "virt": {
+    "none_detected": "No virtualisation technology detected",
+    "bypass_risk": "{name} detected — {iface} bridge interface may insert iptables rules, bypassing UFW FORWARD policy",
+    "snap_network": "Snap package '{pkg}' has active network connections — verify it does not bypass UFW"
   }
 }

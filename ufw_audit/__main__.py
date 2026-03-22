@@ -339,10 +339,21 @@ def main(argv=None) -> int:
     print()
 
     # ======================================================================
+    # --- Virtualisation check ---
+    from ufw_audit.checks.virtualization import VirtSnapshot, check_virtualization
+    from ufw_audit.output import print_section as _print_section
+    virt_snapshot = VirtSnapshot.from_system()
+    virt_result   = check_virtualization(virt_snapshot, t=t)
+    engine.apply(virt_result)
+    if not config.quiet:
+        _print_section(t("sections.virtualization"))
+    _display_result(virt_result, report, config.verbose)
+
     # Summary
     # ======================================================================
     engine.finalize()
-    _print_summary(engine, network_context, public_ip, config, t, report, snapshots)
+    if not config.quiet:
+        _print_summary(engine, network_context, public_ip, config, t, report, snapshots)
 
     # Finalise report
     report.write_risk_context_section(

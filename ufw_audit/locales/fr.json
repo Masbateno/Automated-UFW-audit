@@ -24,7 +24,8 @@
     "docker": "ANALYSE DOCKER",
     "summary": "RÉSUMÉ DE L'AUDIT",
     "fixes": "CORRECTIONS DISPONIBLES",
-    "risk_context": "CONTEXTE DE RISQUE — SERVICES DÉTECTÉS"
+    "risk_context": "CONTEXTE DE RISQUE — SERVICES DÉTECTÉS",
+    "virtualization": "ANALYSE DE VIRTUALISATION"
   },
   "status": {
     "ok": "OK",
@@ -96,7 +97,7 @@
     "attempts": "tentative(s)",
     "geo_unavailable": "whois non disponible — installez-le pour la géolocalisation des IPs (sudo apt install whois)",
     "local_network": "réseau local",
-    "geoip2_unavailable": "GeoIP2 non disponible — installez-le avec : sudo apt install python3-geoip2 geoip-database",
+    "geoip2_unavailable": "GeoIP2 non disponible — installez python3-geoip2 pour la géolocalisation IP",
     "geoip2_no_db": "GeoIP2 installé mais aucune base GeoLite2 trouvée — installez-la avec : sudo apt install geoip-database"
   },
   "ddns": {
@@ -261,5 +262,10 @@
       "exposure": "Broker MQTT souvent sans authentification par défaut, écoute sur toutes les interfaces",
       "threat": "Publication/abonnement non autorisé aux topics domotiques, contrôle d'équipements, interception des données capteurs"
     }
+  },
+  "virt": {
+    "none_detected": "Aucune technologie de virtualisation détectée",
+    "bypass_risk": "{name} détecté — l'interface bridge {iface} peut insérer des règles iptables, contournant la politique FORWARD d'UFW",
+    "snap_network": "Le paquet Snap '{pkg}' a des connexions réseau actives — vérifiez qu'il ne contourne pas UFW"
   }
 }

@@ -25,7 +25,7 @@ set -euo pipefail
 # Constants
 # ---------------------------------------------------------------------------
 
-VERSION="0.10"
+VERSION="0.9"
 PACKAGE_NAME="ufw-audit"
 
 PREFIX="/usr/local"
@@ -352,7 +352,7 @@ done
 
 # checks/ subpackage
 do_copy "${SRC_CHECKS}/__init__.py" "${LIB_DIR}/checks/__init__.py"
-for check_module in firewall.py services.py ports.py logs.py ddns.py docker.py; do
+for check_module in firewall.py services.py ports.py logs.py ddns.py docker.py virtualization.py; do
     src="${SRC_CHECKS}/${check_module}"
     if [[ -f "$src" ]]; then
         do_copy "$src" "${LIB_DIR}/checks/${check_module}"
@@ -443,7 +443,7 @@ else
         [[ -f "${LIB_DIR}/${module}" ]] && manifest_add "FILE ${LIB_DIR}/${module}"
     done
     manifest_add "FILE ${LIB_DIR}/checks/__init__.py"
-    for check_module in firewall.py services.py ports.py logs.py ddns.py docker.py; do
+    for check_module in firewall.py services.py ports.py logs.py ddns.py docker.py virtualization.py; do
         [[ -f "${LIB_DIR}/checks/${check_module}" ]] && \
             manifest_add "FILE ${LIB_DIR}/checks/${check_module}"
     done
