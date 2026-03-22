@@ -254,7 +254,7 @@ def main(argv=None) -> int:
     report.write_finding("INFO", t("ports.listening_count",
                                    count=len(ports_snapshot.ports)))
     if ports_snapshot.ss_output:
-        report.write_section("LISTENING PORTS")
+        report.write_section(t("sections.ports_overview"))
         report.write_raw(ports_snapshot.ss_output)
         if config.verbose:
             output.print_dim(t("ports.listening_detail"))
@@ -345,6 +345,7 @@ def main(argv=None) -> int:
     engine.apply(virt_result)
     if not config.quiet:
         _print_section(t("sections.virtualization"))
+    report.write_section(t("sections.virtualization"))
     _display_result(virt_result, report, config.verbose)
     if not config.quiet:
         print()
