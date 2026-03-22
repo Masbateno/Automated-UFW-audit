@@ -348,6 +348,8 @@ def main(argv=None) -> int:
     if not config.quiet:
         _print_section(t("sections.virtualization"))
     _display_result(virt_result, report, config.verbose)
+    if not config.quiet:
+        print()
 
     # Summary
     # ======================================================================
