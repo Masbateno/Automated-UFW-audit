@@ -202,16 +202,9 @@ def _run(*args: str) -> str:
 
 
 def _command_exists(name: str) -> bool:
-    """Return True if the given command is available in PATH."""
-    try:
-        result = subprocess.run(
-            ["which", name],
-            capture_output=True,
-            timeout=5,
-        )
-        return result.returncode == 0
-    except (FileNotFoundError, OSError):
-        return False
+    """Return True if the command is available in PATH."""
+    import shutil
+    return shutil.which(name) is not None
 
 
 def _identity_t(key: str, **kwargs) -> str:
