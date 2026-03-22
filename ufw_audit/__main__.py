@@ -20,7 +20,13 @@ from pathlib import Path
 # Version
 # ---------------------------------------------------------------------------
 
-VERSION = "0.9"
+VERSION = "0.10"
+
+# Exit codes
+EXIT_OK       = 0  # clean audit — no alerts, no warnings
+EXIT_WARNINGS = 1  # warnings detected
+EXIT_ALERTS   = 2  # alerts detected (action required)
+EXIT_ERROR    = 3  # technical error
 
 
 # ---------------------------------------------------------------------------
