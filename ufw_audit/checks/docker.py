@@ -270,29 +270,69 @@ def _parse_port_entry(container_name: str, entry: str) -> Optional[ExposedPort]:
     """
     Parse a Docker port mapping entry.
 
-    Expected formats:
-      - "0.0.0.0:8080->80/tcp"
-      - ":::8080->80/tcp"
-      - "0.0.0.0:8080->80/tcp, :::8080->80/tcp"
+    Handles all known Docker formats:
+      - "0.0.0.0:8080->80/tcp"       IPv4 any
+      - "127.0.0.1:8080->80/tcp"     IPv4 loopback
+      - ":::8080->80/tcp"            IPv6 any (short form)
+      - "[::]:8080->80/tcp"          IPv6 any (bracket form)
+      - "[::1]:8080->80/tcp"         IPv6 loopback
+      - "80/tcp"                     internal only, no host binding → skip
+      - "80/udp"                     internal only → skip
 
     Returns:
-        ExposedPort or None if parsing fails.
+        ExposedPort or None if parsing fails or no host binding.
     """
-    # Match: host_ip:host_port->container_port/proto
-    match = re.match(
-        r"^([\d.:]+):(\d+)->(\d+)/(tcp|udp)$",
-        entry.strip(),
-    )
-    if not match:
+    entry = entry.strip()
+
+    # Skip internal-only ports (no host binding): "80/tcp", "443/udp"
+    if re.match(r"^\d+/(tcp|udp|sctp)$", entry):
         return None
 
-    return ExposedPort(
-        container_name=container_name,
-        host_ip=match.group(1),
-        host_port=int(match.group(2)),
-        container_port=int(match.group(3)),
-        proto=match.group(4),
+    # IPv4: "host_ip:host_port->container_port/proto"
+    ipv4_match = re.match(
+        r"^(\d+\.\d+\.\d+\.\d+):(\d+)->(\d+)/(tcp|udp)$",
+        entry,
     )
+    if ipv4_match:
+        return ExposedPort(
+            container_name=container_name,
+            host_ip=ipv4_match.group(1),
+            host_port=int(ipv4_match.group(2)),
+            container_port=int(ipv4_match.group(3)),
+            proto=ipv4_match.group(4),
+        )
+
+    # IPv6 bracket form: "[::]:port->..." or "[::1]:port->..."
+    ipv6_bracket = re.match(
+        r"^\[([^\]]*)\]:(\d+)->(\d+)/(tcp|udp)$",
+        entry,
+    )
+    if ipv6_bracket:
+        return ExposedPort(
+            container_name=container_name,
+            host_ip=ipv6_bracket.group(1) or "::",
+            host_port=int(ipv6_bracket.group(2)),
+            container_port=int(ipv6_bracket.group(3)),
+            proto=ipv6_bracket.group(4),
+        )
+
+    # IPv6 short form: ":::port->..." (Docker shorthand for [::]:port)
+    ipv6_short = re.match(
+        r"^:{2,3}(\d+)->(\d+)/(tcp|udp)$",
+        entry,
+    )
+    if ipv6_short:
+        return ExposedPort(
+            container_name=container_name,
+            host_ip="::",
+            host_port=int(ipv6_short.group(1)),
+            container_port=int(ipv6_short.group(2)),
+            proto=ipv6_short.group(3),
+        )
+
+    # Unknown format — log and skip
+    logger.debug("Docker: unrecognised port entry: %r", entry)
+    return None
 
 
 def _command_exists(name: str) -> bool:
