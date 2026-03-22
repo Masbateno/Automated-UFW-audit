@@ -179,20 +179,6 @@ def check_firewall(status: FirewallStatus, t=None) -> CheckResult:
             nature="improvement",
         )
 
-    # --- IPv6 consistency ---
-    if status.ipv4_rules_count > 0 and status.ipv6_rules_count == 0:
-        result.warn(
-            message=_t("rules.ipv6_missing"),
-            nature="improvement",
-        )
-        result.add_deduction(
-            reason=_t("rules.ipv6_missing"),
-            points=1,
-            context="local",
-        )
-    elif status.ipv4_rules_count > 0:
-        result.ok(message=_t("rules.ipv6_ok"))
-
     return result
 
 

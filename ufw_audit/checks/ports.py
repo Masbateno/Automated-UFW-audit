@@ -39,6 +39,9 @@ _SYSTEM_PORTS: list[tuple[int, str, str]] = [
     (53,  "udp", "DNS"),
     (67,  "udp", "DHCP"),
     (68,  "udp", "DHCP"),
+    (546, "udp", "DHCPv6"),
+    (547, "udp", "DHCPv6"),
+    (1900,"udp", "UPnP/SSDP (local discovery)"),
     (5353,"udp", "mDNS"),
     (6666,"udp", "clipboard sync (qlipper/KDE)"),
 ]
@@ -160,6 +163,8 @@ def check_ports(
 
     has_uncovered_public = False
     reported_system_ports: set[str] = set()  # deduplicate system internal ports
+    reported_warn_ports:   set[str] = set()  # deduplicate warn/alert ports (multi-address)
+    reported_alert_ports:  set[str] = set()  # deduplicate alert ports
 
     for lport in snapshot.ports:
         pp = lport.port_proto
@@ -192,6 +197,9 @@ def check_ports(
             continue
 
         if category == PortCategory.NETBIOS:
+            if pp in reported_warn_ports:
+                continue
+            reported_warn_ports.add(pp)
             result.warn(
                 message=_t("ports.uncovered", port=pp),
                 nature="improvement",
@@ -209,6 +217,9 @@ def check_ports(
             continue
 
         if category == PortCategory.UNCOVERED_PUBLIC:
+            if pp in reported_alert_ports:
+                continue
+            reported_alert_ports.add(pp)
             has_uncovered_public = True
             result.alert(
                 message=_t("ports.uncovered", port=pp),

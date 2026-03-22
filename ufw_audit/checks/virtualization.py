@@ -141,6 +141,7 @@ def check_virtualization(snapshot: VirtSnapshot, t=None) -> CheckResult:
               name=tech.name,
               iface=tech.iface,
               note=tech.risk_note),
+            nature="improvement",
             cmd=f"sudo iptables -L FORWARD | grep {tech.iface}",
         )
 
