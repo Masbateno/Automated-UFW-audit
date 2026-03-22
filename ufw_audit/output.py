@@ -282,33 +282,43 @@ def print_summary_box(lines: list[tuple[str, str]]) -> None:
 
 def _build_logo(version: str, subtitle: str) -> str:
     """
-    Build the ASCII art logo with a dynamically sized badge.
+    Build the ASCII art logo: UFW art in left ~2/3, badge in right ~1/3.
 
-    The badge width adapts to the longest of version and subtitle strings
-    so the box always closes properly.
+    Layout (inner = 62):
+      art_width (38) + gap (2) + badge_outer (22) = 62
+    Badge covers the top 4 art lines; no mascot.
     """
-    # Badge inner width = max(len("UFW-AUDIT  " + version), len(subtitle)) + 2 padding
+    inner = _TERM_WIDTH - 2  # 62
+
     line1_content = f"UFW-AUDIT  {version}"
-    badge_inner = max(len(line1_content), len(subtitle)) + 2
-    badge_inner = max(badge_inner, 24)  # minimum width
+    content_w   = max(len(line1_content), len(subtitle))
+    badge_inner = content_w + 2          # "  " left padding
+    badge_outer = badge_inner + 2        # │ borders
+    gap         = 2
+    art_width   = inner - gap - badge_outer
 
-    bar     = "─" * badge_inner
-    line1   = f"│  {line1_content:<{badge_inner - 2}}│"
-    line2   = f"│  {subtitle:<{badge_inner - 2}}│"
-    corners = f"┌{bar}┐"
-    bottom  = f"└{bar}┘"
+    raw_art = [
+        "   ██╗   ██╗███████╗██╗    ██╗",
+        "   ██║   ██║██╔════╝██║    ██║",
+        "   ██║   ██║█████╗  ██║ █╗ ██║",
+        "   ██║   ██║██╔══╝  ██║███╗██║",
+        "   ╚██████╔╝██║     ╚███╔███╔╝",
+        "    ╚═════╝ ╚═╝      ╚══╝╚══╝ ",
+    ]
 
-    # Right-align the badge to sit after the ASCII art (offset = 34 chars)
-    offset = "  "
-    return (
-        f"   ██╗   ██╗███████╗██╗    ██╗  {corners}\n"
-        f"   ██║   ██║██╔════╝██║    ██║  {line1}\n"
-        f"   ██║   ██║█████╗  ██║ █╗ ██║  {line2}\n"
-        f"   ██║   ██║██╔══╝  ██║███╗██║  {bottom}\n"
-        f"   ╚██████╔╝██║     ╚███╔███╔╝              _ _\n"
-        f"    ╚═════╝ ╚═╝      ╚══╝╚══╝             _(-_-)_\n"
-        f"                                            audit"
-    )
+    bar = "─" * badge_inner
+    badge_parts = [
+        f"┌{bar}┐",
+        f"│  {line1_content:<{content_w}}│",
+        f"│  {subtitle:<{content_w}}│",
+        f"└{bar}┘",
+        "",
+        "",
+    ]
+
+    sp = " " * gap
+    lines = [a.ljust(art_width) + sp + b for a, b in zip(raw_art, badge_parts)]
+    return "\n".join(lines)
 
 
 def print_banner(
