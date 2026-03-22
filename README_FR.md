@@ -1,9 +1,9 @@
 *[Read in English](README.md)*
 
-# ufw-audit v0.9
+# ufw-audit v0.10
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.9-blue)
+![Release](https://img.shields.io/badge/version-v0.10-blue)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
 
@@ -73,7 +73,7 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 - UFW installé : `sudo apt install ufw`
 - Python 3.8+
 - `ss` recommandé (paquet `iproute2`) — disponible par défaut sur les systèmes modernes
-- `whois` recommandé pour la géolocalisation (optionnel) : `sudo apt install whois`
+- `python3-geoip2` + base GeoLite2 recommandés pour la géolocalisation IP (optionnel) : `sudo apt install python3-geoip2 geoip-database`
 - `docker` CLI pour l'analyse Docker (optionnel)
 
 ---
@@ -214,7 +214,7 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v0.9** — Réécriture complète en Python, 421 tests unitaires, installateur transparent avec manifeste, autocomplétion bash, bilingue EN/FR, 22 services avec contexte de risque à deux axes
 
-**v0.10** — Géolocalisation GeoIP2 optionnelle, suppression whois, options courtes CLI, améliorations autocomplétion
+**v0.10** *(actuelle)* — Géolocalisation GeoIP2 optionnelle, suppression whois, options courtes CLI, autocomplétion install.sh, note de périmètre du score
 
 **v0.11** — Consolidation CLI, tests terrain, mode non-interactif (`--quiet`, codes de sortie), `check_virtualization()` — détection libvirt/KVM/VirtualBox et confinement Snap
 

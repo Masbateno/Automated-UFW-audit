@@ -4,7 +4,47 @@ All notable changes to this project are documented here.
 
 ---
 
-## [v0.9] — 2026-03-20
+## [v0.10] — 2026-03-22
+
+### IP geolocation — whois removed, GeoIP2 optional
+
+- **`whois` completely removed** — unreliable across registries, slow on large log files, blocking on 100+ IPs
+- **GeoIP2 optional integration** — uses `python3-geoip2` + MaxMind GeoLite2 database if available; silent fallback to bare IP if not installed
+- **In-memory cache `_GEO_CACHE`** — each IP resolved only once per session regardless of how many times it appears in logs
+- **`geoip2_status()`** — detects library availability and database presence independently; three states: `available`, `unavailable`, `no_database`
+- **One-time info message** in log analysis section:
+  - GeoIP2 absent: `GeoIP2 not available — install it with: sudo apt install python3-geoip2 geoip-database`
+  - GeoIP2 installed but no database: `GeoIP2 installed but no GeoLite2 database found — install it with: sudo apt install geoip-database`
+  - GeoIP2 available: no message displayed
+
+### CLI improvements
+
+- **Short flags** — all frequently used options now have a short form:
+  - `-f` / `--fix`
+  - `-y` / `--yes`
+  - `-r` / `--reconfigure`
+  - `-n` / `--no-color`
+  - `-V` / `--version` (already existed, now documented)
+- **`-h` / `--help` and `-V` / `--version` without sudo** — root check moved after argument parsing; informational options never require elevated privileges
+- **Help rewritten** — clean tabular format with short+long flags, usage examples, and documentation link
+
+### Bash completion
+
+- **`install.sh` completion added** — `./install.sh --<TAB>` now completes `--dry-run`, `--uninstall`, `--help`
+- Completion file updated in `/etc/bash_completion.d/ufw-audit`
+
+### Score scope disclaimer
+
+- **Two-line note displayed after every audit summary** — reminds the user that the score covers firewall exposure only, not system updates, application security, or other attack vectors
+- Bilingual EN/FR via locale keys `summary.scope_line1` and `summary.scope_line2`
+
+### Version format
+
+- Version strings changed from `0.9.0` style to `0.9` / `0.10` — simpler, consistent with project conventions
+
+---
+
+## [v0.9.0] — 2026-03-20
 
 Complete rewrite in Python — all functionality preserved and extended, architecture overhauled.
 
@@ -76,7 +116,7 @@ Complete rewrite in Python — all functionality preserved and extended, archite
 
 ---
 
-## [v0.8] — 2026-03-20
+## [v0.8.0] — 2026-03-20
 
 ### IP geolocation in UFW log analysis
 

@@ -1,9 +1,9 @@
 *[Lire en français](README_FR.md)*
 
-# ufw-audit v0.9
+# ufw-audit v0.10
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.9-blue)
+![Release](https://img.shields.io/badge/version-v0.10-blue)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
 
@@ -73,7 +73,7 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - UFW installed: `sudo apt install ufw`
 - Python 3.8+
 - `ss` recommended (`iproute2` package) — available by default on modern systems
-- `whois` recommended for geolocation (optional): `sudo apt install whois`
+- `python3-geoip2` + GeoLite2 database recommended for IP geolocation (optional): `sudo apt install python3-geoip2 geoip-database`
 - `docker` CLI for Docker analysis (optional)
 
 ---
@@ -176,7 +176,7 @@ sudo ufw-audit --reconfigure
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║   ██╗   ██╗███████╗██╗    ██╗  ┌────────────────────────┐    ║
-║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.9       │    ║
+║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.9.0     │    ║
 ║   ██║   ██║█████╗  ██║ █╗ ██║  │  UFW firewall audit    │    ║
 ║   ██║   ██║██╔══╝  ██║███╗██║  └────────────────────────┘    ║
 ║   ╚██████╔╝██║     ╚███╔███╔╝              _ _               ║
@@ -287,7 +287,7 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v0.9** — Complete Python rewrite, 421 unit tests, transparent installer with manifest, bash completion, bilingual EN/FR, 22 services with two-axis risk context
 
-**v0.10** — Optional GeoIP2 geolocation, whois removal, short CLI flags, bash completion improvements
+**v0.10** *(current)* — Optional GeoIP2 geolocation, whois removal, short CLI flags, bash completion for install.sh, score scope disclaimer
 
 **v0.11** — CLI consolidation, field testing, non-interactive mode (`--quiet`, meaningful exit codes), `check_virtualization()` — libvirt/KVM/VirtualBox and Snap confinement detection (iptables bypass risk, similar to Docker)
 
