@@ -82,11 +82,10 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 
 ```bash
 # Clone or download the repository
-git clone https://github.com/Masbateno/Automated-UFW-audit.git
+git clone https://github.com/Masbateno/ufw-audit.git
 cd ufw-audit
 
 # Install (requires root)
-chmod +x install.sh
 sudo ./install.sh
 ```
 
@@ -162,6 +161,9 @@ sudo ufw-audit --log-days=14
 
 # Reconfigure custom ports
 sudo ufw-audit -r
+
+# Quiet mode — no output, use exit code to detect issues
+sudo ufw-audit -q; echo $?   # 0=clean, 1=warnings, 2=alerts, 3=error
 
 # Show version (no sudo required)
 ufw-audit -V
@@ -267,6 +269,7 @@ The report contains: system information, all timestamped findings, complete list
 | *(no option)*           | Standard audit                                                     |
 | `-v`, `--verbose`       | Show technical details (port table, per-port exposure)             |
 | `-d`, `--detailed`      | Generate a full report file                                        |
+| `-q`, `--quiet`         | Suppress all output — use exit code to detect issues               |
 | `-f`, `--fix`           | Propose and apply corrections interactively                        |
 | `-y`, `--yes`           | Apply all corrections without confirmation (use with `-f`)         |
 | `-r`, `--reconfigure`   | Reconfigure all custom ports                                       |
@@ -291,6 +294,25 @@ The report contains: system information, all timestamped findings, complete list
 | `/etc/bash_completion.d/ufw-audit`   | Bash completion                                                      |
 | `~/.config/ufw-audit/config.conf`    | User configuration (custom ports, auto-created, permissions 600)     |
 | `ufw_audit_YYYYMMDD_HHMMSS.log`      | Detailed report (created with `-d`, in the current directory)        |
+
+---
+
+## Exit codes
+
+When using `--quiet`, the exit code tells you the audit result:
+
+| Code | Meaning |
+|------|---------|
+| `0`  | Clean audit — no alerts, no warnings |
+| `1`  | Warnings detected |
+| `2`  | Alerts detected — action required |
+| `3`  | Technical error |
+
+Example cron job — daily audit at 6am, email on issues:
+
+```bash
+0 6 * * * sudo ufw-audit --quiet -d || echo "ufw-audit exit $? on $(hostname)" | mail -s "UFW Alert" admin@example.com
+```
 
 ---
 

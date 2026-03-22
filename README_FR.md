@@ -86,7 +86,6 @@ git clone https://github.com/Masbateno/Automated-UFW-audit.git
 cd Automated-UFW-audit
 
 # Installer (nécessite les droits root)
-chmod +x install.sh
 sudo ./install.sh
 ```
 
@@ -163,6 +162,9 @@ sudo ufw-audit --log-days=14
 # Reconfigurer les ports personnalisés
 sudo ufw-audit -r
 
+# Mode silencieux — aucune sortie, utilisez le code de retour
+sudo ufw-audit -q; echo $?   # 0=propre, 1=avertissements, 2=alertes, 3=erreur
+
 # Afficher la version (sans sudo)
 ufw-audit -V
 
@@ -188,6 +190,25 @@ sudo ufw-audit -r
 
 ---
 
+## Codes de retour
+
+En mode `--quiet`, le code de retour indique le résultat de l'audit :
+
+| Code | Signification |
+|------|---------------|
+| `0`  | Audit propre — aucune alerte, aucun avertissement |
+| `1`  | Avertissements détectés |
+| `2`  | Alertes détectées — action requise |
+| `3`  | Erreur technique |
+
+Exemple cron — audit quotidien à 6h, mail en cas de problème :
+
+```bash
+0 6 * * * sudo ufw-audit --quiet -d || echo "ufw-audit exit $? on $(hostname)" | mail -s "UFW Alert" admin@example.com
+```
+
+---
+
 ## Précision importante
 
 ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. Il analyse votre configuration et vous signale les problèmes — mais il ne les corrige pas automatiquement sans votre accord, et il ne peut pas tout détecter. Certains logiciels comme Docker peuvent contourner UFW en manipulant directement iptables : ufw-audit détecte ce cas spécifique et vous le signale, mais il existe d'autres vecteurs similaires qui sortent du périmètre actuel du projet. En résumé : ufw-audit vous aide à voir plus clair, il ne se substitue pas à une bonne hygiène de sécurité générale.
@@ -200,6 +221,7 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 |-------------------------|--------------------------------------------------------------------|
 | `-v`, `--verbose`       | Afficher les détails techniques (tableau des ports, exposition)    |
 | `-d`, `--detailed`      | Générer un fichier rapport complet                                 |
+| `-q`, `--quiet`         | Supprimer toute sortie — utiliser le code de retour                |
 | `-f`, `--fix`           | Proposer et appliquer les corrections interactivement              |
 | `-y`, `--yes`           | Appliquer toutes les corrections sans confirmation (avec `-f`)     |
 | `-r`, `--reconfigure`   | Reconfigurer tous les ports personnalisés                          |
