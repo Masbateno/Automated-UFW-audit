@@ -117,7 +117,11 @@
     "iptables_disabled": "Docker configured with iptables disabled (daemon.json). UFW rules apply normally.",
     "iptables_bypass": "Docker may bypass UFW rules — iptables is not disabled in daemon.json",
     "no_containers": "No running Docker containers with exposed ports",
-    "exposed_ports": "Ports exposed by Docker"
+    "exposed_ports": "Ports exposed by Docker",
+    "iptables_bypass_detail1": "This is an architectural choice, not a simple fix — three options:",
+    "iptables_bypass_detail2": "  1. Disable Docker iptables (advanced): set {\"iptables\": false} in daemon.json — you manage networking yourself",
+    "iptables_bypass_detail3": "  2. Add explicit UFW rules for your container ports (safer, recommended)",
+    "iptables_bypass_docs": "  → Read before acting: https://docs.docker.com/network/iptables/"
   },
   "scoring": {
     "score_label": "Security score",

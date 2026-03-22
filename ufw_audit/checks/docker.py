@@ -5,7 +5,8 @@ Verifies that Docker is configured to not bypass UFW rules via iptables,
 and lists any running containers with exposed ports.
 
 The main risk: by default Docker manipulates iptables directly, bypassing
-UFW rules entirely. The fix is to set {"iptables": false} in daemon.json.
+UFW rules entirely. This is an architectural choice with trade-offs — the
+tool documents options rather than applying an automatic fix.
 
 Split into two parts:
   1. DockerSnapshot.from_system() — collects data via subprocess.
@@ -163,20 +164,21 @@ def check_docker(
     if snapshot.iptables_disabled:
         result.ok(message=_t("docker.iptables_disabled"))
     else:
-        result.alert(
+        result.warn(
             message=_t("docker.iptables_bypass"),
-            nature="action",
-            cmd=(
-                'sudo mkdir -p /etc/docker && '
-                'echo \'{"iptables": false}\' | sudo tee /etc/docker/daemon.json'
-            ),
+            nature="improvement",
         )
-        points = 2 if network_context == "public" else 1
-        result.add_deduction(
-            reason=_t("docker.iptables_bypass"),
-            points=points,
-            context=network_context,
-        )
+        result.info(message=_t("docker.iptables_bypass_detail1"))
+        result.info(message=_t("docker.iptables_bypass_detail2"))
+        result.info(message=_t("docker.iptables_bypass_detail3"))
+        result.info(message=_t("docker.iptables_bypass_docs"))
+        points = 1 if network_context == "public" else 0
+        if points:
+            result.add_deduction(
+                reason=_t("docker.iptables_bypass"),
+                points=points,
+                context=network_context,
+            )
 
     # Exposed container ports
     public_ports = [p for p in snapshot.exposed_ports if p.is_public]
