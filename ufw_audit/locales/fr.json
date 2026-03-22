@@ -95,7 +95,9 @@
     "svc_hits_none": "Aucune tentative sur les ports des services installés",
     "attempts": "tentative(s)",
     "geo_unavailable": "whois non disponible — installez-le pour la géolocalisation des IPs (sudo apt install whois)",
-    "local_network": "réseau local"
+    "local_network": "réseau local",
+    "geoip2_unavailable": "GeoIP2 non disponible — installez-le avec : sudo apt install python3-geoip2 geoip-database",
+    "geoip2_no_db": "GeoIP2 installé mais aucune base GeoLite2 trouvée — installez-la avec : sudo apt install geoip-database"
   },
   "ddns": {
     "none": "Aucun client DDNS détecté — pas d'exposition externe via DDNS identifiée",
@@ -141,7 +143,9 @@
     "block_improve": "Améliorations possibles",
     "block_normal": "Configuration normale",
     "implicit_policy": "Service(s) à risque élevé s'appuient sur la politique par défaut UFW plutôt que des règles explicites. C'est correct si la politique est deny, mais une règle explicite est plus robuste.",
-    "implicit_svcs": "Service(s) concerné(s)"
+    "implicit_svcs": "Service(s) concerné(s)",
+    "scope_line1": "Ce score évalue uniquement la configuration du pare-feu UFW.",
+    "scope_line2": "Les mises à jour système, la sécurité applicative et les autres vecteurs d'attaque ne sont pas couverts par cet audit."
   },
   "fixes": {
     "title": "CORRECTIONS DISPONIBLES",

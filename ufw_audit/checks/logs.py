@@ -36,10 +36,29 @@ BRUTEFORCE_THRESHOLD = 10   # attempts from same IP on same port within window
 BRUTEFORCE_WINDOW_S  = 60   # seconds
 TOP_N = 10                  # number of entries in top IPs / top ports tables
 
-# Private IP ranges — no whois lookup needed
+# Private IP ranges — no geolocation needed
 _PRIVATE_IP = re.compile(
     r"^(10\.|172\.(?:1[6-9]|2\d|3[01])\.|192\.168\.|127\.|::1$|fc|fd)"
 )
+
+# GeoIP2 optional import — silent fallback if not installed
+try:
+    import geoip2.database
+    import geoip2.errors
+    _GEOIP2_AVAILABLE = True
+except ImportError:
+    _GEOIP2_AVAILABLE = False
+
+# Standard paths for MaxMind GeoLite2 database
+_GEOIP2_DB_PATHS = [
+    "/usr/share/GeoIP/GeoLite2-City.mmdb",
+    "/usr/share/GeoIP/GeoLite2-Country.mmdb",
+    "/var/lib/GeoIP/GeoLite2-City.mmdb",
+    "/var/lib/GeoIP/GeoLite2-Country.mmdb",
+]
+
+# In-memory cache — each IP resolved only once per session
+_GEO_CACHE: dict[str, str] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -306,50 +325,89 @@ def _service_hits(
 
 def get_ip_geo(ip: str, lang: str = "en") -> str:
     """
-    Resolve geolocation for an IP via whois.
+    Resolve geolocation for an IP address.
 
+    Uses GeoIP2 (python3-geoip2 + GeoLite2 database) if available.
+    Falls back silently to empty string if not installed.
     Private/loopback ranges return a localised "local network" string.
-    Returns empty string if whois is unavailable or lookup fails.
+    Results are cached in memory — each IP resolved only once per session.
 
     Args:
         ip:   IP address string.
         lang: Language code ("en" or "fr").
 
     Returns:
-        Geolocation string e.g. "FR, Orange" or "local network".
+        Geolocation string e.g. "FR, Orange" or "local network" or "".
     """
+    # Cache hit
+    cache_key = f"{ip}:{lang}"
+    if cache_key in _GEO_CACHE:
+        return _GEO_CACHE[cache_key]
+
     local_label = "réseau local" if lang == "fr" else "local network"
 
+    # Private / loopback
     if _PRIVATE_IP.match(ip):
+        _GEO_CACHE[cache_key] = local_label
         return local_label
 
-    try:
-        proc = subprocess.run(
-            ["whois", ip],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        output = proc.stdout
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        return ""
+    # GeoIP2 lookup
+    result = ""
+    if _GEOIP2_AVAILABLE:
+        result = _geo_via_geoip2(ip)
 
-    country = ""
-    org = ""
+    _GEO_CACHE[cache_key] = result
+    return result
 
-    for line in output.splitlines()[:40]:
-        if re.match(r"^country\s*:", line, re.IGNORECASE) and not country:
-            country = line.split(":", 1)[1].strip().upper()
-        if re.match(r"^(org-name|orgname|netname|descr)\s*:", line, re.IGNORECASE) and not org:
-            org = line.split(":", 1)[1].strip()[:30]
 
-    if country and org:
-        return f"{country}, {org}"
-    if country:
-        return country
-    if org:
-        return org
+def _geo_via_geoip2(ip: str) -> str:
+    """
+    Look up geolocation via GeoIP2 local database.
+
+    Tries each known database path in order. Returns empty string
+    if no database is found or the IP is not in the database.
+    """
+    for db_path in _GEOIP2_DB_PATHS:
+        path = Path(db_path)
+        if not path.exists():
+            continue
+        try:
+            with geoip2.database.Reader(str(path)) as reader:
+                if "City" in db_path:
+                    record = reader.city(ip)
+                    country = record.country.iso_code or ""
+                    city    = record.city.name or ""
+                    org     = city if city else ""
+                else:
+                    record  = reader.country(ip)
+                    country = record.country.iso_code or ""
+                    org     = record.country.name or ""
+
+                if country and org:
+                    return f"{country}, {org}"
+                if country:
+                    return country
+                return ""
+        except Exception:
+            continue
+
     return ""
+
+
+def geoip2_status() -> str:
+    """
+    Return a human-readable status string for GeoIP2 availability.
+
+    Used by the orchestrator to display a one-time info message.
+    """
+    if not _GEOIP2_AVAILABLE:
+        return "unavailable"
+
+    for db_path in _GEOIP2_DB_PATHS:
+        if Path(db_path).exists():
+            return "available"
+
+    return "no_database"
 
 
 # ---------------------------------------------------------------------------

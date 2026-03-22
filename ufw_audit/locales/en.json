@@ -95,7 +95,9 @@
     "svc_hits_none": "No attempts on installed service ports",
     "attempts": "attempt(s)",
     "geo_unavailable": "whois not available — install it for IP geolocation (sudo apt install whois)",
-    "local_network": "local network"
+    "local_network": "local network",
+    "geoip2_unavailable": "GeoIP2 not available — install it with: sudo apt install python3-geoip2 geoip-database",
+    "geoip2_no_db": "GeoIP2 installed but no GeoLite2 database found — install it with: sudo apt install geoip-database"
   },
   "ddns": {
     "none": "No DDNS client detected — no DDNS-based external exposure identified",
@@ -141,7 +143,9 @@
     "block_improve": "Possible improvements",
     "block_normal": "Normal configuration",
     "implicit_policy": "Service(s) relying on default UFW policy rather than explicit rules. Correct if policy is deny, but an explicit rule is more robust.",
-    "implicit_svcs": "Affected service(s)"
+    "implicit_svcs": "Affected service(s)",
+    "scope_line1": "This score reflects your UFW firewall configuration only.",
+    "scope_line2": "System updates, application security, and other attack vectors are outside the scope of this audit."
   },
   "fixes": {
     "title": "AVAILABLE FIXES",

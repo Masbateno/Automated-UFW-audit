@@ -39,3 +39,13 @@ _ufw_audit() {
 }
 
 complete -F _ufw_audit ufw-audit
+
+# bash completion for install.sh (ufw-audit installer)
+_ufw_audit_install() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local opts="--dry-run --uninstall --help"
+    COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+    return 0
+}
+
+complete -F _ufw_audit_install install.sh

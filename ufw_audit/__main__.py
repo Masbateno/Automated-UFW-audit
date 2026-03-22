@@ -20,7 +20,7 @@ from pathlib import Path
 # Version
 # ---------------------------------------------------------------------------
 
-VERSION = "0.9.0"
+VERSION = "0.10"
 
 
 # ---------------------------------------------------------------------------
@@ -49,8 +49,6 @@ def main(argv=None) -> int:
     Returns:
         Exit code: 0 on success, 1 on error.
     """
-    _bootstrap()
-
     # --- Parse arguments ---
     from ufw_audit.cli import AuditConfig, CLIError, parse_args
     try:
@@ -58,6 +56,21 @@ def main(argv=None) -> int:
     except CLIError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
+
+    # --- Handle --version and --help before root check ---
+    if config.show_version:
+        print(f"ufw-audit v{VERSION}")
+        return 0
+
+    if config.show_help:
+        from ufw_audit import i18n, output
+        i18n.init(lang=config.lang)
+        output.init(no_color=config.no_color)
+        _print_help(i18n.t)
+        return 0
+
+    # --- Root check — only needed for actual audit ---
+    _bootstrap()
 
     # --- Initialise i18n ---
     from ufw_audit import i18n
@@ -67,15 +80,6 @@ def main(argv=None) -> int:
     # --- Initialise output ---
     from ufw_audit import output
     output.init(no_color=config.no_color)
-
-    # --- Handle --version and --help ---
-    if config.show_version:
-        print(f"ufw-audit v{VERSION}")
-        return 0
-
-    if config.show_help:
-        _print_help(t)
-        return 0
 
     # --- Load registry ---
     from ufw_audit.registry import ServiceRegistry
@@ -240,6 +244,21 @@ def main(argv=None) -> int:
     report.write_section(t("sections.logs"))
 
     logs_snapshot = LogsSnapshot.from_system(log_days=config.log_days)
+
+    # One-time GeoIP2 availability notice
+    from ufw_audit.checks.logs import geoip2_status
+    geo_status = geoip2_status()
+    if geo_status == "unavailable":
+        output.print_info(
+            t("logs.geoip2_unavailable") if not t("logs.geoip2_unavailable").startswith("[")
+            else "GeoIP2 not available — install python3-geoip2 for IP geolocation"
+        )
+    elif geo_status == "no_database":
+        output.print_info(
+            t("logs.geoip2_no_db") if not t("logs.geoip2_no_db").startswith("[")
+            else "GeoIP2 installed but no GeoLite2 database found"
+        )
+
     logs_result   = check_logs(logs_snapshot, audited_ports=audited_ports, t=t)
     engine.apply(logs_result)
 
@@ -576,6 +595,11 @@ def _print_summary(engine, network_context, public_ip, config, t, report, snapsh
         print(f"  ℹ {t('summary.implicit_policy')}")
         print(f"    {t('summary.implicit_svcs')} : {', '.join(implicit_svcs)}")
 
+    # Scope disclaimer — always displayed regardless of score
+    print()
+    print(f"  ℹ {t('summary.scope_line1')}")
+    print(f"  ℹ {t('summary.scope_line2')}")
+
     print()
     print(f"  {t('config.found', path=str(_get_user_home() / '.config/ufw-audit/config.conf'))}")
     if config.detailed:
@@ -874,16 +898,38 @@ def _get_user_home() -> Path:
 
 
 def _print_help(t) -> None:
-    print(t("cli.help_usage"))
+    W = 62
+    print(f"ufw-audit v{VERSION} — UFW firewall audit tool")
     print()
-    for key in (
-        "help_verbose", "help_detailed", "help_fix", "help_yes",
-        "help_reconf", "help_nocolor", "help_json", "help_jsonfull",
-        "help_logdays", "help_french", "help_version", "help_help",
-    ):
-        print(t(f"cli.{key}"))
+    print("Usage: sudo ufw-audit [OPTIONS]")
     print()
-    print(t("cli.help_default"))
+    print("Options:")
+    opts = [
+        ("-v, --verbose",      "Show detailed port exposure for each service"),
+        ("-d, --detailed",     "Save full audit report to a log file"),
+        ("-f, --fix",          "Offer to apply automatic corrections after the audit"),
+        ("-y, --yes",          "Auto-confirm all fixes (use with -f)"),
+        ("-r, --reconfigure",  "Reset saved port configuration and re-ask"),
+        ("-n, --no-color",     "Disable colour output"),
+        ("--json",             "Export summary as JSON"),
+        ("--json-full",        "Export full audit details as JSON"),
+        ("--log-days=N",       "Analyse the last N days of UFW logs (default: 7)"),
+        ("--french",           "Switch interface to French"),
+        ("-V, --version",      "Show version and exit (no sudo required)"),
+        ("-h, --help",         "Show this help message (no sudo required)"),
+    ]
+    col = 22
+    for flag, desc in opts:
+        print(f"  {flag:<{col}}  {desc}")
+    print()
+    print("Examples:")
+    print("  sudo ufw-audit                  Standard audit")
+    print("  sudo ufw-audit -v -d            Verbose + save report")
+    print("  sudo ufw-audit --french -d      French + save report")
+    print("  sudo ufw-audit -f               Audit + fix mode")
+    print("  sudo ufw-audit --log-days=14    Analyse 14 days of logs")
+    print()
+    print("Documentation: https://github.com/Masbateno/ufw-audit")
 
 
 # ---------------------------------------------------------------------------

@@ -25,7 +25,7 @@ set -euo pipefail
 # Constants
 # ---------------------------------------------------------------------------
 
-VERSION="0.9.0"
+VERSION="0.10"
 PACKAGE_NAME="ufw-audit"
 
 PREFIX="/usr/local"
@@ -33,6 +33,7 @@ BIN_DIR="${PREFIX}/bin"
 LIB_DIR="${PREFIX}/lib/ufw_audit"
 SHARE_DIR="${PREFIX}/share/${PACKAGE_NAME}"
 DOC_DIR="${PREFIX}/share/doc/${PACKAGE_NAME}"
+COMPLETION_DIR="/etc/bash_completion.d"
 MANIFEST="${SHARE_DIR}/install.manifest"
 
 MIN_PYTHON_MAJOR=3
@@ -279,13 +280,28 @@ if [[ -z "$PYTHON_BIN" ]]; then
 fi
 
 # Source files present
+# Detect layout: package (ufw_audit/) or flat (all files in same dir)
+if [[ -d "${SCRIPT_DIR}/ufw_audit" ]]; then
+    LAYOUT="package"
+    SRC_MAIN="${SCRIPT_DIR}/ufw_audit"
+    SRC_CHECKS="${SCRIPT_DIR}/ufw_audit/checks"
+    SRC_LOCALES="${SCRIPT_DIR}/ufw_audit/locales"
+    SRC_DATA="${SCRIPT_DIR}/ufw_audit/data"
+else
+    LAYOUT="flat"
+    SRC_MAIN="${SCRIPT_DIR}"
+    SRC_CHECKS="${SCRIPT_DIR}"
+    SRC_LOCALES="${SCRIPT_DIR}"
+    SRC_DATA="${SCRIPT_DIR}"
+fi
+
 required_files=(
-    "${SCRIPT_DIR}/ufw_audit/__main__.py"
-    "${SCRIPT_DIR}/ufw_audit/cli.py"
-    "${SCRIPT_DIR}/ufw_audit/i18n.py"
-    "${SCRIPT_DIR}/ufw_audit/locales/en.json"
-    "${SCRIPT_DIR}/ufw_audit/locales/fr.json"
-    "${SCRIPT_DIR}/ufw_audit/data/services.json"
+    "${SRC_MAIN}/__main__.py"
+    "${SRC_MAIN}/cli.py"
+    "${SRC_MAIN}/i18n.py"
+    "${SRC_LOCALES}/en.json"
+    "${SRC_LOCALES}/fr.json"
+    "${SRC_DATA}/services.json"
 )
 
 for f in "${required_files[@]}"; do
@@ -316,6 +332,7 @@ do_mkdir "${SHARE_DIR}"
 do_mkdir "${SHARE_DIR}/locales"
 do_mkdir "${SHARE_DIR}/data"
 do_mkdir "${DOC_DIR}"
+do_mkdir "${COMPLETION_DIR}"
 
 # ---------------------------------------------------------------------------
 # INSTALL — copy package files
@@ -323,29 +340,29 @@ do_mkdir "${DOC_DIR}"
 
 section "Installing Python package"
 
-# Core modules
+# Core modules (excluding __init__.py — handled separately above)
 for module in \
-    __init__.py __main__.py cli.py config.py i18n.py \
+    __main__.py cli.py config.py i18n.py \
     output.py registry.py report.py scoring.py; do
-    src="${SCRIPT_DIR}/ufw_audit/${module}"
+    src="${SRC_MAIN}/${module}"
     if [[ -f "$src" ]]; then
         do_copy "$src" "${LIB_DIR}/${module}"
     fi
 done
 
 # checks/ subpackage
-do_copy "${SCRIPT_DIR}/ufw_audit/checks/__init__.py" "${LIB_DIR}/checks/__init__.py"
+do_copy "${SRC_CHECKS}/__init__.py" "${LIB_DIR}/checks/__init__.py"
 for check_module in firewall.py services.py ports.py logs.py ddns.py docker.py; do
-    src="${SCRIPT_DIR}/ufw_audit/checks/${check_module}"
+    src="${SRC_CHECKS}/${check_module}"
     if [[ -f "$src" ]]; then
         do_copy "$src" "${LIB_DIR}/checks/${check_module}"
     fi
 done
 
 section "Installing data files"
-do_copy "${SCRIPT_DIR}/ufw_audit/locales/en.json" "${SHARE_DIR}/locales/en.json"
-do_copy "${SCRIPT_DIR}/ufw_audit/locales/fr.json" "${SHARE_DIR}/locales/fr.json"
-do_copy "${SCRIPT_DIR}/ufw_audit/data/services.json" "${SHARE_DIR}/data/services.json"
+do_copy "${SRC_LOCALES}/en.json" "${SHARE_DIR}/locales/en.json"
+do_copy "${SRC_LOCALES}/fr.json" "${SHARE_DIR}/locales/fr.json"
+do_copy "${SRC_DATA}/services.json" "${SHARE_DIR}/data/services.json"
 
 section "Installing documentation"
 for doc in README.md CHANGELOG.md LICENSE; do
@@ -358,6 +375,16 @@ done
 # ---------------------------------------------------------------------------
 # INSTALL — entry point
 # ---------------------------------------------------------------------------
+
+section "Installing bash completion"
+
+COMPLETION_SRC="${SCRIPT_DIR}/ufw-audit.bash-completion"
+if [[ -f "${COMPLETION_SRC}" ]]; then
+    do_copy "${COMPLETION_SRC}" "${COMPLETION_DIR}/ufw-audit"
+    info "To activate immediately: source ${COMPLETION_DIR}/ufw-audit"
+else
+    warn "Bash completion file not found — skipping"
+fi
 
 section "Creating entry point"
 
@@ -372,12 +399,14 @@ else
 import sys
 import os
 
-# Locate the package relative to this entry point
-lib_dir = "${LIB_DIR}"
-if lib_dir not in sys.path:
-    sys.path.insert(0, lib_dir)
+# The package ufw_audit/ lives inside LIB_DIR.
+# We need the PARENT of LIB_DIR in sys.path so that
+# "import ufw_audit" resolves correctly.
+lib_parent = "${PREFIX}/lib"
+if lib_parent not in sys.path:
+    sys.path.insert(0, lib_parent)
 
-# Also point i18n and registry at the shared data directory
+# Point i18n and registry at the shared data directory
 os.environ.setdefault("UFW_AUDIT_SHARE", "${SHARE_DIR}")
 
 from ufw_audit.__main__ import main
@@ -429,6 +458,9 @@ else
         [[ -f "${DOC_DIR}/${doc}" ]] && manifest_add "FILE ${DOC_DIR}/${doc}"
     done
 
+    # Completion
+    [[ -f "${COMPLETION_DIR}/ufw-audit" ]] && manifest_add "FILE ${COMPLETION_DIR}/ufw-audit"
+
     # Manifest itself (last file entry)
     manifest_add "FILE ${MANIFEST}"
 
@@ -439,6 +471,7 @@ else
     manifest_add "DIR ${SHARE_DIR}/data"
     manifest_add "DIR ${SHARE_DIR}"
     manifest_add "DIR ${DOC_DIR}"
+    # Note: /etc/bash_completion.d is a system dir — never removed
 
     ok "Manifest written: ${MANIFEST}"
 fi

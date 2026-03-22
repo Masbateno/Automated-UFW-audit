@@ -102,16 +102,16 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         elif arg in ("-d", "--detailed"):
             config.detailed = True
 
-        elif arg == "--fix":
+        elif arg in ("-f", "--fix"):
             config.fix = True
 
         elif arg in ("-y", "--yes"):
             config.yes = True
 
-        elif arg == "--reconfigure":
+        elif arg in ("-r", "--reconfigure"):
             config.reconfigure = True
 
-        elif arg == "--no-color":
+        elif arg in ("-n", "--no-color", "--no-colour"):
             config.no_color = True
 
         elif arg == "--json":
@@ -132,7 +132,7 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
                 )
             config.log_days = int(value)
 
-        elif arg == "--version":
+        elif arg in ("-V", "--version"):
             config.show_version = True
 
         elif arg in ("-h", "--help"):
