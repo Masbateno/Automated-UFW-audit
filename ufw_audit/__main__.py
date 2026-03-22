@@ -186,7 +186,8 @@ def main(argv=None) -> int:
     ufw_numbered = fw_run("ufw", "status", "numbered")
     ufw_verbose  = fw_run("ufw", "status", "verbose")
 
-    print_section(t("sections.rules"))
+    if not config.quiet:
+        print_section(t("sections.rules"))
     report.write_section(t("sections.rules"))
 
     rules_result = _check_rules(ufw_verbose, ufw_numbered, t)
@@ -201,14 +202,16 @@ def main(argv=None) -> int:
         print_service_header, print_port_detail, print_risk_context,
     )
 
-    print_section(t("sections.services"))
+    if not config.quiet:
+        print_section(t("sections.services"))
     report.write_section(t("sections.services"))
 
     snapshots = ServiceSnapshot.collect(registry, ufw_rules=ufw_numbered)
     audited_ports: set[str] = set()
 
     for snap in snapshots:
-        print_service_header(snap.label)
+        if not config.quiet:
+            print_service_header(snap.label)
         report.write_raw(f"\n  > {snap.label}")
 
         # Risk context for high/critical active services
@@ -231,7 +234,8 @@ def main(argv=None) -> int:
     # ======================================================================
     from ufw_audit.checks.ports import PortsSnapshot, check_ports
 
-    print_section(t("sections.ports_analysis"))
+    if not config.quiet:
+        print_section(t("sections.ports_analysis"))
     report.write_section(t("sections.ports_analysis"))
 
     ports_snapshot = PortsSnapshot.from_system()
@@ -261,7 +265,8 @@ def main(argv=None) -> int:
     # ======================================================================
     from ufw_audit.checks.logs import LogsSnapshot, check_logs, get_ip_geo
 
-    print_section(t("sections.logs"))
+    if not config.quiet:
+        print_section(t("sections.logs"))
     report.write_section(t("sections.logs"))
 
     logs_snapshot = LogsSnapshot.from_system(log_days=config.log_days)
@@ -290,7 +295,8 @@ def main(argv=None) -> int:
     # ======================================================================
     from ufw_audit.checks.ddns import DdnsSnapshot, check_ddns
 
-    print_section(t("sections.ddns"))
+    if not config.quiet:
+        print_section(t("sections.ddns"))
     report.write_section(t("sections.ddns"))
 
     ddns_snapshot = DdnsSnapshot.from_system()
@@ -307,7 +313,8 @@ def main(argv=None) -> int:
     # ======================================================================
     from ufw_audit.checks.docker import DockerSnapshot, check_docker
 
-    print_section(t("sections.docker"))
+    if not config.quiet:
+        print_section(t("sections.docker"))
     report.write_section(t("sections.docker"))
 
     docker_snapshot = DockerSnapshot.from_system()
