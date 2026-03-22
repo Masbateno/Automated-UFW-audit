@@ -254,6 +254,7 @@ def main(argv=None) -> int:
     report.write_finding("INFO", t("ports.listening_count",
                                    count=len(ports_snapshot.ports)))
     if ports_snapshot.ss_output:
+        report.write_raw("")
         report.write_raw(ports_snapshot.ss_output)
         if config.verbose:
             output.print_dim(t("ports.listening_detail"))
