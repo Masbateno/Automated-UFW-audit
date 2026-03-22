@@ -167,8 +167,14 @@ def check_docker(
             message=_t("docker.iptables_bypass"),
             nature="action",
             cmd=(
-                'sudo mkdir -p /etc/docker && '
-                'echo \'{"iptables": false}\' | sudo tee /etc/docker/daemon.json'
+                "sudo python3 -c '"
+                "import json, pathlib; "
+                'p = pathlib.Path("/etc/docker/daemon.json"); '
+                "d = json.loads(p.read_text()) if p.exists() else {}; "
+                'd["iptables"] = False; '
+                "p.parent.mkdir(parents=True, exist_ok=True); "
+                "p.write_text(json.dumps(d, indent=2))"
+                "'"
             ),
         )
         points = 2 if network_context == "public" else 1
@@ -217,15 +223,19 @@ def _check_daemon_json() -> tuple[bool, bool]:
     Returns:
         Tuple of (file_exists: bool, iptables_disabled: bool).
     """
-    if not DAEMON_JSON_PATH.exists():
-        return False, False
-
     try:
         content = DAEMON_JSON_PATH.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return False, False
+    except OSError as exc:
+        logger.warning("Cannot read %s: %s", DAEMON_JSON_PATH, exc)
+        return True, False
+
+    try:
         config = json.loads(content)
         iptables_disabled = config.get("iptables") is False
         return True, iptables_disabled
-    except (OSError, json.JSONDecodeError) as exc:
+    except json.JSONDecodeError as exc:
         logger.warning("Cannot parse %s: %s", DAEMON_JSON_PATH, exc)
         return True, False
 

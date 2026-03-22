@@ -93,9 +93,10 @@ def main(argv=None) -> int:
 
     # --- Redirect stdout to /dev/null in quiet mode ---
     if config.quiet:
-        import io
         _devnull = open(os.devnull, 'w')
         sys.stdout = _devnull
+        import atexit
+        atexit.register(_devnull.close)
 
     # --- Initialise i18n ---
     from ufw_audit import i18n
@@ -782,7 +783,7 @@ def _run_fixes(engine, config, t) -> None:
     """Display and optionally apply automatic fixes."""
     from ufw_audit.output import print_summary_box
     from ufw_audit.scoring import FindingLevel
-    import subprocess, re
+    import shlex, subprocess, re
 
     auto_items   = [(f.message, f.cmd) for f in engine.findings
                     if f.nature == "action" and f.cmd]
@@ -835,7 +836,7 @@ def _run_fixes(engine, config, t) -> None:
 
         if answer == "y":
             try:
-                subprocess.run(cmd, shell=True, stdin=subprocess.DEVNULL)
+                subprocess.run(shlex.split(cmd), stdin=subprocess.DEVNULL)
                 print(f"  ✔ {t('fixes.applied')}")
             except Exception as exc:
                 print(f"  ✖ {exc}")
@@ -859,7 +860,7 @@ def _collect_system_info(version: str, lang: str) -> "SystemInfo":
         try:
             r = subprocess.run(list(args), capture_output=True, text=True, timeout=5)
             return r.stdout.strip()
-        except Exception:
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
             return "N/A"
 
     # OS name
@@ -909,7 +910,7 @@ def _detect_network_context() -> tuple[str, str]:
             # Behind NAT — try to get public IP
             public_ip = _get_public_ip()
             return "local", public_ip
-    except Exception:
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         pass
 
     # Try to detect direct public IP on interfaces
@@ -923,7 +924,7 @@ def _detect_network_context() -> tuple[str, str]:
             ip = match.group(1)
             if not re.match(r"^(10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|127\.)", ip):
                 return "public", ip
-    except Exception:
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         pass
 
     public_ip = _get_public_ip()
@@ -932,11 +933,11 @@ def _detect_network_context() -> tuple[str, str]:
 
 def _get_public_ip() -> str:
     """Attempt to determine public IP via a lightweight HTTP request."""
-    import urllib.request
+    import urllib.error, urllib.request
     try:
         with urllib.request.urlopen("https://api.ipify.org", timeout=3) as resp:
             return resp.read().decode().strip()
-    except Exception:
+    except (OSError, urllib.error.URLError, ValueError):
         return ""
 
 

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import logging
 import re
+import shlex
 import subprocess
 from dataclasses import dataclass, field
 from typing import Optional
@@ -142,7 +143,7 @@ def check_virtualization(snapshot: VirtSnapshot, t=None) -> CheckResult:
               iface=tech.iface,
               note=tech.risk_note),
             nature="improvement",
-            cmd=f"sudo iptables -L FORWARD | grep {tech.iface}",
+            cmd=f"sudo iptables -L FORWARD | grep {shlex.quote(tech.iface)}",
         )
 
     for snap_pkg in snapshot.snap_net:

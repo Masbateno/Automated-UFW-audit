@@ -388,7 +388,7 @@ def _geo_via_geoip2(ip: str) -> str:
                 if country:
                     return country
                 return ""
-        except Exception:
+        except (OSError, ValueError, KeyError, AttributeError):
             continue
 
     return ""
@@ -510,8 +510,8 @@ def _parse_timestamp(line: str, current_year: int) -> Optional[datetime]:
 
 
 def _extract_field(line: str, field: str) -> Optional[str]:
-    """Extract a KEY=value field from a UFW log line."""
-    match = re.search(rf"\b{re.escape(field)}=(\S+)", line)
+    """Extract a KEY=value field from a UFW log line (max 256 chars)."""
+    match = re.search(rf"\b{re.escape(field)}=(\S{{1,256}})", line)
     return match.group(1) if match else None
 
 

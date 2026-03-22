@@ -203,8 +203,12 @@ class ServiceRegistry:
                 f"Services file not found: {json_path}"
             )
 
+        _MAX_JSON_SIZE = 1 * 1024 * 1024  # 1 MB
         with json_path.open(encoding="utf-8") as fh:
-            raw = json.load(fh)
+            content = fh.read(_MAX_JSON_SIZE + 1)
+        if len(content) > _MAX_JSON_SIZE:
+            raise ValueError(f"services.json exceeds maximum allowed size (1 MB)")
+        raw = json.loads(content)
 
         if not isinstance(raw, list):
             raise ValueError(f"services.json must contain a JSON array, got {type(raw).__name__}")
