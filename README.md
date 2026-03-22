@@ -86,6 +86,7 @@ git clone https://github.com/Masbateno/Automated-UFW-audit.git
 cd ufw-audit
 
 # Install (requires root)
+chmod +x install.sh
 sudo ./install.sh
 ```
 
