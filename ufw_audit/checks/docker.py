@@ -296,8 +296,8 @@ def _parse_port_entry(container_name: str, entry: str) -> Optional[ExposedPort]:
 def _command_exists(name: str) -> bool:
     """Return True if the command is available in PATH."""
     try:
-        subprocess.run(["which", name], capture_output=True, timeout=5)
-        return True
+        result = subprocess.run(["which", name], capture_output=True, timeout=5)
+        return result.returncode == 0
     except (FileNotFoundError, OSError):
         return False
 

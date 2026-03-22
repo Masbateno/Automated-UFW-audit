@@ -218,12 +218,12 @@ def _run(*args: str) -> str:
 def _command_exists(name: str) -> bool:
     """Return True if the given command is available in PATH."""
     try:
-        subprocess.run(
+        result = subprocess.run(
             ["which", name],
             capture_output=True,
             timeout=5,
         )
-        return True
+        return result.returncode == 0
     except (FileNotFoundError, OSError):
         return False
 
