@@ -91,6 +91,12 @@ def main(argv=None) -> int:
     global _QUIET
     _QUIET = config.quiet
 
+    # --- Redirect stdout to /dev/null in quiet mode ---
+    if config.quiet:
+        import io
+        _devnull = open(os.devnull, 'w')
+        sys.stdout = _devnull
+
     # --- Initialise i18n ---
     from ufw_audit import i18n
     i18n.init(lang=config.lang)
@@ -354,8 +360,11 @@ def main(argv=None) -> int:
     if config.fix:
         _run_fixes(engine, config, t)
 
+    # Restore stdout before exit
+    if config.quiet:
+        sys.stdout = sys.__stdout__
+
     # Exit code based on audit results
-    from ufw_audit.scoring import RiskLevel
     if engine.alert_count > 0:
         return EXIT_ALERTS
     elif engine.warn_count > 0:
