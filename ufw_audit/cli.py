@@ -47,6 +47,9 @@ class AuditConfig:
     """--reconfigure: reset saved port configuration and re-ask."""
 
     no_color: bool = False
+
+    quiet: bool = False
+    """-q / --quiet: suppress all terminal output; use exit code to detect issues."""
     """--no-color: disable ANSI colour output."""
 
     json_mode: bool = False
@@ -113,6 +116,8 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
 
         elif arg in ("-n", "--no-color", "--no-colour"):
             config.no_color = True
+        elif arg in ("-q", "--quiet"):
+            config.quiet = True
 
         elif arg == "--json":
             config.json_mode = True
@@ -142,5 +147,11 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
             raise CLIError(f"Unknown option: {arg!r}")
 
         i += 1
+
+    # Validate
+    if config.yes and not config.fix:
+        raise CLIError("--yes requires --fix")
+    if config.quiet and config.fix:
+        raise CLIError("--quiet is incompatible with --fix (fix mode requires interactive prompts)")
 
     return config

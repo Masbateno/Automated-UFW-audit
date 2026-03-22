@@ -20,7 +20,7 @@ from pathlib import Path
 # Version
 # ---------------------------------------------------------------------------
 
-VERSION = "0.10"
+VERSION = "0.9"
 
 
 # ---------------------------------------------------------------------------
@@ -30,9 +30,18 @@ VERSION = "0.10"
 def _bootstrap() -> None:
     """Ensure we are running as root."""
     if os.geteuid() != 0:
-        # Import i18n lazily to avoid importing before path is set
         print("This script must be run as root: sudo ufw-audit", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(EXIT_ERROR)
+
+
+# Global quiet flag — set after parse_args, used by output helpers
+_QUIET = False
+
+
+def _out(*args, **kwargs):
+    """Print only if not in quiet mode."""
+    if not _QUIET:
+        print(*args, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -72,6 +81,10 @@ def main(argv=None) -> int:
     # --- Root check — only needed for actual audit ---
     _bootstrap()
 
+    # --- Set quiet mode globally ---
+    global _QUIET
+    _QUIET = config.quiet
+
     # --- Initialise i18n ---
     from ufw_audit import i18n
     i18n.init(lang=config.lang)
@@ -79,7 +92,7 @@ def main(argv=None) -> int:
 
     # --- Initialise output ---
     from ufw_audit import output
-    output.init(no_color=config.no_color)
+    output.init(no_color=config.no_color or config.quiet)
 
     # --- Load registry ---
     from ufw_audit.registry import ServiceRegistry
@@ -112,24 +125,25 @@ def main(argv=None) -> int:
     sys_info = _collect_system_info(VERSION, config.lang)
     report.write_header(sys_info)
 
-    # --- Print banner ---
-    from ufw_audit.output import print_banner
-    print_banner(
-        version=f"v{VERSION}",
-        subtitle=t("banner.subtitle"),
-        system=sys_info.os_name,
-        host=sys_info.hostname,
-        ufw_version=sys_info.ufw_version,
-        user=sys_info.user,
-        date=datetime.now().strftime("%d/%m/%Y %H:%M"),
-        labels={k: t(f"banner.{k}") for k in
-                ("system", "host", "ufw", "user", "date")},
-    )
+    # --- Print banner (suppressed in quiet mode) ---
+    if not config.quiet:
+        from ufw_audit.output import print_banner
+        print_banner(
+            version=f"v{VERSION}",
+            subtitle=t("banner.subtitle"),
+            system=sys_info.os_name,
+            host=sys_info.hostname,
+            ufw_version=sys_info.ufw_version,
+            user=sys_info.user,
+            date=datetime.now().strftime("%d/%m/%Y %H:%M"),
+            labels={k: t(f"banner.{k}") for k in
+                    ("system", "host", "ufw", "user", "date")},
+        )
+        output.print_info(t("report.title") if False else "Démarrage de l'audit"
+                          if config.lang == "fr" else "Starting audit")
+        print()
 
-    output.print_info(t("report.title") if False else "Démarrage de l'audit"
-                      if config.lang == "fr" else "Starting audit")
     report.write_finding("INFO", "Starting audit")
-    print()
 
     # --- Detect network context ---
     network_context, public_ip = _detect_network_context()
@@ -140,7 +154,8 @@ def main(argv=None) -> int:
     from ufw_audit.output import print_section
     from ufw_audit.checks.firewall import FirewallStatus, check_firewall
 
-    print_section(t("sections.firewall"))
+    if not config.quiet:
+        print_section(t("sections.firewall"))
     report.write_section(t("sections.firewall"))
 
     fw_status = FirewallStatus.from_system()
@@ -326,7 +341,14 @@ def main(argv=None) -> int:
     if config.fix:
         _run_fixes(engine, config, t)
 
-    return 0
+    # Exit code based on audit results
+    from ufw_audit.scoring import RiskLevel
+    if engine.alert_count > 0:
+        return EXIT_ALERTS
+    elif engine.warn_count > 0:
+        return EXIT_WARNINGS
+    else:
+        return EXIT_OK
 
 
 # ---------------------------------------------------------------------------
@@ -341,6 +363,11 @@ def _display_result(result, report, verbose: bool) -> None:
     )
 
     for finding in result.findings:
+        if _QUIET:
+            # In quiet mode only write to report, no terminal output
+            level_str = finding.level.value.upper()
+            report.write_finding(level_str, finding.message)
+            continue
         if finding.level == FindingLevel.OK:
             print_ok(finding.message)
             report.write_finding("OK", finding.message)
@@ -904,6 +931,7 @@ def _print_help(t) -> None:
     opts = [
         ("-v, --verbose",      "Show detailed port exposure for each service"),
         ("-d, --detailed",     "Save full audit report to a log file"),
+        ("-q, --quiet",        "Suppress all output — use exit code to detect issues"),
         ("-f, --fix",          "Offer to apply automatic corrections after the audit"),
         ("-y, --yes",          "Auto-confirm all fixes (use with -f)"),
         ("-r, --reconfigure",  "Reset saved port configuration and re-ask"),
@@ -925,6 +953,12 @@ def _print_help(t) -> None:
     print("  sudo ufw-audit --french -d      French + save report")
     print("  sudo ufw-audit -f               Audit + fix mode")
     print("  sudo ufw-audit --log-days=14    Analyse 14 days of logs")
+    print()
+    print("Exit codes (--quiet mode):")
+    print("  0   Clean audit — no alerts, no warnings")
+    print("  1   Warnings detected")
+    print("  2   Alerts detected (action required)")
+    print("  3   Technical error")
     print()
     print("Documentation: https://github.com/Masbateno/ufw-audit")
 
