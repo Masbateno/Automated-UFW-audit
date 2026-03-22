@@ -86,6 +86,9 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 git clone https://github.com/Masbateno/ufw-audit.git
 cd ufw-audit
 
+# Make the installer executable
+chmod +x install.sh
+
 # Install (requires root)
 sudo ./install.sh
 ```

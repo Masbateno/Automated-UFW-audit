@@ -86,6 +86,9 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 git clone https://github.com/Masbateno/Automated-UFW-audit.git
 cd Automated-UFW-audit
 
+# Rendre l'installateur exécutable
+chmod +x install.sh
+
 # Installer (nécessite les droits root)
 sudo ./install.sh
 ```
