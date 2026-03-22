@@ -20,7 +20,7 @@ from pathlib import Path
 # Version
 # ---------------------------------------------------------------------------
 
-VERSION = "0.10"
+VERSION = "0.9"
 
 
 # ---------------------------------------------------------------------------
@@ -402,14 +402,6 @@ def _check_single_service_display(snap, network_context, t, report, verbose):
     from ufw_audit.checks.services import check_services
     result = check_services([snap], network_context=network_context, t=t)
     _display_result(result, report, verbose)
-
-    if verbose:
-        from ufw_audit.output import print_port_detail
-        for port, exposure in snap.exposures.items():
-            print_port_detail(
-                t("services.port_exposure", port=port,
-                  exposure=t(f"services.exposure.{exposure.value}"))
-            )
     return result
 
 
@@ -565,12 +557,17 @@ def _print_summary(engine, network_context, public_ip, config, t, report, snapsh
                 msg = item.message[:48] + "…" if len(item.message) > 48 else item.message
                 lines.append((f"  ℹ  {msg}", ""))
 
-    if engine.breakdown:
+    if engine.breakdown or engine.cap_info:
         lines.append(("---", ""))
         lines.append((t("scoring.breakdown_title"), ""))
         for ded in engine.breakdown:
+            if ded.points == 0:
+                continue  # skip zero-point sentinel deductions
             reason = ded.reason[:44] + "…" if len(ded.reason) > 44 else ded.reason
             lines.append((f"  -{ded.points}  {reason}", ""))
+        if engine.cap_info:
+            cap_note = t("scoring.cap_note", max=engine.cap_info.maximum)
+            lines.append((f"  ⚠  {cap_note}", ""))
 
     print_summary_box(lines)
     print()
