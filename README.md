@@ -82,7 +82,7 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 
 ```bash
 # Clone or download the repository
-git clone https://github.com/Masbateno/ufw-audit.git
+git clone https://github.com/Masbateno/Automated-UFW-audit.git
 cd ufw-audit
 
 # Install (requires root)
