@@ -198,7 +198,9 @@ def check_ddns(
     )
 
     if snapshot.domain:
-        result.info(message=_t("ddns.domain") + f": {snapshot.domain}")
+        from ufw_audit.output import sanitize as _sanitize
+        safe_domain = _sanitize(snapshot.domain, max_len=253)
+        result.info(message=_t("ddns.domain") + f": {safe_domain}")
     else:
         result.info(message=_t("ddns.no_domain"))
 
@@ -243,7 +245,8 @@ def _is_installed(client_def: DdnsClientDef) -> bool:
 
     # Config file check (for script-based clients like DuckDNS)
     for cfg_path in client_def.config_files:
-        if Path(cfg_path).exists():
+        p = Path(cfg_path)
+        if p.exists() and _is_safe_config_path(p):
             return True
 
     return False
@@ -259,10 +262,16 @@ def _is_active(client_def: DdnsClientDef) -> bool:
     # DuckDNS: check cron entry
     if client_def.client_type == "duckdns":
         for cfg_path in client_def.config_files:
-            if Path(cfg_path).exists():
+            p = Path(cfg_path)
+            if p.exists() and _is_safe_config_path(p):
                 return True
 
     return False
+
+
+def _is_safe_config_path(path: Path) -> bool:
+    """Return True only for safe, non-symlink absolute paths."""
+    return path.is_absolute() and not path.is_symlink()
 
 
 def _extract_domain(client_def: DdnsClientDef) -> Optional[str]:
@@ -274,7 +283,7 @@ def _extract_domain(client_def: DdnsClientDef) -> Optional[str]:
     """
     for cfg_path in client_def.config_files:
         path = Path(cfg_path)
-        if not path.exists():
+        if not path.exists() or not _is_safe_config_path(path):
             continue
         try:
             content = path.read_text(encoding="utf-8", errors="ignore")
@@ -325,7 +334,9 @@ def _extract_inadyn_domain(content: str) -> Optional[str]:
     """Extract domain from inadyn.conf."""
     match = re.search(r"hostname\s*=\s*(.+)", content, re.MULTILINE)
     if match:
-        return match.group(1).strip().strip('"')
+        value = match.group(1).strip().strip('"')
+        if re.match(r"^[\w.-]+\.[a-z]{2,}$", value):
+            return value
     return None
 
 

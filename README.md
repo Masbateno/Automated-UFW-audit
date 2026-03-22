@@ -1,9 +1,9 @@
 *[Lire en français](README_FR.md)*
 
-# ufw-audit v0.11
+# ufw-audit v0.11.1
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.11-blue)
+![Release](https://img.shields.io/badge/version-v0.11.1-blue)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
 
@@ -24,7 +24,7 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **Virtualisation analysis** — detects active hypervisors (libvirt/KVM, VirtualBox, VMware, LXD/LXC) and Snap network packages that may create bridge interfaces and manipulate iptables directly, bypassing UFW — same risk pattern as Docker
 - **Listening ports analysis** — unified single-pass analysis; ephemeral and system ports silently skipped; NetBIOS handled with contextual warning
 - **UFW log analysis** — parses `/var/log/ufw.log` over a configurable period (`--log-days=N`, default 7 days); total blocked attempts, top source IPs with geolocation, top targeted ports, bruteforce detection (>10 attempts/60s), attempts on installed service ports
-- **IP geolocation** — source IPs enriched with country and operator via `whois`; private ranges identified as local network; results cached per session
+- **IP geolocation** — source IPs enriched with country and operator via GeoIP2 (optional, `python3-geoip2` + GeoLite2 database); private ranges identified as local network; results cached per session
 - **DDNS / external exposure detection** — detects active DDNS clients (ddclient, inadyn, No-IP, DuckDNS); extracts the configured domain; crosses with unrestricted UFW ALLOW rules to identify internet-exposed ports
 - **Exposure classification** per service: `open to internet` / `local network only` / `blocked by UFW` / `no rule`
 - **Fix mode** — interactive section after the summary; each automatable fix requires `[y/N]` confirmation; manual-only items displayed without execution
@@ -332,7 +332,9 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v0.10** — Optional GeoIP2 geolocation, whois removal, short CLI flags, bash completion for install.sh, score scope disclaimer
 
-**v0.11** *(current)* — CLI consolidation & field testing (Mint/Debian/Kali), non-interactive mode (`--quiet`, exit codes 0-3), `check_virtualization()`, port deduplication, scoring fixes
+**v0.11** — CLI consolidation & field testing (Mint/Debian/Kali), non-interactive mode (`--quiet`, exit codes 0-3), `check_virtualization()`, port deduplication, scoring fixes
+
+**v0.11.1** *(current)* — Security hardening patch: 20 vulnerabilities fixed (shell injection, ANSI injection, path traversal, symlink attacks, ReDoS, JSON bomb, file permission hardening)
 
 **v0.12** — Cron/email automation support, `AUTOMATION.md`
 

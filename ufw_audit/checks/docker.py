@@ -228,15 +228,19 @@ def _check_daemon_json() -> tuple[bool, bool]:
     Returns:
         Tuple of (file_exists: bool, iptables_disabled: bool).
     """
-    if not DAEMON_JSON_PATH.exists():
-        return False, False
-
     try:
         content = DAEMON_JSON_PATH.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return False, False
+    except OSError as exc:
+        logger.warning("Cannot read %s: %s", DAEMON_JSON_PATH, exc)
+        return True, False
+
+    try:
         config = json.loads(content)
         iptables_disabled = config.get("iptables") is False
         return True, iptables_disabled
-    except (OSError, json.JSONDecodeError) as exc:
+    except json.JSONDecodeError as exc:
         logger.warning("Cannot parse %s: %s", DAEMON_JSON_PATH, exc)
         return True, False
 

@@ -345,6 +345,11 @@ def _resolve_ports(service: Service) -> list[str]:
     return list(service.ports)
 
 
+def _is_safe_config_path(path: Path) -> bool:
+    """Return True only for safe, non-symlink absolute paths."""
+    return path.is_absolute() and not path.is_symlink()
+
+
 def _auto_detect_port(service: Service) -> Optional[str]:
     """
     Attempt to detect the actual port from the service configuration file.
@@ -354,7 +359,7 @@ def _auto_detect_port(service: Service) -> Optional[str]:
     """
     for config_file in service.detection.config_files:
         path = Path(config_file)
-        if not path.exists():
+        if not path.exists() or not _is_safe_config_path(path):
             continue
         try:
             content = path.read_text(encoding="utf-8", errors="ignore")
@@ -392,6 +397,13 @@ def _classify_exposure(port: str, ufw_rules: str) -> Exposure:
     """
     port_num  = port.split("/")[0]
     proto     = port.split("/")[1] if "/" in port else "tcp"
+
+    if not port_num.isdigit() or not (1 <= int(port_num) <= 65535):
+        logger.warning("Invalid port number in registry: %r", port_num)
+        return Exposure.NO_RULE
+    if proto not in ("tcp", "udp"):
+        logger.warning("Invalid protocol in registry: %r", proto)
+        return Exposure.NO_RULE
 
     # Private IP ranges for open_local detection
     _PRIVATE = re.compile(

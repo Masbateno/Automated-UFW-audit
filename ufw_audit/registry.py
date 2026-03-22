@@ -35,7 +35,16 @@ logger = logging.getLogger(__name__)
 import os as _os
 _share = _os.environ.get("UFW_AUDIT_SHARE", "")
 if _share:
-    _DATA_DIR = Path(_share) / "data"
+    _share_path = Path(_share)
+    if (
+        _share_path.is_absolute()
+        and not _share_path.is_symlink()
+        and _share_path.is_dir()
+    ):
+        _DATA_DIR = _share_path / "data"
+    else:
+        logger.warning("UFW_AUDIT_SHARE is invalid or unsafe, ignoring: %r", _share)
+        _DATA_DIR = Path(__file__).parent / "data"
 else:
     _DATA_DIR = Path(__file__).parent / "data"
 _SERVICES_FILE = _DATA_DIR / "services.json"
@@ -203,8 +212,12 @@ class ServiceRegistry:
                 f"Services file not found: {json_path}"
             )
 
+        _MAX_JSON_SIZE = 1 * 1024 * 1024  # 1 MB
         with json_path.open(encoding="utf-8") as fh:
-            raw = json.load(fh)
+            content = fh.read(_MAX_JSON_SIZE + 1)
+        if len(content) > _MAX_JSON_SIZE:
+            raise ValueError(f"services.json exceeds maximum allowed size (1 MB)")
+        raw = json.loads(content)
 
         if not isinstance(raw, list):
             raise ValueError(f"services.json must contain a JSON array, got {type(raw).__name__}")

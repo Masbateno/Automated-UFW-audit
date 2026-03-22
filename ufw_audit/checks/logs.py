@@ -139,8 +139,10 @@ class LogsSnapshot:
             return cls(entries=[], days_available=0,
                        log_days=log_days, log_found=False)
 
+        _MAX_LOG_SIZE = 100 * 1024 * 1024  # 100 MB
         try:
-            content = log_path.read_text(encoding="utf-8", errors="ignore")
+            with log_path.open(encoding="utf-8", errors="ignore") as fh:
+                content = fh.read(_MAX_LOG_SIZE)
         except OSError as exc:
             logger.warning("Cannot read %s: %s", log_path, exc)
             return cls(entries=[], days_available=0,
@@ -369,7 +371,7 @@ def _geo_via_geoip2(ip: str) -> str:
     """
     for db_path in _GEOIP2_DB_PATHS:
         path = Path(db_path)
-        if not path.exists():
+        if not path.exists() or path.is_symlink():
             continue
         try:
             with geoip2.database.Reader(str(path)) as reader:
@@ -388,7 +390,7 @@ def _geo_via_geoip2(ip: str) -> str:
                 if country:
                     return country
                 return ""
-        except Exception:
+        except (OSError, ValueError, KeyError, AttributeError):
             continue
 
     return ""
@@ -404,7 +406,8 @@ def geoip2_status() -> str:
         return "unavailable"
 
     for db_path in _GEOIP2_DB_PATHS:
-        if Path(db_path).exists():
+        p = Path(db_path)
+        if p.exists() and not p.is_symlink():
             return "available"
 
     return "no_database"
@@ -510,8 +513,8 @@ def _parse_timestamp(line: str, current_year: int) -> Optional[datetime]:
 
 
 def _extract_field(line: str, field: str) -> Optional[str]:
-    """Extract a KEY=value field from a UFW log line."""
-    match = re.search(rf"\b{re.escape(field)}=(\S+)", line)
+    """Extract a KEY=value field from a UFW log line (max 256 chars)."""
+    match = re.search(rf"\b{re.escape(field)}=(\S{{1,256}})", line)
     return match.group(1) if match else None
 
 

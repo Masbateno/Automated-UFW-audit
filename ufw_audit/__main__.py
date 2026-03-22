@@ -20,7 +20,7 @@ from pathlib import Path
 # Version
 # ---------------------------------------------------------------------------
 
-VERSION = "0.10"
+VERSION = "0.11"
 
 # Exit codes
 EXIT_OK       = 0  # clean audit — no alerts, no warnings
@@ -326,8 +326,9 @@ def main(argv=None) -> int:
     if docker_snapshot.exposed_ports:
         output.print_dim(t("docker.exposed_ports") + " :")
         for port in docker_snapshot.exposed_ports:
+            safe_name = output.sanitize(port.container_name, max_len=128)
             output.print_dim(
-                f"  {port.container_name}: {port.port_proto} → "
+                f"  {safe_name}: {port.port_proto} → "
                 f"{port.container_port}/{port.proto}"
             )
     print()
@@ -779,7 +780,7 @@ def _run_fixes(engine, config, t) -> None:
     """Display and optionally apply automatic fixes."""
     from ufw_audit.output import print_summary_box
     from ufw_audit.scoring import FindingLevel
-    import subprocess, re
+    import shlex, subprocess, re
 
     auto_items   = [(f.message, f.cmd) for f in engine.findings
                     if f.nature == "action" and f.cmd]
@@ -832,10 +833,13 @@ def _run_fixes(engine, config, t) -> None:
 
         if answer == "y":
             try:
-                subprocess.run(cmd, shell=True, stdin=subprocess.DEVNULL)
-                print(f"  ✔ {t('fixes.applied')}")
-            except Exception as exc:
-                print(f"  ✖ {exc}")
+                proc = subprocess.run(shlex.split(cmd), stdin=subprocess.DEVNULL)
+                if proc.returncode == 0:
+                    print(f"  ✔ {t('fixes.applied')}")
+                else:
+                    print(f"  ✖ {t('fixes.manual')} (exit {proc.returncode})")
+            except (OSError, ValueError) as exc:
+                print(f"  ✖ {t('fixes.manual')} ({type(exc).__name__})")
         else:
             print(f"  ✖ {t('fixes.manual')}")
         print()
@@ -856,16 +860,20 @@ def _collect_system_info(version: str, lang: str) -> "SystemInfo":
         try:
             r = subprocess.run(list(args), capture_output=True, text=True, timeout=5)
             return r.stdout.strip()
-        except Exception:
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
             return "N/A"
 
     # OS name
+    from ufw_audit.output import sanitize as _sanitize
     os_name = "N/A"
     try:
         with open("/etc/os-release") as f:
             for line in f:
+                line = line[:512]  # cap line length before any processing
                 if line.startswith("PRETTY_NAME="):
-                    os_name = line.split("=", 1)[1].strip().strip('"')
+                    os_name = _sanitize(
+                        line.split("=", 1)[1].strip().strip('"'), max_len=64
+                    )
                     break
     except OSError:
         pass
@@ -877,7 +885,7 @@ def _collect_system_info(version: str, lang: str) -> "SystemInfo":
 
     return SystemInfo(
         os_name=os_name,
-        hostname=run("hostname"),
+        hostname=_sanitize(run("hostname"), max_len=64),
         kernel=run("uname", "-r"),
         ufw_version=ufw_version,
         user=os.environ.get("SUDO_USER") or os.environ.get("USER", "unknown"),
@@ -906,7 +914,7 @@ def _detect_network_context() -> tuple[str, str]:
             # Behind NAT — try to get public IP
             public_ip = _get_public_ip()
             return "local", public_ip
-    except Exception:
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         pass
 
     # Try to detect direct public IP on interfaces
@@ -920,7 +928,7 @@ def _detect_network_context() -> tuple[str, str]:
             ip = match.group(1)
             if not re.match(r"^(10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|127\.|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)", ip):
                 return "public", ip
-    except Exception:
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         pass
 
     public_ip = _get_public_ip()
@@ -929,11 +937,14 @@ def _detect_network_context() -> tuple[str, str]:
 
 def _get_public_ip() -> str:
     """Attempt to determine public IP via a lightweight HTTP request."""
-    import urllib.request
+    import re, urllib.error, urllib.request
     try:
         with urllib.request.urlopen("https://api.ipify.org", timeout=3) as resp:
-            return resp.read().decode().strip()
-    except Exception:
+            ip = resp.read(64).decode().strip()
+        if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip):
+            return ip
+        return ""
+    except (OSError, urllib.error.URLError, ValueError):
         return ""
 
 
@@ -943,8 +954,9 @@ def _get_public_ip() -> str:
 
 def _get_user_home() -> Path:
     """Return the real user home directory, respecting SUDO_USER."""
-    sudo_user = os.environ.get("SUDO_USER")
-    if sudo_user:
+    import re
+    sudo_user = os.environ.get("SUDO_USER", "")
+    if sudo_user and re.match(r"^[a-zA-Z0-9_.-]{1,256}$", sudo_user):
         import pwd
         try:
             return Path(pwd.getpwnam(sudo_user).pw_dir)

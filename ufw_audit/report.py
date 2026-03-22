@@ -25,6 +25,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
@@ -100,7 +101,8 @@ class AuditReport:
     def __init__(self, path: Path) -> None:
         self.path: Path = path
         self.enabled: bool = True
-        self._fh = path.open("w", encoding="utf-8")
+        fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        self._fh = os.fdopen(fd, "w", encoding="utf-8")
 
     # ------------------------------------------------------------------
     # Factory
