@@ -63,21 +63,23 @@
       "unknown": "Service installé, état indéterminé"
     },
     "exposure": {
-      "open_world": "exposé sur internet",
-      "open_local": "réseau local uniquement",
-      "deny": "bloqué par UFW",
-      "no_rule": "pas de règle explicite"
+      "open_world": "exposé sur internet — aucune restriction source dans UFW",
+      "open_local": "restreint au réseau local par règle UFW",
+      "deny": "bloqué explicitement par règle UFW",
+      "no_rule": "couvert par la politique deny par défaut"
     },
     "port_from_config": "Port lu depuis la configuration : {port}",
     "port_auto": "Port détecté automatiquement : {port}",
-    "port_exposure": "Port {port} : exposition = {exposure}"
+    "port_exposure": "Port {port} — {exposure}"
   },
   "ports": {
     "all_covered": "Tous les ports en écoute sur 0.0.0.0 sont couverts par une règle UFW",
     "uncovered": "Port {port} en écoute sur toutes les interfaces sans règle UFW explicite",
     "ephemeral_ignored": "Port éphémère ignoré (>{threshold}) — port temporaire attribué par le noyau, pas un service : {port}",
     "system_port": "Port système interne — aucun danger (service OS légitime, pas de règle UFW nécessaire) : {port} ({service})",
-    "listening_count": "{count} port(s) en écoute détecté(s) sur ce système"
+    "listening_count": "{count} port(s) en écoute détecté(s) sur ce système",
+    "listening_detail": "Détail des ports en écoute :",
+    "listening_verbose_hint": "Utilisez -v pour afficher le tableau complet des ports"
   },
   "logs": {
     "no_logfile": "Fichier de log UFW introuvable (/var/log/ufw.log) — journalisation désactivée ?",
@@ -86,6 +88,8 @@
     "days_unit": "jour(s)",
     "days_available": "jours de logs disponibles",
     "total_blocks": "tentative(s) bloquée(s) détectée(s)",
+    "verdict_ok": "Activité normale — {total} tentative(s) bloquée(s) sur {days} jour(s), aucune menace détectée",
+    "verdict_warn": "Activité suspecte — {total} tentative(s) bloquée(s) sur {days} jour(s)",
     "top_ips": "Top IPs sources",
     "top_ports": "Top ports ciblés",
     "brute_title": "Bruteforce détecté",

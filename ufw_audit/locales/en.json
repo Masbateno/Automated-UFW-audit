@@ -63,21 +63,23 @@
       "unknown": "Service installed, state undetermined"
     },
     "exposure": {
-      "open_world": "open to internet",
-      "open_local": "local network only",
-      "deny": "blocked by UFW",
-      "no_rule": "no explicit rule"
+      "open_world": "open to internet — no source restriction in UFW",
+      "open_local": "restricted to local network by UFW rule",
+      "deny": "explicitly blocked by a UFW rule",
+      "no_rule": "covered by default deny policy (no explicit UFW rule needed)"
     },
     "port_from_config": "Port read from configuration: {port}",
     "port_auto": "Port auto-detected: {port}",
-    "port_exposure": "Port {port}: exposure = {exposure}"
+    "port_exposure": "Port {port} — {exposure}"
   },
   "ports": {
     "all_covered": "All ports listening on 0.0.0.0 are covered by a UFW rule",
     "uncovered": "Port {port} listening on all interfaces without explicit UFW rule",
     "ephemeral_ignored": "Ephemeral port ignored (>{threshold}) — kernel-assigned temporary port: {port}",
     "system_port": "Internal system port — no risk (legitimate OS service, no UFW rule needed): {port} ({service})",
-    "listening_count": "{count} listening port(s) detected on this system"
+    "listening_count": "{count} listening port(s) detected on this system",
+    "listening_detail": "Listening ports detail:",
+    "listening_verbose_hint": "Use -v to display the full port table"
   },
   "logs": {
     "no_logfile": "UFW log file not found (/var/log/ufw.log) — logging disabled?",
@@ -86,6 +88,8 @@
     "days_unit": "day(s)",
     "days_available": "days of logs available",
     "total_blocks": "blocked attempt(s) detected",
+    "verdict_ok": "Normal activity — {total} blocked attempt(s) over {days} day(s), no threat detected",
+    "verdict_warn": "Suspicious activity — {total} blocked attempt(s) over {days} day(s)",
     "top_ips": "Top source IPs",
     "top_ports": "Top targeted ports",
     "brute_title": "Bruteforce detected",

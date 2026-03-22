@@ -254,10 +254,14 @@ def main(argv=None) -> int:
     report.write_finding("INFO", t("ports.listening_count",
                                    count=len(ports_snapshot.ports)))
     if ports_snapshot.ss_output:
-        print()
-        print(ports_snapshot.ss_output)
         report.write_section("LISTENING PORTS")
         report.write_raw(ports_snapshot.ss_output)
+        if config.verbose:
+            output.print_dim(t("ports.listening_detail"))
+            print()
+            print(ports_snapshot.ss_output)
+        else:
+            output.print_dim(t("ports.listening_verbose_hint"))
     print()
 
     # ======================================================================
@@ -480,14 +484,12 @@ def _display_log_results(logs_result, snapshot, config, t, report) -> None:
         print_ok(t("logs.empty"))
         return
 
-    from ufw_audit.output import _c
-    color = _c.cyan_bold
-    if total > 5000:
-        color = _c.red_bold
-    elif total > 1000:
-        color = _c.yellow_bold
-
-    print(f"  {color}✖ {total} {t('logs.total_blocks')}{_c.reset}")
+    # Verdict line — one clear sentence before the details
+    brute_hits = data.get("brute_hits", [])
+    if brute_hits:
+        print_warn(t("logs.verdict_warn", total=total, days=data["log_days"]))
+    else:
+        print_ok(t("logs.verdict_ok", total=total, days=data["log_days"]))
 
     # Bruteforce findings
     for finding in logs_result.findings:
