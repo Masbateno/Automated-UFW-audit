@@ -16,9 +16,29 @@ Usage:
 
 from __future__ import annotations
 
+import re
 import shutil
 import sys
 from typing import NamedTuple
+
+
+# ---------------------------------------------------------------------------
+# Input sanitization — strip ANSI codes from external data before display
+# ---------------------------------------------------------------------------
+
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*[mGKHFABCDJr]")
+
+def sanitize(value: str, max_len: int = 256) -> str:
+    """
+    Strip ANSI escape sequences and non-printable characters from a string,
+    then truncate to max_len. Apply to all data coming from the system
+    (container names, hostnames, domains, etc.) before terminal display.
+    """
+    value = _ANSI_ESCAPE_RE.sub("", value)
+    value = "".join(c for c in value if c.isprintable())
+    if len(value) > max_len:
+        value = value[:max_len] + "…"
+    return value
 
 
 # ---------------------------------------------------------------------------

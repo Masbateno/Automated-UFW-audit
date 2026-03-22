@@ -139,8 +139,10 @@ class LogsSnapshot:
             return cls(entries=[], days_available=0,
                        log_days=log_days, log_found=False)
 
+        _MAX_LOG_SIZE = 100 * 1024 * 1024  # 100 MB
         try:
-            content = log_path.read_text(encoding="utf-8", errors="ignore")
+            with log_path.open(encoding="utf-8", errors="ignore") as fh:
+                content = fh.read(_MAX_LOG_SIZE)
         except OSError as exc:
             logger.warning("Cannot read %s: %s", log_path, exc)
             return cls(entries=[], days_available=0,

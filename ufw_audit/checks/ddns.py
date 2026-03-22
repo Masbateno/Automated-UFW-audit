@@ -198,7 +198,9 @@ def check_ddns(
     )
 
     if snapshot.domain:
-        result.info(message=_t("ddns.domain") + f": {snapshot.domain}")
+        from ufw_audit.output import sanitize as _sanitize
+        safe_domain = _sanitize(snapshot.domain, max_len=253)
+        result.info(message=_t("ddns.domain") + f": {safe_domain}")
     else:
         result.info(message=_t("ddns.no_domain"))
 

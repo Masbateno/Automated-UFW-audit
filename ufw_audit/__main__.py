@@ -333,8 +333,9 @@ def main(argv=None) -> int:
     if docker_snapshot.exposed_ports:
         output.print_dim(t("docker.exposed_ports") + " :")
         for port in docker_snapshot.exposed_ports:
+            safe_name = output.sanitize(port.container_name, max_len=128)
             output.print_dim(
-                f"  {port.container_name}: {port.port_proto} → "
+                f"  {safe_name}: {port.port_proto} → "
                 f"{port.container_port}/{port.proto}"
             )
     print()
@@ -836,10 +837,13 @@ def _run_fixes(engine, config, t) -> None:
 
         if answer == "y":
             try:
-                subprocess.run(shlex.split(cmd), stdin=subprocess.DEVNULL)
-                print(f"  ✔ {t('fixes.applied')}")
-            except Exception as exc:
-                print(f"  ✖ {exc}")
+                proc = subprocess.run(shlex.split(cmd), stdin=subprocess.DEVNULL)
+                if proc.returncode == 0:
+                    print(f"  ✔ {t('fixes.applied')}")
+                else:
+                    print(f"  ✖ {t('fixes.manual')} (exit {proc.returncode})")
+            except (OSError, ValueError) as exc:
+                print(f"  ✖ {t('fixes.manual')} ({type(exc).__name__})")
         else:
             print(f"  ✖ {t('fixes.manual')}")
         print()
@@ -864,12 +868,16 @@ def _collect_system_info(version: str, lang: str) -> "SystemInfo":
             return "N/A"
 
     # OS name
+    from ufw_audit.output import sanitize as _sanitize
     os_name = "N/A"
     try:
         with open("/etc/os-release") as f:
             for line in f:
+                line = line[:512]  # cap line length before any processing
                 if line.startswith("PRETTY_NAME="):
-                    os_name = line.split("=", 1)[1].strip().strip('"')
+                    os_name = _sanitize(
+                        line.split("=", 1)[1].strip().strip('"'), max_len=64
+                    )
                     break
     except OSError:
         pass
@@ -881,7 +889,7 @@ def _collect_system_info(version: str, lang: str) -> "SystemInfo":
 
     return SystemInfo(
         os_name=os_name,
-        hostname=run("hostname"),
+        hostname=_sanitize(run("hostname"), max_len=64),
         kernel=run("uname", "-r"),
         ufw_version=ufw_version,
         user=os.environ.get("SUDO_USER") or os.environ.get("USER", "unknown"),
