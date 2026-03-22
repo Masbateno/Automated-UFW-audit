@@ -21,6 +21,7 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **Contextual scoring** — network context detection (direct public IP vs NAT); penalties doubled on internet-exposed machines; firewall inactive caps score at 3/10
 - **Detection of 22 common network services** with UFW exposure analysis and two-axis risk context (exposure + threat) for critical and high-risk services
 - **Docker analysis** — iptables bypass detection and list of ports exposed by running containers
+- **Virtualisation analysis** — detects active hypervisors (libvirt/KVM, VirtualBox, VMware, LXD/LXC) and Snap network packages that may create bridge interfaces and manipulate iptables directly, bypassing UFW — same risk pattern as Docker
 - **Listening ports analysis** — unified single-pass analysis; ephemeral and system ports silently skipped; NetBIOS handled with contextual warning
 - **UFW log analysis** — parses `/var/log/ufw.log` over a configurable period (`--log-days=N`, default 7 days); total blocked attempts, top source IPs with geolocation, top targeted ports, bruteforce detection (>10 attempts/60s), attempts on installed service ports
 - **IP geolocation** — source IPs enriched with country and operator via `whois`; private ranges identified as local network; results cached per session
