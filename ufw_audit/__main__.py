@@ -20,7 +20,7 @@ from pathlib import Path
 # Version
 # ---------------------------------------------------------------------------
 
-VERSION = "0.11.2"
+VERSION = "0.11.3"
 
 # Exit codes
 EXIT_OK       = 0  # clean audit — no alerts, no warnings
@@ -84,7 +84,7 @@ def main(argv=None) -> int:
         _print_help(i18n.t)
         return 0
 
-    # --- Root check — only needed for actual audit ---
+    # --- Root check — required for all modes ---
     _bootstrap()
 
     # --- Set quiet mode globally ---
@@ -108,6 +108,16 @@ def main(argv=None) -> int:
     from ufw_audit.config import UserConfig
     user_config = UserConfig.load()
 
+    # --- Standalone modes: --manage-logs and --install-cron ---
+    if config.manage_logs:
+        return _run_manage_logs(user_config, config, t)
+
+    if config.install_cron:
+        return _run_install_cron(user_config, config, t)
+
+    if config.remove_cron:
+        return _run_remove_cron(config, t)
+
     if user_config.exists():
         output.print_info(t("config.found", path=str(user_config.path)))
         output.print_dim(t("config.reconfigure_hint"))
@@ -116,7 +126,8 @@ def main(argv=None) -> int:
     # --- Initialise report ---
     from ufw_audit.report import AuditReport, SystemInfo
     if config.detailed:
-        report = AuditReport.open(directory=Path.cwd(), version=VERSION)
+        log_dir = _get_or_prompt_log_dir(user_config, config, t)
+        report = AuditReport.open(directory=log_dir, version=VERSION)
         output.print_ok(f"Rapport détaillé : {report.path}" if config.lang == "fr"
                         else f"Detailed report: {report.path}")
         print()
@@ -228,6 +239,26 @@ def main(argv=None) -> int:
         # Track audited ports
         for port in snap.ports:
             audited_ports.add(port)
+
+    # --- Services panorama (all known services, installed or not) ---
+    if not config.quiet:
+        from ufw_audit.output import print_services_panorama
+        from ufw_audit.checks.services import ServiceSnapshot as _SS, Exposure, ServiceState
+        print_section(t("sections.services_panorama"))
+        all_snaps = _SS.collect_all(registry, ufw_rules=ufw_numbered)
+        panorama_rows = _build_panorama_rows(all_snaps)
+        panorama_labels = {
+            "header_service": t("services.panorama.header_service"),
+            "header_status":  t("services.panorama.header_status"),
+            "header_ports":   t("services.panorama.header_ports"),
+            "header_ufw":     t("services.panorama.header_ufw"),
+            "active":         t("services.panorama.active"),
+            "inactive":       t("services.panorama.inactive"),
+            "not_installed":  t("services.panorama.not_installed"),
+            "unknown":        t("services.panorama.unknown"),
+        }
+        print_services_panorama(panorama_rows, panorama_labels)
+        print()
 
     # ======================================================================
     # CHECK 4 — Listening ports
@@ -823,6 +854,14 @@ def _run_fixes(engine, config, t) -> None:
 
     sorted_items = sorted(ufw_deletes, key=sort_key, reverse=True) + others
 
+    # Auto-fix mode banner — visible warning so the user knows what's happening
+    if config.yes:
+        auto_msg = t("fixes.auto_mode_banner", count=len(sorted_items))
+        print(f"\033[1;33m  ⚠  {auto_msg}\033[0m")
+        print()
+
+    applied_cmds = []
+
     print()
     for msg, cmd in sorted_items:
         short = msg[:48] + "…" if len(msg) > 48 else msg
@@ -838,6 +877,7 @@ def _run_fixes(engine, config, t) -> None:
                 proc = subprocess.run(shlex.split(cmd), stdin=subprocess.DEVNULL)
                 if proc.returncode == 0:
                     print(f"  ✔ {t('fixes.applied')}")
+                    applied_cmds.append(cmd)
                 else:
                     print(f"  ✖ {t('fixes.manual')} (exit {proc.returncode})")
             except (OSError, ValueError) as exc:
@@ -847,6 +887,13 @@ def _run_fixes(engine, config, t) -> None:
         print()
 
     print(f"  {t('fixes.done')}")
+
+    # Auto-fix summary — list every command that was applied
+    if config.yes and applied_cmds:
+        print()
+        print(f"\033[1;34m  [{t('fixes.auto_summary_title')}]\033[0m")
+        for cmd in applied_cmds:
+            print(f"  ✔ {cmd}")
 
 
 # ---------------------------------------------------------------------------
@@ -979,12 +1026,15 @@ def _print_help(t) -> None:
         ("-d, --detailed",     "Save full audit report to a log file"),
         ("-q, --quiet",        "Suppress all output — use exit code to detect issues"),
         ("-f, --fix",          "Offer to apply automatic corrections after the audit"),
-        ("-y, --yes",          "Auto-confirm all fixes (use with -f)"),
+        ("-y, --yes",          "Auto-confirm all fixes with audit trail (use with -f)"),
         ("-r, --reconfigure",  "Reset saved port configuration and re-ask"),
         ("-n, --no-color",     "Disable colour output"),
-        ("--json",             "Export summary as JSON"),
+        ("-j, --json",         "Export summary as JSON"),
         ("--json-full",        "Export full audit details as JSON"),
-        ("--log-days=N",       "Analyse the last N days of UFW logs (default: 7)"),
+        ("-l N, --log-days=N", "Analyse the last N days of UFW logs (default: 7)"),
+        ("-m, --manage-logs",  "List and delete saved audit reports"),
+        ("-c, --install-cron", "Install a daily automated audit cron job"),
+        ("--remove-cron",      "Remove the installed cron job"),
         ("--french",           "Switch interface to French"),
         ("-V, --version",      "Show version and exit (no sudo required)"),
         ("-h, --help",         "Show this help message (no sudo required)"),
@@ -1007,6 +1057,402 @@ def _print_help(t) -> None:
     print("  3   Technical error")
     print()
     print("Documentation: https://github.com/Masbateno/ufw-audit")
+
+
+# ---------------------------------------------------------------------------
+# Log directory helpers
+# ---------------------------------------------------------------------------
+
+def _prompt_path(prompt_label: str, default: Path) -> Path:
+    """Prompt for a filesystem path with TAB autocompletion via readline."""
+    import glob as _glob
+
+    def _path_completer(text, state):
+        options = _glob.glob(text + "*")
+        options = [o + "/" if os.path.isdir(o) else o for o in options]
+        try:
+            return options[state]
+        except IndexError:
+            return None
+
+    try:
+        import readline
+        readline.set_completer_delims(" \t\n;")
+        readline.set_completer(_path_completer)
+        readline.parse_and_bind("tab: complete")
+    except ImportError:
+        pass
+
+    try:
+        raw = input(f"  {prompt_label} [{default}] : ").strip()
+    finally:
+        try:
+            import readline
+            readline.set_completer(None)
+        except ImportError:
+            pass
+
+    return Path(raw).expanduser() if raw else default
+
+
+def _get_or_prompt_log_dir(user_config, config, t) -> Path:
+    """Return the configured log directory, prompting at first use.
+
+    In non-interactive contexts (cron, pipes) the default path is used
+    silently so that the process never hangs waiting for input.
+    """
+    saved = user_config.get("log_dir")
+    if saved:
+        d = Path(saved)
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    home = _get_user_home()
+    default_dir = home / ".local" / "share" / "ufw-audit" / "logs"
+
+    # Non-interactive context (cron, piped stdin) — skip the prompt
+    if not sys.stdin.isatty():
+        default_dir.mkdir(parents=True, exist_ok=True)
+        user_config.set("log_dir", str(default_dir))
+        return default_dir
+
+    chosen = _prompt_path(t("log_dir.prompt"), default_dir)
+
+    try:
+        chosen.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        print(f"  ✖ Cannot create directory {chosen}: {exc} — falling back to cwd")
+        chosen = Path.cwd()
+
+    user_config.set("log_dir", str(chosen))
+    print(f"  ✔ {t('log_dir.saved', path=str(chosen))}")
+    print()
+    return chosen
+
+
+# ---------------------------------------------------------------------------
+# --manage-logs
+# ---------------------------------------------------------------------------
+
+def _parse_log_selection(answer: str, max_idx: int) -> list[int]:
+    """Parse user input into a sorted list of 1-based indices.
+
+    Accepted formats:
+        1          → [1]
+        1,3,5      → [1, 3, 5]
+        2-4        → [2, 3, 4]
+        1,3-5      → [1, 3, 4, 5]
+    """
+    indices: set[int] = set()
+    for part in answer.split(","):
+        part = part.strip()
+        if "-" in part:
+            lo, _, hi = part.partition("-")
+            if lo.isdigit() and hi.isdigit():
+                lo_i, hi_i = int(lo), int(hi)
+                if 1 <= lo_i <= max_idx and 1 <= hi_i <= max_idx:
+                    indices.update(range(lo_i, hi_i + 1))
+        elif part.isdigit():
+            n = int(part)
+            if 1 <= n <= max_idx:
+                indices.add(n)
+    return sorted(indices)
+
+
+def _run_manage_logs(user_config, config, t) -> int:
+    """Standalone log management UI — list, multi-delete, and change storage location."""
+    from ufw_audit import output
+    output.init(no_color=config.no_color)
+
+    W = 62
+    title = t("manage_logs.title")
+    pad = W - 4 - len(title)
+    print(f"\033[1;34m╔{'═'*(W-2)}╗\033[0m")
+    print(f"\033[1;34m║\033[0m  \033[1m{title}\033[0m{' '*max(0,pad)}  \033[1;34m║\033[0m")
+    print(f"\033[1;34m╚{'═'*(W-2)}╝\033[0m")
+    print()
+
+    log_dir_str = user_config.get("log_dir")
+    if not log_dir_str:
+        print(f"  ℹ {t('manage_logs.no_dir')}")
+        return 0
+
+    log_dir = Path(log_dir_str)
+
+    # Handle missing directory gracefully
+    if not log_dir.exists():
+        log_dir.mkdir(parents=True, exist_ok=True)
+
+    logs = sorted(log_dir.glob("ufw_audit_*.log"), reverse=True)
+
+    print(f"  {t('manage_logs.stored_in', path=str(log_dir))}")
+    print()
+
+    if not logs:
+        print(f"  ℹ {t('manage_logs.no_logs', path=str(log_dir))}")
+    else:
+        size_label = t("manage_logs.size_label")
+        for i, f in enumerate(logs, 1):
+            size_kb = max(1, f.stat().st_size // 1024)
+            from datetime import datetime as _dt
+            mtime = _dt.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+            print(f"  [{i:2}]  {f.name}  ({size_kb} {size_label})  {mtime}")
+
+    print()
+    print(f"  {t('manage_logs.prompt')}")
+    answer = input("  > ").strip().lower()
+
+    if answer == "":
+        return 0
+
+    elif answer in ("c", "change"):
+        home = _get_user_home()
+        default_dir = Path(log_dir_str)
+        chosen = _prompt_path(t("manage_logs.change_prompt"), default_dir)
+        try:
+            chosen.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            print(f"  ✖ Cannot create directory {chosen}: {exc}")
+            return 1
+        user_config.set("log_dir", str(chosen))
+        print(f"  ✔ {t('manage_logs.location_updated', path=str(chosen))}")
+
+    elif answer == "all":
+        for f in logs:
+            f.unlink()
+        print(f"  ✔ {t('manage_logs.deleted_all', count=len(logs))}")
+
+    else:
+        selected = _parse_log_selection(answer, len(logs))
+        if not selected:
+            print(f"  ✖ {t('manage_logs.invalid')}")
+        elif len(selected) == 1:
+            f = logs[selected[0] - 1]
+            f.unlink()
+            print(f"  ✔ {t('manage_logs.deleted_one', name=f.name)}")
+        else:
+            for idx in selected:
+                logs[idx - 1].unlink()
+            print(f"  ✔ {t('manage_logs.deleted_multi', count=len(selected))}")
+
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# --install-cron
+# ---------------------------------------------------------------------------
+
+def _run_install_cron(user_config, config, t) -> int:
+    """Install a daily cron job for automated audits with optional email notification."""
+    import re, shutil
+    from ufw_audit import output
+    output.init(no_color=config.no_color)
+
+    W = 62
+    title = t("install_cron.title")
+    pad = W - 4 - len(title)
+    print(f"\033[1;34m╔{'═'*(W-2)}╗\033[0m")
+    print(f"\033[1;34m║\033[0m  \033[1m{title}\033[0m{' '*max(0,pad)}  \033[1;34m║\033[0m")
+    print(f"\033[1;34m╚{'═'*(W-2)}╝\033[0m")
+    print()
+
+    # Log directory
+    log_dir_str = user_config.get("log_dir")
+    if not log_dir_str:
+        print(f"  ✖ {t('install_cron.no_log_dir')}")
+        return 1
+    log_dir = Path(log_dir_str)
+
+    # Execution time
+    time_prompt = t("install_cron.prompt_time")
+    raw_time = input(f"  {time_prompt} : ").strip()
+    if not raw_time:
+        raw_time = "03:00"
+    if not re.match(r"^\d{1,2}:\d{2}$", raw_time):
+        print(f"  ✖ {t('install_cron.invalid_time')}")
+        return 1
+    hour, minute = raw_time.split(":")
+    hour   = int(hour)
+    minute = int(minute)
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        print(f"  ✖ {t('install_cron.invalid_time')}")
+        return 1
+
+    # Notification email
+    email_prompt = t("install_cron.prompt_email")
+    notify_email = input(f"  {email_prompt} : ").strip()
+
+    if notify_email and not shutil.which("mail"):
+        print(f"  ⚠ {t('install_cron.mail_missing')}")
+
+    # Overwrite check
+    cron_path   = Path("/etc/cron.d/ufw-audit")
+    script_path = Path("/usr/local/bin/ufw-audit-nightly")
+
+    if cron_path.exists():
+        overwrite_prompt = t("install_cron.overwrite", path=str(cron_path))
+        ans = input(f"  {overwrite_prompt} ").strip().lower()
+        if ans != "y":
+            return 0
+
+    # Write nightly wrapper script
+    email_line = f'NOTIFY_EMAIL="{notify_email}"' if notify_email else 'NOTIFY_EMAIL=""'
+    audit_bin  = shutil.which("ufw-audit") or "/usr/local/bin/ufw-audit"
+    now_str    = datetime.now().strftime("%Y-%m-%d")
+
+    script_content = (
+        f"#!/bin/bash\n"
+        f"# UFW-AUDIT nightly script — generated {now_str} by ufw-audit --install-cron\n"
+        f"# Re-generate: sudo ufw-audit --install-cron\n\n"
+        f"{email_line}\n"
+        f'LOG_DIR="{log_dir}"\n\n'
+        f'"{audit_bin}" --quiet --detailed\n'
+        f"RC=$?\n\n"
+        f'if [ "$RC" -gt 0 ] && [ -n "$NOTIFY_EMAIL" ]; then\n'
+        f'    LOG=$(ls -t "$LOG_DIR"/ufw_audit_*.log 2>/dev/null | head -1)\n'
+        f'    if [ -n "$LOG" ]; then\n'
+        f'        mail -s "UFW-AUDIT [$RC] $(hostname)" "$NOTIFY_EMAIL" < "$LOG"\n'
+        f'    fi\n'
+        f"fi\n"
+    )
+
+    try:
+        fd = os.open(str(script_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o755)
+        with os.fdopen(fd, "w") as fh:
+            fh.write(script_content)
+    except OSError as exc:
+        print(f"  ✖ Cannot write {script_path}: {exc}")
+        return 1
+
+    print(f"  ✔ {t('install_cron.script_written', path=str(script_path))}")
+
+    # Write cron entry
+    cron_content = (
+        f"# UFW-AUDIT daily audit — generated {now_str} by ufw-audit --install-cron\n"
+        f"SHELL=/bin/bash\n"
+        f"PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin\n\n"
+        f"{minute} {hour} * * *  root  {script_path}\n"
+    )
+
+    try:
+        fd = os.open(str(cron_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+        with os.fdopen(fd, "w") as fh:
+            fh.write(cron_content)
+    except OSError as exc:
+        print(f"  ✖ Cannot write {cron_path}: {exc}")
+        return 1
+
+    print(f"  ✔ {t('install_cron.cron_written', path=str(cron_path))}")
+
+    # Ensure root's config also has log_dir so the cron job (running as root)
+    # never hits the interactive prompt and hangs.
+    root_config_path = Path("/root/.config/ufw-audit/config.conf")
+    try:
+        from ufw_audit.config import UserConfig as _UC
+        root_cfg = _UC.load(path=root_config_path)
+        if not root_cfg.get("log_dir"):
+            root_cfg.set("log_dir", str(log_dir))
+    except OSError:
+        pass  # non-fatal — the TTY detection fallback handles this case
+
+    print()
+    print(f"  ✔ {t('install_cron.done', time=f'{hour:02d}:{minute:02d}')}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# --remove-cron
+# ---------------------------------------------------------------------------
+
+def _run_remove_cron(config, t) -> int:
+    """Remove the installed cron job and nightly script."""
+    from ufw_audit import output
+    output.init(no_color=config.no_color)
+
+    W = 62
+    title = t("remove_cron.title")
+    pad = W - 4 - len(title)
+    print(f"\033[1;34m╔{'═'*(W-2)}╗\033[0m")
+    print(f"\033[1;34m║\033[0m  \033[1m{title}\033[0m{' '*max(0,pad)}  \033[1;34m║\033[0m")
+    print(f"\033[1;34m╚{'═'*(W-2)}╝\033[0m")
+    print()
+
+    cron_path   = Path("/etc/cron.d/ufw-audit")
+    script_path = Path("/usr/local/bin/ufw-audit-nightly")
+
+    if not cron_path.exists():
+        print(f"  ℹ {t('remove_cron.not_found', path=str(cron_path))}")
+        return 0
+
+    try:
+        cron_path.unlink()
+        print(f"  ✔ {t('remove_cron.removed_cron', path=str(cron_path))}")
+    except OSError as exc:
+        print(f"  ✖ Cannot remove {cron_path}: {exc}")
+        return 1
+
+    if script_path.exists():
+        try:
+            script_path.unlink()
+            print(f"  ✔ {t('remove_cron.removed_script', path=str(script_path))}")
+        except OSError as exc:
+            print(f"  ✖ Cannot remove {script_path}: {exc}")
+    else:
+        print(f"  ℹ {t('remove_cron.script_not_found', path=str(script_path))}")
+
+    print()
+    print(f"  ✔ {t('remove_cron.done')}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Panorama helpers
+# ---------------------------------------------------------------------------
+
+def _build_panorama_rows(all_snapshots) -> list[dict]:
+    """Convert ServiceSnapshot list to display dicts for print_services_panorama()."""
+    from ufw_audit.checks.services import Exposure, ServiceState
+
+    rows = []
+    for snap in all_snapshots:
+        if not snap.installed:
+            status = "not_installed"
+        elif snap.state.is_active:
+            status = "active"
+        elif snap.state.is_inactive:
+            status = "inactive"
+        else:
+            status = "unknown"
+
+        # Port string
+        if snap.installed and snap.state.is_active and snap.ports:
+            ports_str = ", ".join(snap.ports)
+        elif snap.installed and snap.ports:
+            ports_str = ", ".join(snap.ports)
+        else:
+            ports_str = "—"
+
+        # UFW indicator
+        if not snap.installed or not snap.exposures:
+            ufw = "na"
+        else:
+            has_open_world = any(e == Exposure.OPEN_WORLD for e in snap.exposures.values())
+            has_no_rule    = any(e == Exposure.NO_RULE    for e in snap.exposures.values())
+            if has_open_world:
+                ufw = "warn"
+            elif has_no_rule:
+                ufw = "none"
+            else:
+                ufw = "ok"
+
+        rows.append({
+            "label":  snap.label,
+            "risk":   snap.risk,
+            "status": status,
+            "ports":  ports_str,
+            "ufw":    ufw,
+        })
+    return rows
 
 
 # ---------------------------------------------------------------------------

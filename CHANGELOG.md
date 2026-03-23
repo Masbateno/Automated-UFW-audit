@@ -4,6 +4,31 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.11.3] — 2026-03-23
+
+### New features
+
+- **Log location prompt** — first `-d` run asks where to store reports; path saved in `config.conf` and reused automatically on subsequent runs
+- **`--manage-logs`** — standalone interactive UI: lists saved reports (name, size, date), deletes by index or all at once
+- **`--install-cron`** — interactive cron setup: prompts for execution time and optional notification email; generates `/usr/local/bin/ufw-audit-nightly` wrapper script and `/etc/cron.d/ufw-audit`; notification sent via system `mail` only when audit detects warnings/alerts (exit code > 0)
+- **Services panorama** — new section after the services audit showing all 22 known services in a compact table (SERVICE / STATUT / PORT(S) / UFW), regardless of installation status; non-installed services shown dimmed
+- **ASCII art header in `.log` files** — report files now open with a 62-char box containing "UFW-AU" in Doom block art + version/host/user line, replacing the plain text header
+
+### UX improvements
+
+- **`-y / --yes` auditable** — auto-fix mode now shows a prominent `⚠ MODE AUTO-FIX` banner before applying fixes, and prints a summary of every applied command at the end
+- **`AUTOMATION.md`** added — full documentation for cron setup, email configuration, and log management
+
+### Internals
+
+- `ServiceSnapshot.collect_all()` added — variant of `collect()` that includes non-installed services (used by panorama)
+- `print_services_panorama()` added to `output.py`
+- `_get_or_prompt_log_dir()`, `_run_manage_logs()`, `_run_install_cron()`, `_build_panorama_rows()` added to `__main__.py`
+- `manage_logs` and `install_cron` flags added to `AuditConfig` / `cli.py`
+- New locale keys: `log_dir`, `manage_logs`, `install_cron`, `sections.services_panorama`, `services.panorama.*`, `fixes.auto_mode_banner`, `fixes.auto_summary_title`
+
+---
+
 ## [v0.11.2] — 2026-03-22
 
 ### Output & UX improvements

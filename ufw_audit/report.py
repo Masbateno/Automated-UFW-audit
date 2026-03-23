@@ -156,20 +156,44 @@ class AuditReport:
     # ------------------------------------------------------------------
 
     def write_header(self, info: SystemInfo) -> None:
-        """Write the report header with version, date and system info."""
+        """Write the report header with ASCII art banner and system info."""
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self._writeln(_SEPARATOR)
-        self._writeln(f"UFW-AUDIT REPORT v{info.version}")
-        self._writeln(f"Date        : {now}")
-        self._writeln(f"Language    : {info.language}")
-        self._writeln(_SEPARATOR)
+
+        # ASCII art — UFW-AU in Doom block style, plain text, no colour
+        _BOX_INNER = 60
+        _BAR       = "═" * _BOX_INNER
+
+        U    = ["██╗   ██╗", "██║   ██║", "██║   ██║", "██║   ██║", "╚██████╔╝", " ╚═════╝ "]
+        F    = ["███████╗",  "██╔════╝",  "█████╗  ",  "██╔══╝  ",  "██║     ",  "╚═╝     "]
+        W    = ["██╗    ██╗", "██║    ██║", "██║ █╗ ██║", "██║███╗██║", "╚███╔███╔╝", " ╚══╝╚══╝ "]
+        DASH = ["   ",        "   ",        "═══",        "   ",        "   ",        "   "      ]
+        A    = [" █████╗ ",  "██╔══██╗",  "███████║",  "██╔══██║",  "██║  ██║",  "╚═╝  ╚═╝"]
+
+        letter_groups = [U, F, W, DASH, A, U]
+
+        self._writeln(f"╔{_BAR}╗")
+        for i in range(6):
+            parts = [grp[i] for grp in letter_groups]
+            row   = "  " + " ".join(parts)
+            pad   = max(0, _BOX_INNER - len(row))
+            self._writeln(f"║{row}{' ' * pad}║")
+        self._writeln(f"╠{_BAR}╣")
+
+        v_line = f"  UFW-AUDIT v{info.version}  │  {now}"
+        self._writeln(f"║{v_line}{' ' * max(0, _BOX_INNER - len(v_line))}║")
+        h_line = f"  {info.hostname}  │  {info.user}"
+        self._writeln(f"║{h_line}{' ' * max(0, _BOX_INNER - len(h_line))}║")
+        self._writeln(f"╚{_BAR}╝")
         self._writeln("")
+
+        self._writeln(_SEPARATOR)
         self._writeln("[SYSTEM INFORMATION]")
         self._writeln(f"System      : {info.os_name}")
         self._writeln(f"Host        : {info.hostname}")
         self._writeln(f"Kernel      : {info.kernel}")
         self._writeln(f"UFW         : ufw {info.ufw_version}")
         self._writeln(f"User        : {info.user}")
+        self._writeln(f"Language    : {info.language}")
         self._writeln(f"Port config : {info.config_path}")
         self._writeln("")
         self._writeln(_SEPARATOR)

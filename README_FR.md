@@ -1,9 +1,9 @@
 *[Read in English](README.md)*
 
-# ufw-audit v0.11.2
+# ufw-audit v0.11.3
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.11.2-blue)
+![Release](https://img.shields.io/badge/version-v0.11.3-blue)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
 
@@ -20,20 +20,24 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 - **Analyse des règles UFW** — règles en doublon, `allow from any` sans restriction de port, cohérence IPv6
 - **Score contextuel** — détection du contexte réseau (IP publique directe vs NAT) ; pénalités doublées sur les machines exposées sur internet ; pare-feu inactif plafonne le score à 3/10
 - **Détection de 22 services réseau courants** avec analyse de leur exposition UFW et contexte de risque à deux axes (exposition + menace) pour les services critiques et élevés
-- **Analyse Docker** — détection du contournement iptables et liste des ports exposés par les containers en cours d'exécution
-- **Analyse de virtualisation** — détecte les hyperviseurs actifs (libvirt/KVM, VirtualBox, VMware, LXD/LXC) et les paquets Snap réseau qui peuvent créer des interfaces bridge et manipuler iptables directement, contournant UFW — même risque que Docker
-- **Analyse des ports en écoute** — passe unique unifiée ; ports éphémères et système ignorés proprement ; NetBIOS géré avec avertissement contextuel
-- **Analyse des logs UFW** — parse `/var/log/ufw.log` sur une période configurable (`--log-days=N`, défaut 7 jours) ; total des tentatives bloquées, top IPs sources avec géolocalisation, top ports ciblés, détection bruteforce (>10 tentatives/60s), tentatives sur les ports de services installés
+- **Docker** — détection du contournement iptables et liste des ports exposés par les containers en cours d'exécution
+- **Virtualisation** — détecte les hyperviseurs actifs (libvirt/KVM, VirtualBox, VMware, LXD/LXC) et les paquets Snap réseau qui peuvent créer des interfaces bridge et manipuler iptables directement, contournant UFW — même risque que Docker
+- **Ports en écoute** — passe unique unifiée ; ports éphémères et système ignorés proprement ; NetBIOS géré avec avertissement contextuel
+- **Logs UFW** — parse `/var/log/ufw.log` sur une période configurable (`--log-days=N`, défaut 7 jours) ; total des tentatives bloquées, top IPs sources avec géolocalisation, top ports ciblés, détection bruteforce (>10 tentatives/60s), tentatives sur les ports de services installés
 - **Géolocalisation IP** — IPs sources enrichies avec pays et opérateur via GeoIP2 (optionnel, `python3-geoip2` + base GeoLite2) ; plages privées identifiées comme réseau local ; résultats mis en cache par session
 - **Détection DDNS / exposition externe** — détecte les clients DDNS actifs (ddclient, inadyn, No-IP, DuckDNS) ; extrait le domaine configuré ; croise avec les règles UFW ALLOW sans restriction pour identifier les ports exposés sur internet
 - **Classification d'exposition** par service : `ouvert sur internet` / `réseau local uniquement` / `bloqué par UFW` / `pas de règle`
-- **Mode fix** — section interactive après le résumé ; chaque correction automatisable demande une confirmation `[y/N]` ; éléments manuels affichés sans exécution
+- **Mode fix** — section interactive après le résumé ; chaque correction automatisable demande une confirmation `[y/N]` ; éléments manuels affichés sans exécution ; `-y / --yes` applique tout sans confirmation avec une bannière d'avertissement et un résumé des commandes exécutées
 - **Résumé catégorisé** — findings répartis en trois blocs : *Action requise* / *Améliorations possibles* / *Configuration normale* ; phrase d'interprétation automatique
 - **Note de politique implicite** — signale quand des services à risque élevé s'appuient sur la politique `deny` par défaut plutôt que sur des règles explicites
-- **Score de sécurité** (0–10) avec niveau de risque : FAIBLE / MOYEN / ÉLEVÉ
+- **Score de sécurité** (0–10) avec niveau de risque : FAIBLE / MOYEN / ÉLEVÉ / CRITIQUE
+- **Panorama des services** — tableau compact de l'ensemble des 22 services connus après l'audit services (SERVICE / STATUT / PORT(S) / UFW), services non installés affichés en grisé
 - **Interface bilingue** — anglais par défaut, français avec `--french`
 - **Mode sans couleur** — `--no-color` pour une sortie propre dans les pipes et fichiers log
-- **Rapport détaillé optionnel** — fichier log horodaté avec informations système, findings et recommandations
+- **Rapport détaillé optionnel** — fichier log horodaté avec en-tête ASCII art, informations système, findings et recommandations
+- **`--manage-logs`** — interface interactive pour lister les rapports sauvegardés (nom, taille, date) et les supprimer par index ou en totalité
+- **`--install-cron`** — configuration interactive d'un audit nocturne automatique : saisie de l'heure d'exécution et d'un email de notification optionnel ; le mail n'est envoyé qu'en cas d'avertissements ou d'alertes
+- **`--remove-cron`** — supprime la tâche cron et le script wrapper nocturne
 
 ---
 
@@ -174,6 +178,15 @@ ufw-audit -V
 
 # Afficher l'aide (sans sudo)
 ufw-audit -h
+
+# Gérer les rapports sauvegardés interactivement
+sudo ufw-audit --manage-logs
+
+# Configurer un audit nocturne automatique
+sudo ufw-audit --install-cron
+
+# Supprimer la tâche cron
+sudo ufw-audit --remove-cron
 ```
 
 Les options se combinent :
@@ -191,6 +204,117 @@ Quand un service est détecté sur un port non standard (ex. SSH sur 2222), le s
 ```bash
 sudo ufw-audit -r
 ```
+
+---
+
+## Exemple de sortie
+
+```
+╔══════════════════════════════════════════════════════════════╗
+║   ██╗   ██╗███████╗██╗    ██╗  ┌────────────────────────┐    ║
+║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.11.3    │    ║
+║   ██║   ██║█████╗  ██║ █╗ ██║  │  UFW firewall audit    │    ║
+║   ██║   ██║██╔══╝  ██║███╗██║  └────────────────────────┘    ║
+║   ╚██████╔╝██║     ╚███╔███╔╝              _ _               ║
+║    ╚═════╝ ╚═╝      ╚══╝╚══╝             _(-_-)_             ║
+║                                            audit             ║
+╠══════════════════════════════════════════════════════════════╣
+║  System       : Ubuntu 24.04 LTS                             ║
+║  Host         : my-machine                                   ║
+║  UFW          : v0.36.2                                      ║
+║  User         : alice                                        ║
+║  Date         : 23/03/2026 10:00                             ║
+╚══════════════════════════════════════════════════════════════╝
+
+
+┌──────────────────────────────────────────────────────────────┐
+│  ANALYSE DES SERVICES RÉSEAU                                 │
+└──────────────────────────────────────────────────────────────┘
+
+  ▶ SSH Server
+    ┄ Contexte de risque — CRITIQUE
+    Exposition : Très ciblé par les scans automatisés et les attaques brute-force
+    Menace     : Accès shell complet à la machine, élévation de privilèges
+
+✖ [ALERTE] Port 22/tcp : exposition = ouvert sur internet
+    → sudo ufw delete allow 22/tcp
+    → sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp
+
+
+┌──────────────────────────────────────────────────────────────┐
+│  ANALYSE DOCKER                                              │
+└──────────────────────────────────────────────────────────────┘
+
+⚠ [AVERTISSEMENT] Docker peut contourner les règles UFW — iptables n'est pas désactivé dans daemon.json
+
+╔══════════════════════════════════════════════════════════════╗
+║  Score de sécurité : 7/10                                    ║
+║  Niveau de risque  : ⚠ MOYEN                                 ║
+║  Contexte réseau   : 🏠 Réseau local uniquement              ║
+╠══════════════════════════════════════════════════════════════╣
+║  ✖ Action requise                                            ║
+║    ✖  Port 22/tcp : exposition = ouvert sur internet         ║
+║    ✖  Docker contourne les règles UFW via iptables…          ║
+╠══════════════════════════════════════════════════════════════╣
+║  Décomposition du score                                      ║
+║    -2  Port 22/tcp ouvert sur internet                       ║
+║    -1  Contournement iptables Docker                         ║
+╚══════════════════════════════════════════════════════════════╝
+
+  Corrections nécessaires. Priorisez les éléments marqués "Action requise".
+```
+
+---
+
+## Fichiers de rapport
+
+Avec `-d`, un rapport horodaté est créé dans un répertoire configurable (demandé au premier lancement, sauvegardé dans `config.conf`) :
+
+```
+ufw_audit_20260323_100000.log
+```
+
+Le rapport s'ouvre avec un en-tête ASCII art sur 62 caractères et contient : informations système, tous les findings horodatés, liste complète des ports en écoute, analyse détaillée des logs (top IPs avec géolocalisation, top ports, bruteforce, tentatives sur les ports de services installés), contexte de risque pour les services critiques et élevés, résumé du score.
+
+---
+
+## Référence des options
+
+| Option                  | Description                                                        |
+|-------------------------|--------------------------------------------------------------------|
+| *(sans option)*         | Audit standard                                                     |
+| `-v`, `--verbose`       | Afficher les détails techniques (tableau des ports, exposition)    |
+| `-d`, `--detailed`      | Générer un fichier rapport complet                                 |
+| `-q`, `--quiet`         | Supprimer toute sortie — utiliser le code de retour                |
+| `-f`, `--fix`           | Proposer et appliquer les corrections interactivement              |
+| `-y`, `--yes`           | Appliquer toutes les corrections sans confirmation (avec `-f`)     |
+| `-r`, `--reconfigure`   | Reconfigurer tous les ports personnalisés                          |
+| `-n`, `--no-color`      | Désactiver la sortie ANSI couleur                                  |
+| `--json`                | Exporter le résumé en JSON                                         |
+| `--json-full`           | Exporter l'audit complet en JSON                                   |
+| `--log-days=N`          | Analyser les logs sur N jours (défaut : 7)                         |
+| `--manage-logs`         | Interface interactive pour gérer les rapports sauvegardés          |
+| `--install-cron`        | Configurer un audit nocturne automatique (cron)                    |
+| `--remove-cron`         | Supprimer la tâche cron et le script wrapper nocturne              |
+| `--french`              | Passer l'interface en français                                     |
+| `-V`, `--version`       | Afficher la version et quitter (sans sudo)                         |
+| `-h`, `--help`          | Afficher l'aide et quitter (sans sudo)                             |
+
+---
+
+## Fichiers
+
+| Fichier                                  | Description                                                              |
+|------------------------------------------|--------------------------------------------------------------------------|
+| `/usr/local/bin/ufw-audit`               | Point d'entrée                                                           |
+| `/usr/local/bin/ufw-audit-nightly`       | Script wrapper nocturne (créé par `--install-cron`)                      |
+| `/usr/local/lib/ufw_audit/`              | Package Python                                                           |
+| `/usr/local/share/ufw-audit/`            | Données (locales, services.json, manifeste)                              |
+| `/usr/local/share/doc/ufw-audit/`        | Documentation                                                            |
+| `/etc/bash_completion.d/ufw-audit`       | Autocomplétion bash                                                      |
+| `/etc/cron.d/ufw-audit`                  | Entrée cron système (créée par `--install-cron`)                         |
+| `~/.config/ufw-audit/config.conf`        | Configuration utilisateur (ports personnalisés, répertoire logs ; 600)   |
+| `ufw_audit_YYYYMMDD_HHMMSS.log`          | Rapport détaillé (créé avec `-d`, dans le répertoire configuré)          |
 
 ---
 
@@ -219,40 +343,6 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 ---
 
-## Référence des options
-
-| Option                  | Description                                                        |
-|-------------------------|--------------------------------------------------------------------|
-| `-v`, `--verbose`       | Afficher les détails techniques (tableau des ports, exposition)    |
-| `-d`, `--detailed`      | Générer un fichier rapport complet                                 |
-| `-q`, `--quiet`         | Supprimer toute sortie — utiliser le code de retour                |
-| `-f`, `--fix`           | Proposer et appliquer les corrections interactivement              |
-| `-y`, `--yes`           | Appliquer toutes les corrections sans confirmation (avec `-f`)     |
-| `-r`, `--reconfigure`   | Reconfigurer tous les ports personnalisés                          |
-| `-n`, `--no-color`      | Désactiver la sortie ANSI couleur                                  |
-| `--json`                | Exporter le résumé en JSON                                         |
-| `--json-full`           | Exporter l'audit complet en JSON                                   |
-| `--log-days=N`          | Analyser les logs sur N jours (défaut : 7)                         |
-| `--french`              | Passer l'interface en français                                     |
-| `-V`, `--version`       | Afficher la version et quitter (sans sudo)                         |
-| `-h`, `--help`          | Afficher l'aide et quitter (sans sudo)                             |
-
----
-
-## Fichiers
-
-| Fichier                              | Description                                                         |
-|--------------------------------------|---------------------------------------------------------------------|
-| `/usr/local/bin/ufw-audit`           | Point d'entrée                                                      |
-| `/usr/local/lib/ufw_audit/`          | Package Python                                                      |
-| `/usr/local/share/ufw-audit/`        | Données (locales, services.json, manifeste)                         |
-| `/usr/local/share/doc/ufw-audit/`    | Documentation                                                       |
-| `/etc/bash_completion.d/ufw-audit`   | Autocomplétion bash                                                 |
-| `~/.config/ufw-audit/config.conf`    | Configuration utilisateur (ports personnalisés, créé automatiquement)|
-| `ufw_audit_YYYYMMDD_HHMMSS.log`      | Rapport détaillé (créé avec `-d`, dans le répertoire courant)       |
-
----
-
 ## Roadmap
 
 **v0.9** — Réécriture complète en Python, 421 tests unitaires, installateur transparent avec manifeste, autocomplétion bash, bilingue EN/FR, 22 services avec contexte de risque à deux axes
@@ -263,9 +353,11 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v0.11.1** — Patch sécurité : 20 vulnérabilités corrigées (injection shell, injection ANSI, traversée de chemins, attaques symlink, ReDoS, JSON bomb, durcissement des permissions fichiers)
 
-**v0.11.2** *(actuelle)* — Passe UX/output : bandeau redessiné (art bloc "UFW-AUDIT" complet, largeur 80 chars, étage version), verdict log, corrections de cohérence des sections dans le rapport, corrections grammaticales des locales
+**v0.11.2** — Passe UX/output : bandeau redessiné (art bloc "UFW-AUDIT" complet, largeur 80 chars, étage version), verdict log, corrections de cohérence des sections dans le rapport, corrections grammaticales des locales
 
-**v0.12** — Support automatisation cron/email, `AUTOMATION.md`
+**v0.11.3** *(actuelle)* — Prompt emplacement des logs, panorama des services, `--manage-logs`, `--install-cron` / `--remove-cron`, en-tête ASCII art dans les rapports, bannière auto-fix et résumé des commandes, `AUTOMATION.md`
+
+**v0.12** — Améliorations de l'automatisation cron/email
 
 **v1.0** — CLI stable, complète, validée
 

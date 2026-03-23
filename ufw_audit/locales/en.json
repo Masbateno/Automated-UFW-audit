@@ -1,7 +1,7 @@
 {
   "_meta": {
     "lang": "en",
-    "version": "0.11.2"
+    "version": "0.11.3b"
   },
   "banner": {
     "title": "UFW-AUDIT",
@@ -17,6 +17,7 @@
     "firewall": "FIREWALL STATUS",
     "rules": "UFW RULES ANALYSIS",
     "services": "NETWORK SERVICES ANALYSIS",
+    "services_panorama": "SERVICES PANORAMA",
     "ports_analysis": "LISTENING PORTS ANALYSIS",
     "ports_overview": "LISTENING PORTS (OVERVIEW)",
     "logs": "UFW LOG ANALYSIS",
@@ -55,6 +56,16 @@
     "ipv6_missing": "UFW rules exist for IPv4 but no equivalent IPv6 rules found"
   },
   "services": {
+    "panorama": {
+      "header_service": "SERVICE",
+      "header_status": "STATUS",
+      "header_ports": "PORT(S)",
+      "header_ufw": "UFW",
+      "not_installed": "NOT INSTALLED",
+      "active": "ACTIVE",
+      "inactive": "INACTIVE",
+      "unknown": "UNKNOWN"
+    },
     "state": {
       "active_enabled": "Service active and set to start automatically at boot",
       "active_disabled": "Service is currently active but will not restart automatically",
@@ -157,6 +168,46 @@
     "scope_line1": "This score reflects your UFW firewall configuration only.",
     "scope_line2": "System updates, application security, and other attack vectors are outside the scope of this audit."
   },
+  "log_dir": {
+    "prompt": "Where to store detailed reports?",
+    "default_hint": "Press Enter for the default directory",
+    "saved": "Location saved: {path}",
+    "use": "Reports stored in: {path}"
+  },
+  "manage_logs": {
+    "title": "REPORT MANAGEMENT",
+    "no_dir": "No log location configured. Run first: sudo ufw-audit -d",
+    "no_logs": "No reports found in {path}",
+    "stored_in": "Reports in: {path}",
+    "size_label": "KB",
+    "prompt": "Number(s) (e.g. 1,3 or 2-4), 'all', 'c' to change location, Enter to quit",
+    "change_prompt": "New report storage path",
+    "location_updated": "Location updated: {path}",
+    "deleted_one": "{name} deleted",
+    "deleted_all": "{count} report(s) deleted",
+    "deleted_multi": "{count} report(s) deleted",
+    "invalid": "Unrecognised choice"
+  },
+  "install_cron": {
+    "title": "UFW-AUDIT CRON SETUP",
+    "prompt_time": "Daily execution time (HH:MM, default 03:00)",
+    "prompt_email": "Notification email (optional, Enter to skip)",
+    "mail_missing": "'mail' not available — install it: sudo apt install mailutils",
+    "no_log_dir": "No log location configured — set it first with: sudo ufw-audit -d",
+    "overwrite": "A cron already exists ({path}). Overwrite? [y/N]",
+    "script_written": "Script created: {path}",
+    "cron_written": "Cron installed: {path}",
+    "done": "Automated audit configured — next daily run at {time}",
+    "invalid_time": "Invalid time format (expected HH:MM)"
+  },
+  "remove_cron": {
+    "title": "UFW-AUDIT CRON REMOVAL",
+    "not_found": "No UFW-AUDIT cron installed ({path})",
+    "removed_cron": "Cron removed: {path}",
+    "removed_script": "Script removed: {path}",
+    "script_not_found": "Script not found (already removed?): {path}",
+    "done": "Automation uninstalled."
+  },
   "fixes": {
     "title": "AVAILABLE FIXES",
     "none": "No automatic fix available.",
@@ -164,7 +215,9 @@
     "apply_prompt": "Apply this fix? [y/N]",
     "applied": "Applied",
     "manual": "manual — apply the command manually",
-    "done": "Fixes complete. Re-run the audit to verify."
+    "done": "Fixes complete. Re-run the audit to verify.",
+    "auto_mode_banner": "AUTO-FIX MODE — {count} fix(es) will be applied automatically",
+    "auto_summary_title": "AUTO-FIX SUMMARY"
   },
   "risk_context": {
     "title": "Risk context",

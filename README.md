@@ -1,9 +1,9 @@
 *[Lire en français](README_FR.md)*
 
-# ufw-audit v0.11.2
+# ufw-audit v0.11.3
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.11.2-blue)
+![Release](https://img.shields.io/badge/version-v0.11.3-blue)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
 
@@ -27,13 +27,17 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **IP geolocation** — source IPs enriched with country and operator via GeoIP2 (optional, `python3-geoip2` + GeoLite2 database); private ranges identified as local network; results cached per session
 - **DDNS / external exposure detection** — detects active DDNS clients (ddclient, inadyn, No-IP, DuckDNS); extracts the configured domain; crosses with unrestricted UFW ALLOW rules to identify internet-exposed ports
 - **Exposure classification** per service: `open to internet` / `local network only` / `blocked by UFW` / `no rule`
-- **Fix mode** — interactive section after the summary; each automatable fix requires `[y/N]` confirmation; manual-only items displayed without execution
+- **Fix mode** — interactive section after the summary; each automatable fix requires `[y/N]` confirmation; manual-only items displayed without execution; `-y / --yes` auto-fix mode displays a prominent warning banner and prints a full command summary after applying
 - **Categorised summary** — findings split into three blocks: *Action required* / *Possible improvements* / *Normal configuration*; auto-generated interpretation phrase
 - **Implicit policy note** — flags when high-risk services rely on the default `deny` policy rather than explicit rules
-- **Security score** (0–10) with risk level: LOW / MEDIUM / HIGH
+- **Security score** (0–10) with risk level: LOW / MEDIUM / HIGH / CRITICAL
+- **Services panorama** — compact table of all 22 known services after the services audit (SERVICE / STATUS / PORT(S) / UFW), non-installed services shown dimmed
 - **Bilingual interface** — English by default, French with `--french`
 - **No-colour mode** — `--no-color` for clean output in pipes and log files
-- **Optional detailed report** — timestamped log file with system info, findings, and recommendations
+- **Optional detailed report** — timestamped log file with ASCII art header, system info, findings, and recommendations
+- **`--manage-logs`** — interactive UI to list saved reports (name, size, date) and delete them by index or all at once
+- **`--install-cron`** — interactive cron setup: prompts for execution time and optional notification email; generates a nightly wrapper script and system cron entry; email sent only when audit detects warnings or alerts
+- **`--remove-cron`** — removes the cron entry and nightly wrapper script
 
 ---
 
@@ -83,8 +87,8 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 
 ```bash
 # Clone or download the repository
-git clone https://github.com/Masbateno/ufw-audit.git
-cd ufw-audit
+git clone https://github.com/Masbateno/Automated-UFW-audit.git
+cd Automated-UFW-audit
 
 # Make the installer executable
 chmod +x install.sh
@@ -174,6 +178,15 @@ ufw-audit -V
 
 # Show help (no sudo required)
 ufw-audit -h
+
+# Manage saved report files interactively
+sudo ufw-audit --manage-logs
+
+# Set up nightly automated audit
+sudo ufw-audit --install-cron
+
+# Remove the cron job
+sudo ufw-audit --remove-cron
 ```
 
 Options can be combined:
@@ -199,7 +212,7 @@ sudo ufw-audit --reconfigure
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║   ██╗   ██╗███████╗██╗    ██╗  ┌────────────────────────┐    ║
-║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.11.2    │    ║
+║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.11.3    │    ║
 ║   ██║   ██║█████╗  ██║ █╗ ██║  │  UFW firewall audit    │    ║
 ║   ██║   ██║██╔══╝  ██║███╗██║  └────────────────────────┘    ║
 ║   ╚██████╔╝██║     ╚███╔███╔╝              _ _               ║
@@ -259,13 +272,13 @@ sudo ufw-audit --reconfigure
 
 ## Report files
 
-With `-d`, a timestamped report is created in the current directory:
+With `-d`, a timestamped report is created in a configurable directory (prompted on first use, saved to `config.conf`):
 
 ```
-ufw_audit_20260319_100000.log
+ufw_audit_20260323_100000.log
 ```
 
-The report contains: system information, all timestamped findings, complete listening port list, detailed log analysis (top IPs with geolocation, top ports, bruteforce, hits on installed service ports), risk context for critical/high services, score summary.
+The report opens with a 62-char ASCII art header and contains: system information, all timestamped findings, complete listening port list, detailed log analysis (top IPs with geolocation, top ports, bruteforce, hits on installed service ports), risk context for critical/high services, score summary.
 
 ---
 
@@ -284,6 +297,9 @@ The report contains: system information, all timestamped findings, complete list
 | `--json`                | Export summary as JSON                                             |
 | `--json-full`           | Export full audit details as JSON                                  |
 | `--log-days=N`          | Analyse logs over N days (default: 7)                              |
+| `--manage-logs`         | Interactive UI to list and delete saved report files               |
+| `--install-cron`        | Set up an automated nightly audit (cron)                           |
+| `--remove-cron`         | Remove the cron entry and nightly wrapper script                   |
 | `--french`              | Switch interface to French                                         |
 | `-V`, `--version`       | Show version and exit (no sudo required)                           |
 | `-h`, `--help`          | Show help and exit (no sudo required)                              |
@@ -292,15 +308,17 @@ The report contains: system information, all timestamped findings, complete list
 
 ## Files
 
-| File                                 | Description                                                          |
-|--------------------------------------|----------------------------------------------------------------------|
-| `/usr/local/bin/ufw-audit`           | Entry point                                                          |
-| `/usr/local/lib/ufw_audit/`          | Python package                                                       |
-| `/usr/local/share/ufw-audit/`        | Data files (locales, services.json, manifest)                        |
-| `/usr/local/share/doc/ufw-audit/`    | Documentation                                                        |
-| `/etc/bash_completion.d/ufw-audit`   | Bash completion                                                      |
-| `~/.config/ufw-audit/config.conf`    | User configuration (custom ports, auto-created, permissions 600)     |
-| `ufw_audit_YYYYMMDD_HHMMSS.log`      | Detailed report (created with `-d`, in the current directory)        |
+| File                                     | Description                                                          |
+|------------------------------------------|----------------------------------------------------------------------|
+| `/usr/local/bin/ufw-audit`               | Entry point                                                          |
+| `/usr/local/bin/ufw-audit-nightly`       | Nightly wrapper script (created by `--install-cron`)                 |
+| `/usr/local/lib/ufw_audit/`              | Python package                                                       |
+| `/usr/local/share/ufw-audit/`            | Data files (locales, services.json, manifest)                        |
+| `/usr/local/share/doc/ufw-audit/`        | Documentation                                                        |
+| `/etc/bash_completion.d/ufw-audit`       | Bash completion                                                       |
+| `/etc/cron.d/ufw-audit`                  | System cron entry (created by `--install-cron`)                      |
+| `~/.config/ufw-audit/config.conf`        | User configuration (custom ports, log directory; permissions 600)    |
+| `ufw_audit_YYYYMMDD_HHMMSS.log`          | Detailed report (created with `-d`, in the configured directory)     |
 
 ---
 
@@ -339,9 +357,11 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v0.11.1** — Security hardening patch: 20 vulnerabilities fixed (shell injection, ANSI injection, path traversal, symlink attacks, ReDoS, JSON bomb, file permission hardening)
 
-**v0.11.2** *(current)* — Output & UX pass: banner redesigned (full "UFW-AUDIT" block art, 80-char width, version étage), log verdict line, report file section consistency fixes, locale grammar fixes
+**v0.11.2** — Output & UX pass: banner redesigned (full "UFW-AUDIT" block art, 80-char width, version étage), log verdict line, report file section consistency fixes, locale grammar fixes
 
-**v0.12** — Cron/email automation support, `AUTOMATION.md`
+**v0.11.3** *(current)* — Log location prompt, services panorama, `--manage-logs`, `--install-cron` / `--remove-cron`, ASCII art header in report files, auto-fix banner and command summary, `AUTOMATION.md`
+
+**v0.12** — Cron/email automation enhancements
 
 **v1.0** — Stable, complete, validated CLI
 
