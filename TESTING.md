@@ -29,7 +29,7 @@ sudo ufw allow from any
 
 | Expected | Result |
 |----------|--------|
-| `✖ [ALERT]` Rule allowing all incoming connections without port restriction | ✔ v0.11.4b |
+| `✖ [ALERT]` Rule allowing all incoming connections without port restriction | ✔ v0.11.4 |
 | `-2` score deduction | ✔ |
 | Fix proposed: `sudo ufw --force delete N` | ✔ |
 | Fix applied correctly | ✔ |
@@ -46,7 +46,7 @@ sudo ufw allow proto tcp from any to any
 
 | Expected | Result |
 |----------|--------|
-| `✖ [ALERT]` Rule allowing all incoming connections without port restriction | ✔ v0.11.4b |
+| `✖ [ALERT]` Rule allowing all incoming connections without port restriction | ✔ v0.11.4 |
 | `-2` score deduction | ✔ |
 | Fix applied correctly | ✔ |
 
@@ -62,7 +62,7 @@ sudo ufw allow proto udp from any to any
 
 | Expected | Result |
 |----------|--------|
-| `✖ [ALERT]` Rule allowing all incoming connections without port restriction | ✔ v0.11.4b |
+| `✖ [ALERT]` Rule allowing all incoming connections without port restriction | ✔ v0.11.4 |
 | `-2` score deduction | ✔ |
 | Fix applied correctly | ✔ |
 
@@ -78,7 +78,7 @@ sudo ufw allow proto udp from any to any
 
 | Expected | Result |
 |----------|--------|
-| 3 distinct `✖ [ALERT]` findings | ✔ v0.11.4b |
+| 3 distinct `✖ [ALERT]` findings | ✔ v0.11.4 |
 | Score: 1/10, Risk level: CRITICAL | ✔ |
 | 3 fixes proposed and applied in reverse index order (avoids renumbering) | ✔ |
 
@@ -111,7 +111,7 @@ sudo ufw allow 80/tcp comment "test2"
 
 | Expected | Result |
 |----------|--------|
-| `✖ [ALERT]` Duplicate UFW rule detected: `80/tcp ALLOW IN Anywhere` | ✔ v0.11.4b |
+| `✖ [ALERT]` Duplicate UFW rule detected: `80/tcp ALLOW IN Anywhere` | ✔ v0.11.4 |
 | Comment stripped before comparison — `# test2` ignored | ✔ |
 | Redundant `80/tcp` deleted, `80` kept | ✔ |
 
@@ -128,7 +128,7 @@ sudo ufw allow 80/tcp comment "test2"
 
 | Expected | Result |
 |----------|--------|
-| `✖ [ALERT]` Duplicate UFW rule detected: `80/tcp ALLOW IN Anywhere` | ✔ v0.11.4b |
+| `✖ [ALERT]` Duplicate UFW rule detected: `80/tcp ALLOW IN Anywhere` | ✔ v0.11.4 |
 | `-1` score deduction | ✔ |
 | Fix deletes the protocol-specific rule, keeps the broader one | ✔ |
 
@@ -161,7 +161,7 @@ sudo ufw allow 80/udp
 
 | Expected | Result |
 |----------|--------|
-| `✔ [OK]` No duplicate UFW rules detected | ✔ v0.11.4b |
+| `✔ [OK]` No duplicate UFW rules detected | ✔ v0.11.4 |
 | `80/tcp` and `80/udp` are complementary — not flagged | ✔ |
 
 > Also note: when baseline has `80` (bare), adding `80/tcp` + `80/udp` correctly flags BOTH as semantic duplicates of `80`. Verified live.
@@ -178,7 +178,7 @@ sudo ufw allow 6379
 
 | Expected | Result |
 |----------|--------|
-| `✖ [ALERT]` Port 6379/tcp — open to internet (Action required) | ✔ v0.11.4b |
+| `✖ [ALERT]` Port 6379/tcp — open to internet (Action required) | ✔ v0.11.4 |
 | Risk context CRITICAL displayed | ✔ |
 | `-2` score deduction (NAT context) | ✔ |
 | Panorama: Redis `✖` → `⚠` | ✔ |
@@ -196,7 +196,7 @@ sudo ufw allow 3306
 
 | Expected | Result |
 |----------|--------|
-| No service alert (MySQL not installed) | ✔ v0.11.4b |
+| No service alert (MySQL not installed) | ✔ v0.11.4 |
 | Port 3306 open in UFW but unmatched to any installed service | confirmed |
 
 > **Known behaviour:** ufw-audit only flags port exposure for installed+detected services. Orphan UFW rules (port open, service absent) are not currently flagged. Potential future improvement.

@@ -4,7 +4,7 @@ All notable changes to this project are documented here.
 
 ---
 
-## [v0.11.4] — 2026-03-23 *(beta)*
+## [v0.11.4] — 2026-03-23
 
 ### Bug fixes — UFW rule detection
 
