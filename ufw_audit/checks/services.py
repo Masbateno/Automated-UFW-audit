@@ -281,10 +281,16 @@ def _check_port_exposure(
         elif snap.service.is_high_or_critical:
             base_points = 2
 
-        result.warn(
-            message=port_msg,
-            nature="improvement",
-        )
+        if snap.service.is_high_or_critical:
+            result.alert(
+                message=port_msg,
+                nature="action",
+            )
+        else:
+            result.warn(
+                message=port_msg,
+                nature="improvement",
+            )
         result.add_deduction(
             reason=f"{snap.label} {port} open_world",
             points=base_points,
