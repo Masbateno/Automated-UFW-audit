@@ -62,6 +62,15 @@ OPEN_ANY_V6 = (
     "[ 2] Anywhere (v6)              ALLOW IN    Anywhere (v6)             \n"
 )
 
+OPEN_ANY_TCP = (
+    "[ 1] Anywhere/tcp               ALLOW IN    Anywhere/tcp              \n"
+    "[ 2] 22/tcp                     ALLOW IN    Anywhere                  \n"
+)
+
+OPEN_ANY_UDP = (
+    "[ 1] Anywhere/udp               ALLOW IN    Anywhere/udp              \n"
+)
+
 CLEAN_RULES = (
     "[ 1] 22/tcp                     ALLOW IN    Anywhere                  \n"
     "[ 2] 80/tcp                     ALLOW IN    Anywhere                  \n"
@@ -96,6 +105,18 @@ def test_open_any_deduction_applied():
     assert total_deductions(result) >= 2
 
 
+def test_open_any_tcp_detected():
+    """Anywhere/tcp ALLOW IN Anywhere/tcp — all TCP ports open — must be detected."""
+    result = _check_rules("", OPEN_ANY_TCP, t)
+    assert has_alert(result)
+
+
+def test_open_any_udp_detected():
+    """Anywhere/udp ALLOW IN Anywhere/udp — all UDP ports open — must be detected."""
+    result = _check_rules("", OPEN_ANY_UDP, t)
+    assert has_alert(result)
+
+
 def test_clean_rules_no_open_any_alert():
     """No false positive when rules are port-restricted."""
     result = _check_rules("", CLEAN_RULES, t)
@@ -106,9 +127,31 @@ def test_clean_rules_no_open_any_alert():
 # Duplicate detection
 # ---------------------------------------------------------------------------
 
-DUPLICATE_RULES = (
+DUPLICATE_EXACT = (
     "[ 1] 80/tcp                     ALLOW IN    Anywhere                  \n"
     "[ 2] 80/tcp                     ALLOW IN    Anywhere                  \n"
+)
+
+DUPLICATE_COMMENT_IGNORED = (
+    "[ 1] 80/tcp                     ALLOW IN    Anywhere                   # test2\n"
+    "[ 2] 80/tcp                     ALLOW IN    Anywhere                  \n"
+)
+
+# PORT/proto is redundant when PORT (no proto) exists for same action+source
+DUPLICATE_SEMANTIC_TCP = (
+    "[ 1] 80/tcp                     ALLOW IN    Anywhere                   # test2\n"
+    "[ 2] 80                         ALLOW IN    Anywhere                  \n"
+)
+
+DUPLICATE_SEMANTIC_UDP = (
+    "[ 1] 5353/udp                   ALLOW IN    Anywhere                  \n"
+    "[ 2] 5353                       ALLOW IN    Anywhere                  \n"
+)
+
+# PORT/tcp + PORT/udp only (no PORT) — NOT a duplicate, they are complementary
+NO_DUPLICATE_TCP_UDP_ONLY = (
+    "[ 1] 80/tcp                     ALLOW IN    Anywhere                  \n"
+    "[ 2] 80/udp                     ALLOW IN    Anywhere                  \n"
 )
 
 NO_DUPLICATE_RULES = (
@@ -117,18 +160,38 @@ NO_DUPLICATE_RULES = (
 )
 
 
-def test_duplicate_rules_detected():
-    result = _check_rules("", DUPLICATE_RULES, t)
+def test_exact_duplicate_detected():
+    result = _check_rules("", DUPLICATE_EXACT, t)
     assert has_alert(result)
+
+
+def test_comment_stripped_for_duplicate_check():
+    """80/tcp # test2 and 80/tcp without comment are the same rule."""
+    result = _check_rules("", DUPLICATE_COMMENT_IGNORED, t)
+    assert has_alert(result)
+
+
+def test_semantic_duplicate_tcp_detected():
+    """80/tcp is redundant when 80 (no proto) exists — must be flagged."""
+    result = _check_rules("", DUPLICATE_SEMANTIC_TCP, t)
+    assert has_alert(result)
+
+
+def test_semantic_duplicate_udp_detected():
+    """5353/udp is redundant when 5353 (no proto) exists — must be flagged."""
+    result = _check_rules("", DUPLICATE_SEMANTIC_UDP, t)
+    assert has_alert(result)
+
+
+def test_tcp_and_udp_only_no_false_positive():
+    """PORT/tcp + PORT/udp without PORT — complementary rules, not duplicates."""
+    result = _check_rules("", NO_DUPLICATE_TCP_UDP_ONLY, t)
+    assert not any("rules.duplicate_found" in f.message for f in result.findings)
 
 
 def test_no_false_positive_duplicates():
     result = _check_rules("", NO_DUPLICATE_RULES, t)
-    # Should have OK finding for duplicates, no alert
-    assert not any(
-        "rules.duplicate_found" in f.message
-        for f in result.findings
-    )
+    assert not any("rules.duplicate_found" in f.message for f in result.findings)
 
 
 # ---------------------------------------------------------------------------

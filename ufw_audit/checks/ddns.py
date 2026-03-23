@@ -387,6 +387,15 @@ def _find_open_ports(ufw_rules: str) -> list[str]:
             port_proto = f"{port_match.group(1)}/{port_match.group(2).lower()}"
             if port_proto not in open_ports:
                 open_ports.append(port_proto)
+        else:
+            # Bare port rule (no /proto): covers both tcp and udp
+            bare_match = re.match(r"\[\s*\d+\]\s+(\d+)\s+ALLOW", line)
+            if bare_match:
+                port = bare_match.group(1)
+                for proto in ("tcp", "udp"):
+                    port_proto = f"{port}/{proto}"
+                    if port_proto not in open_ports:
+                        open_ports.append(port_proto)
 
     return open_ports
 
