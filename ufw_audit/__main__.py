@@ -1096,7 +1096,11 @@ def _prompt_path(prompt_label: str, default: Path) -> Path:
 
 
 def _get_or_prompt_log_dir(user_config, config, t) -> Path:
-    """Return the configured log directory, prompting at first use."""
+    """Return the configured log directory, prompting at first use.
+
+    In non-interactive contexts (cron, pipes) the default path is used
+    silently so that the process never hangs waiting for input.
+    """
     saved = user_config.get("log_dir")
     if saved:
         d = Path(saved)
@@ -1105,6 +1109,13 @@ def _get_or_prompt_log_dir(user_config, config, t) -> Path:
 
     home = _get_user_home()
     default_dir = home / ".local" / "share" / "ufw-audit" / "logs"
+
+    # Non-interactive context (cron, piped stdin) — skip the prompt
+    if not sys.stdin.isatty():
+        default_dir.mkdir(parents=True, exist_ok=True)
+        user_config.set("log_dir", str(default_dir))
+        return default_dir
+
     chosen = _prompt_path(t("log_dir.prompt"), default_dir)
 
     try:
@@ -1332,6 +1343,18 @@ def _run_install_cron(user_config, config, t) -> int:
         return 1
 
     print(f"  ✔ {t('install_cron.cron_written', path=str(cron_path))}")
+
+    # Ensure root's config also has log_dir so the cron job (running as root)
+    # never hits the interactive prompt and hangs.
+    root_config_path = Path("/root/.config/ufw-audit/config.conf")
+    try:
+        from ufw_audit.config import UserConfig as _UC
+        root_cfg = _UC.load(path=root_config_path)
+        if not root_cfg.get("log_dir"):
+            root_cfg.set("log_dir", str(log_dir))
+    except OSError:
+        pass  # non-fatal — the TTY detection fallback handles this case
+
     print()
     print(f"  ✔ {t('install_cron.done', time=f'{hour:02d}:{minute:02d}')}")
     return 0
