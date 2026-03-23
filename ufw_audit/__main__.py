@@ -771,8 +771,9 @@ def _check_rules(ufw_verbose: str, ufw_numbered: str, t) -> "CheckResult":
         result.ok(message=t("rules.no_duplicates"))
 
     # Open-any check (ALLOW IN Anywhere without port restriction — entire rule)
+    # Matches: "Anywhere", "Anywhere/tcp", "Anywhere/udp" on both sides
     open_any_pattern = re.compile(
-        r"Anywhere\s+ALLOW\s+IN\s+Anywhere\s*$", re.IGNORECASE
+        r"Anywhere(?:/\w+)?\s+ALLOW\s+IN\s+Anywhere(?:/\w+)?\s*$", re.IGNORECASE
     )
     found_open_any = False
     for line in lines:

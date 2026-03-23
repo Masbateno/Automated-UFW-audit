@@ -62,6 +62,15 @@ OPEN_ANY_V6 = (
     "[ 2] Anywhere (v6)              ALLOW IN    Anywhere (v6)             \n"
 )
 
+OPEN_ANY_TCP = (
+    "[ 1] Anywhere/tcp               ALLOW IN    Anywhere/tcp              \n"
+    "[ 2] 22/tcp                     ALLOW IN    Anywhere                  \n"
+)
+
+OPEN_ANY_UDP = (
+    "[ 1] Anywhere/udp               ALLOW IN    Anywhere/udp              \n"
+)
+
 CLEAN_RULES = (
     "[ 1] 22/tcp                     ALLOW IN    Anywhere                  \n"
     "[ 2] 80/tcp                     ALLOW IN    Anywhere                  \n"
@@ -94,6 +103,18 @@ def test_open_any_deduction_applied():
     """Wildcard rule carries a score deduction."""
     result = _check_rules("", OPEN_ANY_TRAILING_SPACES, t)
     assert total_deductions(result) >= 2
+
+
+def test_open_any_tcp_detected():
+    """Anywhere/tcp ALLOW IN Anywhere/tcp — all TCP ports open — must be detected."""
+    result = _check_rules("", OPEN_ANY_TCP, t)
+    assert has_alert(result)
+
+
+def test_open_any_udp_detected():
+    """Anywhere/udp ALLOW IN Anywhere/udp — all UDP ports open — must be detected."""
+    result = _check_rules("", OPEN_ANY_UDP, t)
+    assert has_alert(result)
 
 
 def test_clean_rules_no_open_any_alert():
