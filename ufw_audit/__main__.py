@@ -772,7 +772,7 @@ def _check_rules(ufw_verbose: str, ufw_numbered: str, t) -> "CheckResult":
 
     # Open-any check (ALLOW IN Anywhere without port restriction — entire rule)
     open_any_pattern = re.compile(
-        r"Anywhere\s+ALLOW\s+IN\s+Anywhere$", re.IGNORECASE
+        r"Anywhere\s+ALLOW\s+IN\s+Anywhere\s*$", re.IGNORECASE
     )
     found_open_any = False
     for line in lines:
