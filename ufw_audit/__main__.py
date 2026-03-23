@@ -683,8 +683,6 @@ def _print_summary(engine, network_context, public_ip, config, t, report, snapsh
     print(f"  ℹ {t('summary.scope_line1')}")
     print(f"  ℹ {t('summary.scope_line2')}")
 
-    print()
-    print(f"  {t('config.found', path=str(_get_user_home() / '.config/ufw-audit/config.conf'))}")
     if config.detailed:
         from ufw_audit.report import AuditReport
         # report path already printed at start
