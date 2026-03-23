@@ -4,6 +4,28 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.11.4] — 2026-03-23 *(beta)*
+
+### Bug fixes — UFW rule detection
+
+- **Open-any trailing spaces** — `ufw status numbered` pads rule lines with trailing spaces; the `$` anchor in the open-any regex never matched `Anywhere ALLOW IN Anywhere`. Fixed: `Anywhere$` → `Anywhere\s*$`
+- **Open-any `/tcp` and `/udp` variants** — `Anywhere/tcp ALLOW IN Anywhere/tcp` and `Anywhere/udp ALLOW IN Anywhere/udp` (all ports, protocol-restricted) were not detected. Pattern extended: `Anywhere(?:/\w+)?` on both sides now covers all three wildcard forms
+- **Semantic duplicate detection** — `PORT/proto` rules (e.g. `80/tcp`) are now flagged as redundant when a protocol-less rule for the same port (`80`) already exists with the same action and source. Two-pass detection: first pass collects all proto-less rules; second pass checks each proto-specific rule against that set
+- **Comment stripping in duplicate check** — rule comparison now strips inline comments (`# label`) and normalises whitespace before comparison; `80/tcp # test2` and `80/tcp` are treated as the same rule
+- **Duplicate config path display** — a stray `print()` in `_print_summary()` was displaying the config path a second time at the end of the summary, with a path reconstructed from `_get_user_home()` that differed from the actual path shown at startup. Removed
+
+### Bug fixes — Service exposure and DDNS
+
+- **Critical/high services → Alert not Warning** — services with `risk: critical` or `risk: high` exposed to internet (`OPEN_WORLD`) now raise `alert()` with `nature="action"`, placing them in the *Action required* block of the summary. Previously all exposed services used `warn()` regardless of risk level, burying critical findings like Redis or SSH in *Possible improvements*
+- **DDNS cross-check misses protocol-less rules** — `_find_open_ports()` only matched `PORT/proto` format (e.g. `80/tcp`); bare port rules like `80 ALLOW IN Anywhere` (covering both tcp and udp) were not detected. Now adds both `PORT/tcp` and `PORT/udp` when a bare port rule is found
+
+### Tests
+
+- `tests/test_check_rules.py` added — covers open-any detection (trailing spaces regression, `/tcp`, `/udp` variants), duplicate detection (exact, comment-stripped, semantic TCP/UDP), IPv6 consistency, and false-positive guard for complementary `PORT/tcp` + `PORT/udp` rules
+- `TESTING.md` added — manual regression test plan with live VM results for categories A (wildcards), B (duplicates), C (service exposure), D (IPv6), plus documented observations and known behaviour
+
+---
+
 ## [v0.11.3] — 2026-03-23
 
 ### New features
