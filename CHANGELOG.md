@@ -4,7 +4,7 @@ All notable changes to this project are documented here.
 
 ---
 
-## [v0.11.3b] — 2026-03-23 *(beta)*
+## [v0.11.3] — 2026-03-23
 
 ### New features
 
