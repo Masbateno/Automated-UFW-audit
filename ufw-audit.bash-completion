@@ -6,17 +6,26 @@ _ufw_audit() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    # Handle --log-days=N — suggest the = sign and a default value
+    # Handle -l N (--log-days short form) — suggest common values
+    if [[ "${prev}" == "-l" ]]; then
+        COMPREPLY=( "7" "14" "30" )
+        return 0
+    fi
+
+    # Handle --log-days=N — suggest common values
     if [[ "${cur}" == --log-days* ]]; then
         COMPREPLY=( "--log-days=7" "--log-days=14" "--log-days=30" )
         return 0
     fi
 
-    # All options
-    local short_opts="-v -d -f -y -r -n -V -h"
+    # All short options
+    local short_opts="-v -d -q -f -y -r -n -j -l -m -c -V -h"
+
+    # All long options
     local long_opts="
         --verbose
         --detailed
+        --quiet
         --fix
         --yes
         --reconfigure
@@ -24,6 +33,8 @@ _ufw_audit() {
         --json
         --json-full
         --log-days=
+        --manage-logs
+        --install-cron
         --french
         --version
         --help

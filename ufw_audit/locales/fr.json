@@ -197,9 +197,12 @@
     "no_logs": "Aucun rapport trouvé dans {path}",
     "stored_in": "Rapports dans : {path}",
     "size_label": "Ko",
-    "prompt": "Numéro pour supprimer, 'all' pour tout supprimer, Entrée pour quitter",
+    "prompt": "Numéro(s) (ex : 1,3 ou 2-4), 'all', 'c' pour changer l'emplacement, Entrée pour quitter",
+    "change_prompt": "Nouveau chemin de stockage des rapports",
+    "location_updated": "Emplacement mis à jour : {path}",
     "deleted_one": "{name} supprimé",
     "deleted_all": "{count} rapport(s) supprimé(s)",
+    "deleted_multi": "{count} rapport(s) supprimé(s)",
     "invalid": "Choix non reconnu"
   },
   "install_cron": {

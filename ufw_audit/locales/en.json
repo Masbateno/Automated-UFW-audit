@@ -180,9 +180,12 @@
     "no_logs": "No reports found in {path}",
     "stored_in": "Reports in: {path}",
     "size_label": "KB",
-    "prompt": "Number to delete, 'all' to delete all, Enter to quit",
+    "prompt": "Number(s) (e.g. 1,3 or 2-4), 'all', 'c' to change location, Enter to quit",
+    "change_prompt": "New report storage path",
+    "location_updated": "Location updated: {path}",
     "deleted_one": "{name} deleted",
     "deleted_all": "{count} report(s) deleted",
+    "deleted_multi": "{count} report(s) deleted",
     "invalid": "Unrecognised choice"
   },
   "install_cron": {

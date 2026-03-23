@@ -125,7 +125,7 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         elif arg in ("-q", "--quiet"):
             config.quiet = True
 
-        elif arg == "--json":
+        elif arg in ("-j", "--json"):
             config.json_mode = True
 
         elif arg == "--json-full":
@@ -135,6 +135,15 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         elif arg == "--french":
             config.lang = "fr"
 
+        elif arg in ("-l", "--log-days") and i + 1 < len(argv):
+            i += 1
+            value = argv[i]
+            if not value.isdigit() or int(value) < 1:
+                raise CLIError(
+                    f"--log-days requires a positive integer, got: {value!r}"
+                )
+            config.log_days = int(value)
+
         elif arg.startswith("--log-days="):
             value = arg.split("=", 1)[1]
             if not value.isdigit() or int(value) < 1:
@@ -143,10 +152,10 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
                 )
             config.log_days = int(value)
 
-        elif arg == "--manage-logs":
+        elif arg in ("-m", "--manage-logs"):
             config.manage_logs = True
 
-        elif arg == "--install-cron":
+        elif arg in ("-c", "--install-cron"):
             config.install_cron = True
 
         elif arg in ("-V", "--version"):
