@@ -61,6 +61,12 @@ class AuditConfig:
     log_days: int = 7
     """--log-days=N: number of days of UFW logs to analyse."""
 
+    manage_logs: bool = False
+    """--manage-logs: standalone log management UI (list/delete reports)."""
+
+    install_cron: bool = False
+    """--install-cron: install a daily cron job for automated audits."""
+
     show_version: bool = False
     """--version: print version string and exit."""
 
@@ -136,6 +142,12 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
                     f"--log-days requires a positive integer, got: {value!r}"
                 )
             config.log_days = int(value)
+
+        elif arg == "--manage-logs":
+            config.manage_logs = True
+
+        elif arg == "--install-cron":
+            config.install_cron = True
 
         elif arg in ("-V", "--version"):
             config.show_version = True

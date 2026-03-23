@@ -1,7 +1,7 @@
 {
   "_meta": {
     "lang": "fr",
-    "version": "0.11.2"
+    "version": "0.11.3b"
   },
   "banner": {
     "title": "UFW-AUDIT",
@@ -17,6 +17,7 @@
     "firewall": "ÉTAT DU PARE-FEU",
     "rules": "ANALYSE DES RÈGLES UFW",
     "services": "ANALYSE DES SERVICES RÉSEAU",
+    "services_panorama": "PANORAMA DES SERVICES",
     "ports_analysis": "ANALYSE DES PORTS EN ÉCOUTE",
     "ports_overview": "PORTS EN ÉCOUTE (VUE GÉNÉRALE)",
     "logs": "ANALYSE DES LOGS UFW",
@@ -55,6 +56,16 @@
     "ipv6_missing": "Des règles UFW existent en IPv4 mais aucune règle IPv6 équivalente n'a été trouvée"
   },
   "services": {
+    "panorama": {
+      "header_service": "SERVICE",
+      "header_status": "STATUT",
+      "header_ports": "PORT(S)",
+      "header_ufw": "UFW",
+      "not_installed": "NON INSTALLÉ",
+      "active": "ACTIF",
+      "inactive": "INACTIF",
+      "unknown": "INCONNU"
+    },
     "state": {
       "active_enabled": "Service actif et démarré automatiquement au démarrage",
       "active_disabled": "Le service est actif en ce moment, mais ne redémarrera pas automatiquement.",
@@ -164,13 +175,44 @@
     "apply_prompt": "Appliquer cette correction ? [y/N]",
     "applied": "Appliqué",
     "manual": "manuel — appliquez la commande manuellement",
-    "done": "Corrections terminées. Relancez l'audit pour vérifier."
+    "done": "Corrections terminées. Relancez l'audit pour vérifier.",
+    "auto_mode_banner": "MODE AUTO-FIX — {count} correction(s) seront appliquées automatiquement",
+    "auto_summary_title": "RÉCAPITULATIF AUTO-FIX"
   },
   "risk_context": {
     "title": "Contexte de risque",
     "exposure": "Exposition",
     "threat": "Menace potentielle",
     "level": "Niveau de risque"
+  },
+  "log_dir": {
+    "prompt": "Où stocker les rapports détaillés ?",
+    "default_hint": "Entrée pour le répertoire par défaut",
+    "saved": "Emplacement sauvegardé : {path}",
+    "use": "Rapports stockés dans : {path}"
+  },
+  "manage_logs": {
+    "title": "GESTION DES RAPPORTS",
+    "no_dir": "Aucun emplacement configuré. Lancez d'abord : sudo ufw-audit -d",
+    "no_logs": "Aucun rapport trouvé dans {path}",
+    "stored_in": "Rapports dans : {path}",
+    "size_label": "Ko",
+    "prompt": "Numéro pour supprimer, 'all' pour tout supprimer, Entrée pour quitter",
+    "deleted_one": "{name} supprimé",
+    "deleted_all": "{count} rapport(s) supprimé(s)",
+    "invalid": "Choix non reconnu"
+  },
+  "install_cron": {
+    "title": "INSTALLATION CRON UFW-AUDIT",
+    "prompt_time": "Heure d'exécution quotidienne (HH:MM, défaut 03:00)",
+    "prompt_email": "Email de notification (optionnel, Entrée pour ignorer)",
+    "mail_missing": "'mail' non disponible — installez-le : sudo apt install mailutils",
+    "no_log_dir": "Aucun emplacement de logs configuré — configurez-le d'abord avec : sudo ufw-audit -d",
+    "overwrite": "Un cron existe déjà ({path}). Écraser ? [y/N]",
+    "script_written": "Script créé : {path}",
+    "cron_written": "Cron installé : {path}",
+    "done": "Audit automatique configuré — prochaine exécution quotidienne à {time}",
+    "invalid_time": "Format d'heure invalide (attendu HH:MM)"
   },
   "config": {
     "found": "Configuration trouvée : {path}",

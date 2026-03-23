@@ -144,6 +144,57 @@ class ServiceSnapshot:
 
         return snapshots
 
+    @classmethod
+    def collect_all(
+        cls,
+        registry: ServiceRegistry,
+        ufw_rules: Optional[str] = None,
+    ) -> list["ServiceSnapshot"]:
+        """
+        Collect snapshots for ALL services in the registry.
+
+        Unlike collect(), non-installed services are included with
+        installed=False and an empty exposures dict. Used for the
+        services panorama display.
+
+        Args:
+            registry:  Loaded ServiceRegistry.
+            ufw_rules: Output of `ufw status numbered` (injected for testing).
+                       If None, fetched from the system.
+
+        Returns:
+            List of ServiceSnapshot for every service in the registry.
+        """
+        if ufw_rules is None:
+            ufw_rules = _run("ufw", "status", "numbered")
+
+        snapshots = []
+        for service in registry:
+            installed, via = _detect_installation(service)
+
+            if installed:
+                state = _detect_state(service)
+                ports = _resolve_ports(service)
+                exposures = {
+                    port: _classify_exposure(port, ufw_rules)
+                    for port in ports
+                }
+            else:
+                state     = ServiceState.UNKNOWN
+                ports     = list(service.ports)
+                exposures = {}
+
+            snapshots.append(cls(
+                service=service,
+                installed=installed,
+                install_via=via,
+                state=state,
+                ports=ports,
+                exposures=exposures,
+            ))
+
+        return snapshots
+
 
 # ---------------------------------------------------------------------------
 # Pure check logic

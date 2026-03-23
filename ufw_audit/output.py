@@ -277,6 +277,97 @@ def print_summary_box(lines: list[tuple[str, str]]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Services panorama
+# ---------------------------------------------------------------------------
+
+def print_services_panorama(rows: list[dict], labels: dict) -> None:
+    """Print a panoramic table of all known services (installed or not).
+
+    Args:
+        rows:   List of dicts with keys:
+                  label   — service name
+                  status  — "active" | "inactive" | "not_installed" | "unknown"
+                  ports   — port string, e.g. "22/tcp" or "—"
+                  ufw     — "ok" | "warn" | "none" | "na"
+        labels: Dict with translated strings for headers and status values.
+    """
+    COL_SVC  = 28
+    COL_STAT = 13
+    COL_PORT = 16
+
+    h_svc  = labels.get("header_service", "SERVICE")
+    h_stat = labels.get("header_status",  "STATUS")
+    h_port = labels.get("header_ports",   "PORT(S)")
+    h_ufw  = labels.get("header_ufw",     "UFW")
+
+    sep = (
+        "  " + "─" * COL_SVC + "  " +
+        "─" * COL_STAT + "  " +
+        "─" * COL_PORT + "  " + "───"
+    )
+
+    _p(
+        f"  {_c.bold}{h_svc:<{COL_SVC}}{_c.reset}  "
+        f"{_c.bold}{h_stat:<{COL_STAT}}{_c.reset}  "
+        f"{_c.bold}{h_port:<{COL_PORT}}{_c.reset}  "
+        f"{_c.bold}{h_ufw}{_c.reset}"
+    )
+    _p(sep)
+
+    l_active       = labels.get("active",        "ACTIVE")
+    l_inactive     = labels.get("inactive",      "INACTIVE")
+    l_not_inst     = labels.get("not_installed", "NOT INSTALLED")
+    l_unknown      = labels.get("unknown",       "UNKNOWN")
+
+    for row in rows:
+        label  = row["label"]
+        status = row["status"]
+        ports  = row["ports"]
+        ufw    = row["ufw"]
+
+        # Status text + colour
+        if status == "active":
+            stat_text = l_active
+            stat_col  = _c.green if ufw == "ok" else (
+                _c.yellow_bold if ufw == "warn" else _c.red
+            )
+        elif status == "inactive":
+            stat_text = l_inactive
+            stat_col  = _c.dim
+        elif status == "not_installed":
+            stat_text = l_not_inst
+            stat_col  = _c.dim
+        else:
+            stat_text = l_unknown
+            stat_col  = _c.dim
+
+        # UFW indicator
+        if ufw == "ok":
+            ufw_str = f"{_c.green}✔{_c.reset}"
+        elif ufw == "warn":
+            ufw_str = f"{_c.yellow_bold}⚠{_c.reset}"
+        elif ufw == "none":
+            ufw_str = f"{_c.red}✖{_c.reset}"
+        else:
+            ufw_str = f"{_c.dim}—{_c.reset}"
+
+        # Dim everything for not-installed rows
+        if status == "not_installed":
+            label_str = f"{_c.dim}{label:<{COL_SVC}}{_c.reset}"
+            ports_str = f"{_c.dim}{ports:<{COL_PORT}}{_c.reset}"
+        else:
+            label_str = f"{label:<{COL_SVC}}"
+            ports_str = f"{ports:<{COL_PORT}}"
+
+        _p(
+            f"  {label_str}  "
+            f"{stat_col}{stat_text:<{COL_STAT}}{_c.reset}  "
+            f"{ports_str}  "
+            f"{ufw_str}"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Banner
 # ---------------------------------------------------------------------------
 
