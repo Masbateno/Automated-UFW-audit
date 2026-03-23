@@ -200,6 +200,14 @@
     "done": "Automated audit configured — next daily run at {time}",
     "invalid_time": "Invalid time format (expected HH:MM)"
   },
+  "remove_cron": {
+    "title": "UFW-AUDIT CRON REMOVAL",
+    "not_found": "No UFW-AUDIT cron installed ({path})",
+    "removed_cron": "Cron removed: {path}",
+    "removed_script": "Script removed: {path}",
+    "script_not_found": "Script not found (already removed?): {path}",
+    "done": "Automation uninstalled."
+  },
   "fixes": {
     "title": "AVAILABLE FIXES",
     "none": "No automatic fix available.",

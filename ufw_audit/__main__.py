@@ -115,6 +115,9 @@ def main(argv=None) -> int:
     if config.install_cron:
         return _run_install_cron(user_config, config, t)
 
+    if config.remove_cron:
+        return _run_remove_cron(config, t)
+
     if user_config.exists():
         output.print_info(t("config.found", path=str(user_config.path)))
         output.print_dim(t("config.reconfigure_hint"))
@@ -1031,6 +1034,7 @@ def _print_help(t) -> None:
         ("-l N, --log-days=N", "Analyse the last N days of UFW logs (default: 7)"),
         ("-m, --manage-logs",  "List and delete saved audit reports"),
         ("-c, --install-cron", "Install a daily automated audit cron job"),
+        ("--remove-cron",      "Remove the installed cron job"),
         ("--french",           "Switch interface to French"),
         ("-V, --version",      "Show version and exit (no sudo required)"),
         ("-h, --help",         "Show this help message (no sudo required)"),
@@ -1330,6 +1334,51 @@ def _run_install_cron(user_config, config, t) -> int:
     print(f"  ✔ {t('install_cron.cron_written', path=str(cron_path))}")
     print()
     print(f"  ✔ {t('install_cron.done', time=f'{hour:02d}:{minute:02d}')}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# --remove-cron
+# ---------------------------------------------------------------------------
+
+def _run_remove_cron(config, t) -> int:
+    """Remove the installed cron job and nightly script."""
+    from ufw_audit import output
+    output.init(no_color=config.no_color)
+
+    W = 62
+    title = t("remove_cron.title")
+    pad = W - 4 - len(title)
+    print(f"\033[1;34m╔{'═'*(W-2)}╗\033[0m")
+    print(f"\033[1;34m║\033[0m  \033[1m{title}\033[0m{' '*max(0,pad)}  \033[1;34m║\033[0m")
+    print(f"\033[1;34m╚{'═'*(W-2)}╝\033[0m")
+    print()
+
+    cron_path   = Path("/etc/cron.d/ufw-audit")
+    script_path = Path("/usr/local/bin/ufw-audit-nightly")
+
+    if not cron_path.exists():
+        print(f"  ℹ {t('remove_cron.not_found', path=str(cron_path))}")
+        return 0
+
+    try:
+        cron_path.unlink()
+        print(f"  ✔ {t('remove_cron.removed_cron', path=str(cron_path))}")
+    except OSError as exc:
+        print(f"  ✖ Cannot remove {cron_path}: {exc}")
+        return 1
+
+    if script_path.exists():
+        try:
+            script_path.unlink()
+            print(f"  ✔ {t('remove_cron.removed_script', path=str(script_path))}")
+        except OSError as exc:
+            print(f"  ✖ Cannot remove {script_path}: {exc}")
+    else:
+        print(f"  ℹ {t('remove_cron.script_not_found', path=str(script_path))}")
+
+    print()
+    print(f"  ✔ {t('remove_cron.done')}")
     return 0
 
 

@@ -291,9 +291,9 @@ def print_services_panorama(rows: list[dict], labels: dict) -> None:
                   ufw     — "ok" | "warn" | "none" | "na"
         labels: Dict with translated strings for headers and status values.
     """
-    COL_SVC  = 28
+    COL_SVC  = 32
     COL_STAT = 13
-    COL_PORT = 16
+    COL_PORT = 20
 
     h_svc  = labels.get("header_service", "SERVICE")
     h_stat = labels.get("header_status",  "STATUS")

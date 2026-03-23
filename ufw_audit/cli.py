@@ -67,6 +67,9 @@ class AuditConfig:
     install_cron: bool = False
     """--install-cron: install a daily cron job for automated audits."""
 
+    remove_cron: bool = False
+    """--remove-cron: remove the installed cron job and nightly script."""
+
     show_version: bool = False
     """--version: print version string and exit."""
 
@@ -157,6 +160,9 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
 
         elif arg in ("-c", "--install-cron"):
             config.install_cron = True
+
+        elif arg == "--remove-cron":
+            config.remove_cron = True
 
         elif arg in ("-V", "--version"):
             config.show_version = True

@@ -217,6 +217,14 @@
     "done": "Audit automatique configuré — prochaine exécution quotidienne à {time}",
     "invalid_time": "Format d'heure invalide (attendu HH:MM)"
   },
+  "remove_cron": {
+    "title": "SUPPRESSION DU CRON UFW-AUDIT",
+    "not_found": "Aucun cron UFW-AUDIT installé ({path})",
+    "removed_cron": "Cron supprimé : {path}",
+    "removed_script": "Script supprimé : {path}",
+    "script_not_found": "Script introuvable (déjà supprimé ?) : {path}",
+    "done": "Automatisation désinstallée."
+  },
   "config": {
     "found": "Configuration trouvée : {path}",
     "reconfigure_hint": "Pour la réinitialiser : ufw-audit --reconfigure",
