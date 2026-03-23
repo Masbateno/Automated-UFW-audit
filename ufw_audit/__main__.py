@@ -746,25 +746,63 @@ def _check_rules(ufw_verbose: str, ufw_numbered: str, t) -> "CheckResult":
     lines = [l for l in ufw_numbered.splitlines()
              if re.match(r"\s*\[\s*\d+\]", l)]
 
-    # Duplicate check — use real UFW index from ufw status numbered output
-    seen: dict[str, int] = {}  # rule_text -> real UFW index
+    # Duplicate check — exact and semantic (PORT/proto redundant when PORT exists)
+    def _strip_comment(text: str) -> str:
+        return re.sub(r"\s*#.*$", "", text).strip()
+
+    def _rule_without_index(line: str) -> str:
+        return re.sub(r"\[\s*\d+\]\s*", "", line).strip()
+
+    # First pass: collect all comment-stripped proto-less rule texts
+    # (rules whose destination port has no /tcp or /udp suffix)
+    # Whitespace normalized to single spaces for reliable comparison.
+    proto_less_rules: set[str] = set()
+    for line in lines:
+        tokens = _strip_comment(_rule_without_index(line)).split()
+        if tokens and re.match(r"^\d+$", tokens[0]):
+            # Port token has no /proto — this is a protocol-agnostic rule
+            proto_less_rules.add(" ".join(tokens))
+
+    # Second pass: flag exact duplicates and semantic duplicates
+    # Whitespace normalized to single spaces for reliable comparison.
+    seen_clean: dict[str, int] = {}  # comment-stripped, normalized rule -> real UFW index
     for line in lines:
         idx_match = re.match(r"\[\s*(\d+)\]", line)
         real_index = int(idx_match.group(1)) if idx_match else None
-        rule = re.sub(r"\[\s*\d+\]\s*", "", line).strip()
-        if rule in seen:
-            # Delete the duplicate (higher index) to avoid renumbering the first
-            del_index = real_index if real_index else seen[rule]
+        clean = " ".join(_strip_comment(_rule_without_index(line)).split())
+
+        is_dup = False
+        if clean in seen_clean:
+            # Exact duplicate (comments ignored)
+            del_index = real_index if real_index else seen_clean[clean]
             result.alert(
-                message=t("rules.duplicate_found", rule=rule),
+                message=t("rules.duplicate_found", rule=clean),
                 nature="action",
                 cmd=f"sudo ufw --force delete {del_index}",
             )
-            result.add_deduction(reason=t("rules.duplicate_found", rule=rule),
+            result.add_deduction(reason=t("rules.duplicate_found", rule=clean),
                                  points=1)
+            is_dup = True
         else:
-            if real_index is not None:
-                seen[rule] = real_index
+            # Semantic duplicate: PORT/proto where PORT (no proto) also exists
+            tokens = clean.split()
+            if tokens:
+                m = re.match(r"^(\d+)/(tcp|udp)$", tokens[0])
+                if m:
+                    proto_less_clean = " ".join([m.group(1)] + tokens[1:])
+                    if proto_less_clean in proto_less_rules:
+                        result.alert(
+                            message=t("rules.duplicate_found", rule=clean),
+                            nature="action",
+                            cmd=f"sudo ufw --force delete {real_index}",
+                        )
+                        result.add_deduction(
+                            reason=t("rules.duplicate_found", rule=clean),
+                            points=1)
+                        is_dup = True
+
+        if not is_dup and real_index is not None:
+            seen_clean[clean] = real_index
 
     if not any(f.message.startswith(t("rules.duplicate_found")[:20])
                for f in result.findings):
