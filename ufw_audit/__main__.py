@@ -1337,20 +1337,39 @@ def _run_install_cron(user_config, config, t) -> int:
     audit_bin  = shutil.which("ufw-audit") or "/usr/local/bin/ufw-audit"
     now_str    = datetime.now().strftime("%Y-%m-%d")
 
+    # Build bash script with proper escaping for Python heredoc
+    log_dir_str = str(log_dir)
+    audit_bin_str = audit_bin
+    notify_email_str = notify_email
+
     script_content = (
-        f"#!/bin/bash\n"
+        "#!/bin/bash\n"
         f"# UFW-AUDIT nightly script — generated {now_str} by ufw-audit --install-cron\n"
-        f"# Re-generate: sudo ufw-audit --install-cron\n\n"
-        f"{email_line}\n"
-        f'LOG_DIR="{log_dir}"\n\n'
-        f'"{audit_bin}" --quiet --detailed\n'
-        f"RC=$?\n\n"
-        f'if [ "$RC" -gt 0 ] && [ -n "$NOTIFY_EMAIL" ]; then\n'
-        f'    LOG=$(ls -t "$LOG_DIR"/ufw_audit_*.log 2>/dev/null | head -1)\n'
-        f'    if [ -n "$LOG" ]; then\n'
-        f'        mail -s "UFW-AUDIT [$RC] $(hostname)" "$NOTIFY_EMAIL" < "$LOG"\n'
-        f'    fi\n'
-        f"fi\n"
+        "# Re-generate: sudo ufw-audit --install-cron\n\n"
+        f'NOTIFY_EMAIL="{notify_email_str}"\n'
+        f'LOG_DIR="{log_dir_str}"\n\n'
+        f'"{audit_bin_str}" --quiet --detailed\n'
+        "RC=$?\n\n"
+        'if [ "$RC" -gt 0 ] && [ -n "$NOTIFY_EMAIL" ]; then\n'
+        '    LOG=$(ls -t "$LOG_DIR"/ufw_audit_*.log 2>/dev/null | head -1)\n'
+        '    if [ -n "$LOG" ]; then\n'
+        "        # Convert log to HTML and send email (v0.12+)\n"
+        "        export AUDIT_LOG=\"$LOG\"\n"
+        "        export AUDIT_EMAIL=\"$NOTIFY_EMAIL\"\n"
+        "        export AUDIT_RC=\"$RC\"\n"
+        "        python3 << 'PYTHON_EOF'\n"
+        "import os\n"
+        "from ufw_audit.report_markdown import send_audit_log_as_html_email\n\n"
+        "hostname = os.uname().nodename\n"
+        "log_file = os.environ.get('AUDIT_LOG')\n"
+        "email = os.environ.get('AUDIT_EMAIL')\n"
+        "rc = os.environ.get('AUDIT_RC')\n"
+        "subject = f'UFW-AUDIT [{rc}] {hostname}'\n"
+        "if log_file and email:\n"
+        "    send_audit_log_as_html_email(log_file, email, subject)\n"
+        "PYTHON_EOF\n"
+        "    fi\n"
+        "fi\n"
     )
 
     try:
