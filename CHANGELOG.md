@@ -4,6 +4,29 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.12.0b] *(beta)* — 2026-03-24
+
+### New features — Email reporting
+
+- **Markdown report generation** — new `MarkdownReport` class produces markdown-native reports optimized for email delivery (replaces ASCII boxes with clean markdown headers)
+- **Zero-dependency HTML conversion** — pure Python markdown → HTML converter (no external libraries); outputs valid, styled HTML suitable for email clients
+- **MIME multipart email** — emails sent by cron script now include both plaintext (spam filter friendly) and HTML (visual rendering) versions; uses system `mail` command
+- **HTML email rendering** — legacy plaintext audit reports converted to readable HTML for cron notifications; UTF-8 box borders stripped, findings styled with timestamps and colors
+- **Nightly script integration** — `--install-cron` generates bash script that converts audit logs to HTML and sends multipart emails; no user-visible changes to cron UX
+
+### Internals
+
+- `ufw_audit/report_markdown.py` added — 750-line module with `MarkdownReport`, `markdown_to_html()`, `send_html_email()`, `send_audit_log_as_html_email()` helpers
+- `_run_install_cron()` updated — nightly script now uses Python heredoc to invoke markdown email conversion
+- `write_services_panorama()` added to `MarkdownReport` — ready for future integration of services table in email reports
+
+### Testing
+
+- Both `MarkdownReport` API and HTML conversion validated with markdown tables, headers, and plaintext audit log samples
+- Bash script generation syntax verified
+
+---
+
 ## [v0.11.4] — 2026-03-23
 
 ### Bug fixes — UFW rule detection
