@@ -233,6 +233,7 @@
   },
   "remove_cron": {
     "title": "SUPPRESSION DU CRON UFW-AUDIT",
+    "none_found": "Aucun cron UFW-AUDIT installé.",
     "not_found": "Aucun cron UFW-AUDIT installé ({path})",
     "removed_cron": "Cron supprimé : {path}",
     "removed_script": "Script supprimé : {path}",
