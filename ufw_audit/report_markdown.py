@@ -482,6 +482,7 @@ def send_html_email(
     subject: str,
     html_content: str,
     plain_text_fallback: str = "",
+    from_email: str = "",
 ) -> bool:
     """
     Send an HTML email via system `mail` with markdown fallback.
@@ -496,6 +497,9 @@ def send_html_email(
         html_content:        HTML content (full document with <html> tags).
         plain_text_fallback: Plaintext version (plain markdown). If empty, uses
                             HTML's <body> text content stripped.
+        from_email:          Sender email address. If empty, uses recipient
+                            (workaround for local SMTP servers that reject
+                            system user addresses like root@hostname).
 
     Returns:
         True if email was sent successfully, False otherwise.
@@ -514,8 +518,13 @@ def send_html_email(
         logger.error("mail command not found")
         return False
 
+    # Use recipient as From if not specified (SMTP workaround)
+    if not from_email:
+        from_email = recipient
+
     # Create MIME multipart message
     msg = MIMEMultipart("alternative")
+    msg["From"] = from_email
     msg["To"] = recipient
     msg["Subject"] = subject
 
@@ -539,8 +548,10 @@ def send_html_email(
     email_str = msg.as_string()
 
     try:
+        # Use sendmail directly with -f to force the From address
+        # (mail/mailx may ignore From: header when invoked by root)
         proc = subprocess.run(
-            ["mail", "-t", recipient],
+            ["sendmail", "-t", "-f", from_email],
             input=email_str,
             text=True,
             capture_output=True,
