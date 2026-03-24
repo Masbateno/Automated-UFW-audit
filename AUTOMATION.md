@@ -107,3 +107,106 @@ sudo rm /usr/local/bin/ufw-audit-nightly
 
 L'emplacement des logs reste configuré dans `~/.config/ufw-audit/config.conf`.
 Pour le réinitialiser : `sudo ufw-audit --reconfigure`.
+
+---
+
+## Configuration Postfix pour v0.12+ (Emails HTML)
+
+À partir de **v0.12.0b**, les rapports cron sont envoyés au format HTML (MIME multipart/alternative) plutôt que texte brut. Pour une livraison fiable, Postfix doit être correctement configuré avec :
+
+1. **Réécriture d'adresse d'expéditeur**
+2. **Authentification SASL** (si utilisation d'un relais SMTP)
+
+### Problèmes courants
+
+#### 1. Erreur : « 553 bad address format »
+
+Si vous voyez cette erreur dans `/var/log/mail.log` :
+
+```
+550 5.5.1 bad address format (in reply to MAIL FROM command)
+```
+
+**Cause :** Postfix envoie l'email avec l'adresse système `root@hostname.local` (domaine non valide).
+
+**Solution :** Configurer `sender_canonical_maps` pour réécrire les adresses système :
+
+```bash
+sudo bash -c 'cat > /etc/postfix/sender_canonical << EOF'
+/^root@/ votre.email@exemple.com
+EOF
+
+sudo postmap /etc/postfix/sender_canonical
+sudo postconf -e "sender_canonical_maps = regexp:/etc/postfix/sender_canonical"
+sudo systemctl restart postfix
+```
+
+#### 2. Erreur : « 530 Authentication required »
+
+Si votre serveur SMTP requiert une authentification :
+
+```bash
+# Créer le fichier de credentials
+sudo bash -c 'cat > /etc/postfix/sasl_passwd << EOF'
+smtp.exemple.com utilisateur@exemple.com:MOTDEPASSE
+EOF
+
+# Protéger le fichier
+sudo chmod 600 /etc/postfix/sasl_passwd
+
+# Créer la base de données
+sudo postmap /etc/postfix/sasl_passwd
+
+# Configurer Postfix
+sudo postconf -e "smtp_sasl_auth_enable = yes"
+sudo postconf -e "smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd"
+sudo postconf -e "smtp_use_tls = yes"
+
+# Redémarrer
+sudo systemctl restart postfix
+```
+
+### Format des emails v0.12+
+
+Les emails contiennent maintenant :
+
+- **Version texte** : contenu brut (compatible avec tous les clients)
+- **Version HTML** : rendu stylisé (clients modernes uniquement)
+
+Postfix envoie un message MIME `multipart/alternative` que le client de messagerie affiche selon ses capacités.
+
+### Vérifier la configuration
+
+```bash
+# Inspecter un email dans mail.log
+sudo grep "UFW-AUDIT" /var/log/mail.log | tail -10
+
+# Format attendu avec succès
+status=sent (250 Message to be delivered)
+```
+
+### Tester manuellement
+
+```bash
+# Générer un rapport HTML test
+sudo ufw-audit --quiet --detailed
+
+# Obtenir le dernier fichier log
+LOG=$(ls -t ~/.local/share/ufw-audit/logs/ufw_audit_*.log 2>/dev/null | head -1)
+
+# Envoyer via le script v0.12
+sudo python3 << 'PYTHON_EOF'
+from ufw_audit.report_markdown import send_audit_log_as_html_email
+send_audit_log_as_html_email(
+    log_file="$LOG",
+    recipient="votre.email@exemple.com",
+    subject="[TEST] UFW-AUDIT Email HTML"
+)
+PYTHON_EOF
+```
+
+### Notes techniques
+
+- Le script nightly généré exporte automatiquement `PYTHONPATH` pour les imports Python
+- L'enveloppe SMTP utilise `sendmail -t -f` pour contrôler l'adresse d'expéditeur
+- Pas de dépendances externes (HTML généré en pur Python)

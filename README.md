@@ -1,9 +1,9 @@
 *[Lire en français](README_FR.md)*
 
-# ufw-audit v0.11.4
+# ufw-audit v0.12.0b
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.11.4-blue)
+![Release](https://img.shields.io/badge/version-v0.12.0b-beta)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
 
@@ -212,7 +212,7 @@ sudo ufw-audit --reconfigure
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║   ██╗   ██╗███████╗██╗    ██╗  ┌────────────────────────┐    ║
-║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.11.4    │    ║
+║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.12.0b   │    ║
 ║   ██║   ██║█████╗  ██║ █╗ ██║  │  UFW firewall audit    │    ║
 ║   ██║   ██║██╔══╝  ██║███╗██║  └────────────────────────┘    ║
 ║   ╚██████╔╝██║     ╚███╔███╔╝              _ _               ║
@@ -361,9 +361,9 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v0.11.3** — Log location prompt, services panorama, `--manage-logs`, `--install-cron` / `--remove-cron`, ASCII art header in report files, auto-fix banner and command summary, `AUTOMATION.md`
 
-**v0.11.4** *(current)* — Bug fix patch: open-any wildcard detection (trailing spaces, `/tcp`/`/udp` variants), semantic duplicate detection (`PORT/proto` vs `PORT`), comment stripping, critical/high services exposure → alert, DDNS bare port rule support, `TESTING.md`
+**v0.11.4** — Bug fix patch: open-any wildcard detection (trailing spaces, `/tcp`/`/udp` variants), semantic duplicate detection (`PORT/proto` vs `PORT`), comment stripping, critical/high services exposure → alert, DDNS bare port rule support, `TESTING.md`
 
-**v0.12** — Cron/email automation enhancements
+**v0.12.0b** *(current)* — Markdown email reporting: zero-dependency HTML conversion, MIME multipart emails (plaintext + HTML), nightly script HTML rendering, UTF-8 box stripping
 
 **v1.0** — Stable, complete, validated CLI
 
