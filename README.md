@@ -371,6 +371,10 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v0.13** *(stable)* — Multi-cron scheduler: named cron jobs, 4-step schedule wizard (daily / week days / month days / custom expression), `--manage-cron` TUI, `--remove-cron` with explicit selection, `cron.py` isolated module
 
+**v0.14** *(planned)* — Refactoring: extract autonomous blocks from `__main__.py` into dedicated modules (`manage_logs.py`, `panorama.py`, full `cron.py`); target ~400-line pure orchestrator with no business logic
+
+**v0.14+** *(planned)* — Security code review: full audit of input validation, file permissions, shell call surfaces, error handling, and Python practices across all modules
+
 **v1.0** — Stable, complete, validated CLI
 
 **Post v1.0**
