@@ -1342,12 +1342,20 @@ def _run_install_cron(user_config, config, t) -> int:
     audit_bin_str = audit_bin
     notify_email_str = notify_email
 
+    # Find the path to ufw_audit package for PYTHONPATH
+    try:
+        import ufw_audit as _ua_module
+        ufw_audit_path = str(Path(_ua_module.__file__).parent.parent)
+    except (ImportError, AttributeError):
+        ufw_audit_path = "/usr/lib/python3/dist-packages"
+
     script_content = (
         "#!/bin/bash\n"
         f"# UFW-AUDIT nightly script — generated {now_str} by ufw-audit --install-cron\n"
         "# Re-generate: sudo ufw-audit --install-cron\n\n"
         f'NOTIFY_EMAIL="{notify_email_str}"\n'
-        f'LOG_DIR="{log_dir_str}"\n\n'
+        f'LOG_DIR="{log_dir_str}"\n'
+        f'export PYTHONPATH="{ufw_audit_path}:$PYTHONPATH"\n\n'
         f'"{audit_bin_str}" --quiet --detailed\n'
         "RC=$?\n\n"
         'if [ "$RC" -gt 0 ] && [ -n "$NOTIFY_EMAIL" ]; then\n'
