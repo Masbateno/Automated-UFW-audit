@@ -108,7 +108,7 @@ def main(argv=None) -> int:
     from ufw_audit.config import UserConfig
     user_config = UserConfig.load()
 
-    # --- Standalone modes: --manage-logs and --install-cron ---
+    # --- Standalone modes ---
     if config.manage_logs:
         return _run_manage_logs(user_config, config, t)
 
@@ -117,6 +117,9 @@ def main(argv=None) -> int:
 
     if config.remove_cron:
         return _run_remove_cron(config, t)
+
+    if config.manage_cron:
+        return _run_manage_cron(config, t)
 
     if user_config.exists():
         output.print_info(t("config.found", path=str(user_config.path)))
@@ -1280,9 +1283,13 @@ def _run_manage_logs(user_config, config, t) -> int:
 # ---------------------------------------------------------------------------
 
 def _run_install_cron(user_config, config, t) -> int:
-    """Install a daily cron job for automated audits with optional email notification."""
+    """Install a cron job for automated audits using the schedule wizard."""
     import re, shutil
     from ufw_audit import output
+    from ufw_audit.cron import (
+        build_schedule_expr, cron_to_human, list_installed_crons,
+        make_slug, suggest_name, CRON_DIR, SCRIPT_DIR,
+    )
     output.init(no_color=config.no_color)
 
     W = 62
@@ -1293,56 +1300,116 @@ def _run_install_cron(user_config, config, t) -> int:
     print(f"\033[1;34m╚{'═'*(W-2)}╝\033[0m")
     print()
 
-    # Log directory
+    # Log directory guard
     log_dir_str = user_config.get("log_dir")
     if not log_dir_str:
         print(f"  ✖ {t('install_cron.no_log_dir')}")
         return 1
     log_dir = Path(log_dir_str)
 
-    # Execution time
-    time_prompt = t("install_cron.prompt_time")
-    raw_time = input(f"  {time_prompt} : ").strip()
-    if not raw_time:
-        raw_time = "03:00"
-    if not re.match(r"^\d{1,2}:\d{2}$", raw_time):
-        print(f"  ✖ {t('install_cron.invalid_time')}")
-        return 1
-    hour, minute = raw_time.split(":")
-    hour   = int(hour)
-    minute = int(minute)
-    if not (0 <= hour <= 23 and 0 <= minute <= 59):
-        print(f"  ✖ {t('install_cron.invalid_time')}")
+    # --- Step 1: Name ---
+    existing_names = [e.name for e in list_installed_crons()]
+    suggestion = suggest_name(existing_names)
+    raw_name = input(f"  {t('install_cron.prompt_name', suggestion=suggestion)} : ").strip()
+    if not raw_name:
+        raw_name = suggestion
+    slug = make_slug(raw_name)
+    if not slug:
+        print(f"  ✖ {t('install_cron.invalid_name')}")
         return 1
 
-    # Notification email
-    email_prompt = t("install_cron.prompt_email")
-    notify_email = input(f"  {email_prompt} : ").strip()
+    # --- Step 2: Schedule type ---
+    print()
+    print(f"  {t('install_cron.prompt_schedule')}")
+    print(f"    1. {t('install_cron.schedule_daily')}")
+    print(f"    2. {t('install_cron.schedule_weekdays')}")
+    print(f"    3. {t('install_cron.schedule_monthdays')}")
+    print(f"    4. {t('install_cron.schedule_custom')}")
+    print()
+    raw_choice = input("  > ").strip()
+    if not raw_choice:
+        raw_choice = "1"
+    if raw_choice not in ("1", "2", "3", "4"):
+        print(f"  ✖ {t('install_cron.invalid_schedule')}")
+        return 1
+    choice = int(raw_choice)
 
+    week_days = None
+    month_days = None
+    custom_expr = None
+    hour = 3
+    minute = 0
+
+    if choice == 2:
+        print()
+        print(f"  {t('install_cron.prompt_weekdays')}")
+        raw_days = input("  > ").strip()
+        parts = re.split(r"[\s,]+", raw_days)
+        week_days = [int(p) for p in parts if p.isdigit() and 1 <= int(p) <= 7]
+        if not week_days:
+            print(f"  ✖ {t('install_cron.invalid_days')}")
+            return 1
+
+    elif choice == 3:
+        print()
+        print(f"  {t('install_cron.prompt_monthdays')}")
+        raw_days = input("  > ").strip()
+        parts = re.split(r"[\s,]+", raw_days)
+        month_days = [int(p) for p in parts if p.isdigit() and 1 <= int(p) <= 31]
+        if not month_days:
+            print(f"  ✖ {t('install_cron.invalid_days')}")
+            return 1
+
+    elif choice == 4:
+        print()
+        print(f"  {t('install_cron.prompt_custom')}")
+        custom_expr = input("  > ").strip()
+        if not re.match(r"^\S+\s+\S+\s+\S+\s+\S+\s+\S+$", custom_expr):
+            print(f"  ✖ {t('install_cron.invalid_schedule')}")
+            return 1
+
+    # --- Step 3: Time (not needed for custom — time is embedded in the expression) ---
+    if choice != 4:
+        print()
+        raw_time = input(f"  {t('install_cron.prompt_time')} : ").strip()
+        if not raw_time:
+            raw_time = "03:00"
+        if not re.match(r"^\d{1,2}:\d{2}$", raw_time):
+            print(f"  ✖ {t('install_cron.invalid_time')}")
+            return 1
+        h, m = raw_time.split(":")
+        hour, minute = int(h), int(m)
+        if not (0 <= hour <= 23 and 0 <= minute <= 59):
+            print(f"  ✖ {t('install_cron.invalid_time')}")
+            return 1
+
+    # Build expression and show preview
+    schedule_expr = build_schedule_expr(
+        choice, hour, minute,
+        week_days=week_days, month_days=month_days, custom_expr=custom_expr,
+    )
+    human = cron_to_human(schedule_expr, lang=config.lang)
+    print()
+    print(f"  {t('install_cron.preview', schedule=human)}")
+    print()
+
+    # --- Step 4: Notification email ---
+    notify_email = input(f"  {t('install_cron.prompt_email')} : ").strip()
     if notify_email and not shutil.which("mail"):
         print(f"  ⚠ {t('install_cron.mail_missing')}")
 
-    # Overwrite check
-    cron_path   = Path("/etc/cron.d/ufw-audit")
-    script_path = Path("/usr/local/bin/ufw-audit-nightly")
+    # --- Paths ---
+    cron_path   = CRON_DIR / f"ufw-audit-{slug}"
+    script_path = SCRIPT_DIR / f"ufw-audit-{slug}"
 
     if cron_path.exists():
-        overwrite_prompt = t("install_cron.overwrite", path=str(cron_path))
-        ans = input(f"  {overwrite_prompt} ").strip().lower()
+        ans = input(f"\n  {t('install_cron.overwrite', path=str(cron_path))} ").strip().lower()
         if ans != "y":
             return 0
 
-    # Write nightly wrapper script
-    email_line = f'NOTIFY_EMAIL="{notify_email}"' if notify_email else 'NOTIFY_EMAIL=""'
-    audit_bin  = shutil.which("ufw-audit") or "/usr/local/bin/ufw-audit"
-    now_str    = datetime.now().strftime("%Y-%m-%d")
-
-    # Build bash script with proper escaping for Python heredoc
-    log_dir_str = str(log_dir)
-    audit_bin_str = audit_bin
-    notify_email_str = notify_email
-
-    # Find the path to ufw_audit package for PYTHONPATH
+    # --- Write wrapper script ---
+    audit_bin = shutil.which("ufw-audit") or "/usr/local/bin/ufw-audit"
+    now_str   = datetime.now().strftime("%Y-%m-%d")
     try:
         import ufw_audit as _ua_module
         ufw_audit_path = str(Path(_ua_module.__file__).parent.parent)
@@ -1351,17 +1418,16 @@ def _run_install_cron(user_config, config, t) -> int:
 
     script_content = (
         "#!/bin/bash\n"
-        f"# UFW-AUDIT nightly script — generated {now_str} by ufw-audit --install-cron\n"
+        f"# UFW-AUDIT script — generated {now_str} by ufw-audit --install-cron\n"
         "# Re-generate: sudo ufw-audit --install-cron\n\n"
-        f'NOTIFY_EMAIL="{notify_email_str}"\n'
-        f'LOG_DIR="{log_dir_str}"\n'
+        f'NOTIFY_EMAIL="{notify_email}"\n'
+        f'LOG_DIR="{str(log_dir)}"\n'
         f'export PYTHONPATH="{ufw_audit_path}:$PYTHONPATH"\n\n'
-        f'"{audit_bin_str}" --quiet --detailed\n'
+        f'"{audit_bin}" --quiet --detailed\n'
         "RC=$?\n\n"
         'if [ "$RC" -gt 0 ] && [ -n "$NOTIFY_EMAIL" ]; then\n'
         '    LOG=$(ls -t "$LOG_DIR"/ufw_audit_*.log 2>/dev/null | head -1)\n'
         '    if [ -n "$LOG" ]; then\n'
-        "        # Convert log to HTML and send email (v0.12+)\n"
         "        export AUDIT_LOG=\"$LOG\"\n"
         "        export AUDIT_EMAIL=\"$NOTIFY_EMAIL\"\n"
         "        export AUDIT_RC=\"$RC\"\n"
@@ -1390,12 +1456,14 @@ def _run_install_cron(user_config, config, t) -> int:
 
     print(f"  ✔ {t('install_cron.script_written', path=str(script_path))}")
 
-    # Write cron entry
+    # --- Write cron file with metadata comments ---
     cron_content = (
-        f"# UFW-AUDIT daily audit — generated {now_str} by ufw-audit --install-cron\n"
-        f"SHELL=/bin/bash\n"
-        f"PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin\n\n"
-        f"{minute} {hour} * * *  root  {script_path}\n"
+        f"# UFW-AUDIT cron — generated {now_str} by ufw-audit --install-cron\n"
+        f"# name: {raw_name}\n"
+        f"# email: {notify_email}\n"
+        "SHELL=/bin/bash\n"
+        "PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin\n\n"
+        f"{schedule_expr}  root  {script_path}\n"
     )
 
     try:
@@ -1408,8 +1476,7 @@ def _run_install_cron(user_config, config, t) -> int:
 
     print(f"  ✔ {t('install_cron.cron_written', path=str(cron_path))}")
 
-    # Ensure root's config also has log_dir so the cron job (running as root)
-    # never hits the interactive prompt and hangs.
+    # Ensure root's config has log_dir so the cron (running as root) never hangs
     root_config_path = Path("/root/.config/ufw-audit/config.conf")
     try:
         from ufw_audit.config import UserConfig as _UC
@@ -1417,10 +1484,10 @@ def _run_install_cron(user_config, config, t) -> int:
         if not root_cfg.get("log_dir"):
             root_cfg.set("log_dir", str(log_dir))
     except OSError:
-        pass  # non-fatal — the TTY detection fallback handles this case
+        pass
 
     print()
-    print(f"  ✔ {t('install_cron.done', time=f'{hour:02d}:{minute:02d}')}")
+    print(f"  ✔ {t('install_cron.done_schedule', name=raw_name, schedule=human)}")
     return 0
 
 
@@ -1467,6 +1534,192 @@ def _run_remove_cron(config, t) -> int:
     print()
     print(f"  ✔ {t('remove_cron.done')}")
     return 0
+
+
+# ---------------------------------------------------------------------------
+# --manage-cron
+# ---------------------------------------------------------------------------
+
+def _run_manage_cron(config, t) -> int:
+    """Manage installed cron jobs — list, edit schedule, delete."""
+    import re
+    from ufw_audit import output
+    from ufw_audit.cron import list_installed_crons, cron_to_human
+    output.init(no_color=config.no_color)
+
+    W = 62
+    title = t("manage_cron.title")
+    pad = W - 4 - len(title)
+    print(f"\033[1;34m╔{'═'*(W-2)}╗\033[0m")
+    print(f"\033[1;34m║\033[0m  \033[1m{title}\033[0m{' '*max(0,pad)}  \033[1;34m║\033[0m")
+    print(f"\033[1;34m╚{'═'*(W-2)}╝\033[0m")
+    print()
+
+    crons = list_installed_crons()
+
+    if not crons:
+        print(f"  ℹ {t('manage_cron.no_crons')}")
+        return 0
+
+    lang = config.lang
+    for i, entry in enumerate(crons, 1):
+        human = cron_to_human(entry.schedule_expr, lang)
+        legacy_tag = f"  [{t('manage_cron.legacy_tag')}]" if entry.legacy else ""
+        print(f"  {i}. {entry.name:<20} {human}{legacy_tag}")
+        if entry.email:
+            print(f"     → {t('manage_cron.email_label')}: {entry.email}")
+
+    print()
+    print(f"  {t('manage_cron.prompt')}")
+    answer = input("  > ").strip().lower()
+
+    if not answer or answer in ("q", "quit"):
+        return 0
+
+    # "d:1" or "d1" → delete; plain number → edit schedule
+    delete_match = re.match(r"^d:?(\d+)$", answer)
+    edit_match   = re.match(r"^(\d+)$", answer)
+
+    if delete_match:
+        idx = int(delete_match.group(1)) - 1
+        if not (0 <= idx < len(crons)):
+            print(f"  ✖ {t('manage_cron.invalid')}")
+            return 0
+        entry = crons[idx]
+        ans = input(f"  {t('manage_cron.confirm_delete', name=entry.name)} ").strip().lower()
+        if ans == "y":
+            try:
+                entry.cron_path.unlink()
+            except OSError:
+                pass
+            if entry.script_path.exists():
+                try:
+                    entry.script_path.unlink()
+                except OSError:
+                    pass
+            print(f"  ✔ {t('manage_cron.deleted', name=entry.name)}")
+
+    elif edit_match:
+        idx = int(edit_match.group(1)) - 1
+        if not (0 <= idx < len(crons)):
+            print(f"  ✖ {t('manage_cron.invalid')}")
+            return 0
+        entry = crons[idx]
+        print()
+        print(f"  {t('manage_cron.edit_schedule', name=entry.name)}")
+        _edit_cron_schedule(entry, config, t)
+
+    else:
+        print(f"  ✖ {t('manage_cron.invalid')}")
+
+    return 0
+
+
+def _edit_cron_schedule(entry, config, t) -> None:
+    """Re-run the schedule wizard for an existing cron entry and patch its cron file."""
+    import re, os as _os
+    from ufw_audit.cron import build_schedule_expr, cron_to_human
+
+    print()
+    print(f"  {t('install_cron.prompt_schedule')}")
+    print(f"    1. {t('install_cron.schedule_daily')}")
+    print(f"    2. {t('install_cron.schedule_weekdays')}")
+    print(f"    3. {t('install_cron.schedule_monthdays')}")
+    print(f"    4. {t('install_cron.schedule_custom')}")
+    print()
+    raw_choice = input("  > ").strip()
+    if not raw_choice:
+        raw_choice = "1"
+    if raw_choice not in ("1", "2", "3", "4"):
+        print(f"  ✖ {t('install_cron.invalid_schedule')}")
+        return
+    choice = int(raw_choice)
+
+    week_days   = None
+    month_days  = None
+    custom_expr = None
+    hour   = entry.hour
+    minute = entry.minute
+
+    if choice == 2:
+        print()
+        print(f"  {t('install_cron.prompt_weekdays')}")
+        raw_days = input("  > ").strip()
+        parts = re.split(r"[\s,]+", raw_days)
+        week_days = [int(p) for p in parts if p.isdigit() and 1 <= int(p) <= 7]
+        if not week_days:
+            print(f"  ✖ {t('install_cron.invalid_days')}")
+            return
+
+    elif choice == 3:
+        print()
+        print(f"  {t('install_cron.prompt_monthdays')}")
+        raw_days = input("  > ").strip()
+        parts = re.split(r"[\s,]+", raw_days)
+        month_days = [int(p) for p in parts if p.isdigit() and 1 <= int(p) <= 31]
+        if not month_days:
+            print(f"  ✖ {t('install_cron.invalid_days')}")
+            return
+
+    elif choice == 4:
+        print()
+        print(f"  {t('install_cron.prompt_custom')}")
+        custom_expr = input("  > ").strip()
+        if not re.match(r"^\S+\s+\S+\s+\S+\s+\S+\s+\S+$", custom_expr):
+            print(f"  ✖ {t('install_cron.invalid_schedule')}")
+            return
+
+    if choice != 4:
+        print()
+        raw_time = input(f"  {t('install_cron.prompt_time')} : ").strip()
+        if not raw_time:
+            raw_time = f"{entry.hour:02d}:{entry.minute:02d}"
+        if not re.match(r"^\d{1,2}:\d{2}$", raw_time):
+            print(f"  ✖ {t('install_cron.invalid_time')}")
+            return
+        h, m = raw_time.split(":")
+        hour, minute = int(h), int(m)
+        if not (0 <= hour <= 23 and 0 <= minute <= 59):
+            print(f"  ✖ {t('install_cron.invalid_time')}")
+            return
+
+    schedule_expr = build_schedule_expr(
+        choice, hour, minute,
+        week_days=week_days, month_days=month_days, custom_expr=custom_expr,
+    )
+    human = cron_to_human(schedule_expr, lang=config.lang)
+    print()
+    print(f"  {t('install_cron.preview', schedule=human)}")
+    print()
+
+    ans = input(f"  {t('manage_cron.confirm_update')} ").strip().lower()
+    if ans != "y":
+        return
+
+    # Patch the cron file: replace the schedule expression line
+    try:
+        text = entry.cron_path.read_text()
+    except OSError as exc:
+        print(f"  ✖ Cannot read {entry.cron_path}: {exc}")
+        return
+
+    new_line = f"{schedule_expr}  root  {entry.script_path}"
+    new_text = re.sub(
+        r"^\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+root\s+\S+.*$",
+        new_line,
+        text,
+        flags=re.MULTILINE,
+    )
+
+    try:
+        fd = _os.open(str(entry.cron_path), _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC, 0o644)
+        with _os.fdopen(fd, "w") as fh:
+            fh.write(new_text)
+    except OSError as exc:
+        print(f"  ✖ Cannot write {entry.cron_path}: {exc}")
+        return
+
+    print(f"  ✔ {t('manage_cron.updated', name=entry.name, schedule=human)}")
 
 
 # ---------------------------------------------------------------------------

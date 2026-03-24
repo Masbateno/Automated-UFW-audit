@@ -4,7 +4,7 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
-## [v0.12.0b] *(bêta)* — 2026-03-24
+## [v0.12.0] — 2026-03-24
 
 ### Nouvelles fonctionnalités — Rapports par email
 
