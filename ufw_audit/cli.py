@@ -65,10 +65,13 @@ class AuditConfig:
     """--manage-logs: standalone log management UI (list/delete reports)."""
 
     install_cron: bool = False
-    """--install-cron: install a daily cron job for automated audits."""
+    """--install-cron: install a cron job for automated audits (scheduler wizard)."""
 
     remove_cron: bool = False
     """--remove-cron: remove the installed cron job and nightly script."""
+
+    manage_cron: bool = False
+    """--manage-cron: manage installed cron jobs (list/edit/delete)."""
 
     show_version: bool = False
     """--version: print version string and exit."""
@@ -163,6 +166,9 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
 
         elif arg == "--remove-cron":
             config.remove_cron = True
+
+        elif arg == "--manage-cron":
+            config.manage_cron = True
 
         elif arg in ("-V", "--version"):
             config.show_version = True
