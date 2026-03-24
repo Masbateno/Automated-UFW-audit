@@ -1,9 +1,9 @@
 *[Read in English](README.md)*
 
-# ufw-audit v0.12.0
+# ufw-audit v0.13
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.12.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v0.13-brightgreen)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
 
@@ -36,8 +36,9 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 - **Mode sans couleur** — `--no-color` pour une sortie propre dans les pipes et fichiers log
 - **Rapport détaillé optionnel** — fichier log horodaté avec en-tête ASCII art, informations système, findings et recommandations
 - **`--manage-logs`** — interface interactive pour lister les rapports sauvegardés (nom, taille, date) et les supprimer par index ou en totalité
-- **`--install-cron`** — configuration interactive d'un audit nocturne automatique : saisie de l'heure d'exécution et d'un email de notification optionnel ; le mail n'est envoyé qu'en cas d'avertissements ou d'alertes
-- **`--remove-cron`** — supprime la tâche cron et le script wrapper nocturne
+- **`--install-cron`** — wizard de planification : nommer le cron, choisir le type de schedule (tous les jours / certains jours de la semaine / certains jours du mois / expression cron personnalisée), définir l'heure et un email de notification optionnel ; aperçu en langage naturel avant confirmation ; crons nommés (`/etc/cron.d/ufw-audit-{nom}`)
+- **`--manage-cron`** — lister, modifier le planning ou supprimer les crons installés interactivement
+- **`--remove-cron`** — lister les crons installés et en supprimer un par numéro
 
 ---
 
@@ -182,10 +183,13 @@ ufw-audit -h
 # Gérer les rapports sauvegardés interactivement
 sudo ufw-audit --manage-logs
 
-# Configurer un audit nocturne automatique
+# Configurer un audit automatique (wizard de planification)
 sudo ufw-audit --install-cron
 
-# Supprimer la tâche cron
+# Lister, modifier ou supprimer les crons installés
+sudo ufw-audit --manage-cron
+
+# Supprimer un cron (sélection par numéro)
 sudo ufw-audit --remove-cron
 ```
 
@@ -212,7 +216,7 @@ sudo ufw-audit -r
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║   ██╗   ██╗███████╗██╗    ██╗  ┌────────────────────────┐    ║
-║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.12.0    │    ║
+║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.13      │    ║
 ║   ██║   ██║█████╗  ██║ █╗ ██║  │  UFW firewall audit    │    ║
 ║   ██║   ██║██╔══╝  ██║███╗██║  └────────────────────────┘    ║
 ║   ╚██████╔╝██║     ╚███╔███╔╝              _ _               ║
@@ -359,7 +363,9 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v0.11.4** — Patch correctifs : détection wildcards open-any (espaces trailing, variantes `/tcp`/`/udp`), doublons sémantiques (`PORT/proto` vs `PORT`), ignorance des commentaires, services CRITICAL/HIGH exposés → alerte, règles bare port DDNS, `TESTING.md`
 
-**v0.12.0** *(stable)* — Rapports email markdown : conversion HTML zéro-dépendance, emails MIME multipart (plaintext + HTML), rendu HTML dans nightly script, nettoyage des boîtes UTF-8
+**v0.12** *(stable)* — Rapports email markdown : conversion HTML zéro-dépendance, emails MIME multipart (plaintext + HTML), rendu HTML dans nightly script, nettoyage des boîtes UTF-8
+
+**v0.13** *(stable)* — Planificateur multi-cron : crons nommés, wizard de planification en 4 étapes (tous les jours / jours de la semaine / jours du mois / expression personnalisée), TUI `--manage-cron`, `--remove-cron` avec sélection explicite, module `cron.py` isolé
 
 **v1.0** — CLI stable, complète, validée
 

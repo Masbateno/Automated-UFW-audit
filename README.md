@@ -1,9 +1,9 @@
 *[Lire en français](README_FR.md)*
 
-# ufw-audit v0.12.0
+# ufw-audit v0.13
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.12.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v0.13-brightgreen)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
 
@@ -36,8 +36,9 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **No-colour mode** — `--no-color` for clean output in pipes and log files
 - **Optional detailed report** — timestamped log file with ASCII art header, system info, findings, and recommendations
 - **`--manage-logs`** — interactive UI to list saved reports (name, size, date) and delete them by index or all at once
-- **`--install-cron`** — interactive cron setup: prompts for execution time and optional notification email; generates a nightly wrapper script and system cron entry; email sent only when audit detects warnings or alerts
-- **`--remove-cron`** — removes the cron entry and nightly wrapper script
+- **`--install-cron`** — schedule wizard: name the job, choose schedule type (daily / specific week days / specific month days / custom cron expression), set time, set optional notification email; preview in natural language before confirmation; named cron jobs (`/etc/cron.d/ufw-audit-{name}`)
+- **`--manage-cron`** — list, edit schedule, or delete installed cron jobs interactively
+- **`--remove-cron`** — list installed cron jobs and remove by number
 
 ---
 
@@ -182,10 +183,13 @@ ufw-audit -h
 # Manage saved report files interactively
 sudo ufw-audit --manage-logs
 
-# Set up nightly automated audit
+# Set up an automated audit (schedule wizard)
 sudo ufw-audit --install-cron
 
-# Remove the cron job
+# List, edit or delete installed cron jobs
+sudo ufw-audit --manage-cron
+
+# Remove a cron job (select by number)
 sudo ufw-audit --remove-cron
 ```
 
@@ -212,7 +216,7 @@ sudo ufw-audit --reconfigure
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║   ██╗   ██╗███████╗██╗    ██╗  ┌────────────────────────┐    ║
-║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.12.0    │    ║
+║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.13      │    ║
 ║   ██║   ██║█████╗  ██║ █╗ ██║  │  UFW firewall audit    │    ║
 ║   ██║   ██║██╔══╝  ██║███╗██║  └────────────────────────┘    ║
 ║   ╚██████╔╝██║     ╚███╔███╔╝              _ _               ║
@@ -363,7 +367,9 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v0.11.4** — Bug fix patch: open-any wildcard detection (trailing spaces, `/tcp`/`/udp` variants), semantic duplicate detection (`PORT/proto` vs `PORT`), comment stripping, critical/high services exposure → alert, DDNS bare port rule support, `TESTING.md`
 
-**v0.12.0** *(stable)* — Markdown email reporting: zero-dependency HTML conversion, MIME multipart emails (plaintext + HTML), nightly script HTML rendering, UTF-8 box stripping
+**v0.12** *(stable)* — Markdown email reporting: zero-dependency HTML conversion, MIME multipart emails (plaintext + HTML), nightly script HTML rendering, UTF-8 box stripping
+
+**v0.13** *(stable)* — Multi-cron scheduler: named cron jobs, 4-step schedule wizard (daily / week days / month days / custom expression), `--manage-cron` TUI, `--remove-cron` with explicit selection, `cron.py` isolated module
 
 **v1.0** — Stable, complete, validated CLI
 

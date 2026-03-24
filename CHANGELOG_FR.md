@@ -4,6 +4,45 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v0.13] — 2026-03-24
+
+### Nouvelles fonctionnalités — Planificateur multi-cron
+
+- **Assistant de planification** — `--install-cron` lance désormais un wizard guidé en 4 étapes :
+  1. **Nom** — libellé libre pour le cron (slug généré automatiquement, suggestion fournie)
+  2. **Type de planification** — choix parmi : tous les jours / certains jours de la semaine / certains jours du mois / expression cron personnalisée
+  3. **Heure** — saisie `HH:MM` (ignorée pour les expressions personnalisées) ; défaut `03:00`
+  4. **Email** — adresse de notification optionnelle (inchangé depuis v0.12)
+  - Aperçu du planning en langage naturel avant confirmation (ex : *tous les lundi, mercredi, vendredi à 02:30*)
+  - Le mode expression personnalisée accepte toute expression cron valide en 5 champs
+- **Crons nommés** — chaque tâche est identifiée par un nom ; les fichiers sont créés sous `/etc/cron.d/ufw-audit-{nom}` et `/usr/local/bin/ufw-audit-{nom}` ; les fichiers cron incluent des métadonnées en commentaires (`# name:`, `# email:`) pour une identification fiable
+- **`--manage-cron`** — nouveau TUI de gestion interactif (même schéma que `--manage-logs`) :
+  - Liste tous les crons installés avec nom, planning en langage naturel et email
+  - Entrer un numéro pour modifier le planning d'un cron existant (relance le wizard de planification)
+  - `d:N` pour supprimer un cron et son script associé
+- **`--remove-cron` mis à jour** — liste maintenant tous les crons installés et exige une sélection explicite par numéro avant suppression ; plus de suppression implicite
+- **Compatibilité legacy** — les crons créés par v0.12 (`/etc/cron.d/ufw-audit`) sont détectés et gérables via `--manage-cron` et `--remove-cron`
+
+### Internals
+
+- `ufw_audit/cron.py` ajouté — logique cron isolée : dataclass `CronEntry`, `list_installed_crons()`, `parse_cron_file()`, `build_schedule_expr()`, `cron_to_human()` (EN/FR), `make_slug()`, `suggest_name()`
+- `_run_install_cron()` refactorisé — le wizard remplace la simple saisie heure/email ; les chemins sont maintenant dynamiques selon le slug
+- `_run_manage_cron()` et `_edit_cron_schedule()` ajoutés dans `__main__.py`
+- `_run_remove_cron()` mis à jour — utilise `list_installed_crons()` au lieu d'un chemin codé en dur
+- Flag `manage_cron` ajouté à `AuditConfig` / `cli.py`
+- Nouvelles clés de localisation : `install_cron.prompt_name`, `install_cron.prompt_schedule`, `install_cron.schedule_*`, `install_cron.preview`, `manage_cron.*`, `remove_cron.none_found`, `remove_cron.prompt`, `remove_cron.invalid`
+- `install.sh` mis à jour : `cron.py` et `report_markdown.py` (absents depuis v0.12) ajoutés à la liste de copie des modules ; VERSION mise à jour à `0.13`
+
+### Corrections de bugs
+
+- `__file__` est `None` sur `ufw_audit.__init__` sous Python 3.12+ lorsque `__init__.py` est vide — `_run_install_cron()` utilise maintenant `Path(__file__)` depuis `__main__.py` pour résoudre `PYTHONPATH`, qui est toujours défini
+
+### Tests
+
+- `tests/test_cron.py` ajouté — 40+ tests unitaires couvrant `build_schedule_expr()`, `cron_to_human()` (EN/FR, tous les types de planification), `make_slug()`, `suggest_name()`, `parse_cron_file()` (métadonnées v0.13, legacy, cas limites), et les helpers internes
+
+---
+
 ## [v0.12.0] — 2026-03-24
 
 ### Nouvelles fonctionnalités — Rapports par email
