@@ -235,6 +235,8 @@
     "title": "SUPPRESSION DU CRON UFW-AUDIT",
     "none_found": "Aucun cron UFW-AUDIT installé.",
     "not_found": "Aucun cron UFW-AUDIT installé ({path})",
+    "prompt": "Numéro à supprimer, Entrée pour quitter",
+    "invalid": "Sélection invalide",
     "removed_cron": "Cron supprimé : {path}",
     "removed_script": "Script supprimé : {path}",
     "script_not_found": "Script introuvable (déjà supprimé ?) : {path}",

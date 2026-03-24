@@ -1498,9 +1498,9 @@ def _run_install_cron(user_config, config, t) -> int:
 # ---------------------------------------------------------------------------
 
 def _run_remove_cron(config, t) -> int:
-    """Remove all installed ufw-audit cron jobs (v0.12 legacy and v0.13+)."""
+    """Remove an installed ufw-audit cron job — user must select explicitly."""
     from ufw_audit import output
-    from ufw_audit.cron import list_installed_crons
+    from ufw_audit.cron import list_installed_crons, cron_to_human
     output.init(no_color=config.no_color)
 
     W = 62
@@ -1517,22 +1517,39 @@ def _run_remove_cron(config, t) -> int:
         print(f"  ℹ {t('remove_cron.none_found')}")
         return 0
 
-    for entry in crons:
-        try:
-            entry.cron_path.unlink()
-            print(f"  ✔ {t('remove_cron.removed_cron', path=str(entry.cron_path))}")
-        except OSError as exc:
-            print(f"  ✖ Cannot remove {entry.cron_path}: {exc}")
-            continue
+    lang = config.lang
+    for i, entry in enumerate(crons, 1):
+        human = cron_to_human(entry.schedule_expr, lang)
+        print(f"  {i}. {entry.name:<20} {human}")
 
-        if entry.script_path.exists():
-            try:
-                entry.script_path.unlink()
-                print(f"  ✔ {t('remove_cron.removed_script', path=str(entry.script_path))}")
-            except OSError as exc:
-                print(f"  ✖ Cannot remove {entry.script_path}: {exc}")
-        else:
-            print(f"  ℹ {t('remove_cron.script_not_found', path=str(entry.script_path))}")
+    print()
+    print(f"  {t('remove_cron.prompt')}")
+    answer = input("  > ").strip()
+
+    if not answer or answer.lower() in ("q", "quit"):
+        return 0
+
+    if not answer.isdigit() or not (1 <= int(answer) <= len(crons)):
+        print(f"  ✖ {t('remove_cron.invalid')}")
+        return 1
+
+    entry = crons[int(answer) - 1]
+
+    try:
+        entry.cron_path.unlink()
+        print(f"  ✔ {t('remove_cron.removed_cron', path=str(entry.cron_path))}")
+    except OSError as exc:
+        print(f"  ✖ Cannot remove {entry.cron_path}: {exc}")
+        return 1
+
+    if entry.script_path.exists():
+        try:
+            entry.script_path.unlink()
+            print(f"  ✔ {t('remove_cron.removed_script', path=str(entry.script_path))}")
+        except OSError as exc:
+            print(f"  ✖ Cannot remove {entry.script_path}: {exc}")
+    else:
+        print(f"  ℹ {t('remove_cron.script_not_found', path=str(entry.script_path))}")
 
     print()
     print(f"  ✔ {t('remove_cron.done')}")
