@@ -20,7 +20,7 @@ from pathlib import Path
 # Version
 # ---------------------------------------------------------------------------
 
-VERSION = "0.12.0b"
+VERSION = "0.13.0b"
 
 # Exit codes
 EXIT_OK       = 0  # clean audit — no alerts, no warnings
@@ -1073,8 +1073,9 @@ def _print_help(t) -> None:
         ("--json-full",        "Export full audit details as JSON"),
         ("-l N, --log-days=N", "Analyse the last N days of UFW logs (default: 7)"),
         ("-m, --manage-logs",  "List and delete saved audit reports"),
-        ("-c, --install-cron", "Install a daily automated audit cron job"),
-        ("--remove-cron",      "Remove the installed cron job"),
+        ("-c, --install-cron", "Install an automated audit cron job (schedule wizard)"),
+        ("--manage-cron",      "List, edit or delete installed cron jobs"),
+        ("--remove-cron",      "Remove the installed cron job (legacy)"),
         ("--french",           "Switch interface to French"),
         ("-V, --version",      "Show version and exit (no sudo required)"),
         ("-h, --help",         "Show this help message (no sudo required)"),
