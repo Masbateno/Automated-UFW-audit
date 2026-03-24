@@ -367,6 +367,10 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v0.13** *(stable)* — Planificateur multi-cron : crons nommés, wizard de planification en 4 étapes (tous les jours / jours de la semaine / jours du mois / expression personnalisée), TUI `--manage-cron`, `--remove-cron` avec sélection explicite, module `cron.py` isolé
 
+**v0.14** *(planifié)* — Refactoring : extraction des blocs autonomes de `__main__.py` vers des modules dédiés (`manage_logs.py`, `panorama.py`, `cron.py` complet) ; objectif ~400 lignes d'orchestrateur pur sans logique métier
+
+**v0.14+** *(planifié)* — Audit de sécurité du code : revue complète de la validation des entrées, des permissions fichiers, des surfaces d'appel shell, de la gestion d'erreurs et des pratiques Python sur l'ensemble des modules
+
 **v1.0** — CLI stable, complète, validée
 
 **Post v1.0**
