@@ -112,7 +112,7 @@ To reset it: `sudo ufw-audit --reconfigure`.
 
 ## Postfix Configuration for v0.12+ (HTML Emails)
 
-Starting with **v0.12.0b**, cron reports are sent in HTML format (MIME multipart/alternative) instead of plain text. For reliable delivery, Postfix must be properly configured with:
+Starting with **v0.12.0**, cron reports are sent in HTML format (MIME multipart/alternative) instead of plain text. For reliable delivery, Postfix must be properly configured with:
 
 1. **Sender address rewriting**
 2. **SASL authentication** (if using an SMTP relay)

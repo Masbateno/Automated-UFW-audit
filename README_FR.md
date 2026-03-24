@@ -1,9 +1,9 @@
 *[Read in English](README.md)*
 
-# ufw-audit v0.12.0b
+# ufw-audit v0.12.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.12.0b-beta)
+![Release](https://img.shields.io/badge/version-v0.12.0-brightgreen)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
 
@@ -212,7 +212,7 @@ sudo ufw-audit -r
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║   ██╗   ██╗███████╗██╗    ██╗  ┌────────────────────────┐    ║
-║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.12.0b   │    ║
+║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.12.0    │    ║
 ║   ██║   ██║█████╗  ██║ █╗ ██║  │  UFW firewall audit    │    ║
 ║   ██║   ██║██╔══╝  ██║███╗██║  └────────────────────────┘    ║
 ║   ╚██████╔╝██║     ╚███╔███╔╝              _ _               ║
@@ -359,7 +359,7 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v0.11.4** — Patch correctifs : détection wildcards open-any (espaces trailing, variantes `/tcp`/`/udp`), doublons sémantiques (`PORT/proto` vs `PORT`), ignorance des commentaires, services CRITICAL/HIGH exposés → alerte, règles bare port DDNS, `TESTING.md`
 
-**v0.12.0b** *(actuelle)* — Rapports email markdown : conversion HTML zéro-dépendance, emails MIME multipart (plaintext + HTML), rendu HTML dans nightly script, nettoyage des boîtes UTF-8
+**v0.12.0** *(stable)* — Rapports email markdown : conversion HTML zéro-dépendance, emails MIME multipart (plaintext + HTML), rendu HTML dans nightly script, nettoyage des boîtes UTF-8
 
 **v1.0** — CLI stable, complète, validée
 

@@ -112,7 +112,7 @@ Pour le réinitialiser : `sudo ufw-audit --reconfigure`.
 
 ## Configuration Postfix pour v0.12+ (Emails HTML)
 
-À partir de **v0.12.0b**, les rapports cron sont envoyés au format HTML (MIME multipart/alternative) plutôt que texte brut. Pour une livraison fiable, Postfix doit être correctement configuré avec :
+À partir de **v0.12.0**, les rapports cron sont envoyés au format HTML (MIME multipart/alternative) plutôt que texte brut. Pour une livraison fiable, Postfix doit être correctement configuré avec :
 
 1. **Réécriture d'adresse d'expéditeur**
 2. **Authentification SASL** (si utilisation d'un relais SMTP)
