@@ -1411,11 +1411,12 @@ def _run_install_cron(user_config, config, t) -> int:
     # --- Write wrapper script ---
     audit_bin = shutil.which("ufw-audit") or "/usr/local/bin/ufw-audit"
     now_str   = datetime.now().strftime("%Y-%m-%d")
+    # Use __file__ from this module (always set) rather than ufw_audit.__file__
+    # which can be None when __init__.py is empty (Python 3.12+).
     try:
-        import ufw_audit as _ua_module
-        ufw_audit_path = str(Path(_ua_module.__file__).parent.parent)
-    except (ImportError, AttributeError):
-        ufw_audit_path = "/usr/lib/python3/dist-packages"
+        ufw_audit_path = str(Path(__file__).parent.parent)
+    except (TypeError, AttributeError):
+        ufw_audit_path = "/usr/local/lib"
 
     script_content = (
         "#!/bin/bash\n"
