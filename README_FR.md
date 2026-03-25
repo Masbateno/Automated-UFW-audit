@@ -363,13 +363,15 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v0.11.4** — Patch correctifs : détection wildcards open-any (espaces trailing, variantes `/tcp`/`/udp`), doublons sémantiques (`PORT/proto` vs `PORT`), ignorance des commentaires, services CRITICAL/HIGH exposés → alerte, règles bare port DDNS, `TESTING.md`
 
-**v0.12** *(stable)* — Rapports email markdown : conversion HTML zéro-dépendance, emails MIME multipart (plaintext + HTML), rendu HTML dans nightly script, nettoyage des boîtes UTF-8
+**v0.12** — Rapports email markdown : conversion HTML zéro-dépendance, emails MIME multipart (plaintext + HTML), rendu HTML dans nightly script, nettoyage des boîtes UTF-8
 
-**v0.13** *(stable)* — Planificateur multi-cron : crons nommés, wizard de planification en 4 étapes (tous les jours / jours de la semaine / jours du mois / expression personnalisée), TUI `--manage-cron`, `--remove-cron` avec sélection explicite, module `cron.py` isolé
+**v0.13** — Planificateur multi-cron : crons nommés, wizard de planification en 4 étapes (tous les jours / jours de la semaine / jours du mois / expression personnalisée), TUI `--manage-cron`, `--remove-cron` avec sélection explicite, module `cron.py` isolé
 
-**v0.14** *(planifié)* — Refactoring : extraction des blocs autonomes de `__main__.py` vers des modules dédiés (`manage_logs.py`, `panorama.py`, `cron.py` complet) ; objectif ~400 lignes d'orchestrateur pur sans logique métier
+**v0.14** *(stable)* — Refactoring : `__main__.py` réduit de ~1820 à ~481 lignes ; nouveaux modules dédiés : `display.py`, `fixes.py`, `manage_logs.py`, `panorama.py`, `sysinfo.py` ; `check_rules()` déplacé vers `checks/firewall.py` ; orchestrateur pur sans logique métier
 
-**v0.14+** *(planifié)* — Audit de sécurité du code : revue complète de la validation des entrées, des permissions fichiers, des surfaces d'appel shell, de la gestion d'erreurs et des pratiques Python sur l'ensemble des modules
+**v0.15** *(planifiée)*
+- Audit de sécurité du code : revue complète de la validation des entrées, des permissions fichiers, des surfaces d'appel shell, de la gestion d'erreurs et des pratiques Python sur l'ensemble des modules
+- Approfondissement du plan de test : règles UFW dangereuses
 
 **v1.0** — CLI stable, complète, validée
 

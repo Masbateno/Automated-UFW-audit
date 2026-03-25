@@ -367,13 +367,15 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v0.11.4** — Bug fix patch: open-any wildcard detection (trailing spaces, `/tcp`/`/udp` variants), semantic duplicate detection (`PORT/proto` vs `PORT`), comment stripping, critical/high services exposure → alert, DDNS bare port rule support, `TESTING.md`
 
-**v0.12** *(stable)* — Markdown email reporting: zero-dependency HTML conversion, MIME multipart emails (plaintext + HTML), nightly script HTML rendering, UTF-8 box stripping
+**v0.12** — Markdown email reporting: zero-dependency HTML conversion, MIME multipart emails (plaintext + HTML), nightly script HTML rendering, UTF-8 box stripping
 
-**v0.13** *(stable)* — Multi-cron scheduler: named cron jobs, 4-step schedule wizard (daily / week days / month days / custom expression), `--manage-cron` TUI, `--remove-cron` with explicit selection, `cron.py` isolated module
+**v0.13** — Multi-cron scheduler: named cron jobs, 4-step schedule wizard (daily / week days / month days / custom expression), `--manage-cron` TUI, `--remove-cron` with explicit selection, `cron.py` isolated module
 
-**v0.14** *(planned)* — Refactoring: extract autonomous blocks from `__main__.py` into dedicated modules (`manage_logs.py`, `panorama.py`, full `cron.py`); target ~400-line pure orchestrator with no business logic
+**v0.14** *(stable)* — Refactoring: `__main__.py` reduced from ~1820 to ~481 lines; new dedicated modules: `display.py`, `fixes.py`, `manage_logs.py`, `panorama.py`, `sysinfo.py`; `check_rules()` moved to `checks/firewall.py`; pure orchestrator with no business logic
 
-**v0.14+** *(planned)* — Security code review: full audit of input validation, file permissions, shell call surfaces, error handling, and Python practices across all modules
+**v0.15** *(planned)*
+- Security code review: full audit of input validation, file permissions, shell call surfaces, error handling, and Python practices across all modules
+- Test plan deepening: additional dangerous UFW rule scenarios
 
 **v1.0** — Stable, complete, validated CLI
 
