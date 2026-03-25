@@ -1,6 +1,45 @@
+*[Lire en français](CHANGELOG_FR.md)*
+
 # UFW-audit — Changelog
 
 All notable changes to this project are documented here.
+
+---
+
+## [v0.14] — 2026-03-25
+
+### Refactoring — `__main__.py` modularisation
+
+`__main__.py` reduced from ~1820 to ~481 lines. All business logic and display code extracted into dedicated modules. The file is now a pure orchestrator.
+
+#### New modules
+
+| Module | Content |
+|---|---|
+| `panorama.py` | `build_panorama_rows()` — services panorama table builder |
+| `sysinfo.py` | `collect_system_info()`, `detect_network_context()`, `get_user_home()` |
+| `manage_logs.py` | `run_manage_logs()`, `get_or_prompt_log_dir()`, `prompt_path()` |
+| `fixes.py` | `run_fixes()` — fix mode UI (interactive and auto-fix) |
+| `display.py` | `display_result()`, `display_risk_context()`, `check_single_service_display()`, `display_log_results()`, `print_audit_summary()`, `build_risk_context_entries()` |
+
+#### Moved
+
+- `check_rules()` — moved from `__main__.py` to `ufw_audit/checks/firewall.py` (its natural home alongside `check_firewall()`)
+
+#### Removed dead code
+
+- `_QUIET` module-level global — replaced by explicit `quiet` parameter on `display_result()`
+- `_out()` helper — defined but never called
+
+#### Installer
+
+- `install.sh` updated: `display.py`, `fixes.py`, `manage_logs.py`, `panorama.py`, `sysinfo.py` added to the module copy list
+
+### Documentation
+
+- `AUTOMATION_EN.md` renamed to `AUTOMATION.md` (English is the default language)
+- `AUTOMATION.md` (French) renamed to `AUTOMATION_FR.md`
+- Language toggle links added to `CHANGELOG`, `TESTING`, and `AUTOMATION` files
 
 ---
 

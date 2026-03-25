@@ -1,3 +1,5 @@
+*[Lire en français](TESTING_FR.md)*
+
 # UFW-audit — Test plan: dangerous UFW rules
 
 Manual regression tests using deliberately dangerous UFW rules.
