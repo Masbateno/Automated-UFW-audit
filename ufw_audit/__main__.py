@@ -225,6 +225,13 @@ def main(argv=None) -> int:
         pp for pp, lps in _port_bindings.items()
         if all(lp.is_loopback for lp in lps)
     }
+    # Ports with at least one non-loopback listener — used to exclude
+    # dangling UFW rules (no active service) from DDNS exposure reporting.
+    active_external_ports: set = {
+        f"{_lp.port}/{_lp.proto}"
+        for _lp in ports_snapshot.ports
+        if not _lp.is_loopback
+    }
 
     if not config.quiet:
         print_section(t("sections.services"))
@@ -356,6 +363,7 @@ def main(argv=None) -> int:
     ddns_result   = check_ddns(
         ddns_snapshot, ufw_rules=ufw_numbered, t=t,
         loopback_ports=loopback_only_ports,
+        active_ports=active_external_ports,
     )
     engine.apply(ddns_result)
     from ufw_audit.display import display_result
