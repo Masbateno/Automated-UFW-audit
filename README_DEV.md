@@ -37,25 +37,38 @@ This separation allows the entire business logic to be tested by instantiating s
 
 | Module | Role |
 |---|---|
-| `__main__.py` | Orchestrator — initialises, calls checks, displays results |
+| `__main__.py` | Orchestrator — initialises, calls checks, delegates to sub-modules (~481 lines) |
 | `cli.py` | Argument parsing — returns an `AuditConfig` dataclass |
-| `config.py` | User configuration — `~/.config/ufw-audit/config.conf` |
+| `config.py` | User configuration — `~/.config/ufw-audit/config.conf`, `EmailStore` |
+| `display.py` | Terminal output helpers — `display_result()`, `print_audit_summary()`, etc. |
+| `fixes.py` | Fix mode UI — interactive and auto-fix (`-f`/`-y`) |
 | `i18n.py` | Internationalisation — `t("key.sub_key")` with dot notation |
-| `output.py` | Terminal display — `print_ok/warn/alert/info/section/banner` functions |
+| `manage_logs.py` | Log management UI — `run_manage_logs()`, `get_or_prompt_log_dir()` |
+| `output.py` | Low-level terminal primitives — `print_ok/warn/alert/info/section/banner` |
+| `panorama.py` | Services panorama table builder — `build_panorama_rows()` |
 | `registry.py` | Service registry — loads `services.json`, exposes `ServiceRegistry` |
-| `report.py` | Report file — writes the detailed report with immediate flush |
+| `report.py` | Report file — `AuditReport`, `NullReport`, writes with immediate flush |
+| `report_markdown.py` | Markdown/HTML report for email — `MarkdownReport`, `send_html_email()` |
 | `scoring.py` | Score engine — `ScoreEngine`, `CheckResult`, `Finding`, `Deduction` |
+| `sysinfo.py` | System info — `collect_system_info()`, `detect_network_context()`, `get_user_home()` |
+
+### Cron module
+
+| Module | Role |
+|---|---|
+| `cron.py` | Cron management — `CronEntry`, `list_installed_crons()`, schedule wizard (`run_install_cron()`), TUI (`run_manage_cron()`) |
 
 ### Check modules (`checks/`)
 
 | Module | What it checks |
 |---|---|
-| `firewall.py` | UFW status, default policy, IPv6 consistency |
+| `firewall.py` | UFW status, default policy, IPv6 consistency; `check_rules()` for duplicate/open-any detection |
 | `services.py` | Installed network services, systemd state, UFW exposure |
 | `ports.py` | Listening ports via `ss`, classification, deduplication |
 | `logs.py` | UFW logs — blocked attempts, bruteforce, top IPs/ports |
 | `ddns.py` | Active DDNS clients, configured domain, crossed with open UFW ports |
 | `docker.py` | iptables bypass, ports exposed by containers |
+| `virtualization.py` | Active hypervisors (libvirt/KVM, VirtualBox, VMware, LXD/LXC) and Snap network packages |
 
 ---
 
@@ -64,22 +77,30 @@ This separation allows the entire business logic to be tested by instantiating s
 ```
 ufw_audit/
 ├── __init__.py
-├── __main__.py          # Orchestrator
+├── __main__.py          # Orchestrator (~481 lines — pure coordination)
 ├── cli.py               # AuditConfig + parse_args()
-├── config.py            # UserConfig — user configuration
+├── config.py            # UserConfig, EmailStore
+├── cron.py              # CronEntry, schedule wizard, --manage-cron TUI
+├── display.py           # Terminal output helpers (display_result, print_audit_summary…)
+├── fixes.py             # Fix mode UI (interactive + auto-fix)
 ├── i18n.py              # t(key) with dot notation
-├── output.py            # Terminal display
+├── manage_logs.py       # --manage-logs UI, get_or_prompt_log_dir()
+├── output.py            # Low-level terminal primitives
+├── panorama.py          # build_panorama_rows()
 ├── registry.py          # ServiceRegistry.load()
 ├── report.py            # AuditReport + NullReport
+├── report_markdown.py   # MarkdownReport, HTML email
 ├── scoring.py           # ScoreEngine, CheckResult, Finding, Deduction
+├── sysinfo.py           # collect_system_info(), detect_network_context(), get_user_home()
 ├── checks/
 │   ├── __init__.py
-│   ├── firewall.py      # FirewallStatus + check_firewall()
+│   ├── firewall.py      # FirewallStatus + check_firewall() + check_rules()
 │   ├── services.py      # ServiceSnapshot + check_services()
 │   ├── ports.py         # PortsSnapshot + check_ports()
 │   ├── logs.py          # LogsSnapshot + check_logs()
 │   ├── ddns.py          # DdnsSnapshot + check_ddns()
-│   └── docker.py        # DockerSnapshot + check_docker()
+│   ├── docker.py        # DockerSnapshot + check_docker()
+│   └── virtualization.py # VirtSnapshot + check_virtualization()
 ├── data/
 │   └── services.json    # Declarative registry of the 22 services
 └── locales/
@@ -87,8 +108,10 @@ ufw_audit/
     └── fr.json          # French translation keys
 
 tests/
+├── test_check_rules.py
 ├── test_cli.py
 ├── test_config.py
+├── test_cron.py
 ├── test_ddns.py
 ├── test_docker.py
 ├── test_firewall.py
@@ -102,9 +125,11 @@ tests/
 └── test_services.py
 
 install.sh               # Transparent installer with manifest
-README.md                # User documentation
-README_DEV.md            # This file
-CHANGELOG.md             # Version history
+README.md / README_FR.md           # User documentation (EN/FR)
+README_DEV.md / README_DEV_FR.md   # This file (EN/FR)
+CHANGELOG.md / CHANGELOG_FR.md     # Version history (EN/FR)
+TESTING.md / TESTING_FR.md         # Manual regression test plan (EN/FR)
+AUTOMATION.md / AUTOMATION_FR.md   # Automation guide (EN/FR)
 ```
 
 ---
@@ -452,7 +477,7 @@ main()
   │     engine.apply(result)
   │
   ├── CHECK 2 — UFW rules
-  │     _check_rules(ufw_verbose, ufw_numbered, t)
+  │     check_rules(ufw_verbose, ufw_numbered, t)   ← checks/firewall.py
   │     engine.apply(result)
   │
   ├── CHECK 3 — Network services
@@ -481,8 +506,9 @@ main()
   │     check_docker(snapshot, t)
   │     engine.apply(result)
   │
-  ├── engine.finalize()         → compute final score
-  ├── _print_summary(engine)    → display summary
+  ├── engine.finalize()                    → compute final score
+  ├── print_audit_summary(engine, …)       ← display.py
+  ├── build_risk_context_entries(…)        ← display.py
   └── report.close()
 ```
 

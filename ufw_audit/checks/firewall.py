@@ -210,3 +210,96 @@ def _command_exists(name: str) -> bool:
 def _identity_t(key: str, **kwargs) -> str:
     """Fallback translation that returns the key itself."""
     return key
+
+
+# ---------------------------------------------------------------------------
+# UFW rules check
+# ---------------------------------------------------------------------------
+
+def check_rules(ufw_verbose: str, ufw_numbered: str, t) -> "CheckResult":
+    """Check UFW rules for duplicates, open-any, and IPv6 consistency."""
+    import re
+    result = CheckResult()
+
+    lines = [l for l in ufw_numbered.splitlines()
+             if re.match(r"\s*\[\s*\d+\]", l)]
+
+    def _strip_comment(text: str) -> str:
+        return re.sub(r"\s*#.*$", "", text).strip()
+
+    def _rule_without_index(line: str) -> str:
+        return re.sub(r"\[\s*\d+\]\s*", "", line).strip()
+
+    proto_less_rules: set[str] = set()
+    for line in lines:
+        tokens = _strip_comment(_rule_without_index(line)).split()
+        if tokens and re.match(r"^\d+$", tokens[0]):
+            proto_less_rules.add(" ".join(tokens))
+
+    seen_clean: dict[str, int] = {}
+    for line in lines:
+        idx_match = re.match(r"\[\s*(\d+)\]", line)
+        real_index = int(idx_match.group(1)) if idx_match else None
+        clean = " ".join(_strip_comment(_rule_without_index(line)).split())
+
+        is_dup = False
+        if clean in seen_clean:
+            del_index = real_index if real_index else seen_clean[clean]
+            result.alert(
+                message=t("rules.duplicate_found", rule=clean),
+                nature="action",
+                cmd=f"sudo ufw --force delete {del_index}",
+            )
+            result.add_deduction(reason=t("rules.duplicate_found", rule=clean), points=1)
+            is_dup = True
+        else:
+            tokens = clean.split()
+            if tokens:
+                m = re.match(r"^(\d+)/(tcp|udp)$", tokens[0])
+                if m:
+                    proto_less_clean = " ".join([m.group(1)] + tokens[1:])
+                    if proto_less_clean in proto_less_rules:
+                        result.alert(
+                            message=t("rules.duplicate_found", rule=clean),
+                            nature="action",
+                            cmd=f"sudo ufw --force delete {real_index}",
+                        )
+                        result.add_deduction(
+                            reason=t("rules.duplicate_found", rule=clean), points=1)
+                        is_dup = True
+
+        if not is_dup and real_index is not None:
+            seen_clean[clean] = real_index
+
+    if not any(f.message.startswith(t("rules.duplicate_found")[:20])
+               for f in result.findings):
+        result.ok(message=t("rules.no_duplicates"))
+
+    open_any_pattern = re.compile(
+        r"Anywhere(?:/\w+)?\s+ALLOW\s+IN\s+Anywhere(?:/\w+)?\s*$", re.IGNORECASE
+    )
+    found_open_any = False
+    for line in lines:
+        if open_any_pattern.search(line):
+            idx_match = re.match(r"\[\s*(\d+)\]", line)
+            real_index = int(idx_match.group(1)) if idx_match else "?"
+            result.alert(
+                message=t("rules.open_any_found", rule=line.strip()),
+                nature="action",
+                cmd=f"sudo ufw --force delete {real_index}",
+            )
+            result.add_deduction(reason=t("rules.open_any_found", rule=""), points=2)
+            found_open_any = True
+
+    if not found_open_any:
+        result.ok(message=t("rules.no_open_any"))
+
+    ipv4_count = sum(1 for l in lines if "(v6)" not in l)
+    ipv6_count = sum(1 for l in lines if "(v6)" in l)
+    if ipv4_count > 0 and ipv6_count == 0:
+        result.warn(message=t("rules.ipv6_missing"), nature="improvement")
+        result.add_deduction(reason=t("rules.ipv6_missing"), points=1)
+    elif ipv4_count > 0:
+        result.ok(message=t("rules.ipv6_ok"))
+
+    return result

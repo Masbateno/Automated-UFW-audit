@@ -216,6 +216,8 @@
   },
   "remove_cron": {
     "title": "UFW-AUDIT CRON REMOVAL",
+    "deprecated": "--remove-cron is deprecated and will be removed in v0.14.",
+    "deprecated_hint": "Use instead: sudo ufw-audit --manage-cron  (d:N to delete)",
     "none_found": "No UFW-AUDIT cron jobs installed.",
     "not_found": "No UFW-AUDIT cron installed ({path})",
     "prompt": "Number to remove, Enter to quit",
@@ -228,15 +230,29 @@
   "manage_cron": {
     "title": "UFW-AUDIT CRON MANAGEMENT",
     "no_crons": "No UFW-AUDIT cron jobs installed. Run: sudo ufw-audit --install-cron",
-    "prompt": "Number to edit schedule, 'd:N' to delete, Enter to quit",
+    "prompt": "Number to edit, 'e:N' to edit email, 'd:N' to delete, Enter to quit",
     "email_label": "email",
     "legacy_tag": "legacy",
     "confirm_delete": "Delete cron '{name}'? [y/N]",
     "deleted": "Cron '{name}' deleted",
+    "edit_what": "Edit '{name}' — what to change?",
+    "edit_schedule_option": "Schedule",
+    "edit_email_option": "Notification email",
     "edit_schedule": "Edit schedule for '{name}':",
+    "edit_email": "Edit notification email for '{name}':",
+    "email_updated": "Cron '{name}' — email updated: {email}",
+    "no_email": "(none)",
     "confirm_update": "Apply this new schedule? [y/N]",
     "updated": "Cron '{name}' updated — {schedule}",
     "invalid": "Unrecognised choice"
+  },
+  "email_prompt": {
+    "title": "Notification email:",
+    "none": "(none / skip)",
+    "new": "Enter a new address...",
+    "enter_new": "New email address",
+    "invalid": "Invalid email address — no email configured",
+    "save": "Save '{email}' for future use? [y/N]"
   },
   "fixes": {
     "title": "AVAILABLE FIXES",

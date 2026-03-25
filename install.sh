@@ -25,7 +25,7 @@ set -euo pipefail
 # Constants
 # ---------------------------------------------------------------------------
 
-VERSION="0.13.0b"
+VERSION="0.14"
 PACKAGE_NAME="ufw-audit"
 
 PREFIX="/usr/local"
@@ -342,8 +342,9 @@ section "Installing Python package"
 
 # Core modules (excluding __init__.py — handled separately above)
 for module in \
-    __main__.py cli.py config.py cron.py i18n.py \
-    output.py registry.py report.py report_markdown.py scoring.py; do
+    __main__.py cli.py config.py cron.py display.py fixes.py i18n.py \
+    manage_logs.py output.py panorama.py registry.py report.py \
+    report_markdown.py scoring.py sysinfo.py; do
     src="${SRC_MAIN}/${module}"
     if [[ -f "$src" ]]; then
         do_copy "$src" "${LIB_DIR}/${module}"
@@ -438,8 +439,9 @@ else
 
     # Python package
     for module in \
-        __init__.py __main__.py cli.py config.py cron.py i18n.py \
-        output.py registry.py report.py report_markdown.py scoring.py; do
+        __init__.py __main__.py cli.py config.py cron.py display.py fixes.py \
+        i18n.py manage_logs.py output.py panorama.py registry.py report.py \
+        report_markdown.py scoring.py sysinfo.py; do
         [[ -f "${LIB_DIR}/${module}" ]] && manifest_add "FILE ${LIB_DIR}/${module}"
     done
     manifest_add "FILE ${LIB_DIR}/checks/__init__.py"

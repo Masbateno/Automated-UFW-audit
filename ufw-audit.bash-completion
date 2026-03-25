@@ -35,6 +35,7 @@ _ufw_audit() {
         --log-days=
         --manage-logs
         --install-cron
+        --manage-cron
         --remove-cron
         --french
         --version

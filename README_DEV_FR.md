@@ -37,25 +37,38 @@ Cette séparation permet de tester toute la logique métier en instanciant direc
 
 | Module | Rôle |
 |---|---|
-| `__main__.py` | Orchestrateur — initialise, appelle les checks, affiche les résultats |
+| `__main__.py` | Orchestrateur — initialise, appelle les checks, délègue aux sous-modules (~481 lignes) |
 | `cli.py` | Parsing des arguments — retourne un `AuditConfig` dataclass |
-| `config.py` | Configuration utilisateur — `~/.config/ufw-audit/config.conf` |
+| `config.py` | Configuration utilisateur — `UserConfig`, `EmailStore` |
+| `display.py` | Helpers d'affichage terminal — `display_result()`, `print_audit_summary()`, etc. |
+| `fixes.py` | Interface mode fix — interactif et auto-fix (`-f`/`-y`) |
 | `i18n.py` | Internationalisation — `t("clé.sous_clé")` avec notation pointée |
-| `output.py` | Affichage terminal — fonctions `print_ok/warn/alert/info/section/banner` |
+| `manage_logs.py` | Interface `--manage-logs` — `run_manage_logs()`, `get_or_prompt_log_dir()` |
+| `output.py` | Primitives terminal bas niveau — `print_ok/warn/alert/info/section/banner` |
+| `panorama.py` | Constructeur du tableau panorama services — `build_panorama_rows()` |
 | `registry.py` | Registre des services — charge `services.json`, expose `ServiceRegistry` |
-| `report.py` | Fichier rapport — écrit le rapport détaillé avec flush immédiat |
+| `report.py` | Fichier rapport — `AuditReport`, `NullReport`, écrit avec flush immédiat |
+| `report_markdown.py` | Rapport markdown/HTML pour email — `MarkdownReport`, `send_html_email()` |
 | `scoring.py` | Moteur de score — `ScoreEngine`, `CheckResult`, `Finding`, `Deduction` |
+| `sysinfo.py` | Info système — `collect_system_info()`, `detect_network_context()`, `get_user_home()` |
+
+### Module cron
+
+| Module | Rôle |
+|---|---|
+| `cron.py` | Gestion cron — `CronEntry`, `list_installed_crons()`, wizard planification (`run_install_cron()`), TUI (`run_manage_cron()`) |
 
 ### Modules de vérification (`checks/`)
 
 | Module | Ce qu'il vérifie |
 |---|---|
-| `firewall.py` | Statut UFW, politique par défaut, cohérence IPv6 |
+| `firewall.py` | Statut UFW, politique par défaut, cohérence IPv6 ; `check_rules()` pour la détection doublons/wildcards |
 | `services.py` | Services réseau installés, état systemd, exposition UFW |
 | `ports.py` | Ports en écoute via `ss`, classification, déduplication |
 | `logs.py` | Logs UFW — tentatives bloquées, bruteforce, top IPs/ports |
 | `ddns.py` | Clients DDNS actifs, domaine configuré, ports ouverts croisés |
 | `docker.py` | Contournement iptables, ports exposés par les containers |
+| `virtualization.py` | Hyperviseurs actifs (libvirt/KVM, VirtualBox, VMware, LXD/LXC) et paquets Snap réseau |
 
 ---
 
@@ -64,22 +77,30 @@ Cette séparation permet de tester toute la logique métier en instanciant direc
 ```
 ufw_audit/
 ├── __init__.py
-├── __main__.py          # Orchestrateur
+├── __main__.py          # Orchestrateur (~481 lignes — coordination pure)
 ├── cli.py               # AuditConfig + parse_args()
-├── config.py            # UserConfig — config utilisateur
+├── config.py            # UserConfig, EmailStore
+├── cron.py              # CronEntry, wizard planification, TUI --manage-cron
+├── display.py           # Helpers affichage terminal (display_result, print_audit_summary…)
+├── fixes.py             # Interface mode fix (interactif + auto-fix)
 ├── i18n.py              # t(key) avec notation pointée
-├── output.py            # Affichage terminal
+├── manage_logs.py       # Interface --manage-logs, get_or_prompt_log_dir()
+├── output.py            # Primitives terminal bas niveau
+├── panorama.py          # build_panorama_rows()
 ├── registry.py          # ServiceRegistry.load()
 ├── report.py            # AuditReport + NullReport
+├── report_markdown.py   # MarkdownReport, email HTML
 ├── scoring.py           # ScoreEngine, CheckResult, Finding, Deduction
+├── sysinfo.py           # collect_system_info(), detect_network_context(), get_user_home()
 ├── checks/
 │   ├── __init__.py
-│   ├── firewall.py      # FirewallStatus + check_firewall()
+│   ├── firewall.py      # FirewallStatus + check_firewall() + check_rules()
 │   ├── services.py      # ServiceSnapshot + check_services()
 │   ├── ports.py         # PortsSnapshot + check_ports()
 │   ├── logs.py          # LogsSnapshot + check_logs()
 │   ├── ddns.py          # DdnsSnapshot + check_ddns()
-│   └── docker.py        # DockerSnapshot + check_docker()
+│   ├── docker.py        # DockerSnapshot + check_docker()
+│   └── virtualization.py # VirtSnapshot + check_virtualization()
 ├── data/
 │   └── services.json    # Registre déclaratif des 22 services
 └── locales/
@@ -87,8 +108,10 @@ ufw_audit/
     └── fr.json          # Clés de traduction français
 
 tests/
+├── test_check_rules.py
 ├── test_cli.py
 ├── test_config.py
+├── test_cron.py
 ├── test_ddns.py
 ├── test_docker.py
 ├── test_firewall.py
@@ -102,9 +125,11 @@ tests/
 └── test_services.py
 
 install.sh               # Installateur transparent avec manifeste
-README.md                # Documentation utilisateur
-README_DEV.md            # Ce fichier
-CHANGELOG.md             # Historique des versions
+README.md / README_FR.md           # Documentation utilisateur (EN/FR)
+README_DEV.md / README_DEV_FR.md   # Ce fichier (EN/FR)
+CHANGELOG.md / CHANGELOG_FR.md     # Historique des versions (EN/FR)
+TESTING.md / TESTING_FR.md         # Plan de test manuel (EN/FR)
+AUTOMATION.md / AUTOMATION_FR.md   # Guide d'automatisation (EN/FR)
 ```
 
 ---
@@ -452,7 +477,7 @@ main()
   │     engine.apply(result)
   │
   ├── CHECK 2 — Règles UFW
-  │     _check_rules(ufw_verbose, ufw_numbered, t)
+  │     check_rules(ufw_verbose, ufw_numbered, t)   ← checks/firewall.py
   │     engine.apply(result)
   │
   ├── CHECK 3 — Services réseau
@@ -481,8 +506,9 @@ main()
   │     check_docker(snapshot, t)
   │     engine.apply(result)
   │
-  ├── engine.finalize()         → calcule score final
-  ├── _print_summary(engine)    → affiche résumé
+  ├── engine.finalize()                    → calcule score final
+  ├── print_audit_summary(engine, …)       ← display.py
+  ├── build_risk_context_entries(…)        ← display.py
   └── report.close()
 ```
 

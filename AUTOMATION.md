@@ -1,100 +1,102 @@
-# Automatisation — UFW-AUDIT
+*[Lire en français](AUTOMATION_FR.md)*
 
-Ce document explique comment configurer UFW-AUDIT pour s'exécuter automatiquement selon un planning et vous notifier en cas de problème.
+# Automation — UFW-AUDIT
+
+This document explains how to configure UFW-AUDIT to run automatically on a schedule and notify you of any issues.
 
 ---
 
-## Configuration rapide
+## Quick setup
 
 ```bash
 sudo ufw-audit --install-cron
 ```
 
-Le wizard vous guide en 4 étapes :
+The wizard guides you through 4 steps:
 
-1. **Nom** — un court libellé pour ce cron (ex : `nightly`, `weekly`). Appuyez sur Entrée pour utiliser le nom suggéré.
-2. **Planification** — choisissez parmi :
-   - Tous les jours
-   - Certains jours de la semaine (ex : `1 3 5` pour Lun/Mer/Ven)
-   - Certains jours du mois (ex : `1 15` pour le 1er et le 15)
-   - Expression cron personnalisée (ex : `0 3 * * 1`)
-3. **Heure** — heure d'exécution au format `HH:MM` (défaut : `03:00`). Non affichée pour les expressions personnalisées.
-4. **Email** — adresse de notification optionnelle. Laissez vide pour désactiver.
+1. **Name** — a short label for this cron job (e.g. `nightly`, `weekly`). Press Enter to use the suggested name.
+2. **Schedule** — choose from:
+   - Every day
+   - Certain days of the week (e.g. `1 3 5` for Mon/Wed/Fri)
+   - Certain days of the month (e.g. `1 15` for the 1st and 15th)
+   - Custom cron expression (e.g. `0 3 * * 1`)
+3. **Time** — execution time in `HH:MM` format (default: `03:00`). Not shown for custom expressions.
+4. **Email** — optional notification address. Leave empty to disable.
 
-Un aperçu en langage naturel est affiché avant confirmation :
+A plain-language preview is shown before confirmation:
 ```
-  → Planification : tous les lundi, mercredi, vendredi à 02:30
+  → Schedule: every Monday, Wednesday, Friday at 02:30
 ```
 
-### Fichiers créés
+### Files created
 
-- `/usr/local/bin/ufw-audit-{nom}` — script wrapper
-- `/etc/cron.d/ufw-audit-{nom}` — entrée cron système
+- `/usr/local/bin/ufw-audit-{name}` — wrapper script
+- `/etc/cron.d/ufw-audit-{name}` — system cron entry
 
 ---
 
-## Gestion des crons
+## Managing cron jobs
 
 ```bash
 sudo ufw-audit --manage-cron
 ```
 
-Liste tous les crons installés avec leur planning et leur email de notification :
+Lists all installed cron jobs with their schedule and notification email:
 
 ```
-  1. nightly              tous les jours à 03:00
-     → email: vous@exemple.com
-  2. weekly-monday        tous les lundi à 02:00
+  1. nightly              every day at 03:00
+     → email: you@example.com
+  2. weekly-monday        every Monday at 02:00
 
-  Numéro pour modifier le planning, 'd:N' pour supprimer, Entrée pour quitter
+  Number to edit schedule, 'd:N' to delete, Enter to quit
   >
 ```
 
-- Entrez un **numéro** pour modifier le planning de ce cron (relance le wizard de planification)
-- Entrez **`d:N`** pour supprimer le cron N et son script associé
-- Appuyez sur **Entrée** pour quitter
+- Enter a **number** to edit the schedule of that job (re-runs the schedule wizard)
+- Enter **`d:N`** to delete job N and its associated script
+- Press **Enter** to quit
 
 ---
 
-## Supprimer un cron
+## Removing a cron job
 
 ```bash
 sudo ufw-audit --remove-cron
 ```
 
-Liste tous les crons installés et demande lequel supprimer :
+Lists all installed cron jobs and asks which one to remove:
 
 ```
-  1. nightly              tous les jours à 03:00
+  1. nightly              every day at 03:00
 
-  Numéro à supprimer, Entrée pour quitter
+  Number to remove, Enter to quit
   > 1
-  ✔ Cron supprimé : /etc/cron.d/ufw-audit-nightly
-  ✔ Script supprimé : /usr/local/bin/ufw-audit-nightly
+  ✔ Cron removed: /etc/cron.d/ufw-audit-nightly
+  ✔ Script removed: /usr/local/bin/ufw-audit-nightly
 ```
 
 ---
 
-## Prérequis pour l'email
+## Email requirements
 
-La notification utilise la commande `mail` (paquet `mailutils`) :
+Notifications use the `mail` command (from `mailutils` package):
 
 ```bash
 sudo apt install mailutils
 ```
 
-La notification est envoyée **uniquement si l'audit détecte des alertes ou des avertissements** (code de sortie > 0). Si votre configuration est saine, vous ne recevez rien.
+Email is sent **only if the audit detects alerts or warnings** (exit code > 0). If your configuration is healthy, you receive nothing.
 
 ---
 
-## Format des fichiers cron (v0.13+)
+## Cron file format (v0.13+)
 
-Chaque fichier cron inclut des métadonnées en commentaires pour l'identification :
+Each cron file includes metadata comments for identification:
 
 ```
 # UFW-AUDIT cron — generated 2026-03-24 by ufw-audit --install-cron
 # name: nightly
-# email: vous@exemple.com
+# email: you@example.com
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
@@ -103,9 +105,9 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 ---
 
-## Gestion des rapports
+## Report management
 
-Pour lister et supprimer les rapports générés :
+To list and delete generated reports:
 
 ```bash
 sudo ufw-audit --manage-logs
@@ -113,29 +115,29 @@ sudo ufw-audit --manage-logs
 
 ---
 
-## Configuration Postfix pour les emails HTML (v0.12+)
+## Postfix configuration for HTML emails (v0.12+)
 
-À partir de **v0.12**, les rapports cron sont envoyés au format HTML (MIME multipart/alternative) plutôt que texte brut. Pour une livraison fiable, Postfix doit être correctement configuré avec :
+From **v0.12**, cron reports are sent as HTML (MIME multipart/alternative) rather than plain text. For reliable delivery, Postfix must be configured with:
 
-1. **Réécriture d'adresse d'expéditeur**
-2. **Authentification SASL** (si utilisation d'un relais SMTP)
+1. **Sender address rewriting**
+2. **SASL authentication** (if using an SMTP relay)
 
-### Problèmes courants
+### Common issues
 
-#### 1. Erreur : « 553 bad address format »
+#### 1. Error: "553 bad address format"
 
-Si vous voyez cette erreur dans `/var/log/mail.log` :
+If you see this in `/var/log/mail.log`:
 ```
 550 5.5.1 bad address format (in reply to MAIL FROM command)
 ```
 
-**Cause :** Postfix envoie l'email avec l'adresse système `root@hostname.local` (domaine non valide).
+**Cause:** Postfix sends the email with the system address `root@hostname.local` (invalid domain).
 
-**Solution :** Configurer `sender_canonical_maps` pour réécrire les adresses système :
+**Fix:** Configure `sender_canonical_maps` to rewrite system addresses:
 
 ```bash
 sudo bash -c 'cat > /etc/postfix/sender_canonical << EOF
-/^root@/ votre.email@exemple.com
+/^root@/ your.email@example.com
 EOF'
 
 sudo postmap /etc/postfix/sender_canonical
@@ -143,14 +145,14 @@ sudo postconf -e "sender_canonical_maps = regexp:/etc/postfix/sender_canonical"
 sudo systemctl restart postfix
 ```
 
-#### 2. Erreur : « 530 Authentication required »
+#### 2. Error: "530 Authentication required"
 
-Si votre serveur SMTP requiert une authentification :
+If your SMTP server requires authentication:
 
 ```bash
-# Créer le fichier de credentials
+# Create credentials file
 sudo bash -c 'cat > /etc/postfix/sasl_passwd << EOF
-smtp.exemple.com utilisateur@exemple.com:MOTDEPASSE
+smtp.example.com user@example.com:PASSWORD
 EOF'
 
 sudo chmod 600 /etc/postfix/sasl_passwd
@@ -163,15 +165,15 @@ sudo postconf -e "smtp_use_tls = yes"
 sudo systemctl restart postfix
 ```
 
-### Vérifier la configuration
+### Verify configuration
 
 ```bash
 sudo grep "UFW-AUDIT" /var/log/mail.log | tail -10
-# Attendu : status=sent (250 Message to be delivered)
+# Expected: status=sent (250 Message to be delivered)
 ```
 
-### Notes techniques
+### Technical notes
 
-- Le script généré exporte automatiquement `PYTHONPATH` pour les imports Python
-- L'enveloppe SMTP utilise `sendmail -t -f` pour contrôler l'adresse d'expéditeur
-- Pas de dépendances externes (HTML généré en pur Python)
+- The generated script automatically exports `PYTHONPATH` for Python imports
+- SMTP envelope uses `sendmail -t -f` for sender address control
+- No external dependencies (HTML generated in pure Python)
