@@ -142,7 +142,8 @@ def main(argv=None) -> int:
     engine = ScoreEngine()
 
     # --- System information ---
-    sys_info = _collect_system_info(VERSION, config.lang)
+    from ufw_audit.sysinfo import collect_system_info
+    sys_info = collect_system_info(VERSION, config.lang)
     report.write_header(sys_info)
 
     # --- Print banner (suppressed in quiet mode) ---
@@ -166,7 +167,8 @@ def main(argv=None) -> int:
     report.write_finding("INFO", "Starting audit")
 
     # --- Detect network context ---
-    network_context, public_ip = _detect_network_context()
+    from ufw_audit.sysinfo import detect_network_context
+    network_context, public_ip = detect_network_context()
 
     # ======================================================================
     # CHECK 1 — Firewall status
@@ -941,118 +943,9 @@ def _run_fixes(engine, config, t) -> None:
 # System information collection
 # ---------------------------------------------------------------------------
 
-def _collect_system_info(version: str, lang: str) -> "SystemInfo":
-    """Collect system information for the report header."""
-    import subprocess, re
-    from ufw_audit.report import SystemInfo
-
-    def run(*args):
-        try:
-            r = subprocess.run(list(args), capture_output=True, text=True, timeout=5)
-            return r.stdout.strip()
-        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-            return "N/A"
-
-    # OS name
-    from ufw_audit.output import sanitize as _sanitize
-    os_name = "N/A"
-    try:
-        with open("/etc/os-release") as f:
-            for line in f:
-                line = line[:512]  # cap line length before any processing
-                if line.startswith("PRETTY_NAME="):
-                    os_name = _sanitize(
-                        line.split("=", 1)[1].strip().strip('"'), max_len=64
-                    )
-                    break
-    except OSError:
-        pass
-
-    # UFW version
-    ufw_ver_raw = run("ufw", "version")
-    ufw_match = re.search(r"[\d.]+", ufw_ver_raw)
-    ufw_version = ufw_match.group(0) if ufw_match else "N/A"
-
-    return SystemInfo(
-        os_name=os_name,
-        hostname=_sanitize(run("hostname"), max_len=64),
-        kernel=run("uname", "-r"),
-        ufw_version=ufw_version,
-        user=os.environ.get("SUDO_USER") or os.environ.get("USER", "unknown"),
-        config_path=str(_get_user_home() / ".config" / "ufw-audit" / "config.conf"),
-        language=lang,
-        version=version,
-    )
-
-
-def _detect_network_context() -> tuple[str, str]:
-    """
-    Detect whether the machine has a direct public IP.
-
-    Returns:
-        Tuple of (context: "local"|"public", public_ip: str).
-    """
-    import subprocess, re
-
-    try:
-        result = subprocess.run(
-            ["ip", "route", "show", "default"],
-            capture_output=True, text=True, timeout=5,
-        )
-        # Check for private gateway
-        if re.search(r"via\s+(10\.|192\.168\.|172\.)", result.stdout):
-            # Behind NAT — try to get public IP
-            public_ip = _get_public_ip()
-            return "local", public_ip
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        pass
-
-    # Try to detect direct public IP on interfaces
-    try:
-        result = subprocess.run(
-            ["ip", "addr", "show"],
-            capture_output=True, text=True, timeout=5,
-        )
-        # Look for non-private, non-loopback IP
-        for match in re.finditer(r"inet\s+([\d.]+)/", result.stdout):
-            ip = match.group(1)
-            if not re.match(r"^(10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|127\.|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)", ip):
-                return "public", ip
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        pass
-
-    public_ip = _get_public_ip()
-    return "local", public_ip
-
-
-def _get_public_ip() -> str:
-    """Attempt to determine public IP via a lightweight HTTP request."""
-    import re, urllib.error, urllib.request
-    try:
-        with urllib.request.urlopen("https://api.ipify.org", timeout=3) as resp:
-            ip = resp.read(64).decode().strip()
-        if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip):
-            return ip
-        return ""
-    except (OSError, urllib.error.URLError, ValueError):
-        return ""
-
-
 # ---------------------------------------------------------------------------
 # Help
 # ---------------------------------------------------------------------------
-
-def _get_user_home() -> Path:
-    """Return the real user home directory, respecting SUDO_USER."""
-    import re
-    sudo_user = os.environ.get("SUDO_USER", "")
-    if sudo_user and re.match(r"^[a-zA-Z0-9_.-]{1,256}$", sudo_user):
-        import pwd
-        try:
-            return Path(pwd.getpwnam(sudo_user).pw_dir)
-        except KeyError:
-            pass
-    return Path.home()
 
 
 def _print_help(t) -> None:
@@ -1149,7 +1042,8 @@ def _get_or_prompt_log_dir(user_config, config, t) -> Path:
         d.mkdir(parents=True, exist_ok=True)
         return d
 
-    home = _get_user_home()
+    from ufw_audit.sysinfo import get_user_home
+    home = get_user_home()
     default_dir = home / ".local" / "share" / "ufw-audit" / "logs"
 
     # Non-interactive context (cron, piped stdin) — skip the prompt
@@ -1248,7 +1142,8 @@ def _run_manage_logs(user_config, config, t) -> int:
         return 0
 
     elif answer in ("c", "change"):
-        home = _get_user_home()
+        from ufw_audit.sysinfo import get_user_home
+        home = get_user_home()
         default_dir = Path(log_dir_str)
         chosen = _prompt_path(t("manage_logs.change_prompt"), default_dir)
         try:
