@@ -1075,7 +1075,7 @@ def _print_help(t) -> None:
         ("-m, --manage-logs",  "List and delete saved audit reports"),
         ("-c, --install-cron", "Install an automated audit cron job (schedule wizard)"),
         ("--manage-cron",      "List, edit or delete installed cron jobs"),
-        ("--remove-cron",      "Remove the installed cron job (legacy)"),
+        ("--remove-cron",      "Deprecated — use --manage-cron instead"),
         ("--french",           "Switch interface to French"),
         ("-V, --version",      "Show version and exit (no sudo required)"),
         ("-h, --help",         "Show this help message (no sudo required)"),
@@ -1559,58 +1559,12 @@ def _run_install_cron(user_config, config, t) -> int:
 # ---------------------------------------------------------------------------
 
 def _run_remove_cron(config, t) -> int:
-    """Remove an installed ufw-audit cron job — user must select explicitly."""
+    """Deprecated — redirect user to --manage-cron."""
     from ufw_audit import output
-    from ufw_audit.cron import list_installed_crons, cron_to_human
     output.init(no_color=config.no_color)
-
-    W = 62
-    title = t("remove_cron.title")
-    pad = W - 4 - len(title)
-    print(f"\033[1;34m╔{'═'*(W-2)}╗\033[0m")
-    print(f"\033[1;34m║\033[0m  \033[1m{title}\033[0m{' '*max(0,pad)}  \033[1;34m║\033[0m")
-    print(f"\033[1;34m╚{'═'*(W-2)}╝\033[0m")
-    print()
-
-    crons = list_installed_crons()
-
-    if not crons:
-        print(f"  ℹ {t('remove_cron.none_found')}")
-        return 0
-
-    lang = config.lang
-    for i, entry in enumerate(crons, 1):
-        human = cron_to_human(entry.schedule_expr, lang)
-        print(f"  {i}. {entry.name:<20} {human}")
-
-    print()
-    print(f"  {t('remove_cron.prompt')}")
-    answer = input("  > ").strip()
-
-    if not answer or answer.lower() in ("q", "quit"):
-        return 0
-
-    if not answer.isdigit() or not (1 <= int(answer) <= len(crons)):
-        print(f"  ✖ {t('remove_cron.invalid')}")
-        return 1
-
-    entry = crons[int(answer) - 1]
-
-    try:
-        entry.cron_path.unlink()
-        print(f"  ✔ {t('remove_cron.removed_cron', path=str(entry.cron_path))}")
-    except OSError as exc:
-        print(f"  ✖ Cannot remove {entry.cron_path}: {exc}")
-        return 1
-
-    if entry.script_path.exists():
-        try:
-            entry.script_path.unlink()
-            print(f"  ✔ {t('remove_cron.removed_script', path=str(entry.script_path))}")
-        except OSError as exc:
-            print(f"  ✖ Cannot remove {entry.script_path}: {exc}")
-    else:
-        print(f"  ℹ {t('remove_cron.script_not_found', path=str(entry.script_path))}")
+    print(f"\n  \033[1;33m⚠  {t('remove_cron.deprecated')}\033[0m")
+    print(f"     {t('remove_cron.deprecated_hint')}\n")
+    return 0
 
     print()
     print(f"  ✔ {t('remove_cron.done')}")

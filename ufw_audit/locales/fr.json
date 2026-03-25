@@ -233,6 +233,8 @@
   },
   "remove_cron": {
     "title": "SUPPRESSION DU CRON UFW-AUDIT",
+    "deprecated": "--remove-cron est déprécié et sera supprimé en v0.14.",
+    "deprecated_hint": "Utilisez à la place : sudo ufw-audit --manage-cron  (d:N pour supprimer)",
     "none_found": "Aucun cron UFW-AUDIT installé.",
     "not_found": "Aucun cron UFW-AUDIT installé ({path})",
     "prompt": "Numéro à supprimer, Entrée pour quitter",
