@@ -60,6 +60,7 @@ class Exposure(Enum):
     OPEN_LOCAL = "open_local"   # ALLOW restricted to private IP/range
     DENY       = "deny"         # explicit DENY rule
     NO_RULE    = "no_rule"      # no UFW rule covers this port
+    LOOPBACK   = "loopback"     # service bound to localhost only — UFW rule irrelevant
 
 
 # ---------------------------------------------------------------------------
@@ -104,14 +105,19 @@ class ServiceSnapshot:
         cls,
         registry: ServiceRegistry,
         ufw_rules: Optional[str] = None,
+        loopback_ports: Optional[set] = None,
     ) -> list["ServiceSnapshot"]:
         """
         Collect snapshots for all services in the registry.
 
         Args:
-            registry:  Loaded ServiceRegistry.
-            ufw_rules: Output of `ufw status numbered` (injected for testing).
-                       If None, fetched from the system.
+            registry:       Loaded ServiceRegistry.
+            ufw_rules:      Output of `ufw status numbered` (injected for testing).
+                            If None, fetched from the system.
+            loopback_ports: Set of port strings (e.g. "6379/tcp") where the service
+                            is bound exclusively to loopback. Exposure is overridden
+                            to LOOPBACK so the UFW open rule does not trigger a false
+                            positive ALERT.
 
         Returns:
             List of ServiceSnapshot for every installed service.
@@ -133,6 +139,12 @@ class ServiceSnapshot:
                 for port in ports
             }
 
+            # Override exposure for ports bound exclusively to loopback
+            if loopback_ports:
+                for port in ports:
+                    if port in loopback_ports and exposures[port] == Exposure.OPEN_WORLD:
+                        exposures[port] = Exposure.LOOPBACK
+
             snapshots.append(cls(
                 service=service,
                 installed=True,
@@ -149,6 +161,7 @@ class ServiceSnapshot:
         cls,
         registry: ServiceRegistry,
         ufw_rules: Optional[str] = None,
+        loopback_ports: Optional[set] = None,
     ) -> list["ServiceSnapshot"]:
         """
         Collect snapshots for ALL services in the registry.
@@ -158,9 +171,10 @@ class ServiceSnapshot:
         services panorama display.
 
         Args:
-            registry:  Loaded ServiceRegistry.
-            ufw_rules: Output of `ufw status numbered` (injected for testing).
-                       If None, fetched from the system.
+            registry:       Loaded ServiceRegistry.
+            ufw_rules:      Output of `ufw status numbered` (injected for testing).
+                            If None, fetched from the system.
+            loopback_ports: Set of port strings bound exclusively to loopback.
 
         Returns:
             List of ServiceSnapshot for every service in the registry.
@@ -179,6 +193,11 @@ class ServiceSnapshot:
                     port: _classify_exposure(port, ufw_rules)
                     for port in ports
                 }
+                # Override exposure for ports bound exclusively to loopback
+                if loopback_ports:
+                    for port in ports:
+                        if port in loopback_ports and exposures[port] == Exposure.OPEN_WORLD:
+                            exposures[port] = Exposure.LOOPBACK
             else:
                 state     = ServiceState.UNKNOWN
                 ports     = list(service.ports)
@@ -307,6 +326,9 @@ def _check_port_exposure(
         result.ok(message=port_msg)
 
     elif exposure == Exposure.NO_RULE:
+        result.info(message=port_msg)
+
+    elif exposure == Exposure.LOOPBACK:
         result.info(message=port_msg)
 
 
