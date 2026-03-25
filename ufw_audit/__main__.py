@@ -1280,6 +1280,67 @@ def _run_manage_logs(user_config, config, t) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Email prompt helper (shared by --install-cron and --manage-cron)
+# ---------------------------------------------------------------------------
+
+def _prompt_email(t) -> str:
+    """
+    Interactive email selection prompt.
+
+    Shows saved addresses from EmailStore with numeric shortcuts.
+    The user can select a saved address by number, type a new one,
+    or press Enter to skip (no email).
+
+    New valid addresses are offered for saving before being returned.
+
+    Returns:
+        Selected email string, or "" if user skipped.
+    """
+    import re
+    from ufw_audit.config import EmailStore
+
+    store = EmailStore.load()
+    saved = store.all()
+
+    print()
+    print(f"  {t('email_prompt.title')}")
+    print(f"    0. {t('email_prompt.none')}")
+    for i, addr in enumerate(saved, 1):
+        print(f"    {i}. {addr}")
+    print(f"    {len(saved) + 1}. {t('email_prompt.new')}")
+    print()
+
+    answer = input("  > ").strip()
+
+    # Skip
+    if not answer or answer == "0":
+        return ""
+
+    # Select saved address
+    if answer.isdigit():
+        idx = int(answer)
+        if 1 <= idx <= len(saved):
+            return saved[idx - 1]
+
+    # "New address" option or direct email entry
+    if answer.isdigit() and int(answer) == len(saved) + 1:
+        answer = input(f"  {t('email_prompt.enter_new')} : ").strip()
+
+    # Validate basic email format
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", answer):
+        print(f"  ⚠ {t('email_prompt.invalid')}")
+        return ""
+
+    # Offer to save new address
+    if answer not in saved:
+        save_ans = input(f"  {t('email_prompt.save', email=answer)} ").strip().lower()
+        if save_ans == "y":
+            store.add(answer)
+
+    return answer
+
+
+# ---------------------------------------------------------------------------
 # --install-cron
 # ---------------------------------------------------------------------------
 
@@ -1395,7 +1456,7 @@ def _run_install_cron(user_config, config, t) -> int:
     print()
 
     # --- Step 4: Notification email ---
-    notify_email = input(f"  {t('install_cron.prompt_email')} : ").strip()
+    notify_email = _prompt_email(t)
     if notify_email and not shutil.which("mail"):
         print(f"  ⚠ {t('install_cron.mail_missing')}")
 
@@ -1596,8 +1657,9 @@ def _run_manage_cron(config, t) -> int:
     if not answer or answer in ("q", "quit"):
         return 0
 
-    # "d:1" or "d1" → delete; plain number → edit schedule
+    # "d:1" → delete; "e:1" → edit email; plain number → sub-menu (schedule/email)
     delete_match = re.match(r"^d:?(\d+)$", answer)
+    email_match  = re.match(r"^e:(\d+)$", answer)
     edit_match   = re.match(r"^(\d+)$", answer)
 
     if delete_match:
@@ -1619,6 +1681,16 @@ def _run_manage_cron(config, t) -> int:
                     pass
             print(f"  ✔ {t('manage_cron.deleted', name=entry.name)}")
 
+    elif email_match:
+        idx = int(email_match.group(1)) - 1
+        if not (0 <= idx < len(crons)):
+            print(f"  ✖ {t('manage_cron.invalid')}")
+            return 0
+        entry = crons[idx]
+        print()
+        print(f"  {t('manage_cron.edit_email', name=entry.name)}")
+        _edit_cron_email(entry, t)
+
     elif edit_match:
         idx = int(edit_match.group(1)) - 1
         if not (0 <= idx < len(crons)):
@@ -1626,13 +1698,54 @@ def _run_manage_cron(config, t) -> int:
             return 0
         entry = crons[idx]
         print()
-        print(f"  {t('manage_cron.edit_schedule', name=entry.name)}")
-        _edit_cron_schedule(entry, config, t)
+        print(f"  {t('manage_cron.edit_what', name=entry.name)}")
+        print(f"    1. {t('manage_cron.edit_schedule_option')}")
+        print(f"    2. {t('manage_cron.edit_email_option')}")
+        sub = input("  > ").strip()
+        if sub == "1":
+            _edit_cron_schedule(entry, config, t)
+        elif sub == "2":
+            _edit_cron_email(entry, t)
+        else:
+            print(f"  ✖ {t('manage_cron.invalid')}")
 
     else:
         print(f"  ✖ {t('manage_cron.invalid')}")
 
     return 0
+
+
+def _edit_cron_email(entry, t) -> None:
+    """Change the notification email of an existing cron entry."""
+    new_email = _prompt_email(t)
+
+    # Rewrite the cron file with updated email comment
+    try:
+        lines = entry.cron_path.read_text(encoding="utf-8").splitlines()
+        updated = []
+        for line in lines:
+            if line.startswith("# email:"):
+                updated.append(f"# email: {new_email}")
+            else:
+                updated.append(line)
+        entry.cron_path.write_text("\n".join(updated) + "\n", encoding="utf-8")
+    except OSError as exc:
+        print(f"  ✖ Cannot update cron file: {exc}")
+        return
+
+    # Rewrite the wrapper script with updated NOTIFY_EMAIL
+    if entry.script_path.exists():
+        try:
+            text = entry.script_path.read_text(encoding="utf-8")
+            import re as _re
+            text = _re.sub(r'^NOTIFY_EMAIL=".*"', f'NOTIFY_EMAIL="{new_email}"', text, flags=_re.MULTILINE)
+            entry.script_path.write_text(text, encoding="utf-8")
+        except OSError as exc:
+            print(f"  ✖ Cannot update script: {exc}")
+            return
+
+    label = new_email if new_email else t("manage_cron.no_email")
+    print(f"  ✔ {t('manage_cron.email_updated', name=entry.name, email=label)}")
 
 
 def _edit_cron_schedule(entry, config, t) -> None:

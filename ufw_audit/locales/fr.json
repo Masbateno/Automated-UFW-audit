@@ -245,15 +245,29 @@
   "manage_cron": {
     "title": "GESTION DES CRONS UFW-AUDIT",
     "no_crons": "Aucun cron UFW-AUDIT installé. Lancez : sudo ufw-audit --install-cron",
-    "prompt": "Numéro pour modifier le planning, 'd:N' pour supprimer, Entrée pour quitter",
+    "prompt": "Numéro pour modifier, 'e:N' pour l'email, 'd:N' pour supprimer, Entrée pour quitter",
     "email_label": "email",
     "legacy_tag": "legacy",
     "confirm_delete": "Supprimer le cron '{name}' ? [y/N]",
     "deleted": "Cron '{name}' supprimé",
+    "edit_what": "Modifier '{name}' — que changer ?",
+    "edit_schedule_option": "Planning",
+    "edit_email_option": "Email de notification",
     "edit_schedule": "Modifier le planning de '{name}' :",
+    "edit_email": "Modifier l'email de notification de '{name}' :",
+    "email_updated": "Cron '{name}' — email mis à jour : {email}",
+    "no_email": "(aucun)",
     "confirm_update": "Appliquer ce nouveau planning ? [y/N]",
     "updated": "Cron '{name}' mis à jour — {schedule}",
     "invalid": "Choix non reconnu"
+  },
+  "email_prompt": {
+    "title": "Email de notification :",
+    "none": "(aucun / ignorer)",
+    "new": "Saisir une nouvelle adresse...",
+    "enter_new": "Nouvelle adresse email",
+    "invalid": "Adresse email invalide — aucun email configuré",
+    "save": "Sauvegarder '{email}' pour les prochaines fois ? [y/N]"
   },
   "config": {
     "found": "Configuration trouvée : {path}",

@@ -35,6 +35,85 @@ logger = logging.getLogger(__name__)
 # Default config directory follows XDG Base Directory spec
 _DEFAULT_CONFIG_DIR = Path.home() / ".config" / "ufw-audit"
 _CONFIG_FILENAME = "config.conf"
+_EMAILS_FILENAME = "emails"
+
+
+# ---------------------------------------------------------------------------
+# Email store
+# ---------------------------------------------------------------------------
+
+class EmailStore:
+    """
+    Persistent list of saved notification email addresses.
+
+    Stored one address per line in ~/.config/ufw-audit/emails.
+    Duplicates are silently ignored on add.
+
+    Usage:
+        store = EmailStore.load()
+        store.add("admin@example.com")   # persists immediately
+        store.remove("admin@example.com")
+        emails = store.all()             # list[str], insertion order
+    """
+
+    def __init__(self, path: Path | None = None) -> None:
+        self._path: Path = path or (_DEFAULT_CONFIG_DIR / _EMAILS_FILENAME)
+        self._emails: list[str] = []
+
+    @classmethod
+    def load(cls, path: Path | None = None) -> "EmailStore":
+        """Load existing emails from disk. Missing file → empty list."""
+        instance = cls(path=path)
+        instance._ensure_dir()
+        instance._load()
+        return instance
+
+    def all(self) -> list[str]:
+        """Return all saved emails in insertion order."""
+        return list(self._emails)
+
+    def add(self, email: str) -> None:
+        """Add email if not already present and persist to disk."""
+        email = email.strip()
+        if email and email not in self._emails:
+            self._emails.append(email)
+            self._save()
+
+    def remove(self, email: str) -> None:
+        """Remove email if present and persist to disk."""
+        email = email.strip()
+        if email in self._emails:
+            self._emails.remove(email)
+            self._save()
+
+    def _ensure_dir(self) -> None:
+        try:
+            self._path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+        except OSError as exc:
+            logger.warning("Could not create config directory %s: %s", self._path.parent, exc)
+
+    def _load(self) -> None:
+        if not self._path.exists():
+            return
+        try:
+            with self._path.open(encoding="utf-8") as fh:
+                for line in fh:
+                    addr = line.strip()
+                    if addr and addr not in self._emails:
+                        self._emails.append(addr)
+        except OSError as exc:
+            logger.warning("Could not read emails file %s: %s", self._path, exc)
+
+    def _save(self) -> None:
+        self._ensure_dir()
+        try:
+            fd = os.open(str(self._path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                for addr in self._emails:
+                    fh.write(f"{addr}\n")
+        except OSError as exc:
+            logger.error("Could not write emails file %s: %s", self._path, exc)
+            raise
 
 
 class UserConfig:
