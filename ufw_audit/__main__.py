@@ -40,16 +40,6 @@ def _bootstrap() -> None:
         sys.exit(EXIT_ERROR)
 
 
-# Global quiet flag — set after parse_args, used by output helpers
-_QUIET = False
-
-
-def _out(*args, **kwargs):
-    """Print only if not in quiet mode."""
-    if not _QUIET:
-        print(*args, **kwargs)
-
-
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -86,10 +76,6 @@ def main(argv=None) -> int:
 
     # --- Root check — required for all modes ---
     _bootstrap()
-
-    # --- Set quiet mode globally ---
-    global _QUIET
-    _QUIET = config.quiet
 
     # --- Initialise i18n ---
     from ufw_audit import i18n
@@ -193,7 +179,8 @@ def main(argv=None) -> int:
     if getattr(fw_result, "_firewall_inactive", False):
         engine.cap(maximum=3, reason=t("firewall.inactive"))
 
-    _display_result(fw_result, report, config.verbose)
+    from ufw_audit.display import display_result
+    display_result(fw_result, report, config.verbose, quiet=config.quiet)
 
     # Write UFW status output to report
     if fw_status.ufw_output:
@@ -214,7 +201,8 @@ def main(argv=None) -> int:
     from ufw_audit.checks.firewall import check_rules
     rules_result = check_rules(ufw_verbose, ufw_numbered, t)
     engine.apply(rules_result)
-    _display_result(rules_result, report, config.verbose)
+    from ufw_audit.display import display_result
+    display_result(rules_result, report, config.verbose, quiet=config.quiet)
 
     # ======================================================================
     # CHECK 3 — Network services
@@ -239,11 +227,13 @@ def main(argv=None) -> int:
         # Risk context for high/critical active services
         if snap.service.is_high_or_critical and snap.is_active:
             from ufw_audit.checks.logs import get_ip_geo  # reuse geo module
-            _display_risk_context(snap.service.label, config.lang, t, report)
+            from ufw_audit.display import display_risk_context
+            display_risk_context(snap.service.label, config.lang, t, report)
 
         # Per-service result
-        svc_result = _check_single_service_display(
-            snap, network_context, t, report, config.verbose
+        from ufw_audit.display import check_single_service_display
+        svc_result = check_single_service_display(
+            snap, network_context, t, report, config.verbose, quiet=config.quiet
         )
         engine.apply(svc_result)
 
@@ -289,7 +279,8 @@ def main(argv=None) -> int:
         t=t,
     )
     engine.apply(ports_result)
-    _display_result(ports_result, report, config.verbose)
+    from ufw_audit.display import display_result
+    display_result(ports_result, report, config.verbose, quiet=config.quiet)
 
     print_section(t("sections.ports_overview"))
     report.write_section(t("sections.ports_overview"))
@@ -334,7 +325,8 @@ def main(argv=None) -> int:
     logs_result   = check_logs(logs_snapshot, audited_ports=audited_ports, t=t)
     engine.apply(logs_result)
 
-    _display_log_results(logs_result, logs_snapshot, config, t, report)
+    from ufw_audit.display import display_log_results
+    display_log_results(logs_result, logs_snapshot, config, t, report)
 
     # ======================================================================
     # CHECK 6 — DDNS / external exposure
@@ -348,7 +340,8 @@ def main(argv=None) -> int:
     ddns_snapshot = DdnsSnapshot.from_system()
     ddns_result   = check_ddns(ddns_snapshot, ufw_rules=ufw_numbered, t=t)
     engine.apply(ddns_result)
-    _display_result(ddns_result, report, config.verbose)
+    from ufw_audit.display import display_result
+    display_result(ddns_result, report, config.verbose, quiet=config.quiet)
 
     if hasattr(ddns_result, "_ddns_open_ports") and ddns_result._ddns_open_ports:
         for port in ddns_result._ddns_open_ports:
@@ -367,7 +360,8 @@ def main(argv=None) -> int:
     docker_result   = check_docker(docker_snapshot,
                                    network_context=network_context, t=t)
     engine.apply(docker_result)
-    _display_result(docker_result, report, config.verbose)
+    from ufw_audit.display import display_result
+    display_result(docker_result, report, config.verbose, quiet=config.quiet)
 
     if docker_snapshot.exposed_ports:
         output.print_dim(t("docker.exposed_ports") + " :")
@@ -389,7 +383,8 @@ def main(argv=None) -> int:
     if not config.quiet:
         _print_section(t("sections.virtualization"))
     report.write_section(t("sections.virtualization"))
-    _display_result(virt_result, report, config.verbose)
+    from ufw_audit.display import display_result
+    display_result(virt_result, report, config.verbose, quiet=config.quiet)
     if not config.quiet:
         print()
 
@@ -397,12 +392,14 @@ def main(argv=None) -> int:
     # ======================================================================
     engine.finalize()
     if not config.quiet:
-        _print_summary(engine, network_context, public_ip, config, t, report, snapshots)
+        from ufw_audit.display import print_audit_summary
+        print_audit_summary(engine, network_context, public_ip, config, t, report, snapshots)
 
     # Finalise report
+    from ufw_audit.display import build_risk_context_entries
     report.write_risk_context_section(
         section_title=t("sections.risk_context"),
-        entries=_build_risk_context_entries(snapshots, config.lang, t),
+        entries=build_risk_context_entries(snapshots, config.lang, t),
     )
     report.write_next_steps([
         t("report.next_1"),
@@ -423,325 +420,6 @@ def main(argv=None) -> int:
         return EXIT_WARNINGS
     else:
         return EXIT_OK
-
-
-# ---------------------------------------------------------------------------
-# Display helpers
-# ---------------------------------------------------------------------------
-
-def _display_result(result, report, verbose: bool) -> None:
-    """Print all findings from a CheckResult to terminal and report."""
-    from ufw_audit.scoring import FindingLevel
-    from ufw_audit.output import (
-        print_ok, print_warn, print_alert, print_info, print_recommendation,
-    )
-
-    for finding in result.findings:
-        if _QUIET:
-            # In quiet mode only write to report, no terminal output
-            level_str = finding.level.value.upper()
-            report.write_finding(level_str, finding.message)
-            continue
-        if finding.level == FindingLevel.OK:
-            print_ok(finding.message)
-            report.write_finding("OK", finding.message)
-        elif finding.level == FindingLevel.WARN:
-            print_warn(finding.message)
-            report.write_finding("WARN", finding.message)
-            if finding.detail and verbose:
-                print_recommendation(finding.detail)
-        elif finding.level == FindingLevel.ALERT:
-            print_alert(finding.message)
-            report.write_finding("ALERT", finding.message)
-            if finding.detail:
-                print_recommendation(finding.detail)
-            elif finding.cmd and verbose:
-                print_recommendation(finding.cmd)
-        elif finding.level == FindingLevel.INFO:
-            print_info(finding.message)
-            report.write_finding("INFO", finding.message)
-
-
-def _display_risk_context(label: str, lang: str, t, report) -> None:
-    """Display two-axis risk context for a high/critical service."""
-    from ufw_audit.checks.services import _identity_t
-
-    # Build context strings inline using the risk_context data from registry
-    # (same data as bash's get_risk_context())
-    # For now delegate to the service-specific strings in locales
-    exposure_key = f"risk_context.exposure"
-    threat_key   = f"risk_context.threat"
-
-    # We store risk context text in locales under service-specific keys
-    # e.g. "service_risk.ssh.exposure" — fall back gracefully if not found
-    svc_id = label.lower().replace(" ", "_").replace("/", "_").replace("(", "").replace(")", "")
-    exposure = t(f"service_risk.{svc_id}.exposure")
-    threat   = t(f"service_risk.{svc_id}.threat")
-    level    = t(f"service_risk.{svc_id}.level")
-
-    # If keys not yet in locales, skip display
-    if exposure.startswith("["):
-        return
-
-    is_critical = "critical" in level.lower() or "critique" in level.lower()
-    from ufw_audit.output import print_risk_context
-    print_risk_context(
-        title=t("risk_context.title"),
-        level=level,
-        exposure_label=t("risk_context.exposure"),
-        exposure=exposure,
-        threat_label=t("risk_context.threat"),
-        threat=threat,
-        is_critical=is_critical,
-    )
-    report.write_finding("INFO",
-                         f"[{t('risk_context.title')} — {level}] {exposure}")
-
-
-def _check_single_service_display(snap, network_context, t, report, verbose):
-    """Run check for a single service and return its CheckResult."""
-    from ufw_audit.checks.services import check_services
-    result = check_services([snap], network_context=network_context, t=t)
-    _display_result(result, report, verbose)
-    return result
-
-
-def _display_log_results(logs_result, snapshot, config, t, report) -> None:
-    """Display structured log analysis results."""
-    from ufw_audit.checks.logs import get_ip_geo
-    from ufw_audit.output import print_ok, print_warn, print_info, print_dim
-
-    if not hasattr(logs_result, "_log_data"):
-        _display_result(logs_result, report, config.verbose)
-        return
-
-    data = logs_result._log_data
-
-    print_dim(
-        f"{t('logs.period')} : {data['log_days']} {t('logs.days_unit')} "
-        f"— {data['days_available']} {t('logs.days_available')}"
-    )
-    print()
-
-    total = data["total"]
-    if total == 0:
-        print_ok(t("logs.empty"))
-        return
-
-    # Verdict line — one clear sentence before the details
-    brute_hits = data.get("brute_hits", [])
-    if brute_hits:
-        print_warn(t("logs.verdict_warn", total=total, days=data["log_days"]))
-    else:
-        print_ok(t("logs.verdict_ok", total=total, days=data["log_days"]))
-
-    # Bruteforce findings
-    for finding in logs_result.findings:
-        from ufw_audit.scoring import FindingLevel
-        if finding.level == FindingLevel.WARN:
-            print_warn(finding.message)
-
-    # Top IP
-    if data["top_ips"]:
-        top_ip, top_count = data["top_ips"][0]
-        geo = get_ip_geo(top_ip, lang=config.lang)
-        geo_str = f" ({geo})" if geo else ""
-        print_info(
-            f"{t('logs.top_ips')} : {top_ip}{geo_str} "
-            f"— {top_count} {t('logs.attempts')}"
-        )
-
-    # Top port
-    if data["top_ports"]:
-        top_port, top_count = data["top_ports"][0]
-        print_info(
-            f"{t('logs.top_ports')} : {top_port} "
-            f"— {top_count} {t('logs.attempts')}"
-        )
-
-    # Service hits
-    if data["svc_hits"]:
-        print()
-        print_warn(t("logs.svc_hits") + " :")
-        for pp, count in data["svc_hits"].items():
-            print_dim(f"  → {pp} — {count} {t('logs.attempts')}")
-
-    print()
-
-    # Detailed report
-    if config.detailed:
-        report.write_section(
-            f"{t('sections.logs')} — {t('logs.period')} : "
-            f"{data['log_days']} {t('logs.days_unit')}"
-        )
-        report.write_raw(f"{t('logs.total_blocks')} : {total}")
-        report.write_raw(f"{t('logs.days_available')}    : {data['days_available']}")
-        report.write_raw("")
-        report.write_raw(f"--- {t('logs.top_ips')} ---")
-        for ip, count in data["top_ips"]:
-            geo = get_ip_geo(ip, lang=config.lang)
-            geo_str = f" ({geo})" if geo else ""
-            report.write_raw(f"  {ip:<20}{geo_str:<30} {count} {t('logs.attempts')}")
-        report.write_raw("")
-        report.write_raw(f"--- {t('logs.top_ports')} ---")
-        for port, count in data["top_ports"]:
-            report.write_raw(f"  {port:<12} {count} {t('logs.attempts')}")
-        report.write_raw("")
-        report.write_raw(f"--- {t('logs.brute_title')} ---")
-        if data["brute_hits"]:
-            for hit in data["brute_hits"]:
-                geo = get_ip_geo(hit.src_ip, lang=config.lang)
-                geo_str = f" ({geo})" if geo else ""
-                report.write_raw(
-                    f"  {hit.src_ip:<20}{geo_str:<30}"
-                    f" {hit.port_proto:<12} {hit.count} {t('logs.attempts')}"
-                )
-        else:
-            report.write_raw(f"  {t('logs.brute_none')}")
-        report.write_raw("")
-        report.write_raw(f"--- {t('logs.svc_hits')} ---")
-        if data["svc_hits"]:
-            for pp, count in data["svc_hits"].items():
-                report.write_raw(f"  {pp} {count} {t('logs.attempts')}")
-        else:
-            report.write_raw(f"  {t('logs.svc_hits_none')}")
-        report.write_raw("")
-
-
-def _print_summary(engine, network_context, public_ip, config, t, report, snapshots) -> None:
-    """Print the audit summary box and write to report."""
-    from ufw_audit.output import print_summary_box
-    from ufw_audit.scoring import RiskLevel
-
-    score = engine.score
-    level = engine.level
-
-    level_str = t(f"scoring.level.{level.value}")
-    ctx_str   = t(f"scoring.context.{network_context}")
-
-    # Risk icon
-    icon = "✔" if level == RiskLevel.LOW else "✖"
-
-    lines = [
-        (t("scoring.score_label"), f"{score}/10"),
-        (t("scoring.risk_label"),  f"{icon} {level_str}"),
-        (t("scoring.network_context"), f"{'🏠' if network_context == 'local' else '🌐'} {ctx_str}"),
-    ]
-
-    # Categorise findings
-    action_items      = [f for f in engine.findings
-                         if f.nature == "action"]
-    improvement_items = [f for f in engine.findings
-                         if f.nature == "improvement"]
-    structural_items  = [f for f in engine.findings
-                         if f.nature == "structural"]
-
-    if action_items or improvement_items or structural_items:
-        if action_items:
-            lines.append(("---", ""))
-            lines.append((f"✖ {t('summary.block_action')}", ""))
-            for item in action_items:
-                msg = item.message[:48] + "…" if len(item.message) > 48 else item.message
-                lines.append((f"  ✖  {msg}", ""))
-        if improvement_items:
-            lines.append(("---", ""))
-            lines.append((f"⚠ {t('summary.block_improve')}", ""))
-            for item in improvement_items:
-                msg = item.message[:48] + "…" if len(item.message) > 48 else item.message
-                lines.append((f"  ⚠  {msg}", ""))
-        if structural_items:
-            lines.append(("---", ""))
-            lines.append((f"ℹ {t('summary.block_normal')}", ""))
-            for item in structural_items:
-                msg = item.message[:48] + "…" if len(item.message) > 48 else item.message
-                lines.append((f"  ℹ  {msg}", ""))
-
-    if engine.breakdown or engine.cap_info:
-        lines.append(("---", ""))
-        lines.append((t("scoring.breakdown_title"), ""))
-        for ded in engine.breakdown:
-            if ded.points == 0:
-                continue  # skip zero-point sentinel deductions
-            reason = ded.reason[:44] + "…" if len(ded.reason) > 44 else ded.reason
-            lines.append((f"  -{ded.points}  {reason}", ""))
-        if engine.cap_info:
-            cap_note = t("scoring.cap_note", max=engine.cap_info.maximum)
-            lines.append((f"  ⚠  {cap_note}", ""))
-
-    print_summary_box(lines)
-    print()
-
-    # Interpretation phrase
-    if not action_items and not improvement_items:
-        print(f"  {t('summary.clean')}")
-    elif not action_items:
-        print(f"  {t('summary.warnings')}")
-    else:
-        print(f"  {t('summary.alerts')}")
-
-    # Implicit policy note
-    implicit_svcs = [
-        snap.label for snap in snapshots
-        if snap.is_active
-        and snap.service.is_high_or_critical
-        and all(e.value == "no_rule" for e in snap.exposures.values())
-    ]
-    if implicit_svcs:
-        print()
-        print(f"  ℹ {t('summary.implicit_policy')}")
-        print(f"    {t('summary.implicit_svcs')} : {', '.join(implicit_svcs)}")
-
-    # Scope disclaimer — always displayed regardless of score
-    print()
-    print(f"  ℹ {t('summary.scope_line1')}")
-    print(f"  ℹ {t('summary.scope_line2')}")
-
-    if config.detailed:
-        from ufw_audit.report import AuditReport
-        # report path already printed at start
-
-    # Write summary to report
-    report.write_summary(
-        score=score,
-        risk_level=level_str,
-        network_context=ctx_str,
-        public_ip=public_ip or "",
-        ok_count=engine.ok_count,
-        warn_count=engine.warn_count,
-        alert_count=engine.alert_count,
-        breakdown=engine.breakdown,
-        labels={
-            "summary":   "AUDIT SUMMARY",
-            "breakdown": t("scoring.breakdown_title"),
-        },
-    )
-
-
-def _build_risk_context_entries(snapshots, lang: str, t) -> list[dict]:
-    """Build risk context entries for the report from active high/critical services."""
-    entries = []
-    for snap in snapshots:
-        if not snap.service.is_high_or_critical:
-            continue
-        if not snap.is_active:
-            continue
-        svc_id = (snap.service.label.lower()
-                  .replace(" ", "_").replace("/", "_")
-                  .replace("(", "").replace(")", ""))
-        exposure = t(f"service_risk.{svc_id}.exposure")
-        threat   = t(f"service_risk.{svc_id}.threat")
-        level    = t(f"service_risk.{svc_id}.level")
-        if exposure.startswith("["):
-            continue
-        entries.append({
-            "label":          snap.service.label,
-            "level":          level,
-            "exposure_label": t("risk_context.exposure"),
-            "exposure":       exposure,
-            "threat_label":   t("risk_context.threat"),
-            "threat":         threat,
-        })
-    return entries
 
 
 
