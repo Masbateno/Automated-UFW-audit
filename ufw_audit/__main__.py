@@ -249,7 +249,8 @@ def main(argv=None) -> int:
         from ufw_audit.checks.services import ServiceSnapshot as _SS, Exposure, ServiceState
         print_section(t("sections.services_panorama"))
         all_snaps = _SS.collect_all(registry, ufw_rules=ufw_numbered)
-        panorama_rows = _build_panorama_rows(all_snaps)
+        from ufw_audit.panorama import build_panorama_rows
+        panorama_rows = build_panorama_rows(all_snaps)
         panorama_labels = {
             "header_service": t("services.panorama.header_service"),
             "header_status":  t("services.panorama.header_status"),
@@ -1812,52 +1813,6 @@ def _edit_cron_schedule(entry, config, t) -> None:
 # ---------------------------------------------------------------------------
 # Panorama helpers
 # ---------------------------------------------------------------------------
-
-def _build_panorama_rows(all_snapshots) -> list[dict]:
-    """Convert ServiceSnapshot list to display dicts for print_services_panorama()."""
-    from ufw_audit.checks.services import Exposure, ServiceState
-
-    rows = []
-    for snap in all_snapshots:
-        if not snap.installed:
-            status = "not_installed"
-        elif snap.state.is_active:
-            status = "active"
-        elif snap.state.is_inactive:
-            status = "inactive"
-        else:
-            status = "unknown"
-
-        # Port string
-        if snap.installed and snap.state.is_active and snap.ports:
-            ports_str = ", ".join(snap.ports)
-        elif snap.installed and snap.ports:
-            ports_str = ", ".join(snap.ports)
-        else:
-            ports_str = "—"
-
-        # UFW indicator
-        if not snap.installed or not snap.exposures:
-            ufw = "na"
-        else:
-            has_open_world = any(e == Exposure.OPEN_WORLD for e in snap.exposures.values())
-            has_no_rule    = any(e == Exposure.NO_RULE    for e in snap.exposures.values())
-            if has_open_world:
-                ufw = "warn"
-            elif has_no_rule:
-                ufw = "none"
-            else:
-                ufw = "ok"
-
-        rows.append({
-            "label":  snap.label,
-            "risk":   snap.risk,
-            "status": status,
-            "ports":  ports_str,
-            "ufw":    ufw,
-        })
-    return rows
-
 
 # ---------------------------------------------------------------------------
 # Entry point
