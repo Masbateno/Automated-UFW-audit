@@ -6,6 +6,17 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v0.14.1] — 2026-03-26
+
+### Corrections de bugs (corrections post-sortie)
+
+- **Faux positif ALERT — services liés au loopback** : un service écoutant exclusivement sur `127.0.0.1` (ex. Redis sur `6379/tcp`) était incorrectement signalé comme *"exposé sur internet"* lorsqu'une règle UFW ouverte existait pour ce port. `PortsSnapshot` est désormais collecté avant le CHECK 3 ; les ports dont tous les bindings `ss` sont sur loopback reçoivent `Exposure.LOOPBACK` (INFO, sans déduction) au lieu de `OPEN_WORLD`.
+- **Faux positifs DDNS** : les ports système (`53`, DHCP, mDNS) et les ports exclusivement loopback apparaissaient dans la liste d'exposition DDNS. Ajout du filtre `_DDNS_SYSTEM_PORTS` et vérification croisée avec les listeners non-loopback réels — les règles UFW orphelines (aucun service actif) et les règles bare (sans `/proto`) ne génèrent plus d'entrées fantômes.
+- **`--remove-cron` non supprimé à la sortie** : le flag était marqué déprécié *"sera supprimé en v0.14"* mais n'avait jamais été retiré. Supprimé de `cli.py`, `__main__.py`, `cron.py`, `locales/en.json`, `locales/fr.json` et `ufw-audit.bash-completion`.
+- **Bannière VERSION** : la bannière affichait encore `v0.13.0b` après la sortie de la v0.14. Corrigé.
+
+---
+
 ## [v0.14] — 2026-03-25
 
 ### Refactoring — Modularisation de `__main__.py`

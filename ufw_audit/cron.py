@@ -503,15 +503,6 @@ def run_install_cron(user_config, config, t) -> int:
     return 0
 
 
-def run_remove_cron(config, t) -> int:
-    """Deprecated — redirect user to --manage-cron."""
-    from ufw_audit import output
-    output.init(no_color=config.no_color)
-    print(f"\n  \033[1;33m⚠  {t('remove_cron.deprecated')}\033[0m")
-    print(f"     {t('remove_cron.deprecated_hint')}\n")
-    return 0
-
-
 def run_manage_cron(config, t) -> int:
     """Manage installed cron jobs — list, edit schedule/email, delete."""
     from ufw_audit import output

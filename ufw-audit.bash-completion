@@ -36,7 +36,6 @@ _ufw_audit() {
         --manage-logs
         --install-cron
         --manage-cron
-        --remove-cron
         --french
         --version
         --help

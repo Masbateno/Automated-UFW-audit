@@ -91,6 +91,10 @@ _PRIVATE_SOURCE = re.compile(
     r"(?:192\.168\.|10\.|172\.(?:1[6-9]|2\d|3[01])\.|127\.)"
 )
 
+# System-internal ports that should not be reported as DDNS-exposed
+# (same spirit as ports._SYSTEM_PORTS — DNS runs locally, not a user service)
+_DDNS_SYSTEM_PORTS: set[int] = {53, 67, 68, 546, 547, 5353}
+
 
 # ---------------------------------------------------------------------------
 # Snapshot
@@ -166,14 +170,21 @@ def check_ddns(
     snapshot: DdnsSnapshot,
     ufw_rules: str = "",
     t=None,
+    loopback_ports: Optional[set] = None,
+    active_ports: Optional[set] = None,
 ) -> CheckResult:
     """
     Evaluate DDNS snapshot and return findings.
 
     Args:
-        snapshot:  DdnsSnapshot from the system.
-        ufw_rules: Output of `ufw status numbered` for open port detection.
-        t:         Translation function.
+        snapshot:       DdnsSnapshot from the system.
+        ufw_rules:      Output of `ufw status numbered` for open port detection.
+        t:              Translation function.
+        loopback_ports: Set of port strings (e.g. "6379/tcp") bound exclusively
+                        to loopback — excluded from the exposed ports list.
+        active_ports:   Set of port strings that have at least one non-loopback
+                        listener (from ss). Only these are reported as exposed.
+                        If None, no filtering by listener state is applied.
 
     Returns:
         CheckResult with DDNS findings and any score deductions.
@@ -204,8 +215,10 @@ def check_ddns(
     else:
         result.info(message=_t("ddns.no_domain"))
 
-    # Find open ports (ALLOW without source restriction)
-    open_ports = _find_open_ports(ufw_rules)
+    # Find open ports (ALLOW without source restriction, system ports and loopback excluded)
+    open_ports = _find_open_ports(
+        ufw_rules, loopback_ports=loopback_ports, active_ports=active_ports,
+    )
 
     if not open_ports:
         result.ok(message=_t("ddns.no_open_ports"))
@@ -360,9 +373,20 @@ def _extract_duckdns_domain(content: str) -> Optional[str]:
 # UFW helpers
 # ---------------------------------------------------------------------------
 
-def _find_open_ports(ufw_rules: str) -> list[str]:
+def _find_open_ports(
+    ufw_rules: str,
+    loopback_ports: Optional[set] = None,
+    active_ports: Optional[set] = None,
+) -> list[str]:
     """
     Find ports with unrestricted ALLOW rules (no source IP restriction).
+
+    Filters applied (in order):
+    - System-internal ports (DNS, DHCP, mDNS…) are always excluded.
+    - Loopback-only ports are excluded (service not reachable externally).
+    - If active_ports is provided, only ports with a real non-loopback
+      listener are included — prevents dangling UFW rules (no running
+      service) and bare rules (no /proto) from generating phantom entries.
 
     Returns:
         List of port/proto strings e.g. ["80/tcp", "443/tcp"].
@@ -384,16 +408,29 @@ def _find_open_ports(ufw_rules: str) -> list[str]:
         # Extract port/proto from the rule
         port_match = re.search(r"\b(\d+)/(tcp|udp)\b", line, re.IGNORECASE)
         if port_match:
-            port_proto = f"{port_match.group(1)}/{port_match.group(2).lower()}"
+            port_num   = int(port_match.group(1))
+            port_proto = f"{port_num}/{port_match.group(2).lower()}"
+            if port_num in _DDNS_SYSTEM_PORTS:
+                continue
+            if loopback_ports and port_proto in loopback_ports:
+                continue
+            if active_ports is not None and port_proto not in active_ports:
+                continue
             if port_proto not in open_ports:
                 open_ports.append(port_proto)
         else:
             # Bare port rule (no /proto): covers both tcp and udp
             bare_match = re.match(r"\[\s*\d+\]\s+(\d+)\s+ALLOW", line)
             if bare_match:
-                port = bare_match.group(1)
+                port_num = int(bare_match.group(1))
+                if port_num in _DDNS_SYSTEM_PORTS:
+                    continue
                 for proto in ("tcp", "udp"):
-                    port_proto = f"{port}/{proto}"
+                    port_proto = f"{port_num}/{proto}"
+                    if loopback_ports and port_proto in loopback_ports:
+                        continue
+                    if active_ports is not None and port_proto not in active_ports:
+                        continue
                     if port_proto not in open_ports:
                         open_ports.append(port_proto)
 

@@ -20,7 +20,7 @@ from pathlib import Path
 # Version
 # ---------------------------------------------------------------------------
 
-VERSION = "0.13.0b"
+VERSION = "0.14.1"
 
 # Exit codes
 EXIT_OK       = 0  # clean audit — no alerts, no warnings
@@ -102,10 +102,6 @@ def main(argv=None) -> int:
     if config.install_cron:
         from ufw_audit.cron import run_install_cron
         return run_install_cron(user_config, config, t)
-
-    if config.remove_cron:
-        from ufw_audit.cron import run_remove_cron
-        return run_remove_cron(config, t)
 
     if config.manage_cron:
         from ufw_audit.cron import run_manage_cron
@@ -212,11 +208,34 @@ def main(argv=None) -> int:
         print_service_header, print_port_detail, print_risk_context,
     )
 
+    # Collect listening ports early so we can cross-check actual socket
+    # bindings before classifying service exposure — prevents false positives
+    # for services bound only to 127.0.0.1 with an open UFW rule.
+    from ufw_audit.checks.ports import PortsSnapshot, check_ports
+    from collections import defaultdict as _defaultdict
+    ports_snapshot = PortsSnapshot.from_system()
+    _port_bindings: dict = _defaultdict(list)
+    for _lp in ports_snapshot.ports:
+        _port_bindings[f"{_lp.port}/{_lp.proto}"].append(_lp)
+    loopback_only_ports: set = {
+        pp for pp, lps in _port_bindings.items()
+        if all(lp.is_loopback for lp in lps)
+    }
+    # Ports with at least one non-loopback listener — used to exclude
+    # dangling UFW rules (no active service) from DDNS exposure reporting.
+    active_external_ports: set = {
+        f"{_lp.port}/{_lp.proto}"
+        for _lp in ports_snapshot.ports
+        if not _lp.is_loopback
+    }
+
     if not config.quiet:
         print_section(t("sections.services"))
     report.write_section(t("sections.services"))
 
-    snapshots = ServiceSnapshot.collect(registry, ufw_rules=ufw_numbered)
+    snapshots = ServiceSnapshot.collect(
+        registry, ufw_rules=ufw_numbered, loopback_ports=loopback_only_ports
+    )
     audited_ports: set[str] = set()
 
     for snap in snapshots:
@@ -246,7 +265,7 @@ def main(argv=None) -> int:
         from ufw_audit.output import print_services_panorama
         from ufw_audit.checks.services import ServiceSnapshot as _SS, Exposure, ServiceState
         print_section(t("sections.services_panorama"))
-        all_snaps = _SS.collect_all(registry, ufw_rules=ufw_numbered)
+        all_snaps = _SS.collect_all(registry, ufw_rules=ufw_numbered, loopback_ports=loopback_only_ports)
         from ufw_audit.panorama import build_panorama_rows
         panorama_rows = build_panorama_rows(all_snaps)
         panorama_labels = {
@@ -265,13 +284,12 @@ def main(argv=None) -> int:
     # ======================================================================
     # CHECK 4 — Listening ports
     # ======================================================================
-    from ufw_audit.checks.ports import PortsSnapshot, check_ports
+    # ports_snapshot was already collected before CHECK 3 for loopback detection
 
     if not config.quiet:
         print_section(t("sections.ports_analysis"))
     report.write_section(t("sections.ports_analysis"))
 
-    ports_snapshot = PortsSnapshot.from_system()
     ports_result   = check_ports(
         ports_snapshot,
         audited_ports=audited_ports,
@@ -338,7 +356,11 @@ def main(argv=None) -> int:
     report.write_section(t("sections.ddns"))
 
     ddns_snapshot = DdnsSnapshot.from_system()
-    ddns_result   = check_ddns(ddns_snapshot, ufw_rules=ufw_numbered, t=t)
+    ddns_result   = check_ddns(
+        ddns_snapshot, ufw_rules=ufw_numbered, t=t,
+        loopback_ports=loopback_only_ports,
+        active_ports=active_external_ports,
+    )
     engine.apply(ddns_result)
     from ufw_audit.display import display_result
     display_result(ddns_result, report, config.verbose, quiet=config.quiet)
@@ -449,7 +471,6 @@ def _print_help(t) -> None:
         ("-m, --manage-logs",  "List and delete saved audit reports"),
         ("-c, --install-cron", "Install an automated audit cron job (schedule wizard)"),
         ("--manage-cron",      "List, edit or delete installed cron jobs"),
-        ("--remove-cron",      "Deprecated — use --manage-cron instead"),
         ("--french",           "Switch interface to French"),
         ("-V, --version",      "Show version and exit (no sudo required)"),
         ("-h, --help",         "Show this help message (no sudo required)"),

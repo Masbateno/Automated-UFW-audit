@@ -77,7 +77,8 @@
       "open_world": "exposé sur internet — aucune restriction source dans UFW",
       "open_local": "restreint au réseau local par règle UFW",
       "deny": "bloqué explicitement par règle UFW",
-      "no_rule": "couvert par la politique deny par défaut"
+      "no_rule": "couvert par la politique deny par défaut",
+      "loopback": "lié uniquement sur localhost — la règle UFW n'a aucun effet sur l'accès externe"
     },
     "port_from_config": "Port lu depuis la configuration : {port}",
     "port_auto": "Port détecté automatiquement : {port}",
@@ -230,19 +231,6 @@
     "done_schedule": "Audit automatique '{name}' configuré — {schedule}",
     "done": "Audit automatique configuré — prochaine exécution quotidienne à {time}",
     "invalid_time": "Format d'heure invalide (attendu HH:MM)"
-  },
-  "remove_cron": {
-    "title": "SUPPRESSION DU CRON UFW-AUDIT",
-    "deprecated": "--remove-cron est déprécié et sera supprimé en v0.14.",
-    "deprecated_hint": "Utilisez à la place : sudo ufw-audit --manage-cron  (d:N pour supprimer)",
-    "none_found": "Aucun cron UFW-AUDIT installé.",
-    "not_found": "Aucun cron UFW-AUDIT installé ({path})",
-    "prompt": "Numéro à supprimer, Entrée pour quitter",
-    "invalid": "Sélection invalide",
-    "removed_cron": "Cron supprimé : {path}",
-    "removed_script": "Script supprimé : {path}",
-    "script_not_found": "Script introuvable (déjà supprimé ?) : {path}",
-    "done": "Automatisation désinstallée."
   },
   "manage_cron": {
     "title": "GESTION DES CRONS UFW-AUDIT",

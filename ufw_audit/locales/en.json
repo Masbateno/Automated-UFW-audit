@@ -77,7 +77,8 @@
       "open_world": "open to internet — no source restriction in UFW",
       "open_local": "restricted to local network by UFW rule",
       "deny": "explicitly blocked by a UFW rule",
-      "no_rule": "covered by default deny policy (no explicit UFW rule needed)"
+      "no_rule": "covered by default deny policy (no explicit UFW rule needed)",
+      "loopback": "bound to localhost only — UFW rule has no effect on external access"
     },
     "port_from_config": "Port read from configuration: {port}",
     "port_auto": "Port auto-detected: {port}",
@@ -213,19 +214,6 @@
     "done_schedule": "Automated audit '{name}' configured — {schedule}",
     "done": "Automated audit configured — next daily run at {time}",
     "invalid_time": "Invalid time format (expected HH:MM)"
-  },
-  "remove_cron": {
-    "title": "UFW-AUDIT CRON REMOVAL",
-    "deprecated": "--remove-cron is deprecated and will be removed in v0.14.",
-    "deprecated_hint": "Use instead: sudo ufw-audit --manage-cron  (d:N to delete)",
-    "none_found": "No UFW-AUDIT cron jobs installed.",
-    "not_found": "No UFW-AUDIT cron installed ({path})",
-    "prompt": "Number to remove, Enter to quit",
-    "invalid": "Invalid selection",
-    "removed_cron": "Cron removed: {path}",
-    "removed_script": "Script removed: {path}",
-    "script_not_found": "Script not found (already removed?): {path}",
-    "done": "Automation uninstalled."
   },
   "manage_cron": {
     "title": "UFW-AUDIT CRON MANAGEMENT",
