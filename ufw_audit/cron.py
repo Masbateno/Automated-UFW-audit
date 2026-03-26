@@ -720,7 +720,7 @@ def edit_cron_schedule(entry, config, t) -> None:
     )
 
     try:
-        fd = _os.open(str(entry.cron_path), _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC, 0o644)
+        fd = _os.open(str(entry.cron_path), _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC, 0o640)
         with _os.fdopen(fd, "w") as fh:
             fh.write(new_text)
     except OSError as exc:

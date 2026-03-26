@@ -23,6 +23,7 @@ Usage:
 
 from __future__ import annotations
 
+import html
 import logging
 import re
 from datetime import datetime
@@ -427,8 +428,9 @@ hr {{ margin: 20px 0; border: none; border-top: 1px solid #ccc; }}
 
 def _inline_format(text: str) -> str:
     """Apply inline formatting (bold, code, links) to text."""
+    # Escape HTML entities first to prevent injection from system-generated content
+    text = html.escape(text)
     # Bold: **text** → <strong>text</strong>
-    import re
     text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
 
     # Code: `text` → <code>text</code>
@@ -531,7 +533,6 @@ def send_html_email(
     # Plaintext fallback: if not provided, extract from HTML body
     if not plain_text_fallback:
         # Simple text extraction from HTML (strip tags)
-        import re
         text = re.sub(r"<[^>]+>", "", html_content)
         text = re.sub(r"\s+", " ", text).strip()
         plain_text_fallback = text[:500]  # Limit to 500 chars

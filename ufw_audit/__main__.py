@@ -147,8 +147,7 @@ def main(argv=None) -> int:
             labels={k: t(f"banner.{k}") for k in
                     ("system", "host", "ufw", "user", "date")},
         )
-        output.print_info(t("report.title") if False else "Démarrage de l'audit"
-                          if config.lang == "fr" else "Starting audit")
+        output.print_info("Démarrage de l'audit" if config.lang == "fr" else "Starting audit")
         print()
 
     report.write_finding("INFO", "Starting audit")

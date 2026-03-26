@@ -166,6 +166,7 @@ def check_ports(
     reported_system_ports: set[str] = set()  # deduplicate system internal ports
     reported_warn_ports:   set[str] = set()  # deduplicate warn/alert ports (multi-address)
     reported_alert_ports:  set[str] = set()  # deduplicate alert ports
+    reported_local_ports:  set[str] = set()  # deduplicate local/loopback ports (multi-address)
 
     for lport in snapshot.ports:
         pp = lport.port_proto
@@ -234,6 +235,9 @@ def check_ports(
             )
 
         elif category == PortCategory.UNCOVERED_LOCAL:
+            if pp in reported_local_ports:
+                continue
+            reported_local_ports.add(pp)
             result.info(
                 message=_t("ports.uncovered", port=pp),
             )
