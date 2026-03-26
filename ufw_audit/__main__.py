@@ -103,10 +103,6 @@ def main(argv=None) -> int:
         from ufw_audit.cron import run_install_cron
         return run_install_cron(user_config, config, t)
 
-    if config.remove_cron:
-        from ufw_audit.cron import run_remove_cron
-        return run_remove_cron(config, t)
-
     if config.manage_cron:
         from ufw_audit.cron import run_manage_cron
         return run_manage_cron(config, t)
@@ -475,7 +471,6 @@ def _print_help(t) -> None:
         ("-m, --manage-logs",  "List and delete saved audit reports"),
         ("-c, --install-cron", "Install an automated audit cron job (schedule wizard)"),
         ("--manage-cron",      "List, edit or delete installed cron jobs"),
-        ("--remove-cron",      "Deprecated — use --manage-cron instead"),
         ("--french",           "Switch interface to French"),
         ("-V, --version",      "Show version and exit (no sudo required)"),
         ("-h, --help",         "Show this help message (no sudo required)"),

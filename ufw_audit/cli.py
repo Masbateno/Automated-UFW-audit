@@ -67,9 +67,6 @@ class AuditConfig:
     install_cron: bool = False
     """--install-cron: install a cron job for automated audits (scheduler wizard)."""
 
-    remove_cron: bool = False
-    """--remove-cron: remove the installed cron job and nightly script."""
-
     manage_cron: bool = False
     """--manage-cron: manage installed cron jobs (list/edit/delete)."""
 
@@ -163,9 +160,6 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
 
         elif arg in ("-c", "--install-cron"):
             config.install_cron = True
-
-        elif arg == "--remove-cron":
-            config.remove_cron = True
 
         elif arg == "--manage-cron":
             config.manage_cron = True
