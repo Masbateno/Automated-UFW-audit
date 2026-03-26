@@ -172,10 +172,11 @@ sudo ufw allow 80/udp
 
 ## Category C — Critical services exposed
 
-### C3 — Redis exposed (service installed and active)
+### C3 — Redis exposed on all interfaces (service installed and active)
 
 ```bash
 sudo ufw allow 6379
+# Redis configured to bind 0.0.0.0 (not the default)
 ```
 
 | Expected | Result |
@@ -184,9 +185,30 @@ sudo ufw allow 6379
 | Risk context CRITICAL displayed | ✔ |
 | `-2` score deduction (NAT context) | ✔ |
 | Panorama: Redis `✖` → `⚠` | ✔ |
-| DDNS cross-check: `→ 6379/tcp` and `→ 6379/udp` (bare rule) | ✔ |
+| DDNS cross-check: `→ 6379/tcp` | ✔ v0.14.1 (bare rule `6379/udp` filtered — no UDP listener) |
 
 **Root cause fixed (obs 1):** CRITICAL/HIGH services with `OPEN_WORLD` exposure now raise `alert()` instead of `warn()`, moving them to "Action required". (commit `e01b24b`)
+
+---
+
+### C3b — Redis loopback only — false positive fix (v0.14.1)
+
+Default Redis configuration: binds to `127.0.0.1` only, but a permissive UFW rule exists.
+
+```bash
+sudo ufw allow 6379
+# Redis default: bind 127.0.0.1 (loopback only)
+```
+
+| Expected | Result |
+|----------|--------|
+| `ℹ [INFO]` Port 6379/tcp — bound to localhost only — UFW rule has no effect on external access | ✔ v0.14.1 |
+| No ALERT, no score deduction | ✔ |
+| Panorama: Redis `✔` (rule exists, exposure = LOOPBACK) | ✔ |
+| DDNS: `6379/tcp` NOT in exposed ports (loopback only) | ✔ |
+| DDNS: `6379/udp` NOT in exposed ports (no UDP listener) | ✔ |
+
+**Root cause fixed (v0.14.1):** `_classify_exposure()` was UFW-only and did not cross-check actual socket bindings. Fix: `PortsSnapshot` is now collected before CHECK 3; ports where all `ss` bindings are loopback get `Exposure.LOOPBACK` (INFO, no deduction). `_find_open_ports()` in `ddns.py` now also receives the `loopback_ports` and `active_ports` sets. (commits `2bfc85b`, `64311be`)
 
 ---
 
@@ -200,8 +222,9 @@ sudo ufw allow 3306
 |----------|--------|
 | No service alert (MySQL not installed) | ✔ v0.11.4 |
 | Port 3306 open in UFW but unmatched to any installed service | confirmed |
+| DDNS: `3306/tcp` and `3306/udp` NOT in exposed ports (no active listener) | ✔ v0.14.1 |
 
-> **Known behaviour:** ufw-audit only flags port exposure for installed+detected services. Orphan UFW rules (port open, service absent) are not currently flagged. Potential future improvement.
+> **Behaviour updated (v0.14.1):** `_find_open_ports()` now cross-checks against actual non-loopback listeners (`active_ports` set from `ss`). Orphan UFW rules (port open, no service running) are excluded from the DDNS exposed ports list. `3306/tcp` and `3306/udp` no longer appear in DDNS findings when MySQL is not installed.
 
 ---
 
@@ -221,7 +244,26 @@ With `80 ALLOW IN Anywhere` (no `/tcp`), the DDNS cross-check previously showed 
 
 **Root cause fixed:** `_find_open_ports()` now handles bare port rules — adds both `PORT/tcp` and `PORT/udp` to the open ports list. (commit `e01b24b`)
 
-**Validated:** DDNS now correctly lists `→ 80/tcp`, `→ 80/udp` when only `80` (no proto) is in the UFW rules.
+**Validated (v0.14.1 update):** Bare rule `80 ALLOW` with Nginx listening on `0.0.0.0:80` → DDNS correctly lists `→ 80/tcp` only (`80/udp` filtered — no UDP listener on port 80).
+
+---
+
+### Obs — DDNS false positives: system ports and orphan rules (v0.14.1)
+
+```bash
+sudo ufw allow 53
+sudo ufw allow 3306
+sudo ufw allow 6379
+# Redis on 127.0.0.1 only, MySQL not installed
+```
+
+| Expected | Result |
+|----------|--------|
+| DDNS: `53/tcp`, `53/udp` NOT listed (system port filter) | ✔ v0.14.1 |
+| DDNS: `3306/tcp`, `3306/udp` NOT listed (no active listener) | ✔ v0.14.1 |
+| DDNS: `6379/tcp`, `6379/udp` NOT listed (loopback only / no UDP listener) | ✔ v0.14.1 |
+
+**Root cause fixed (v0.14.1):** Added `_DDNS_SYSTEM_PORTS` constant (53, 67, 68, 546, 547, 5353) and `active_ports` cross-check in `_find_open_ports()`. Only ports with an actual non-loopback listener in `ss` output are included in the DDNS exposed list. (commit `64311be`)
 
 ---
 
