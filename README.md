@@ -1,9 +1,9 @@
 *[Lire en français](README_FR.md)*
 
-# ufw-audit v0.14
+# ufw-audit v0.14.1
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.14-brightgreen)
+![Release](https://img.shields.io/badge/version-v0.14.1-brightgreen)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
 
@@ -371,7 +371,9 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v0.13** — Multi-cron scheduler: named cron jobs, 4-step schedule wizard (daily / week days / month days / custom expression), `--manage-cron` TUI, `--remove-cron` with explicit selection, `cron.py` isolated module
 
-**v0.14** *(stable)* — Refactoring: `__main__.py` reduced from ~1820 to ~481 lines; new dedicated modules: `display.py`, `fixes.py`, `manage_logs.py`, `panorama.py`, `sysinfo.py`; `check_rules()` moved to `checks/firewall.py`; pure orchestrator with no business logic
+**v0.14** — Refactoring: `__main__.py` reduced from ~1820 to ~481 lines; new dedicated modules: `display.py`, `fixes.py`, `manage_logs.py`, `panorama.py`, `sysinfo.py`; `check_rules()` moved to `checks/firewall.py`; pure orchestrator with no business logic
+
+**v0.14.1** *(stable)* — Post-release corrections: false positive ALERT for loopback-bound services (Redis/6379), DDNS false positives (system ports, dangling rules, bare proto rules), `--remove-cron` not removed on release, VERSION banner showing `v0.13.0b`
 
 **v0.15** *(planned)*
 - Security code review: full audit of input validation, file permissions, shell call surfaces, error handling, and Python practices across all modules
