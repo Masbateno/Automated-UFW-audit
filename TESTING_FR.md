@@ -172,21 +172,43 @@ sudo ufw allow 80/udp
 
 ## Catégorie C — Services critiques exposés
 
-### C3 — Redis exposé (service installé et actif)
+### C3 — Redis exposé sur toutes les interfaces (service installé et actif)
 
 ```bash
 sudo ufw allow 6379
+# Redis configuré pour écouter sur 0.0.0.0 (pas la configuration par défaut)
 ```
 
 | Attendu | Résultat |
 |----------|----------|
-| `✖ [ALERTE]` Port 6379/tcp — ouveru à internet (Action requise) | ✔ v0.11.4 |
+| `✖ [ALERTE]` Port 6379/tcp — ouvert à internet (Action requise) | ✔ v0.11.4 |
 | Contexte risque CRITIQUE affiché | ✔ |
 | Déduction score `-2` (contexte NAT) | ✔ |
 | Panorama : Redis `✖` → `⚠` | ✔ |
-| Vérification croisée DDNS : `→ 6379/tcp` et `→ 6379/udp` (règle nue) | ✔ |
+| Vérification croisée DDNS : `→ 6379/tcp` | ✔ v0.14.1 (`6379/udp` filtré — pas de listener UDP) |
 
 **Cause racine corrigée (obs 1) :** Services CRITIQUE/ÉLEVÉS avec exposition `OPEN_WORLD` lèvent maintenant `alert()` au lieu `warn()`, les déplaçant à « Action requise ». (commit `e01b24b`)
+
+---
+
+### C3b — Redis loopback uniquement — correction faux positif (v0.14.1)
+
+Configuration Redis par défaut : écoute sur `127.0.0.1` uniquement, mais une règle UFW permissive existe.
+
+```bash
+sudo ufw allow 6379
+# Redis par défaut : bind 127.0.0.1 (loopback uniquement)
+```
+
+| Attendu | Résultat |
+|----------|----------|
+| `ℹ [INFO]` Port 6379/tcp — lié uniquement sur localhost — la règle UFW n'a aucun effet sur l'accès externe | ✔ v0.14.1 |
+| Pas d'ALERTE, pas de déduction de score | ✔ |
+| Panorama : Redis `✔` (règle existe, exposition = LOOPBACK) | ✔ |
+| DDNS : `6379/tcp` absent de la liste exposée (loopback uniquement) | ✔ |
+| DDNS : `6379/udp` absent de la liste exposée (pas de listener UDP) | ✔ |
+
+**Cause racine corrigée (v0.14.1) :** `_classify_exposure()` se basait uniquement sur UFW et ne vérifiait pas les bindings réels des sockets. Correction : `PortsSnapshot` est collecté avant le CHECK 3 ; les ports dont tous les bindings `ss` sont en loopback reçoivent `Exposure.LOOPBACK` (INFO, sans déduction). `_find_open_ports()` dans `ddns.py` reçoit également les ensembles `loopback_ports` et `active_ports`. (commits `2bfc85b`, `64311be`)
 
 ---
 
@@ -198,10 +220,11 @@ sudo ufw allow 3306
 
 | Attendu | Résultat |
 |----------|----------|
-| Pas alerte service (MySQL non installé) | ✔ v0.11.4 |
+| Pas d'alerte service (MySQL non installé) | ✔ v0.11.4 |
 | Port 3306 ouvert dans UFW mais non-correspondant à aucun service installé | confirmé |
+| DDNS : `3306/tcp` et `3306/udp` absents de la liste exposée (aucun listener actif) | ✔ v0.14.1 |
 
-> **Comportement connu :** ufw-audit signale uniquement exposition port pour services installés+détectés. Règles UFW orphelines (port ouvert, service absent) ne sont pas actuellement signalées. Amélioration future potentielle.
+> **Comportement mis à jour (v0.14.1) :** `_find_open_ports()` effectue maintenant une vérification croisée avec les listeners non-loopback réels (ensemble `active_ports` depuis `ss`). Les règles UFW orphelines (port ouvert, aucun service actif) sont exclues de la liste d'exposition DDNS. `3306/tcp` et `3306/udp` n'apparaissent plus dans les résultats DDNS quand MySQL n'est pas installé.
 
 ---
 
@@ -217,11 +240,30 @@ Pas encore testé en direct. Couvert par unit tests dans `test_check_rules.py` :
 
 ### Obs — DDNS ne détecte pas règles sans-protocole (corrigé)
 
-Avec `80 ALLOW IN Anywhere` (pas `/tcp`), vérification croisée DDNS précédemment affichait rien pour port 80.
+Avec `80 ALLOW IN Anywhere` (pas `/tcp`), la vérification croisée DDNS n'affichait précédemment rien pour le port 80.
 
-**Cause racine corrigée :** `_find_open_ports()` gère maintenant règles ports nus — ajoute `PORT/tcp` et `PORT/udp` à liste ports ouverts. (commit `e01b24b`)
+**Cause racine corrigée :** `_find_open_ports()` gère maintenant les règles ports nus — ajoute `PORT/tcp` et `PORT/udp` à la liste des ports ouverts. (commit `e01b24b`)
 
-**Validé :** DDNS liste correctement maintenant `→ 80/tcp`, `→ 80/udp` quand seulement `80` (pas proto) dans règles UFW.
+**Validé (mise à jour v0.14.1) :** Règle nue `80 ALLOW` avec Nginx écoutant sur `0.0.0.0:80` → DDNS liste correctement `→ 80/tcp` uniquement (`80/udp` filtré — aucun listener UDP sur le port 80).
+
+---
+
+### Obs — Faux positifs DDNS : ports système et règles orphelines (v0.14.1)
+
+```bash
+sudo ufw allow 53
+sudo ufw allow 3306
+sudo ufw allow 6379
+# Redis sur 127.0.0.1 uniquement, MySQL non installé
+```
+
+| Attendu | Résultat |
+|----------|----------|
+| DDNS : `53/tcp`, `53/udp` absents (filtre ports système) | ✔ v0.14.1 |
+| DDNS : `3306/tcp`, `3306/udp` absents (aucun listener actif) | ✔ v0.14.1 |
+| DDNS : `6379/tcp`, `6379/udp` absents (loopback uniquement / pas de listener UDP) | ✔ v0.14.1 |
+
+**Cause racine corrigée (v0.14.1) :** Ajout de la constante `_DDNS_SYSTEM_PORTS` (53, 67, 68, 546, 547, 5353) et vérification croisée `active_ports` dans `_find_open_ports()`. Seuls les ports avec un listener non-loopback réel dans la sortie `ss` sont inclus dans la liste d'exposition DDNS. (commit `64311be`)
 
 ---
 
