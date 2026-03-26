@@ -6,6 +6,25 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v0.15] — en cours (beta)
+
+### Durcissement sécurité — audit complet du code
+
+Revue de sécurité et de qualité complète sur l'ensemble des modules. Aucune vulnérabilité de haute sévérité trouvée. Cinq problèmes de sévérité moyenne et trois de faible sévérité corrigés.
+
+#### Corrections
+
+- **`fixes.py` (M1)** — `subprocess.run()` appelé sans `timeout` ; ajout de `timeout=30` et de `subprocess.TimeoutExpired` dans les exceptions attrapées. Empêche un blocage indéfini si une commande UFW se fige.
+- **`i18n.py` (M2)** — La validation du chemin `UFW_AUDIT_SHARE` utilisait `is_symlink()` uniquement sur le composant final, manquant les liens symboliques intermédiaires. Remplacé par `Path.resolve()` qui suit toute la chaîne de liens symboliques.
+- **`registry.py` (M3)** — Même vulnérabilité de chaîne de liens symboliques que `i18n.py`. Même correctif : `Path.resolve()`.
+- **`manage_logs.py` (M4)** — `prompt_path()` retournait le chemin brut fourni par l'utilisateur sans normalisation. Ajout de `.resolve()` pour développer et canonicaliser le chemin, neutralisant les séquences de traversée `..`.
+- **`cron.py` (M5)** — Les fichiers cron dans `/etc/cron.d/` étaient créés avec `0o644` (lisibles par tous), exposant l'adresse email de notification à tous les utilisateurs du système. Changé en `0o640` (lecture réservée à root et au groupe).
+- **`cron.py` (L1)** — Les variables écrites dans le script bash généré (`NOTIFY_EMAIL`, `LOG_DIR`, préfixe `PYTHONPATH`, chemin du binaire) étaient intégrées avec des guillemets doubles. Remplacé par `shlex.quote()` pour un échappement shell correct de toutes les valeurs.
+- **`display.py` (L2)** — Les nombres magiques `48` et `44` (largeurs de troncature des messages dans le récapitulatif) extraits vers des constantes de module `_SUMMARY_MSG_LEN` et `_SUMMARY_REASON_LEN`.
+- **`report_markdown.py` (L3)** — `except Exception` nu dans la fonction d'envoi d'email remplacé par des types spécifiques : `(OSError, subprocess.TimeoutExpired, ValueError)`.
+
+---
+
 ## [v0.14.1] — 2026-03-26
 
 ### Corrections de bugs (corrections post-sortie)

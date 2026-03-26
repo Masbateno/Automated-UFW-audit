@@ -6,6 +6,25 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.15] — in progress (beta)
+
+### Security hardening — full code audit
+
+Complete security and code quality review of all modules. No high-severity vulnerabilities found. Five medium and three low-severity issues addressed.
+
+#### Fixes
+
+- **`fixes.py` (M1)** — `subprocess.run()` called without `timeout`; added `timeout=30` and `subprocess.TimeoutExpired` to the caught exception types. Prevents indefinite hang if a UFW command stalls.
+- **`i18n.py` (M2)** — `UFW_AUDIT_SHARE` path validation used `is_symlink()` on the final component only, missing intermediate symlinks in the chain. Replaced with `Path.resolve()` which follows the full symlink chain before checking.
+- **`registry.py` (M3)** — Same symlink chain vulnerability as `i18n.py`. Same fix: `Path.resolve()`.
+- **`manage_logs.py` (M4)** — `prompt_path()` returned a raw user-supplied path without normalisation. Added `.resolve()` to expand and canonicalise the path, neutralising `..` traversal sequences.
+- **`cron.py` (M5)** — Cron files in `/etc/cron.d/` were created with `0o644` (world-readable), exposing the notification email address to all system users. Changed to `0o640` (readable by root and group only).
+- **`cron.py` (L1)** — Variables written into the generated bash script (`NOTIFY_EMAIL`, `LOG_DIR`, `PYTHONPATH` prefix, binary path) were embedded with double-quote wrapping. Replaced with `shlex.quote()` for correct shell escaping of all values.
+- **`display.py` (L2)** — Magic numbers `48` and `44` (message truncation widths in the summary box) extracted to module constants `_SUMMARY_MSG_LEN` and `_SUMMARY_REASON_LEN`.
+- **`report_markdown.py` (L3)** — Bare `except Exception` in the email send function replaced with specific types: `(OSError, subprocess.TimeoutExpired, ValueError)`.
+
+---
+
 ## [v0.14.1] — 2026-03-26
 
 ### Bug fixes (post-release corrections)
