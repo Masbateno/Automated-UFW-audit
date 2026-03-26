@@ -60,17 +60,17 @@ Lists all installed cron jobs with their schedule and notification email:
 
 ## Removing a cron job
 
-```bash
-sudo ufw-audit --remove-cron
-```
+Use `--manage-cron` and enter `d:N` to delete job number N:
 
-Lists all installed cron jobs and asks which one to remove:
+```bash
+sudo ufw-audit --manage-cron
+```
 
 ```
   1. nightly              every day at 03:00
 
-  Number to remove, Enter to quit
-  > 1
+  Number to edit, e:N for email, d:N to delete, Enter to quit
+  > d:1
   ✔ Cron removed: /etc/cron.d/ufw-audit-nightly
   ✔ Script removed: /usr/local/bin/ufw-audit-nightly
 ```

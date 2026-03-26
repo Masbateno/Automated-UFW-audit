@@ -60,17 +60,17 @@ Liste tous les crons installés avec leur planning et leur email de notification
 
 ## Supprimer un cron
 
-```bash
-sudo ufw-audit --remove-cron
-```
+Utilisez `--manage-cron` et entrez `d:N` pour supprimer le cron numéro N :
 
-Liste tous les crons installés et demande lequel supprimer :
+```bash
+sudo ufw-audit --manage-cron
+```
 
 ```
   1. nightly              tous les jours à 03:00
 
-  Numéro à supprimer, Entrée pour quitter
-  > 1
+  Numéro pour modifier, e:N pour l'email, d:N pour supprimer, Entrée pour quitter
+  > d:1
   ✔ Cron supprimé : /etc/cron.d/ufw-audit-nightly
   ✔ Script supprimé : /usr/local/bin/ufw-audit-nightly
 ```
