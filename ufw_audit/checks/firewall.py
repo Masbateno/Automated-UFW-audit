@@ -218,7 +218,6 @@ def _identity_t(key: str, **kwargs) -> str:
 
 def check_rules(ufw_verbose: str, ufw_numbered: str, t) -> "CheckResult":
     """Check UFW rules for duplicates, open-any, and IPv6 consistency."""
-    import re
     result = CheckResult()
 
     lines = [l for l in ufw_numbered.splitlines()

@@ -472,14 +472,19 @@ def _parse_log(content: str, cutoff_date: str) -> list[LogEntry]:
             continue
 
         try:
-            entries.append(LogEntry(
-                timestamp=ts,
-                src_ip=src_ip,
-                dst_port=int(dpt),
-                proto=proto,
-            ))
+            port_num = int(dpt)
         except ValueError:
             continue
+
+        if not (1 <= port_num <= 65535):
+            continue
+
+        entries.append(LogEntry(
+            timestamp=ts,
+            src_ip=src_ip,
+            dst_port=port_num,
+            proto=proto,
+        ))
 
     return entries
 

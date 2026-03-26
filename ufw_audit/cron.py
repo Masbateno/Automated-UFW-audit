@@ -615,7 +615,7 @@ def edit_cron_email(entry, t) -> None:
     if entry.script_path.exists():
         try:
             text = entry.script_path.read_text(encoding="utf-8")
-            text = re.sub(r'^NOTIFY_EMAIL=".*"', f'NOTIFY_EMAIL="{new_email}"', text, flags=re.MULTILINE)
+            text = re.sub(r'^NOTIFY_EMAIL=".*"', lambda _: f'NOTIFY_EMAIL="{new_email}"', text, flags=re.MULTILINE)
             entry.script_path.write_text(text, encoding="utf-8")
         except OSError as exc:
             print(f"  ✖ Cannot update script: {exc}")
@@ -714,7 +714,7 @@ def edit_cron_schedule(entry, config, t) -> None:
     new_line = f"{schedule_expr}  root  {entry.script_path}"
     new_text = re.sub(
         r"^\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+root\s+\S+.*$",
-        new_line,
+        lambda _: new_line,
         text,
         flags=re.MULTILINE,
     )

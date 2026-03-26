@@ -455,7 +455,6 @@ def print_banner(
 
 def _strip_ansi(text: str) -> str:
     """Remove ANSI escape codes from a string for length calculation."""
-    import re
     return re.sub(r"\033\[[0-9;]*m", "", text)
 
 
