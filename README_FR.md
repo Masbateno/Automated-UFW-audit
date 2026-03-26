@@ -38,7 +38,6 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 - **`--manage-logs`** — interface interactive pour lister les rapports sauvegardés (nom, taille, date) et les supprimer par index ou en totalité
 - **`--install-cron`** — wizard de planification : nommer le cron, choisir le type de schedule (tous les jours / certains jours de la semaine / certains jours du mois / expression cron personnalisée), définir l'heure et un email de notification optionnel ; aperçu en langage naturel avant confirmation ; crons nommés (`/etc/cron.d/ufw-audit-{nom}`)
 - **`--manage-cron`** — lister, modifier le planning ou supprimer les crons installés interactivement
-- **`--remove-cron`** — lister les crons installés et en supprimer un par numéro
 
 ---
 
@@ -188,9 +187,6 @@ sudo ufw-audit --install-cron
 
 # Lister, modifier ou supprimer les crons installés
 sudo ufw-audit --manage-cron
-
-# Supprimer un cron (sélection par numéro)
-sudo ufw-audit --remove-cron
 ```
 
 Les options se combinent :
@@ -299,7 +295,6 @@ Le rapport s'ouvre avec un en-tête ASCII art sur 62 caractères et contient : i
 | `--log-days=N`          | Analyser les logs sur N jours (défaut : 7)                         |
 | `--manage-logs`         | Interface interactive pour gérer les rapports sauvegardés          |
 | `--install-cron`        | Configurer un audit nocturne automatique (cron)                    |
-| `--remove-cron`         | Supprimer la tâche cron et le script wrapper nocturne              |
 | `--french`              | Passer l'interface en français                                     |
 | `-V`, `--version`       | Afficher la version et quitter (sans sudo)                         |
 | `-h`, `--help`          | Afficher l'aide et quitter (sans sudo)                             |

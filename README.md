@@ -38,7 +38,6 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **`--manage-logs`** — interactive UI to list saved reports (name, size, date) and delete them by index or all at once
 - **`--install-cron`** — schedule wizard: name the job, choose schedule type (daily / specific week days / specific month days / custom cron expression), set time, set optional notification email; preview in natural language before confirmation; named cron jobs (`/etc/cron.d/ufw-audit-{name}`)
 - **`--manage-cron`** — list, edit schedule, or delete installed cron jobs interactively
-- **`--remove-cron`** — list installed cron jobs and remove by number
 
 ---
 
@@ -188,9 +187,6 @@ sudo ufw-audit --install-cron
 
 # List, edit or delete installed cron jobs
 sudo ufw-audit --manage-cron
-
-# Remove a cron job (select by number)
-sudo ufw-audit --remove-cron
 ```
 
 Options can be combined:
@@ -303,7 +299,6 @@ The report opens with a 62-char ASCII art header and contains: system informatio
 | `--log-days=N`          | Analyse logs over N days (default: 7)                              |
 | `--manage-logs`         | Interactive UI to list and delete saved report files               |
 | `--install-cron`        | Set up an automated nightly audit (cron)                           |
-| `--remove-cron`         | Remove the cron entry and nightly wrapper script                   |
 | `--french`              | Switch interface to French                                         |
 | `-V`, `--version`       | Show version and exit (no sudo required)                           |
 | `-h`, `--help`          | Show help and exit (no sudo required)                              |
