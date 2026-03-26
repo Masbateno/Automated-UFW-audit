@@ -23,6 +23,13 @@ Revue de sécurité et de qualité complète sur l'ensemble des modules. Aucune 
 - **`display.py` (L2)** — Les nombres magiques `48` et `44` (largeurs de troncature des messages dans le récapitulatif) extraits vers des constantes de module `_SUMMARY_MSG_LEN` et `_SUMMARY_REASON_LEN`.
 - **`report_markdown.py` (L3)** — `except Exception` nu dans la fonction d'envoi d'email remplacé par des types spécifiques : `(OSError, subprocess.TimeoutExpired, ValueError)`.
 
+#### Corrections — second passage
+
+- **`cron.py`** — `edit_cron_schedule()` recréait les fichiers cron avec `0o644` (lisible par tous), régressant le `0o640` posé par `run_install_cron()`. Unifié en `0o640`.
+- **`__main__.py`** — Branche morte `if False else` laissée lors d'une transition i18n supprimée (`t("report.title")` était inaccessible ; l'expression évaluait toujours la chaîne codée en dur).
+- **`report_markdown.py`** — `_inline_format()` appliquait les substitutions regex gras/code/lien avant d'échapper le HTML de l'entrée. Du contenu généré par le système contenant `<`, `>` ou `&` (noms de processus, chemins) pouvait produire du HTML malformé dans les rapports email. Ajout de `html.escape()` en première étape. Suppression également de deux `import re` inline devenus obsolètes (import déjà présent au niveau du module).
+- **`checks/ports.py`** — Les ports `UNCOVERED_LOCAL` (bindings loopback/LAN sans règle UFW) n'avaient pas de garde de déduplication. Les ports liés à la fois sur `127.0.0.1` et `[::1]` — comme Postfix sur `25/tcp` — étaient rapportés deux fois. Ajout d'un ensemble `reported_local_ports`, analogue aux gardes existants pour les autres catégories.
+
 ---
 
 ## [v0.14.1] — 2026-03-26

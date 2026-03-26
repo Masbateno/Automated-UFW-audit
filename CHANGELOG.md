@@ -23,6 +23,13 @@ Complete security and code quality review of all modules. No high-severity vulne
 - **`display.py` (L2)** — Magic numbers `48` and `44` (message truncation widths in the summary box) extracted to module constants `_SUMMARY_MSG_LEN` and `_SUMMARY_REASON_LEN`.
 - **`report_markdown.py` (L3)** — Bare `except Exception` in the email send function replaced with specific types: `(OSError, subprocess.TimeoutExpired, ValueError)`.
 
+#### Round 2 fixes
+
+- **`cron.py`** — `edit_cron_schedule()` recreated cron files with `0o644` (world-readable), regressing the `0o640` permission set by `run_install_cron()`. Unified to `0o640`.
+- **`__main__.py`** — Dead `if False else` branch left over from an i18n transition removed (`t("report.title")` was unreachable; the expression always evaluated to the hard-coded string).
+- **`report_markdown.py`** — `_inline_format()` applied bold/code/link regex substitutions before HTML-escaping the input. System-generated content containing `<`, `>`, or `&` (process names, file paths) could produce malformed HTML in email reports. Added `html.escape()` as the first step. Also removed two stale inline `import re` statements (module-level import already present).
+- **`checks/ports.py`** — `UNCOVERED_LOCAL` ports (loopback/LAN bindings without a UFW rule) had no deduplication guard. Ports bound on both `127.0.0.1` and `[::1]` — such as Postfix on `25/tcp` — were reported twice. Added `reported_local_ports` set, mirroring the existing guards for other categories.
+
 ---
 
 ## [v0.14.1] — 2026-03-26
