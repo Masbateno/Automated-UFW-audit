@@ -45,7 +45,9 @@ def prompt_path(prompt_label: str, default: Path) -> Path:
         except ImportError:
             pass
 
-    return Path(raw).expanduser() if raw else default
+    # resolve() normalises ".." components and follows symlinks,
+    # preventing path traversal sequences in user-supplied paths.
+    return Path(raw).expanduser().resolve() if raw else default
 
 
 # ---------------------------------------------------------------------------

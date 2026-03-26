@@ -563,7 +563,7 @@ def send_html_email(
         else:
             logger.error(f"mail command failed: {proc.stderr}")
             return False
-    except Exception as exc:
+    except (OSError, subprocess.TimeoutExpired, ValueError) as exc:
         logger.error(f"Failed to send email: {exc}")
         return False
 

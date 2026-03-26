@@ -35,12 +35,10 @@ logger = logging.getLogger(__name__)
 import os as _os
 _share = _os.environ.get("UFW_AUDIT_SHARE", "")
 if _share:
-    _share_path = Path(_share)
-    if (
-        _share_path.is_absolute()
-        and not _share_path.is_symlink()
-        and _share_path.is_dir()
-    ):
+    # resolve() follows all symlinks in the chain — prevents symlink-chain
+    # attacks where an intermediate path component points outside the tree.
+    _share_path = Path(_share).resolve()
+    if _share_path.is_absolute() and _share_path.is_dir():
         _DATA_DIR = _share_path / "data"
     else:
         logger.warning("UFW_AUDIT_SHARE is invalid or unsafe, ignoring: %r", _share)
