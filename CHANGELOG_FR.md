@@ -30,6 +30,14 @@ Revue de sécurité et de qualité complète sur l'ensemble des modules. Aucune 
 - **`report_markdown.py`** — `_inline_format()` appliquait les substitutions regex gras/code/lien avant d'échapper le HTML de l'entrée. Du contenu généré par le système contenant `<`, `>` ou `&` (noms de processus, chemins) pouvait produire du HTML malformé dans les rapports email. Ajout de `html.escape()` en première étape. Suppression également de deux `import re` inline devenus obsolètes (import déjà présent au niveau du module).
 - **`checks/ports.py`** — Les ports `UNCOVERED_LOCAL` (bindings loopback/LAN sans règle UFW) n'avaient pas de garde de déduplication. Les ports liés à la fois sur `127.0.0.1` et `[::1]` — comme Postfix sur `25/tcp` — étaient rapportés deux fois. Ajout d'un ensemble `reported_local_ports`, analogue aux gardes existants pour les autres catégories.
 
+#### Corrections — troisième passage
+
+- **`cron.py`** — Deux appels `re.sub()` utilisaient des chaînes fournies par l'utilisateur (email de notification, expression de planification + chemin du script) directement comme argument de remplacement. Une valeur contenant `\1` ou d'autres séquences backslash serait interprétée comme une backreférence par `re.sub()`, provoquant une `re.error` ou une sortie incorrecte silencieuse. Les deux arguments de remplacement remplacés par des lambdas, que `re.sub()` n'interpole jamais comme des patterns.
+- **`report_markdown.py` (`_audit_log_to_html`)** — Tout le contenu dynamique (titres de section extraits du journal d'audit, niveau de log, horodatage, message, paires clé/valeur, éléments de liste, texte de paragraphe) était inséré dans le HTML sans échappement. Des chaînes générées par le système contenant `<`, `>` ou `&` — comme des noms d'hôtes, sorties de commandes ou chemins de fichiers — produiraient du HTML malformé dans les rapports email. Appliqué `html.escape()` à chaque point d'insertion. `except Exception` → `except OSError` sur la lecture du fichier journal.
+- **`checks/firewall.py`** — `import re` redondant à l'intérieur de `check_rules()` supprimé (`re` déjà importé au niveau du module).
+- **`output.py`** — Même `import re` inline redondant supprimé de `_strip_ansi()`.
+- **`checks/logs.py`** — Après extraction de `DPT` depuis une ligne de journal noyau, `int(dpt)` était appelé sans validation de plage. Une entrée de journal malformée avec une valeur hors de `1–65535` créerait silencieusement un `LogEntry` invalide. Vérification explicite des bornes ajoutée avant l'ajout.
+
 ---
 
 ## [v0.14.1] — 2026-03-26

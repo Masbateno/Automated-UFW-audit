@@ -30,6 +30,14 @@ Complete security and code quality review of all modules. No high-severity vulne
 - **`report_markdown.py`** — `_inline_format()` applied bold/code/link regex substitutions before HTML-escaping the input. System-generated content containing `<`, `>`, or `&` (process names, file paths) could produce malformed HTML in email reports. Added `html.escape()` as the first step. Also removed two stale inline `import re` statements (module-level import already present).
 - **`checks/ports.py`** — `UNCOVERED_LOCAL` ports (loopback/LAN bindings without a UFW rule) had no deduplication guard. Ports bound on both `127.0.0.1` and `[::1]` — such as Postfix on `25/tcp` — were reported twice. Added `reported_local_ports` set, mirroring the existing guards for other categories.
 
+#### Round 3 fixes
+
+- **`cron.py`** — Two `re.sub()` calls used user-supplied strings (notification email, schedule expression + script path) directly as replacement arguments. A value containing `\1` or other backslash sequences would be interpreted as a backreference by `re.sub()`, causing `re.error` or silently wrong output. Both replacement arguments replaced with lambdas, which `re.sub()` never pattern-interpolates.
+- **`report_markdown.py` (`_audit_log_to_html`)** — All dynamic content (section titles extracted from the audit log, log level, timestamp, message, key/value pairs, list items, paragraph text) was inserted into HTML without escaping. System-generated strings containing `<`, `>`, or `&` — such as hostnames, command output, or file paths — would produce malformed HTML in email reports. Applied `html.escape()` at every insertion point. Also narrowed `except Exception` → `except OSError` on the log file read.
+- **`checks/firewall.py`** — Redundant `import re` inside `check_rules()` removed (`re` already imported at module level).
+- **`output.py`** — Same redundant inline `import re` removed from `_strip_ansi()`.
+- **`checks/logs.py`** — After extracting `DPT` from a kernel log line, `int(dpt)` was called without range validation. A malformed log entry with a value outside `1–65535` would silently create a bogus `LogEntry`. Added explicit bounds check before appending.
+
 ---
 
 ## [v0.14.1] — 2026-03-26
