@@ -198,14 +198,39 @@ sudo ufw-audit --manage-cron
 ## 📁 Project structure
 
 ```text
-ufw_audit/
-├── checks/        # analysis modules (firewall, services, ports, logs, ddns, docker…)
-├── locales/       # EN / FR translations
-├── data/          # services.json (22 known services)
-├── display.py     # terminal output
-├── cron.py        # multi-job scheduler
-├── report.py      # report generation
-└── __main__.py    # main orchestrator
+Automated-UFW-audit/
+├── install.sh                  # installer / uninstaller
+├── ufw-audit.bash-completion   # bash tab-completion
+├── ufw_audit/                  # main Python package
+│   ├── __main__.py             # orchestrator — entry point
+│   ├── cli.py                  # CLI argument parsing
+│   ├── config.py               # user config & email store (~/.config/ufw-audit/)
+│   ├── cron.py                 # multi-job scheduler (--install-cron / --manage-cron)
+│   ├── display.py              # terminal output helpers
+│   ├── fixes.py                # interactive fix mode UI
+│   ├── i18n.py                 # translation loader
+│   ├── manage_logs.py          # report file management UI
+│   ├── output.py               # print primitives (OK / WARN / ALERT / INFO)
+│   ├── panorama.py             # services panorama table builder
+│   ├── registry.py             # known services registry (services.json loader)
+│   ├── report.py               # plain-text report writer
+│   ├── report_markdown.py      # markdown → HTML email report
+│   ├── scoring.py              # scoring engine (0–10)
+│   ├── sysinfo.py              # system info collection
+│   ├── checks/
+│   │   ├── firewall.py         # UFW status & rule analysis
+│   │   ├── services.py         # 22 known services — exposure classification
+│   │   ├── ports.py            # listening ports analysis (ss)
+│   │   ├── logs.py             # UFW log parsing & brute-force detection
+│   │   ├── ddns.py             # DDNS / internet exposure detection
+│   │   ├── docker.py           # Docker iptables-bypass detection
+│   │   └── virtualization.py   # hypervisor & snap bridge detection
+│   ├── data/
+│   │   └── services.json       # 22 service definitions (ports, risk, context)
+│   └── locales/
+│       ├── en.json             # English strings
+│       └── fr.json             # French strings
+└── tests/                      # unit test suite (one file per module)
 ```
 
 ---
@@ -236,7 +261,7 @@ Contributions welcome — issues, suggestions, pull requests.
 
 ## 📄 License
 
-MIT License
+MIT License — © 2026 Cédric Clauzel
 
 ---
 

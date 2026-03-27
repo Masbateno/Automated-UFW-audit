@@ -198,14 +198,39 @@ sudo ufw-audit --manage-cron
 ## 📁 Structure du projet
 
 ```text
-ufw_audit/
-├── checks/        # modules d'analyse (firewall, services, ports, logs, ddns, docker…)
-├── locales/       # traductions EN / FR
-├── data/          # services.json (22 services connus)
-├── display.py     # affichage terminal
-├── cron.py        # planificateur multi-jobs
-├── report.py      # génération de rapports
-└── __main__.py    # orchestrateur principal
+Automated-UFW-audit/
+├── install.sh                  # installeur / désinstalleur
+├── ufw-audit.bash-completion   # complétion bash
+├── ufw_audit/                  # paquet Python principal
+│   ├── __main__.py             # orchestrateur — point d'entrée
+│   ├── cli.py                  # parsing des arguments CLI
+│   ├── config.py               # configuration utilisateur & emails (~/.config/ufw-audit/)
+│   ├── cron.py                 # planificateur multi-jobs (--install-cron / --manage-cron)
+│   ├── display.py              # helpers d'affichage terminal
+│   ├── fixes.py                # interface du mode correction interactif
+│   ├── i18n.py                 # chargeur de traductions
+│   ├── manage_logs.py          # interface de gestion des rapports
+│   ├── output.py               # primitives d'impression (OK / WARN / ALERT / INFO)
+│   ├── panorama.py             # constructeur du tableau panorama des services
+│   ├── registry.py             # registre des services connus (chargeur services.json)
+│   ├── report.py               # rédacteur de rapport texte
+│   ├── report_markdown.py      # rapport email markdown → HTML
+│   ├── scoring.py              # moteur de score (0–10)
+│   ├── sysinfo.py              # collecte des informations système
+│   ├── checks/
+│   │   ├── firewall.py         # statut UFW & analyse des règles
+│   │   ├── services.py         # 22 services connus — classification d'exposition
+│   │   ├── ports.py            # analyse des ports en écoute (ss)
+│   │   ├── logs.py             # analyse des logs UFW & détection de bruteforce
+│   │   ├── ddns.py             # détection DDNS / exposition Internet
+│   │   ├── docker.py           # détection du contournement iptables par Docker
+│   │   └── virtualization.py   # détection hyperviseur & bridges snap
+│   ├── data/
+│   │   └── services.json       # définitions des 22 services (ports, risque, contexte)
+│   └── locales/
+│       ├── en.json             # chaînes anglaises
+│       └── fr.json             # chaînes françaises
+└── tests/                      # suite de tests unitaires (un fichier par module)
 ```
 
 ---
@@ -236,7 +261,7 @@ Contributions bienvenues — issues, suggestions, pull requests.
 
 ## 📄 Licence
 
-MIT License
+MIT License — © 2026 Cédric Clauzel
 
 ---
 
