@@ -6,7 +6,7 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
-## [v0.15] — en cours (beta)
+## [v0.15] — 2026-03-27
 
 ### Durcissement sécurité — audit complet du code
 
