@@ -27,6 +27,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
+from ufw_audit.checks._run import _identity_t
 from ufw_audit.scoring import CheckResult
 
 logger = logging.getLogger(__name__)
@@ -523,5 +524,3 @@ def _extract_field(line: str, field: str) -> Optional[str]:
     return match.group(1) if match else None
 
 
-def _identity_t(key: str, **kwargs) -> str:
-    return key

@@ -26,7 +26,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
-from ufw_audit.checks._run import _run
+from ufw_audit.checks._run import _identity_t, _run
 from ufw_audit.registry import Service, ServiceRegistry
 from ufw_audit.scoring import CheckResult
 
@@ -517,5 +517,3 @@ def _classify_exposure(port: str, ufw_rules: str) -> Exposure:
     return Exposure.NO_RULE
 
 
-def _identity_t(key: str, **kwargs) -> str:
-    return key

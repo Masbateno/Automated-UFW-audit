@@ -12,6 +12,11 @@ _SUMMARY_MSG_LEN    = 48   # finding messages (action / improvement / structural
 _SUMMARY_REASON_LEN = 44   # score deduction reasons
 
 
+def _truncate(text: str, max_len: int) -> str:
+    """Truncate text to max_len characters, appending ellipsis if needed."""
+    return text[:max_len] + "…" if len(text) > max_len else text
+
+
 # ---------------------------------------------------------------------------
 # Check result display
 # ---------------------------------------------------------------------------
@@ -231,19 +236,19 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
             lines.append(("---", ""))
             lines.append((f"✖ {t('summary.block_action')}", ""))
             for item in action_items:
-                msg = item.message[:_SUMMARY_MSG_LEN] + "…" if len(item.message) > _SUMMARY_MSG_LEN else item.message
+                msg = _truncate(item.message, _SUMMARY_MSG_LEN)
                 lines.append((f"  ✖  {msg}", ""))
         if improvement_items:
             lines.append(("---", ""))
             lines.append((f"⚠ {t('summary.block_improve')}", ""))
             for item in improvement_items:
-                msg = item.message[:_SUMMARY_MSG_LEN] + "…" if len(item.message) > _SUMMARY_MSG_LEN else item.message
+                msg = _truncate(item.message, _SUMMARY_MSG_LEN)
                 lines.append((f"  ⚠  {msg}", ""))
         if structural_items:
             lines.append(("---", ""))
             lines.append((f"ℹ {t('summary.block_normal')}", ""))
             for item in structural_items:
-                msg = item.message[:_SUMMARY_MSG_LEN] + "…" if len(item.message) > _SUMMARY_MSG_LEN else item.message
+                msg = _truncate(item.message, _SUMMARY_MSG_LEN)
                 lines.append((f"  ℹ  {msg}", ""))
 
     if engine.breakdown or engine.cap_info:
@@ -252,7 +257,7 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
         for ded in engine.breakdown:
             if ded.points == 0:
                 continue
-            reason = ded.reason[:_SUMMARY_REASON_LEN] + "…" if len(ded.reason) > _SUMMARY_REASON_LEN else ded.reason
+            reason = _truncate(ded.reason, _SUMMARY_REASON_LEN)
             lines.append((f"  -{ded.points}  {reason}", ""))
         if engine.cap_info:
             cap_note = t("scoring.cap_note", max=engine.cap_info.maximum)

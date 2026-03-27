@@ -24,7 +24,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 
-from ufw_audit.checks._run import _run
+from ufw_audit.checks._run import _identity_t, _run
 from ufw_audit.scoring import CheckResult
 
 # Ports above this threshold are considered ephemeral (kernel-assigned)
@@ -398,5 +398,3 @@ def _split_addr_port(local_addr: str) -> tuple[str | None, str | None]:
     return None, None
 
 
-def _identity_t(key: str, **kwargs) -> str:
-    return key

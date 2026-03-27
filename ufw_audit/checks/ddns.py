@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from ufw_audit.checks._run import _run
+from ufw_audit.checks._run import _identity_t, _run
 from ufw_audit.scoring import CheckResult
 
 
@@ -434,5 +434,3 @@ def _find_open_ports(
     return open_ports
 
 
-def _identity_t(key: str, **kwargs) -> str:
-    return key

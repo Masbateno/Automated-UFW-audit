@@ -11,6 +11,8 @@ import re
 import shlex
 import subprocess
 
+from ufw_audit.display import _SUMMARY_MSG_LEN, _truncate
+
 
 def run_fixes(engine, config, t) -> None:
     """Display and optionally apply automatic fixes."""
@@ -63,7 +65,7 @@ def run_fixes(engine, config, t) -> None:
 
     print()
     for msg, cmd in sorted_items:
-        short = msg[:48] + "…" if len(msg) > 48 else msg
+        short = _truncate(msg, _SUMMARY_MSG_LEN)
         print(f"  ✖  {short}")
         print(f"  → {cmd}")
         if config.yes:

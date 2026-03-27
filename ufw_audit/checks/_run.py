@@ -1,13 +1,13 @@
 """
-Shared subprocess helper for ufw-audit check modules.
+Shared subprocess and utility helpers for ufw-audit check modules.
 
-All check modules that need to run system commands use this module
-instead of duplicating the same _run() helper.
+All check modules import from here instead of duplicating these helpers.
 """
 
 from __future__ import annotations
 
 import logging
+import shutil
 import subprocess
 
 _CMD_TIMEOUT = 10  # seconds — shared across all check modules
@@ -25,3 +25,13 @@ def _run(*args: str) -> str:
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
         logger.debug("Command %r failed: %s", args, exc)
         return ""
+
+
+def _command_exists(name: str) -> bool:
+    """Return True if the command is available in PATH."""
+    return shutil.which(name) is not None
+
+
+def _identity_t(key: str, **kwargs) -> str:
+    """Fallback translation function — returns the key itself."""
+    return key
