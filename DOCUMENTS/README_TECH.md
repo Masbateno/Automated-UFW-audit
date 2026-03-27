@@ -210,62 +210,109 @@ sudo ufw-audit --reconfigure
 ## Example output
 
 ```
-╔══════════════════════════════════════════════════════════════╗
-║   ██╗   ██╗███████╗██╗    ██╗  ┌────────────────────────┐    ║
-║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.13      │    ║
-║   ██║   ██║█████╗  ██║ █╗ ██║  │  UFW firewall audit    │    ║
-║   ██║   ██║██╔══╝  ██║███╗██║  └────────────────────────┘    ║
-║   ╚██████╔╝██║     ╚███╔███╔╝              _ _               ║
-║    ╚═════╝ ╚═╝      ╚══╝╚══╝             _(-_-)_             ║
-║                                            audit             ║
-╠══════════════════════════════════════════════════════════════╣
-║  System       : Ubuntu 24.04 LTS                             ║
-║  Host         : my-machine                                   ║
-║  UFW          : v0.36.2                                      ║
-║  User         : alice                                        ║
-║  Date         : 19/03/2026 10:00                             ║
-╚══════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════════════════╗
+║ ██╗   ██╗ ███████╗ ██╗    ██╗      █████╗  ██╗   ██╗ ██████╗  ██╗ ████████╗  ║
+║ ██║   ██║ ██╔════╝ ██║    ██║     ██╔══██╗ ██║   ██║ ██╔══██╗ ██║ ╚══██╔══╝  ║
+║ ██║   ██║ █████╗   ██║ █╗ ██║ ═══ ███████║ ██║   ██║ ██║  ██║ ██║    ██║     ║
+║ ██║   ██║ ██╔══╝   ██║███╗██║     ██╔══██║ ██║   ██║ ██║  ██║ ██║    ██║     ║
+║ ╚██████╔╝ ██║      ╚███╔███╔╝     ██║  ██║ ╚██████╔╝ ██████╔╝ ██║    ██║     ║
+║  ╚═════╝  ╚═╝       ╚══╝╚══╝      ╚═╝  ╚═╝  ╚═════╝  ╚═════╝  ╚═╝    ╚═╝     ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║  UFW-AUDIT v0.15  │  UFW firewall audit                                      ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║  System        : Ubuntu 24.04 LTS                                            ║
+║  Host          : my-machine                                                  ║
+║  UFW           : v0.36.2                                                     ║
+║  User          : alice                                                       ║
+║  Date          : 27/03/2026 10:00                                            ║
+╚══════════════════════════════════════════════════════════════════════════════╝
 
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  FIREWALL STATUS                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
 
-┌──────────────────────────────────────────────────────────────┐
-│  NETWORK SERVICES ANALYSIS                                   │
-└──────────────────────────────────────────────────────────────┘
+✔ [OK] UFW is installed
+✔ [OK] UFW firewall is active
+✔ [OK] Default policy: incoming connections blocked (recommended)
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  UFW RULES ANALYSIS                                                            │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+✔ [OK] No duplicate UFW rules detected
+✔ [OK] No 'allow from any' rule without port restriction detected
+✔ [OK] IPv6 configuration consistent with UFW rules
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  NETWORK SERVICES ANALYSIS                                                     │
+└──────────────────────────────────────────────────────────────────────────────┘
 
   ▶ SSH Server
     ┄ Risk context — CRITICAL
     Exposure : Heavily targeted by automated scanners and brute-force attacks
-    Threat   : Full shell access to the machine, privilege escalation
+    Potential threat   : Full shell access to the machine, privilege escalation
 
-✖ [ALERT] Port 22/tcp: exposure = open to internet
-    → sudo ufw delete allow 22/tcp
-    → sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp
+✖ [ALERT] Port 22/tcp — open to internet — no source restriction in UFW
 
+  ▶ Nginx Web Server
+✔ [OK] Service active and set to start automatically at boot
+⚠ [WARNING] Port 80/tcp — open to internet — no source restriction in UFW
 
-┌──────────────────────────────────────────────────────────────┐
-│  DOCKER ANALYSIS                                             │
-└──────────────────────────────────────────────────────────────┘
+  ▶ Redis
+    ┄ Risk context — CRITICAL
+    Exposure : No authentication by default historically, very frequently misconfigured
+    Potential threat   : Read/write access to all data, remote code execution (RCE)
 
-⚠ [WARNING] Docker may bypass UFW rules — iptables is not disabled in daemon.json
-  ℹ This is an architectural choice, not a simple fix — three options:
-  ℹ   1. Disable Docker iptables (advanced): set {"iptables": false} in daemon.json
-  ℹ   2. Add explicit UFW rules for your container ports (safer, recommended)
-  ℹ   → Read before acting: https://docs.docker.com/network/iptables/
+✔ [OK] Service active and set to start automatically at boot
+ℹ [INFO] Port 6379/tcp — covered by default deny policy (no explicit UFW rule needed)
 
-╔══════════════════════════════════════════════════════════════╗
-║  Security score : 7/10                                       ║
-║  Risk level     : ⚠ MEDIUM                                   ║
-║  Network context: 🏠 Local network only                      ║
-╠══════════════════════════════════════════════════════════════╣
-║  ✖ Action required                                           ║
-║    ✖  Port 22/tcp: exposure = open to internet               ║
-║    ✖  Docker bypasses UFW rules via iptables…                ║
-╠══════════════════════════════════════════════════════════════╣
-║  Score breakdown                                             ║
-║    -2  Port 22/tcp open to internet                          ║
-║    -1  Docker iptables bypass                                ║
-╚══════════════════════════════════════════════════════════════╝
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  SERVICES PANORAMA                                                             │
+└──────────────────────────────────────────────────────────────────────────────┘
 
-  Corrections needed. Prioritize items marked "Action required".
+  SERVICE                           STATUS         PORT(S)               UFW
+  ────────────────────────────────  ─────────────  ────────────────────  ───
+  SSH Server                        ACTIVE         22/tcp                ✖
+  Nginx Web Server                  ACTIVE         80/tcp, 443/tcp       ⚠
+  Redis                             ACTIVE         6379/tcp              ✖
+  ...
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  LISTENING PORTS ANALYSIS                                                      │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+ℹ [INFO] Internal system port — no risk: 53/udp (DNS)
+ℹ [INFO] Port 25/tcp — bound to localhost only — no external exposure
+✔ [OK] All ports listening on 0.0.0.0 are covered by a UFW rule
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  UFW LOG ANALYSIS                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  Period analysed : 7 day(s) — 7 day(s) of logs available
+
+✔ [OK] Normal activity — 47 blocked attempt(s) over 7 day(s), no threat detected
+ℹ [INFO] Top source IPs : 203.0.113.42 (US, Virginia) — 18 attempt(s)
+ℹ [INFO] Top targeted ports : 22/tcp — 31 attempt(s)
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  Security score : 6/10                                                       ║
+║  Risk level : ✖ MEDIUM                                                       ║
+║  Network context : 🌐 Exposed to internet                                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║  ✖ Action required                                                           ║
+║    ✖  Port 22/tcp — open to internet — no source restricti…                  ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║  ⚠ Possible improvements                                                     ║
+║    ⚠  Port 80/tcp — open to internet — no source restricti…                  ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║  Score breakdown                                                             ║
+║    -2  SSH Server 22/tcp open_world                                          ║
+║    -1  Nginx Web Server 80/tcp open_world                                    ║
+║    -1  SSH Server 22/tcp open_world                                          ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+  Corrections are needed. Address items marked 'Action required' first.
 ```
 
 ---
