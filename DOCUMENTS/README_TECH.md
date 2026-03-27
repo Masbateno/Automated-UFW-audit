@@ -1,4 +1,4 @@
-*[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](README.md)*
+*[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
 # ufw-audit v0.14.1
 
@@ -384,10 +384,10 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 ## License
 
-This project is licensed under the MIT License. See `LICENSE` for details.
+MIT License — © 2026 Cédric Clauzel. See `LICENSE` for details.
 
 ---
 
 ## Author
 
-so6
+Cédric Clauzel

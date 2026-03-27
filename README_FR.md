@@ -1,4 +1,4 @@
-*[Read in English](README.md)* · *[Documentation technique](README_TECH_FR.md)*
+*[Read in English](README.md)* · *[Documentation technique](DOCUMENTS/README_TECH_FR.md)*
 
 # 🔥 ufw-audit — Audit intelligent de votre firewall UFW
 
@@ -201,6 +201,13 @@ sudo ufw-audit --manage-cron
 Automated-UFW-audit/
 ├── install.sh                  # installeur / désinstalleur
 ├── ufw-audit.bash-completion   # complétion bash
+├── DOCUMENTS/                  # documentation complète
+│   ├── README_TECH.md          # référence technique complète (EN)
+│   ├── README_TECH_FR.md       # référence technique complète (FR)
+│   ├── CHANGELOG.md / _FR.md   # historique des versions
+│   ├── TESTING.md / _FR.md     # plan de test & scénarios validés
+│   ├── AUTOMATION.md / _FR.md  # guide d'automatisation cron & CI
+│   └── README_DEV.md / _FR.md  # notes développeur
 ├── ufw_audit/                  # paquet Python principal
 │   ├── __main__.py             # orchestrateur — point d'entrée
 │   ├── cli.py                  # parsing des arguments CLI
