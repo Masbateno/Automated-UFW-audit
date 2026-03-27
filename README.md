@@ -73,13 +73,31 @@ cd Automated-UFW-audit
 sudo ./install.sh
 ```
 
-The installer copies the package to `/usr/local/lib/ufw_audit/`, creates the `/usr/local/bin/ufw-audit` entry point, and installs bash completion.
+### 🔍 Transparent by design
+
+The installer is built so that **nothing happens silently**. Every action is printed to the terminal as it occurs. A complete installation manifest is written to `/usr/local/share/ufw-audit/install.manifest` — a precise record of every file and directory created on your system.
+
+What the installer does:
+- Checks for Python 3.8+
+- Copies the package to `/usr/local/lib/ufw_audit/`
+- Copies data files to `/usr/local/share/ufw-audit/`
+- Creates the entry point `/usr/local/bin/ufw-audit`
+- Installs bash completion to `/etc/bash_completion.d/ufw-audit`
+- Writes the installation manifest
+
+### 👁 Preview before installing
+
+Not sure? Run a dry-run first — it shows every action that *would* be taken, without touching your system:
 
 ```bash
-# Preview without touching anything
 sudo ./install.sh --dry-run
+```
 
-# Clean uninstall
+### 🧹 Clean uninstall
+
+The uninstaller reads the manifest and removes **exactly** what was installed — no more, no less. Directories are only removed if empty. Your user configuration (`~/.config/ufw-audit/`) is kept by default and removed only if you explicitly confirm.
+
+```bash
 sudo ./install.sh --uninstall
 ```
 
