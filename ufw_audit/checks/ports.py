@@ -19,16 +19,13 @@ Usage:
 
 from __future__ import annotations
 
-import logging
 import re
-import subprocess
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 
+from ufw_audit.checks._run import _run
 from ufw_audit.scoring import CheckResult
-
-logger = logging.getLogger(__name__)
 
 # Ports above this threshold are considered ephemeral (kernel-assigned)
 EPHEMERAL_THRESHOLD = 32767
@@ -399,22 +396,6 @@ def _split_addr_port(local_addr: str) -> tuple[str | None, str | None]:
         return ipv4_match.group(1), ipv4_match.group(2)
 
     return None, None
-
-
-# ---------------------------------------------------------------------------
-# Subprocess helpers
-# ---------------------------------------------------------------------------
-
-def _run(*args: str) -> str:
-    """Run a command and return stdout. Returns empty string on error."""
-    try:
-        proc = subprocess.run(
-            list(args), capture_output=True, text=True, timeout=10,
-        )
-        return proc.stdout
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
-        logger.debug("Command %r failed: %s", args, exc)
-        return ""
 
 
 def _identity_t(key: str, **kwargs) -> str:

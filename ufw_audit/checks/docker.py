@@ -24,11 +24,11 @@ from __future__ import annotations
 import json
 import logging
 import re
-import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+from ufw_audit.checks._run import _run
 from ufw_audit.scoring import CheckResult
 
 logger = logging.getLogger(__name__)
@@ -352,18 +352,6 @@ def _command_exists(name: str) -> bool:
     """Return True if the command is available in PATH."""
     import shutil
     return shutil.which(name) is not None
-
-
-def _run(*args: str) -> str:
-    """Run a command and return stdout. Returns empty string on error."""
-    try:
-        proc = subprocess.run(
-            list(args), capture_output=True, text=True, timeout=10,
-        )
-        return proc.stdout
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
-        logger.debug("Command %r failed: %s", args, exc)
-        return ""
 
 
 def _identity_t(key: str, **kwargs) -> str:
