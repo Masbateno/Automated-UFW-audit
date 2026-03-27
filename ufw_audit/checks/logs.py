@@ -140,7 +140,7 @@ class LogsSnapshot:
             return cls(entries=[], days_available=0,
                        log_days=log_days, log_found=False)
 
-        _MAX_LOG_SIZE = 100 * 1024 * 1024  # 100 MB
+        _MAX_LOG_SIZE = 10 * 1024 * 1024  # 10 MB — sufficient for weeks of UFW logs
         try:
             with log_path.open(encoding="utf-8", errors="ignore") as fh:
                 content = fh.read(_MAX_LOG_SIZE)

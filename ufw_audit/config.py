@@ -89,6 +89,7 @@ class EmailStore:
     def _ensure_dir(self) -> None:
         try:
             self._path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+            self._path.parent.chmod(0o700)
         except OSError as exc:
             logger.warning("Could not create config directory %s: %s", self._path.parent, exc)
 
@@ -229,6 +230,7 @@ class UserConfig:
         """Create the config directory if it does not exist (mode 0700)."""
         try:
             self._path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+            self._path.parent.chmod(0o700)
         except OSError as exc:
             logger.warning("Could not create config directory %s: %s", self._path.parent, exc)
 
