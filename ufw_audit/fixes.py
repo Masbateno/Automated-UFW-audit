@@ -76,13 +76,16 @@ def run_fixes(engine, config, t) -> None:
         if answer == "y":
             try:
                 proc = subprocess.run(
-                    shlex.split(cmd), stdin=subprocess.DEVNULL, timeout=30,
+                    shlex.split(cmd), stdin=subprocess.DEVNULL,
+                    capture_output=True, timeout=30,
                 )
                 if proc.returncode == 0:
                     print(f"  ✔ {t('fixes.applied')}")
                     applied_cmds.append(cmd)
                 else:
-                    print(f"  ✖ {t('fixes.manual')} (exit {proc.returncode})")
+                    stderr = proc.stderr.decode(errors="replace").strip()
+                    detail = f" — {stderr}" if stderr else ""
+                    print(f"  ✖ {t('fixes.manual')} (exit {proc.returncode}{detail})")
             except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
                 print(f"  ✖ {t('fixes.manual')} ({type(exc).__name__})")
         else:
