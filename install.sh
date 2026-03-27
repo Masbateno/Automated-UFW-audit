@@ -49,6 +49,14 @@ DIM='\033[2m'
 RESET='\033[0m'
 
 # ---------------------------------------------------------------------------
+# Rollback state (populated during install, used by cleanup_on_failure)
+# ---------------------------------------------------------------------------
+
+_INSTALLED_FILES=()
+_INSTALLED_DIRS=()
+INSTALL_SUCCESS=false
+
+# ---------------------------------------------------------------------------
 # Flags
 # ---------------------------------------------------------------------------
 
@@ -92,6 +100,7 @@ do_mkdir() {
         dry "mkdir -p ${dir}"
     else
         mkdir -p "$dir"
+        _INSTALLED_DIRS+=("$dir")
         ok "Created directory: ${dir}"
     fi
 }
@@ -102,6 +111,7 @@ do_copy() {
         dry "cp ${src} → ${dst}"
     else
         cp "$src" "$dst"
+        _INSTALLED_FILES+=("$dst")
         ok "Copied: ${dst}"
     fi
 }
@@ -153,6 +163,37 @@ manifest_add() {
     # Only called during real install (not dry-run)
     echo "$1" >> "$MANIFEST"
 }
+
+# ---------------------------------------------------------------------------
+# Rollback trap — runs on any non-zero exit during install
+# ---------------------------------------------------------------------------
+
+cleanup_on_failure() {
+    $INSTALL_SUCCESS && return   # clean exit — nothing to do
+    $DRY_RUN && return           # dry-run never touches the filesystem
+    $UNINSTALL && return         # uninstall path handles its own errors
+
+    [[ ${#_INSTALLED_FILES[@]} -eq 0 && ${#_INSTALLED_DIRS[@]} -eq 0 ]] && return
+
+    echo ""
+    error "Installation failed — rolling back partial install..."
+
+    for f in "${_INSTALLED_FILES[@]}"; do
+        [[ -f "$f" ]] && rm -f "$f" && warn "Rolled back: ${f}"
+    done
+
+    # Remove directories in reverse order (deepest first)
+    for (( i=${#_INSTALLED_DIRS[@]}-1; i>=0; i-- )); do
+        local d="${_INSTALLED_DIRS[$i]}"
+        if [[ -d "$d" ]] && [[ -z "$(ls -A "$d" 2>/dev/null)" ]]; then
+            rmdir "$d" && warn "Rolled back directory: ${d}"
+        fi
+    done
+
+    error "Rollback complete. No partial install left on disk."
+}
+
+trap cleanup_on_failure EXIT
 
 # ---------------------------------------------------------------------------
 # Root check
@@ -416,6 +457,7 @@ os.environ.setdefault("UFW_AUDIT_SHARE", "${SHARE_DIR}")
 from ufw_audit.__main__ import main
 sys.exit(main())
 ENTRYPOINT
+    _INSTALLED_FILES+=("${ENTRY_POINT}")
     do_chmod 755 "${ENTRY_POINT}"
     ok "Entry point created: ${ENTRY_POINT}"
 fi
@@ -498,4 +540,5 @@ echo ""
 
 $DRY_RUN && echo -e "${DIM}  (dry-run — no changes were made)${RESET}\n"
 
+INSTALL_SUCCESS=true
 exit 0
