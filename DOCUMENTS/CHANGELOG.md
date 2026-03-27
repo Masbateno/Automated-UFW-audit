@@ -6,6 +6,29 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.15.1] — 2026-03-27
+
+### Install script — robustness
+
+- **Trap + rollback on failure** — every file copied and directory created is now tracked in memory. If any step fails (`set -e`), a `trap` fires on exit and removes what was installed so far, leaving the system clean. A partial install without a manifest is no longer possible.
+- **`do_copy_dir` removed** — dead helper using unfiltered `cp -r` (would have copied `__pycache__`, `.pyc`, `.git` artefacts if ever called). All copies already use explicit file lists or `*.json` globs.
+- **Manifest header** — three consecutive `echo >> file` replaced by a single `{ } >> file` block (one file open instead of three).
+
+### Bug fixes
+
+- **`checks/firewall.py`** — open-any rule line with no `[N]` index prefix (unexpected UFW output format) generated `sudo ufw --force delete ?` as the fix command. Now falls back to `cmd=""`, making it a manual item in the fix UI instead of an invalid command.
+- **`fixes.py`** — `subprocess.run()` called without `capture_output`; UFW output leaked to the terminal mid-fix UI. Added `capture_output=True`; stderr is now shown only on failure (`exit N — <stderr>`), keeping the UI clean on success.
+
+### Housekeeping
+
+- **`locales/en.json`, `locales/fr.json`** — `_meta.version` was still `0.13`; updated to `0.15`.
+
+### Documentation
+
+- **`README_TECH.md` (EN + FR)** — Added *Installation design* subsection explaining the global `/usr/local/` layout (no PyPI deps, runs as root, same convention as Ansible/Certbot), why a virtualenv is not used, Python system shebang behaviour on upgrade, and the new rollback trap.
+
+---
+
 ## [v0.15] — 2026-03-27
 
 ### Security hardening — full code audit

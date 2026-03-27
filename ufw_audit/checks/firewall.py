@@ -253,11 +253,11 @@ def check_rules(ufw_verbose: str, ufw_numbered: str, t) -> "CheckResult":
     for line in lines:
         if open_any_pattern.search(line):
             idx_match = re.match(r"\[\s*(\d+)\]", line)
-            real_index = int(idx_match.group(1)) if idx_match else "?"
+            real_index = int(idx_match.group(1)) if idx_match else None
             result.alert(
                 message=t("rules.open_any_found", rule=line.strip()),
                 nature="action",
-                cmd=f"sudo ufw --force delete {real_index}",
+                cmd=f"sudo ufw --force delete {real_index}" if real_index is not None else "",
             )
             result.add_deduction(reason=t("rules.open_any_found", rule=""), points=2)
             found_open_any = True

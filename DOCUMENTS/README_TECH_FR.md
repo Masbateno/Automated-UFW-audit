@@ -106,6 +106,19 @@ L'installateur :
 - Génère un manifeste d'installation dans `/usr/local/share/ufw-audit/install.manifest`
 - Affiche chaque action effectuée
 
+### Choix d'installation
+
+ufw-audit est installé globalement sous `/usr/local/` — la même convention qu'Ansible, Certbot ou Fail2ban.
+
+**Pourquoi pas d'environnement virtuel ?**
+ufw-audit n'a **aucune dépendance PyPI tierce** — uniquement la bibliothèque standard Python. Il tourne en `root` et interagit directement avec les ressources système (`ufw`, `/var/log/ufw.log`, `ss`). Un venv ajouterait de la complexité et un second chemin Python à maintenir sans aucun bénéfice.
+
+**Dépendance au Python système**
+Le shebang du point d'entrée (`#!/usr/bin/env python3`) est généré au moment de l'installation et pointe vers le binaire `python3` actif. Python 3.8+ est requis et vérifié lors des vérifications initiales. Une mise à jour du Python système qui change le binaire `python3` par défaut sera prise en compte automatiquement.
+
+**Rollback en cas d'échec**
+L'installateur suit chaque fichier et répertoire créés. En cas d'erreur à n'importe quelle étape (ex. copie impossible en cours d'installation), un `trap` se déclenche à la sortie et supprime ce qui a déjà été installé, laissant le système propre. Une installation partielle sans manifeste est impossible.
+
 ### Dry-run — voir sans toucher
 
 ```bash
@@ -418,6 +431,8 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 **v0.14.1** *(stable)* — Corrections post-sortie : faux positif ALERT pour services liés au loopback (Redis/6379), faux positifs DDNS (ports système, règles orphelines, règles bare), `--remove-cron` non supprimé à la sortie, bannière VERSION affichant `v0.13.0b`
 
 **v0.15** — Durcissement sécurité (validation des entrées, permissions fichiers, surfaces d'appel shell, gestion d'erreurs) ; refactoring DRY (`checks/_run.py`, `_paths.py`, `_truncate`) ; corrections install script (copie `__init__.py`, vérification version Python, glob locales/docs, nouveaux modules) ; correction bug détection wildcard IPv6 (`open_any_pattern` couvre désormais les lignes `Anywhere (v6)`) ; correction message port loopback (clé `ports.uncovered_local`) ; suite de tests de régression complète validée en direct
+
+**v0.15.1** — Robustesse install script : trap + rollback en cas d'échec partiel, suppression du dead code `do_copy_dir` ; correction bug : open-any sans index `[N]` ne produit plus de commande de fix invalide ; nettoyage sortie UI fix (`capture_output`) ; `_meta.version` des locales corrigé ; choix d'installation documenté dans README_TECH
 
 **v1.0** — CLI stable, complète, validée
 

@@ -6,6 +6,29 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v0.15.1] — 2026-03-27
+
+### Script d'installation — robustesse
+
+- **Trap + rollback en cas d'échec** — chaque fichier copié et répertoire créé est désormais suivi en mémoire. Si une étape échoue (`set -e`), un `trap` se déclenche à la sortie et supprime ce qui a déjà été installé, laissant le système propre. Une installation partielle sans manifeste n'est plus possible.
+- **`do_copy_dir` supprimée** — helper mort utilisant `cp -r` sans filtrage (aurait copié `__pycache__`, `.pyc`, artefacts `.git` si jamais appelé). Toutes les copies utilisent déjà des listes de fichiers explicites ou des globs `*.json`.
+- **En-tête du manifeste** — trois `echo >> fichier` consécutifs remplacés par un seul bloc `{ } >> fichier` (une ouverture de fichier au lieu de trois).
+
+### Corrections de bugs
+
+- **`checks/firewall.py`** — une ligne de règle open-any sans préfixe d'index `[N]` (format de sortie UFW inattendu) générait `sudo ufw --force delete ?` comme commande de correction. Retombe désormais sur `cmd=""`, en faisant un item manuel dans l'interface de fix plutôt qu'une commande invalide.
+- **`fixes.py`** — `subprocess.run()` appelé sans `capture_output` ; la sortie UFW fuitait dans le terminal au milieu de l'interface de fix. Ajout de `capture_output=True` ; le stderr n'est affiché qu'en cas d'échec (`exit N — <stderr>`), gardant l'interface propre en cas de succès.
+
+### Maintenance
+
+- **`locales/en.json`, `locales/fr.json`** — `_meta.version` était encore à `0.13` ; mis à jour en `0.15`.
+
+### Documentation
+
+- **`README_TECH.md` (EN + FR)** — Ajout de la sous-section *Choix d'installation* expliquant le layout global `/usr/local/` (pas de dépendances PyPI, tourne en root, même convention qu'Ansible/Certbot), pourquoi aucun virtualenv n'est utilisé, le comportement du shebang Python système lors d'une mise à jour, et le nouveau trap de rollback.
+
+---
+
 ## [v0.15] — 2026-03-27
 
 ### Durcissement sécurité — audit complet du code

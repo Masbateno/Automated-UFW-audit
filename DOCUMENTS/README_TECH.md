@@ -106,6 +106,19 @@ The installer:
 - Writes an installation manifest to `/usr/local/share/ufw-audit/install.manifest`
 - Displays every action taken
 
+### Installation design
+
+ufw-audit is installed globally under `/usr/local/` — the same convention used by tools like Ansible, Certbot, and Fail2ban.
+
+**Why not a virtual environment?**
+ufw-audit has **no third-party PyPI dependencies** — only the Python standard library. It runs as `root` and interacts directly with system resources (`ufw`, `/var/log/ufw.log`, `ss`). A venv would add complexity and a second Python path to maintain with no benefit.
+
+**Python system dependency**
+The entry point shebang (`#!/usr/bin/env python3`) is generated at install time and resolves to the active `python3` binary. Python 3.8+ is required and verified during pre-flight. A system Python upgrade that changes the default `python3` binary will be picked up automatically.
+
+**Rollback on failure**
+The installer tracks every file and directory it creates. If any step fails (e.g. a copy error mid-install), a `trap` fires on exit and removes what was installed so far, leaving the system clean. A partial install without a manifest cannot occur.
+
 ### Dry-run — see without touching
 
 ```bash
@@ -418,6 +431,8 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 **v0.14.1** *(stable)* — Post-release corrections: false positive ALERT for loopback-bound services (Redis/6379), DDNS false positives (system ports, dangling rules, bare proto rules), `--remove-cron` not removed on release, VERSION banner showing `v0.13.0b`
 
 **v0.15** — Security hardening (input validation, file permissions, shell surfaces, error handling); DRY refactoring (`checks/_run.py`, `_paths.py`, `_truncate`); install script fixes (missing `__init__.py`, Python version check, glob-based locale/doc copy, new modules); IPv6 wildcard detection bug fix (`open_any_pattern` now matches `Anywhere (v6)` lines); loopback port message fix (`ports.uncovered_local` locale key); full live regression test suite validated
+
+**v0.15.1** — Install script robustness: trap + rollback on partial failure, `do_copy_dir` dead code removed; bug fix: open-any without `[N]` index no longer produces invalid fix command; fix UI output cleanup (`capture_output`); locale `_meta.version` corrected; installation design documented in README_TECH
 
 **v1.0** — Stable, complete, validated CLI
 
