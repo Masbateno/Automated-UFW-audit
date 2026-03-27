@@ -274,7 +274,7 @@ ufw-audit is an audit and diagnostic tool — **not a security shield**. It anal
 
 ## 📌 Roadmap
 
-**v0.15** — Security code review: input validation, file permissions, shell call surfaces, error handling, Python best practices
+**v0.15** ✅ — Security hardening, DRY refactoring, install script fixes, IPv6 wildcard detection bug fix
 
 **v1.0** — Stable, complete, validated release
 
