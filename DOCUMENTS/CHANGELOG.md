@@ -6,7 +6,7 @@ All notable changes to this project are documented here.
 
 ---
 
-## [v0.15] — in progress (beta)
+## [v0.15] — 2026-03-27
 
 ### Security hardening — full code audit
 

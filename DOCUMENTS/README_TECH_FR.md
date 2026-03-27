@@ -1,9 +1,9 @@
 *[Read in English](README_TECH.md)* · *[Vue d'ensemble](../README_FR.md)*
 
-# ufw-audit v0.14.1
+# ufw-audit v0.15
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.14.1-brightgreen)
+![Release](https://img.shields.io/badge/version-v0.15-brightgreen)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
 
@@ -210,58 +210,109 @@ sudo ufw-audit -r
 ## Exemple de sortie
 
 ```
-╔══════════════════════════════════════════════════════════════╗
-║   ██╗   ██╗███████╗██╗    ██╗  ┌────────────────────────┐    ║
-║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.13      │    ║
-║   ██║   ██║█████╗  ██║ █╗ ██║  │  UFW firewall audit    │    ║
-║   ██║   ██║██╔══╝  ██║███╗██║  └────────────────────────┘    ║
-║   ╚██████╔╝██║     ╚███╔███╔╝              _ _               ║
-║    ╚═════╝ ╚═╝      ╚══╝╚══╝             _(-_-)_             ║
-║                                            audit             ║
-╠══════════════════════════════════════════════════════════════╣
-║  System       : Ubuntu 24.04 LTS                             ║
-║  Host         : my-machine                                   ║
-║  UFW          : v0.36.2                                      ║
-║  User         : alice                                        ║
-║  Date         : 23/03/2026 10:00                             ║
-╚══════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════════════════╗
+║ ██╗   ██╗ ███████╗ ██╗    ██╗      █████╗  ██╗   ██╗ ██████╗  ██╗ ████████╗  ║
+║ ██║   ██║ ██╔════╝ ██║    ██║     ██╔══██╗ ██║   ██║ ██╔══██╗ ██║ ╚══██╔══╝  ║
+║ ██║   ██║ █████╗   ██║ █╗ ██║ ═══ ███████║ ██║   ██║ ██║  ██║ ██║    ██║     ║
+║ ██║   ██║ ██╔══╝   ██║███╗██║     ██╔══██║ ██║   ██║ ██║  ██║ ██║    ██║     ║
+║ ╚██████╔╝ ██║      ╚███╔███╔╝     ██║  ██║ ╚██████╔╝ ██████╔╝ ██║    ██║     ║
+║  ╚═════╝  ╚═╝       ╚══╝╚══╝      ╚═╝  ╚═╝  ╚═════╝  ╚═════╝  ╚═╝    ╚═╝     ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║  UFW-AUDIT v0.15  │  UFW firewall audit                                      ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║  System        : Ubuntu 24.04 LTS                                            ║
+║  Host          : my-machine                                                  ║
+║  UFW           : v0.36.2                                                     ║
+║  User          : alice                                                       ║
+║  Date          : 27/03/2026 10:00                                            ║
+╚══════════════════════════════════════════════════════════════════════════════╝
 
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  STATUT DU PARE-FEU                                                            │
+└──────────────────────────────────────────────────────────────────────────────┘
 
-┌──────────────────────────────────────────────────────────────┐
-│  ANALYSE DES SERVICES RÉSEAU                                 │
-└──────────────────────────────────────────────────────────────┘
+✔ [OK] UFW est installé
+✔ [OK] Pare-feu UFW actif
+✔ [OK] Politique par défaut : connexions entrantes bloquées (recommandé)
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  ANALYSE DES RÈGLES UFW                                                        │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+✔ [OK] Aucune règle UFW en doublon détectée
+✔ [OK] Aucune règle 'allow from any' sans restriction de port détectée
+✔ [OK] Configuration IPv6 cohérente avec les règles UFW
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  ANALYSE DES SERVICES RÉSEAU                                                   │
+└──────────────────────────────────────────────────────────────────────────────┘
 
   ▶ SSH Server
     ┄ Contexte de risque — CRITIQUE
-    Exposition : Très ciblé par les scans automatisés et les attaques brute-force
-    Menace     : Accès shell complet à la machine, élévation de privilèges
+    Exposition        : Très ciblé par les scans automatisés et les attaques brute-force
+    Menace potentielle : Accès shell complet à la machine, élévation de privilèges
 
-✖ [ALERTE] Port 22/tcp : exposition = ouvert sur internet
-    → sudo ufw delete allow 22/tcp
-    → sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp
+✖ [ALERTE] Port 22/tcp — ouvert sur internet — aucune restriction source dans UFW
 
+  ▶ Nginx Web Server
+✔ [OK] Service actif et configuré pour démarrer automatiquement au boot
+⚠ [ATTENTION] Port 80/tcp — ouvert sur internet — aucune restriction source dans UFW
 
-┌──────────────────────────────────────────────────────────────┐
-│  ANALYSE DOCKER                                              │
-└──────────────────────────────────────────────────────────────┘
+  ▶ Redis
+    ┄ Contexte de risque — CRITIQUE
+    Exposition        : Sans authentification par défaut historiquement, très souvent mal configuré
+    Menace potentielle : Accès en lecture/écriture à toutes les données, exécution de code à distance (RCE)
 
-⚠ [AVERTISSEMENT] Docker peut contourner les règles UFW — iptables n'est pas désactivé dans daemon.json
+✔ [OK] Service actif et configuré pour démarrer automatiquement au boot
+ℹ [INFO] Port 6379/tcp — couvert par la politique de refus par défaut (pas de règle UFW explicite nécessaire)
 
-╔══════════════════════════════════════════════════════════════╗
-║  Score de sécurité : 7/10                                    ║
-║  Niveau de risque  : ⚠ MOYEN                                 ║
-║  Contexte réseau   : 🏠 Réseau local uniquement              ║
-╠══════════════════════════════════════════════════════════════╣
-║  ✖ Action requise                                            ║
-║    ✖  Port 22/tcp : exposition = ouvert sur internet         ║
-║    ✖  Docker contourne les règles UFW via iptables…          ║
-╠══════════════════════════════════════════════════════════════╣
-║  Décomposition du score                                      ║
-║    -2  Port 22/tcp ouvert sur internet                       ║
-║    -1  Contournement iptables Docker                         ║
-╚══════════════════════════════════════════════════════════════╝
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  PANORAMA DES SERVICES                                                         │
+└──────────────────────────────────────────────────────────────────────────────┘
 
-  Corrections nécessaires. Priorisez les éléments marqués "Action requise".
+  SERVICE                           STATUT         PORT(S)               UFW
+  ────────────────────────────────  ─────────────  ────────────────────  ───
+  SSH Server                        ACTIF          22/tcp                ✖
+  Nginx Web Server                  ACTIF          80/tcp, 443/tcp       ⚠
+  Redis                             ACTIF          6379/tcp              ✖
+  ...
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  ANALYSE DES PORTS EN ÉCOUTE                                                   │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+ℹ [INFO] Port système interne — aucun risque : 53/udp (DNS)
+ℹ [INFO] Port 25/tcp — lié uniquement à localhost — pas d'exposition externe
+✔ [OK] Tous les ports en écoute sur 0.0.0.0 sont couverts par une règle UFW
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  ANALYSE DES LOGS UFW                                                          │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  Période analysée : 7 jour(s) — 7 jour(s) de logs disponibles
+
+✔ [OK] Activité normale — 47 tentative(s) bloquée(s) sur 7 jour(s), aucune menace détectée
+ℹ [INFO] Top IPs sources : 203.0.113.42 (US, Virginia) — 18 tentative(s)
+ℹ [INFO] Top ports ciblés : 22/tcp — 31 tentative(s)
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  Score de sécurité : 6/10                                                    ║
+║  Niveau de risque : ✖ MOYEN                                                  ║
+║  Contexte réseau : 🌐 Exposé sur internet                                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║  ✖ Action requise                                                            ║
+║    ✖  Port 22/tcp — ouvert sur internet — aucune restriction…                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║  ⚠ Améliorations possibles                                                   ║
+║    ⚠  Port 80/tcp — ouvert sur internet — aucune restriction…                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║  Décomposition du score                                                      ║
+║    -2  SSH Server 22/tcp open_world                                          ║
+║    -1  Nginx Web Server 80/tcp open_world                                    ║
+║    -1  SSH Server 22/tcp open_world                                          ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+  Corrections nécessaires. Traitez en priorité les éléments marqués "Action requise".
 ```
 
 ---
@@ -366,9 +417,7 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v0.14.1** *(stable)* — Corrections post-sortie : faux positif ALERT pour services liés au loopback (Redis/6379), faux positifs DDNS (ports système, règles orphelines, règles bare), `--remove-cron` non supprimé à la sortie, bannière VERSION affichant `v0.13.0b`
 
-**v0.15** *(planifiée)*
-- Audit de sécurité du code : revue complète de la validation des entrées, des permissions fichiers, des surfaces d'appel shell, de la gestion d'erreurs et des pratiques Python sur l'ensemble des modules
-- Approfondissement du plan de test : règles UFW dangereuses
+**v0.15** — Durcissement sécurité (validation des entrées, permissions fichiers, surfaces d'appel shell, gestion d'erreurs) ; refactoring DRY (`checks/_run.py`, `_paths.py`, `_truncate`) ; corrections install script (copie `__init__.py`, vérification version Python, glob locales/docs, nouveaux modules) ; correction bug détection wildcard IPv6 (`open_any_pattern` couvre désormais les lignes `Anywhere (v6)`) ; correction message port loopback (clé `ports.uncovered_local`) ; suite de tests de régression complète validée en direct
 
 **v1.0** — CLI stable, complète, validée
 
