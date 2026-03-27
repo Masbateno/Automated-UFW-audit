@@ -265,7 +265,8 @@ for candidate in python3 python; do
         ver=$("$candidate" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null)
         major="${ver%%.*}"
         minor="${ver##*.}"
-        if [[ "$major" -ge "$MIN_PYTHON_MAJOR" && "$minor" -ge "$MIN_PYTHON_MINOR" ]]; then
+        if [[ "$major" -gt "$MIN_PYTHON_MAJOR" ]] || \
+           [[ "$major" -eq "$MIN_PYTHON_MAJOR" && "$minor" -ge "$MIN_PYTHON_MINOR" ]]; then
             PYTHON_BIN="$candidate"
             ok "Python ${ver} found at $(command -v "$candidate")"
             break
@@ -282,13 +283,11 @@ fi
 # Source files present
 # Detect layout: package (ufw_audit/) or flat (all files in same dir)
 if [[ -d "${SCRIPT_DIR}/ufw_audit" ]]; then
-    LAYOUT="package"
     SRC_MAIN="${SCRIPT_DIR}/ufw_audit"
     SRC_CHECKS="${SCRIPT_DIR}/ufw_audit/checks"
     SRC_LOCALES="${SCRIPT_DIR}/ufw_audit/locales"
     SRC_DATA="${SCRIPT_DIR}/ufw_audit/data"
 else
-    LAYOUT="flat"
     SRC_MAIN="${SCRIPT_DIR}"
     SRC_CHECKS="${SCRIPT_DIR}"
     SRC_LOCALES="${SCRIPT_DIR}"
@@ -340,9 +339,9 @@ do_mkdir "${COMPLETION_DIR}"
 
 section "Installing Python package"
 
-# Core modules (excluding __init__.py — handled separately above)
+# Core modules
 for module in \
-    __main__.py _paths.py cli.py config.py cron.py display.py fixes.py i18n.py \
+    __init__.py __main__.py _paths.py cli.py config.py cron.py display.py fixes.py i18n.py \
     manage_logs.py output.py panorama.py registry.py report.py \
     report_markdown.py scoring.py sysinfo.py; do
     src="${SRC_MAIN}/${module}"
@@ -361,17 +360,21 @@ for check_module in _run.py firewall.py services.py ports.py logs.py ddns.py doc
 done
 
 section "Installing data files"
-do_copy "${SRC_LOCALES}/en.json" "${SHARE_DIR}/locales/en.json"
-do_copy "${SRC_LOCALES}/fr.json" "${SHARE_DIR}/locales/fr.json"
+for locale_file in "${SRC_LOCALES}"/*.json; do
+    [[ -f "$locale_file" ]] && do_copy "$locale_file" "${SHARE_DIR}/locales/$(basename "$locale_file")"
+done
 do_copy "${SRC_DATA}/services.json" "${SHARE_DIR}/data/services.json"
 
 section "Installing documentation"
-for doc in README.md CHANGELOG.md LICENSE; do
+for doc in README.md README_FR.md LICENSE; do
     src="${SCRIPT_DIR}/${doc}"
-    if [[ -f "$src" ]]; then
-        do_copy "$src" "${DOC_DIR}/${doc}"
-    fi
+    [[ -f "$src" ]] && do_copy "$src" "${DOC_DIR}/${doc}"
 done
+if [[ -d "${SCRIPT_DIR}/DOCUMENTS" ]]; then
+    for doc in "${SCRIPT_DIR}/DOCUMENTS/"*.md; do
+        [[ -f "$doc" ]] && do_copy "$doc" "${DOC_DIR}/$(basename "$doc")"
+    done
+fi
 
 # ---------------------------------------------------------------------------
 # INSTALL — entry point
@@ -451,13 +454,14 @@ else
     done
 
     # Data and locales
-    manifest_add "FILE ${SHARE_DIR}/locales/en.json"
-    manifest_add "FILE ${SHARE_DIR}/locales/fr.json"
+    for f in "${SHARE_DIR}/locales/"*.json; do
+        [[ -f "$f" ]] && manifest_add "FILE $f"
+    done
     manifest_add "FILE ${SHARE_DIR}/data/services.json"
 
     # Documentation
-    for doc in README.md CHANGELOG.md LICENSE; do
-        [[ -f "${DOC_DIR}/${doc}" ]] && manifest_add "FILE ${DOC_DIR}/${doc}"
+    for f in "${DOC_DIR}/"*; do
+        [[ -f "$f" ]] && manifest_add "FILE $f"
     done
 
     # Completion
