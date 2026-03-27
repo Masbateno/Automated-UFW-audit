@@ -38,6 +38,31 @@ Revue de sécurité et de qualité complète sur l'ensemble des modules. Aucune 
 - **`output.py`** — Même `import re` inline redondant supprimé de `_strip_ansi()`.
 - **`checks/logs.py`** — Après extraction de `DPT` depuis une ligne de journal noyau, `int(dpt)` était appelé sans validation de plage. Une entrée de journal malformée avec une valeur hors de `1–65535` créerait silencieusement un `LogEntry` invalide. Vérification explicite des bornes ajoutée avant l'ajout.
 
+### Refactoring — extraction DRY
+
+- **`checks/_run.py`** (nouveau) — hub partagé pour tous les modules de vérification : `_run()`, `_CMD_TIMEOUT = 10`, `_command_exists()`, `_identity_t()`. Les cinq implémentations dupliquées dans `firewall.py`, `services.py`, `ports.py`, `ddns.py`, `docker.py`, `virtualization.py`, `logs.py` supprimées.
+- **`_paths.py`** (nouveau) — `resolve_share_dir()` extrait de `i18n.py` et `registry.py`. Valide la variable d'environnement `UFW_AUDIT_SHARE` avec `Path.resolve()` (sûr vis-à-vis des liens symboliques) avant utilisation.
+- **`display.py`** — Helper `_truncate(text, max_len)` extrait ; cinq ternaires inline dans `display.py` et `fixes.py` remplacés.
+- **`checks/ports.py`** — Les ports `UNCOVERED_LOCAL` (loopback/LAN, sans règle UFW) utilisent désormais la clé locale distincte `ports.uncovered_local` au lieu de `ports.uncovered`. Évite les messages trompeurs « en écoute sur toutes les interfaces » pour les services liés uniquement à localhost (ex. Postfix sur `25/tcp`).
+- **`checks/logs.py`** — `_MAX_LOG_SIZE` réduit de 100 Mo à 10 Mo, suffisant pour plusieurs semaines de logs UFW. Prévient l'épuisement de la mémoire sur des fichiers journaux gonflés.
+
+### Sécurité — permissions du répertoire de configuration
+
+- **`config.py`** — `_ensure_dir()` appelait `mkdir(mode=0o700)` mais Python ignore `mode` si le répertoire existe déjà. Ajout d'un `chmod(0o700)` explicite après `mkdir` pour que les permissions soient appliquées à chaque écriture, pas seulement à la création.
+
+### Corrections du script d'installation
+
+- **`__init__.py` manquant** — `checks/__init__.py` était mentionné dans un commentaire comme « géré séparément » mais n'était jamais copié ni ajouté au manifeste. Corrigé.
+- **Logique de vérification de version Python** — `major >= 3 AND minor >= 8` est incorrecte pour Python 4+. Corrigé en `(major > 3) OR (major == 3 AND minor >= 8)`.
+- **Variable morte `LAYOUT`** — variable inutilisée supprimée.
+- **Copie des locales** — deux lignes `do_copy` codées en dur remplacées par une boucle glob sur `${SRC_LOCALES}/*.json` ; le manifeste utilise le même glob sur les fichiers installés.
+- **Copie de la documentation** — liste codée en dur remplacée par les fichiers racine (`README.md`, `README_FR.md`, `LICENSE`) plus un glob sur `DOCUMENTS/*.md`.
+- **Nouveaux modules absents des listes** — `_paths.py` et `checks/_run.py` ajoutés à la fois à la boucle de copie et à la boucle du manifeste.
+
+### Correction de bug — détection des règles wildcard IPv6
+
+- **`checks/firewall.py`** — `open_any_pattern` ne correspondait pas aux lignes `Anywhere (v6) ALLOW IN Anywhere (v6)`. `ufw allow from any` ajoute à la fois une règle IPv4 et une règle IPv6 ; seule la règle IPv4 était détectée et proposée à la suppression. La règle wildcard IPv6 subsistait après `--fix`, laissant une faille de sécurité réelle. Corrigé : motif étendu avec `(?:\s+\(v6\))?` des deux côtés pour couvrir les quatre variantes (`bare`, `/tcp`, `/udp`, `(v6)`). Test unitaire `test_open_any_v6_both_detected` renforcé de `>= 1` à `== 2`.
+
 ---
 
 ## [v0.14.1] — 2026-03-26

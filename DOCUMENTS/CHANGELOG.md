@@ -38,6 +38,31 @@ Complete security and code quality review of all modules. No high-severity vulne
 - **`output.py`** — Same redundant inline `import re` removed from `_strip_ansi()`.
 - **`checks/logs.py`** — After extracting `DPT` from a kernel log line, `int(dpt)` was called without range validation. A malformed log entry with a value outside `1–65535` would silently create a bogus `LogEntry`. Added explicit bounds check before appending.
 
+### Refactoring — DRY extraction
+
+- **`checks/_run.py`** (new) — shared hub for all check modules: `_run()`, `_CMD_TIMEOUT = 10`, `_command_exists()`, `_identity_t()`. All five duplicate implementations across `firewall.py`, `services.py`, `ports.py`, `ddns.py`, `docker.py`, `virtualization.py`, `logs.py` removed.
+- **`_paths.py`** (new) — `resolve_share_dir()` extracted from `i18n.py` and `registry.py`. Validates `UFW_AUDIT_SHARE` env var with full symlink-safe `Path.resolve()` before use.
+- **`display.py`** — `_truncate(text, max_len)` helper extracted; five inline ternary truncations in `display.py` and `fixes.py` replaced.
+- **`checks/ports.py`** — `UNCOVERED_LOCAL` ports (loopback/LAN, no UFW rule) now use a distinct locale key `ports.uncovered_local` instead of `ports.uncovered`. Prevents misleading "listening on all interfaces" messages for services bound to localhost only (e.g. Postfix on `25/tcp`).
+- **`checks/logs.py`** — `_MAX_LOG_SIZE` reduced from 100 MB to 10 MB, sufficient for weeks of UFW logs. Prevents memory exhaustion from inflated log files.
+
+### Security — config directory permissions
+
+- **`config.py`** — `_ensure_dir()` called `mkdir(mode=0o700)` but Python's `mkdir` ignores `mode` if the directory already exists. Added explicit `chmod(0o700)` after `mkdir` so the permission is enforced on every write, not just on creation.
+
+### Install script fixes
+
+- **Missing `__init__.py`** — `checks/__init__.py` was listed in a comment as "handled separately" but never actually copied or added to the manifest. Fixed.
+- **Python version check logic** — `major >= 3 AND minor >= 8` is wrong for Python 4+. Corrected to `(major > 3) OR (major == 3 AND minor >= 8)`.
+- **Dead `LAYOUT` variable** — unused variable removed.
+- **Locale copy** — two hardcoded `do_copy` lines replaced with a glob loop over `${SRC_LOCALES}/*.json`; manifest uses the same glob on installed files.
+- **Doc copy** — hardcoded list replaced with root files (`README.md`, `README_FR.md`, `LICENSE`) plus a glob over `DOCUMENTS/*.md`.
+- **New modules not in lists** — `_paths.py` and `checks/_run.py` added to both the copy loop and the manifest loop.
+
+### Bug fix — IPv6 wildcard detection
+
+- **`checks/firewall.py`** — `open_any_pattern` did not match `Anywhere (v6) ALLOW IN Anywhere (v6)` lines. `ufw allow from any` adds both an IPv4 and an IPv6 rule; only the IPv4 rule was detected and proposed for deletion. The IPv6 wildcard remained after `--fix`, leaving a real security gap. Fixed: pattern extended with `(?:\s+\(v6\))?` on both sides to cover all four variants (`bare`, `/tcp`, `/udp`, `(v6)`). Unit test `test_open_any_v6_both_detected` tightened from `>= 1` to `== 2`.
+
 ---
 
 ## [v0.14.1] — 2026-03-26
