@@ -34,7 +34,7 @@ sudo ufw allow from any
 | `✖ [ALERT]` Rule allowing all incoming connections without port restriction | ✔ v0.11.4 |
 | `-2` score deduction | ✔ |
 | Fix proposed: `sudo ufw --force delete N` | ✔ |
-| Fix applied correctly | ✔ |
+| Fix applied correctly | ✔ v0.15 |
 | **IPv6 rule also detected and fixed** (`Anywhere (v6) ALLOW IN Anywhere (v6)`) | ✔ v0.15 |
 
 **Root cause fixed (v0.11.4):** `ufw status numbered` pads lines with trailing spaces — the `$` anchor in the regex never matched. Fixed: `Anywhere$` → `Anywhere\s*$`. (commit `8ccd9b6`)
@@ -51,9 +51,9 @@ sudo ufw allow proto tcp from any to any
 
 | Expected | Result |
 |----------|--------|
-| `✖ [ALERT]` Rule allowing all incoming connections without port restriction | ✔ v0.11.4 |
-| `-2` score deduction | ✔ |
-| Fix applied correctly | ✔ |
+| `✖ [ALERT]` Rule allowing all incoming connections without port restriction | ✔ v0.15 |
+| `-2` score deduction | ✔ v0.15 |
+| Fix applied correctly | ✔ v0.15 |
 | **IPv6 variant also detected** (`Anywhere/tcp (v6) ALLOW IN Anywhere/tcp (v6)`) | ✔ v0.15 |
 
 **Root cause fixed (v0.11.4):** Pattern extended to `Anywhere(?:/\w+)?` on both sides to cover `/tcp`, `/udp` variants. (commit `1dd9ede`)
@@ -70,9 +70,9 @@ sudo ufw allow proto udp from any to any
 
 | Expected | Result |
 |----------|--------|
-| `✖ [ALERT]` Rule allowing all incoming connections without port restriction | ✔ v0.11.4 |
-| `-2` score deduction | ✔ |
-| Fix applied correctly | ✔ |
+| `✖ [ALERT]` Rule allowing all incoming connections without port restriction | ✔ v0.15 |
+| `-2` score deduction | ✔ v0.15 |
+| Fix applied correctly | ✔ v0.15 |
 | **IPv6 variant also detected** | ✔ v0.15 |
 
 ---
@@ -87,9 +87,9 @@ sudo ufw allow proto udp from any to any
 
 | Expected | Result |
 |----------|--------|
-| 3 distinct `✖ [ALERT]` findings (IPv4 only) | ✔ v0.11.4 |
-| **6 distinct `✖ [ALERT]` findings (IPv4 + IPv6)** | ✔ v0.15 |
-| Score: 0/10 (capped), Risk level: CRITICAL | ✔ |
+| 3 distinct `✖ [ALERT]` findings (IPv4 only, IPV6=no) | ✔ v0.15 |
+| 6 distinct `✖ [ALERT]` findings (IPv4 + IPv6, IPV6=yes) | ✔ v0.15 |
+| Score: 1/10 (IPV6=no), Risk level: CRITICAL | ✔ v0.15 |
 | 6 fixes proposed and applied in reverse index order (avoids renumbering) | ✔ v0.15 |
 
 ---
@@ -136,9 +136,9 @@ sudo ufw allow 80/tcp comment "test2"
 
 | Expected | Result |
 |----------|--------|
-| `✖ [ALERT]` Duplicate UFW rule detected: `80/tcp ALLOW IN Anywhere` | ✔ v0.11.4 |
-| Comment stripped before comparison — `# test2` ignored | ✔ |
-| Redundant `80/tcp` deleted, `80` kept | ✔ |
+| `✖ [ALERT]` Duplicate UFW rule detected: `80/tcp ALLOW IN Anywhere` | ✔ v0.15 |
+| Comment stripped before comparison — `# test2` ignored | ✔ v0.15 |
+| Redundant `80/tcp` deleted, `80` kept | ✔ v0.15 |
 
 **Root cause fixed:** Comparison now uses comment-stripped, whitespace-normalized text. (commit `b7a285a`)
 
@@ -153,9 +153,9 @@ sudo ufw allow 80/tcp comment "test2"
 
 | Expected | Result |
 |----------|--------|
-| `✖ [ALERT]` Duplicate UFW rule detected: `80/tcp ALLOW IN Anywhere` | ✔ v0.11.4 |
-| `-1` score deduction | ✔ |
-| Fix deletes the protocol-specific rule, keeps the broader one | ✔ |
+| `✖ [ALERT]` Duplicate UFW rule detected: `80/tcp ALLOW IN Anywhere` | ✔ v0.15 |
+| `-1` score deduction | ✔ v0.15 |
+| Fix deletes the protocol-specific rule, keeps the broader one | ✔ v0.15 |
 
 **Root cause fixed:** Two-pass detection — first pass collects all protocol-less rules, second pass checks if `PORT/proto` is a subset of an existing `PORT` rule. (commit `b7a285a`)
 
@@ -186,8 +186,8 @@ sudo ufw allow 80/udp
 
 | Expected | Result |
 |----------|--------|
-| `✔ [OK]` No duplicate UFW rules detected | ✔ v0.11.4 |
-| `80/tcp` and `80/udp` are complementary — not flagged | ✔ |
+| `✔ [OK]` No duplicate UFW rules detected | ✔ v0.15 |
+| `80/tcp` and `80/udp` are complementary — not flagged | ✔ v0.15 |
 
 > Also note: when baseline has `80` (bare), adding `80/tcp` + `80/udp` correctly flags BOTH as semantic duplicates of `80`. Verified live.
 
@@ -204,11 +204,11 @@ sudo ufw allow 6379
 
 | Expected | Result |
 |----------|--------|
-| `✖ [ALERT]` Port 6379/tcp — open to internet (Action required) | ✔ v0.11.4 |
-| Risk context CRITICAL displayed | ✔ |
-| `-2` score deduction (NAT context) | ✔ |
-| Panorama: Redis `✖` → `⚠` | ✔ |
-| DDNS cross-check: `→ 6379/tcp` | ✔ v0.14.1 (bare rule `6379/udp` filtered — no UDP listener) |
+| `✖ [ALERT]` Port 6379/tcp — open to internet (Action required) | ✔ v0.15 |
+| Risk context CRITICAL displayed | ✔ v0.15 |
+| `-2` score deduction (NAT context) | ✔ v0.15 |
+| Panorama: Redis `⚠` | ✔ v0.15 |
+| DDNS cross-check: `→ 6379/tcp` | ✔ v0.15 (`6379/udp` filtered — no UDP listener) |
 
 **Root cause fixed (obs 1):** CRITICAL/HIGH services with `OPEN_WORLD` exposure now raise `alert()` instead of `warn()`, moving them to "Action required". (commit `e01b24b`)
 
@@ -225,11 +225,11 @@ sudo ufw allow 6379
 
 | Expected | Result |
 |----------|--------|
-| `ℹ [INFO]` Port 6379/tcp — bound to localhost only — UFW rule has no effect on external access | ✔ v0.14.1 |
-| No ALERT, no score deduction | ✔ |
-| Panorama: Redis `✔` (rule exists, exposure = LOOPBACK) | ✔ |
-| DDNS: `6379/tcp` NOT in exposed ports (loopback only) | ✔ |
-| DDNS: `6379/udp` NOT in exposed ports (no UDP listener) | ✔ |
+| `ℹ [INFO]` Port 6379/tcp — bound to localhost only — UFW rule has no effect on external access | ✔ v0.15 |
+| No ALERT, no score deduction | ✔ v0.15 |
+| Panorama: Redis `✔` (rule exists, exposure = LOOPBACK) | ✔ v0.15 |
+| DDNS: `6379/tcp` NOT in exposed ports (loopback only) | ✔ v0.15 |
+| DDNS: `6379/udp` NOT in exposed ports (no UDP listener) | ✔ v0.15 |
 
 **Root cause fixed (v0.14.1):** `_classify_exposure()` was UFW-only and did not cross-check actual socket bindings. Fix: `PortsSnapshot` is now collected before CHECK 3; ports where all `ss` bindings are loopback get `Exposure.LOOPBACK` (INFO, no deduction). `_find_open_ports()` in `ddns.py` now also receives the `loopback_ports` and `active_ports` sets. (commits `2bfc85b`, `64311be`)
 
@@ -243,9 +243,9 @@ sudo ufw allow 3306
 
 | Expected | Result |
 |----------|--------|
-| No service alert (MySQL not installed) | ✔ v0.11.4 |
-| Port 3306 open in UFW but unmatched to any installed service | confirmed |
-| DDNS: `3306/tcp` and `3306/udp` NOT in exposed ports (no active listener) | ✔ v0.14.1 |
+| No service alert (MySQL not installed) | ✔ v0.15 |
+| Port 3306 open in UFW but unmatched to any installed service | ✔ v0.15 |
+| DDNS: `3306/tcp` and `3306/udp` NOT in exposed ports (no active listener) | ✔ v0.15 |
 
 > **Behaviour updated (v0.14.1):** `_find_open_ports()` now cross-checks against actual non-loopback listeners (`active_ports` set from `ss`). Orphan UFW rules (port open, no service running) are excluded from the DDNS exposed ports list. `3306/tcp` and `3306/udp` no longer appear in DDNS findings when MySQL is not installed.
 
@@ -271,9 +271,9 @@ sudo ufw enable
 
 | Expected | Result |
 |----------|--------|
-| `⚠ [WARNING]` IPv6 rules missing — only IPv4 rules present | ✔ unit test |
-| `-1` score deduction | ✔ unit test |
-| Live test | pending v0.15 |
+| `⚠ [WARNING]` IPv6 rules missing — only IPv4 rules present | ✔ v0.15 live (IPV6=no VM) |
+| `-1` score deduction | ✔ v0.15 live |
+| Live test | ✔ v0.15 |
 
 ---
 
@@ -286,9 +286,9 @@ sudo ufw-audit
 
 | Expected | Result |
 |----------|--------|
-| `✔ [OK]` IPv4 and IPv6 rules both present | ✔ unit test |
-| No deduction | ✔ unit test |
-| Live test | pending v0.15 |
+| `✔ [OK]` IPv4 and IPv6 rules both present | ✔ v0.15 live (IPV6=yes, A1 test) |
+| No deduction | ✔ v0.15 live |
+| Live test | ✔ v0.15 |
 
 ---
 
