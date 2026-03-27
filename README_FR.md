@@ -199,6 +199,10 @@ sudo ufw-audit --manage-cron
 
 ```text
 Automated-UFW-audit/
+├── README.md                   # présentation du projet (EN)
+├── README_FR.md                # présentation du projet (FR) — vous êtes ici
+├── LICENSE                     # licence MIT
+├── .gitignore
 ├── install.sh                  # installeur / désinstalleur
 ├── ufw-audit.bash-completion   # complétion bash
 ├── DOCUMENTS/                  # documentation complète
