@@ -22,6 +22,7 @@ from __future__ import annotations
 import logging
 import re
 import subprocess
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -131,6 +132,19 @@ class PortsSnapshot:
         ports      = _parse_ss_output(ss_output)
 
         return cls(ports=ports, ufw_rules=ufw_rules, ss_output=ss_output)
+
+    @property
+    def loopback_only_ports(self) -> set[str]:
+        """Set of 'port/proto' strings where ALL bindings are loopback."""
+        bindings: dict[str, list[ListeningPort]] = defaultdict(list)
+        for lp in self.ports:
+            bindings[lp.port_proto].append(lp)
+        return {pp for pp, lps in bindings.items() if all(lp.is_loopback for lp in lps)}
+
+    @property
+    def active_external_ports(self) -> set[str]:
+        """Set of 'port/proto' strings with at least one non-loopback binding."""
+        return {lp.port_proto for lp in self.ports if not lp.is_loopback}
 
 
 # ---------------------------------------------------------------------------

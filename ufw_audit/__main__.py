@@ -14,7 +14,6 @@ from __future__ import annotations
 import os
 import sys
 from datetime import datetime
-from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Version
@@ -69,9 +68,10 @@ def main(argv=None) -> int:
 
     if config.show_help:
         from ufw_audit import i18n, output
+        from ufw_audit.cli import print_help
         i18n.init(lang=config.lang)
         output.init(no_color=config.no_color)
-        _print_help(i18n.t)
+        print_help(i18n.t, VERSION)
         return 0
 
     # --- Root check — required for all modes ---
@@ -156,10 +156,13 @@ def main(argv=None) -> int:
     from ufw_audit.sysinfo import detect_network_context
     network_context, public_ip = detect_network_context()
 
+    # --- Shared display helper ---
+    from ufw_audit.display import display_result
+    from ufw_audit.output import print_section
+
     # ======================================================================
     # CHECK 1 — Firewall status
     # ======================================================================
-    from ufw_audit.output import print_section
     from ufw_audit.checks.firewall import FirewallStatus, check_firewall
 
     if not config.quiet:
@@ -170,14 +173,11 @@ def main(argv=None) -> int:
     fw_result = check_firewall(fw_status, t=t)
     engine.apply(fw_result)
 
-    # Handle firewall inactive cap
     if getattr(fw_result, "_firewall_inactive", False):
         engine.cap(maximum=3, reason=t("firewall.inactive"))
 
-    from ufw_audit.display import display_result
     display_result(fw_result, report, config.verbose, quiet=config.quiet)
 
-    # Write UFW status output to report
     if fw_status.ufw_output:
         report.write_section("UFW STATUS")
         report.write_raw(fw_status.ufw_output)
@@ -185,7 +185,7 @@ def main(argv=None) -> int:
     # ======================================================================
     # CHECK 2 — UFW rules
     # ======================================================================
-    from ufw_audit.checks.firewall import _run as fw_run
+    from ufw_audit.checks.firewall import _run as fw_run, check_rules
     ufw_numbered = fw_run("ufw", "status", "numbered")
     ufw_verbose  = fw_run("ufw", "status", "verbose")
 
@@ -193,40 +193,21 @@ def main(argv=None) -> int:
         print_section(t("sections.rules"))
     report.write_section(t("sections.rules"))
 
-    from ufw_audit.checks.firewall import check_rules
     rules_result = check_rules(ufw_verbose, ufw_numbered, t)
     engine.apply(rules_result)
-    from ufw_audit.display import display_result
     display_result(rules_result, report, config.verbose, quiet=config.quiet)
 
     # ======================================================================
     # CHECK 3 — Network services
     # ======================================================================
     from ufw_audit.checks.services import ServiceSnapshot, check_services
-    from ufw_audit.output import (
-        print_service_header, print_port_detail, print_risk_context,
-    )
-
-    # Collect listening ports early so we can cross-check actual socket
-    # bindings before classifying service exposure — prevents false positives
-    # for services bound only to 127.0.0.1 with an open UFW rule.
+    from ufw_audit.output import print_service_header, print_port_detail, print_risk_context
     from ufw_audit.checks.ports import PortsSnapshot, check_ports
-    from collections import defaultdict as _defaultdict
+
+    # Collect ports early to detect loopback-only services and dangling rules
     ports_snapshot = PortsSnapshot.from_system()
-    _port_bindings: dict = _defaultdict(list)
-    for _lp in ports_snapshot.ports:
-        _port_bindings[f"{_lp.port}/{_lp.proto}"].append(_lp)
-    loopback_only_ports: set = {
-        pp for pp, lps in _port_bindings.items()
-        if all(lp.is_loopback for lp in lps)
-    }
-    # Ports with at least one non-loopback listener — used to exclude
-    # dangling UFW rules (no active service) from DDNS exposure reporting.
-    active_external_ports: set = {
-        f"{_lp.port}/{_lp.proto}"
-        for _lp in ports_snapshot.ports
-        if not _lp.is_loopback
-    }
+    loopback_only_ports = ports_snapshot.loopback_only_ports
+    active_external_ports = ports_snapshot.active_external_ports
 
     if not config.quiet:
         print_section(t("sections.services"))
@@ -242,104 +223,57 @@ def main(argv=None) -> int:
             print_service_header(snap.label)
         report.write_raw(f"\n  > {snap.label}")
 
-        # Risk context for high/critical active services
         if snap.service.is_high_or_critical and snap.is_active:
-            from ufw_audit.checks.logs import get_ip_geo  # reuse geo module
             from ufw_audit.display import display_risk_context
             display_risk_context(snap.service.label, config.lang, t, report)
 
-        # Per-service result
         from ufw_audit.display import check_single_service_display
         svc_result = check_single_service_display(
             snap, network_context, t, report, config.verbose, quiet=config.quiet
         )
         engine.apply(svc_result)
 
-        # Track audited ports
         for port in snap.ports:
             audited_ports.add(port)
 
-    # --- Services panorama (all known services, installed or not) ---
+    # --- Services panorama ---
     if not config.quiet:
-        from ufw_audit.output import print_services_panorama
-        from ufw_audit.checks.services import ServiceSnapshot as _SS, Exposure, ServiceState
-        print_section(t("sections.services_panorama"))
-        all_snaps = _SS.collect_all(registry, ufw_rules=ufw_numbered, loopback_ports=loopback_only_ports)
-        from ufw_audit.panorama import build_panorama_rows
-        panorama_rows = build_panorama_rows(all_snaps)
-        panorama_labels = {
-            "header_service": t("services.panorama.header_service"),
-            "header_status":  t("services.panorama.header_status"),
-            "header_ports":   t("services.panorama.header_ports"),
-            "header_ufw":     t("services.panorama.header_ufw"),
-            "active":         t("services.panorama.active"),
-            "inactive":       t("services.panorama.inactive"),
-            "not_installed":  t("services.panorama.not_installed"),
-            "unknown":        t("services.panorama.unknown"),
-        }
-        print_services_panorama(panorama_rows, panorama_labels)
-        print()
+        from ufw_audit.display import display_services_panorama
+        display_services_panorama(registry, ufw_numbered, loopback_only_ports, config, t)
 
     # ======================================================================
     # CHECK 4 — Listening ports
     # ======================================================================
-    # ports_snapshot was already collected before CHECK 3 for loopback detection
-
     if not config.quiet:
         print_section(t("sections.ports_analysis"))
     report.write_section(t("sections.ports_analysis"))
 
-    ports_result   = check_ports(
+    ports_result = check_ports(
         ports_snapshot,
         audited_ports=audited_ports,
         network_context=network_context,
         t=t,
     )
     engine.apply(ports_result)
-    from ufw_audit.display import display_result
     display_result(ports_result, report, config.verbose, quiet=config.quiet)
 
-    print_section(t("sections.ports_overview"))
-    report.write_section(t("sections.ports_overview"))
-    output.print_info(t("ports.listening_count", count=len(ports_snapshot.ports)))
-    report.write_finding("INFO", t("ports.listening_count",
-                                   count=len(ports_snapshot.ports)))
-    if ports_snapshot.ss_output:
-        report.write_raw("")
-        report.write_raw(ports_snapshot.ss_output)
-        if config.verbose:
-            output.print_dim(t("ports.listening_detail"))
-            print()
-            print(ports_snapshot.ss_output)
-        else:
-            output.print_dim(t("ports.listening_verbose_hint"))
-    print()
+    from ufw_audit.display import display_ports_overview
+    display_ports_overview(ports_snapshot, config, t, report, output)
 
     # ======================================================================
     # CHECK 5 — UFW log analysis
     # ======================================================================
-    from ufw_audit.checks.logs import LogsSnapshot, check_logs, get_ip_geo
+    from ufw_audit.checks.logs import LogsSnapshot, check_logs, geoip2_status
 
     if not config.quiet:
         print_section(t("sections.logs"))
 
     logs_snapshot = LogsSnapshot.from_system(log_days=config.log_days)
 
-    # One-time GeoIP2 availability notice
-    from ufw_audit.checks.logs import geoip2_status
-    geo_status = geoip2_status()
-    if geo_status == "unavailable":
-        output.print_info(
-            t("logs.geoip2_unavailable") if not t("logs.geoip2_unavailable").startswith("[")
-            else "GeoIP2 not available — install python3-geoip2 for IP geolocation"
-        )
-    elif geo_status == "no_database":
-        output.print_info(
-            t("logs.geoip2_no_db") if not t("logs.geoip2_no_db").startswith("[")
-            else "GeoIP2 installed but no GeoLite2 database found"
-        )
+    from ufw_audit.display import display_geoip_notice
+    display_geoip_notice(geoip2_status(), t, output)
 
-    logs_result   = check_logs(logs_snapshot, audited_ports=audited_ports, t=t)
+    logs_result = check_logs(logs_snapshot, audited_ports=audited_ports, t=t)
     engine.apply(logs_result)
 
     from ufw_audit.display import display_log_results
@@ -361,7 +295,6 @@ def main(argv=None) -> int:
         active_ports=active_external_ports,
     )
     engine.apply(ddns_result)
-    from ufw_audit.display import display_result
     display_result(ddns_result, report, config.verbose, quiet=config.quiet)
 
     if hasattr(ddns_result, "_ddns_open_ports") and ddns_result._ddns_open_ports:
@@ -381,7 +314,6 @@ def main(argv=None) -> int:
     docker_result   = check_docker(docker_snapshot,
                                    network_context=network_context, t=t)
     engine.apply(docker_result)
-    from ufw_audit.display import display_result
     display_result(docker_result, report, config.verbose, quiet=config.quiet)
 
     if docker_snapshot.exposed_ports:
@@ -395,20 +327,22 @@ def main(argv=None) -> int:
     print()
 
     # ======================================================================
-    # --- Virtualisation check ---
+    # CHECK 8 — Virtualisation
+    # ======================================================================
     from ufw_audit.checks.virtualization import VirtSnapshot, check_virtualization
-    from ufw_audit.output import print_section as _print_section
+
+    if not config.quiet:
+        print_section(t("sections.virtualization"))
+    report.write_section(t("sections.virtualization"))
+
     virt_snapshot = VirtSnapshot.from_system()
     virt_result   = check_virtualization(virt_snapshot, t=t)
     engine.apply(virt_result)
-    if not config.quiet:
-        _print_section(t("sections.virtualization"))
-    report.write_section(t("sections.virtualization"))
-    from ufw_audit.display import display_result
     display_result(virt_result, report, config.verbose, quiet=config.quiet)
     if not config.quiet:
         print()
 
+    # ======================================================================
     # Summary
     # ======================================================================
     engine.finalize()
@@ -441,57 +375,6 @@ def main(argv=None) -> int:
         return EXIT_WARNINGS
     else:
         return EXIT_OK
-
-
-
-# ---------------------------------------------------------------------------
-# Help
-# ---------------------------------------------------------------------------
-
-
-def _print_help(t) -> None:
-    W = 62
-    print(f"ufw-audit v{VERSION} — UFW firewall audit tool")
-    print()
-    print("Usage: sudo ufw-audit [OPTIONS]")
-    print()
-    print("Options:")
-    opts = [
-        ("-v, --verbose",      "Show detailed port exposure for each service"),
-        ("-d, --detailed",     "Save full audit report to a log file"),
-        ("-q, --quiet",        "Suppress all output — use exit code to detect issues"),
-        ("-f, --fix",          "Offer to apply automatic corrections after the audit"),
-        ("-y, --yes",          "Auto-confirm all fixes with audit trail (use with -f)"),
-        ("-r, --reconfigure",  "Reset saved port configuration and re-ask"),
-        ("-n, --no-color",     "Disable colour output"),
-        ("-j, --json",         "Export summary as JSON"),
-        ("--json-full",        "Export full audit details as JSON"),
-        ("-l N, --log-days=N", "Analyse the last N days of UFW logs (default: 7)"),
-        ("-m, --manage-logs",  "List and delete saved audit reports"),
-        ("-c, --install-cron", "Install an automated audit cron job (schedule wizard)"),
-        ("--manage-cron",      "List, edit or delete installed cron jobs"),
-        ("--french",           "Switch interface to French"),
-        ("-V, --version",      "Show version and exit (no sudo required)"),
-        ("-h, --help",         "Show this help message (no sudo required)"),
-    ]
-    col = 22
-    for flag, desc in opts:
-        print(f"  {flag:<{col}}  {desc}")
-    print()
-    print("Examples:")
-    print("  sudo ufw-audit                  Standard audit")
-    print("  sudo ufw-audit -v -d            Verbose + save report")
-    print("  sudo ufw-audit --french -d      French + save report")
-    print("  sudo ufw-audit -f               Audit + fix mode")
-    print("  sudo ufw-audit --log-days=14    Analyse 14 days of logs")
-    print()
-    print("Exit codes (--quiet mode):")
-    print("  0   Clean audit — no alerts, no warnings")
-    print("  1   Warnings detected")
-    print("  2   Alerts detected (action required)")
-    print("  3   Technical error")
-    print()
-    print("Documentation: https://github.com/Masbateno/ufw-audit")
 
 
 # ---------------------------------------------------------------------------

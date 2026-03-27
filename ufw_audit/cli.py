@@ -182,3 +182,51 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         raise CLIError("--quiet is incompatible with --fix (fix mode requires interactive prompts)")
 
     return config
+
+# ---------------------------------------------------------------------------
+# Help
+# ---------------------------------------------------------------------------
+
+def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for future i18n
+    """Print the CLI help message."""
+    opts = [
+        ("-v, --verbose",      "Show detailed port exposure for each service"),
+        ("-d, --detailed",     "Save full audit report to a log file"),
+        ("-q, --quiet",        "Suppress all output — use exit code to detect issues"),
+        ("-f, --fix",          "Offer to apply automatic corrections after the audit"),
+        ("-y, --yes",          "Auto-confirm all fixes with audit trail (use with -f)"),
+        ("-r, --reconfigure",  "Reset saved port configuration and re-ask"),
+        ("-n, --no-color",     "Disable colour output"),
+        ("-j, --json",         "Export summary as JSON"),
+        ("--json-full",        "Export full audit details as JSON"),
+        ("-l N, --log-days=N", "Analyse the last N days of UFW logs (default: 7)"),
+        ("-m, --manage-logs",  "List and delete saved audit reports"),
+        ("-c, --install-cron", "Install an automated audit cron job (schedule wizard)"),
+        ("--manage-cron",      "List, edit or delete installed cron jobs"),
+        ("--french",           "Switch interface to French"),
+        ("-V, --version",      "Show version and exit (no sudo required)"),
+        ("-h, --help",         "Show this help message (no sudo required)"),
+    ]
+    col = 22
+    print(f"ufw-audit v{version} — UFW firewall audit tool")
+    print()
+    print("Usage: sudo ufw-audit [OPTIONS]")
+    print()
+    print("Options:")
+    for flag, desc in opts:
+        print(f"  {flag:<{col}}  {desc}")
+    print()
+    print("Examples:")
+    print("  sudo ufw-audit                  Standard audit")
+    print("  sudo ufw-audit -v -d            Verbose + save report")
+    print("  sudo ufw-audit --french -d      French + save report")
+    print("  sudo ufw-audit -f               Audit + fix mode")
+    print("  sudo ufw-audit --log-days=14    Analyse 14 days of logs")
+    print()
+    print("Exit codes (--quiet mode):")
+    print("  0   Clean audit — no alerts, no warnings")
+    print("  1   Warnings detected")
+    print("  2   Alerts detected (action required)")
+    print("  3   Technical error")
+    print()
+    print("Documentation: https://github.com/Masbateno/ufw-audit")
