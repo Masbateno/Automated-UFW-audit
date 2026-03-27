@@ -342,7 +342,7 @@ section "Installing Python package"
 
 # Core modules (excluding __init__.py — handled separately above)
 for module in \
-    __main__.py cli.py config.py cron.py display.py fixes.py i18n.py \
+    __main__.py _paths.py cli.py config.py cron.py display.py fixes.py i18n.py \
     manage_logs.py output.py panorama.py registry.py report.py \
     report_markdown.py scoring.py sysinfo.py; do
     src="${SRC_MAIN}/${module}"
@@ -353,7 +353,7 @@ done
 
 # checks/ subpackage
 do_copy "${SRC_CHECKS}/__init__.py" "${LIB_DIR}/checks/__init__.py"
-for check_module in firewall.py services.py ports.py logs.py ddns.py docker.py virtualization.py; do
+for check_module in _run.py firewall.py services.py ports.py logs.py ddns.py docker.py virtualization.py; do
     src="${SRC_CHECKS}/${check_module}"
     if [[ -f "$src" ]]; then
         do_copy "$src" "${LIB_DIR}/checks/${check_module}"
@@ -439,13 +439,13 @@ else
 
     # Python package
     for module in \
-        __init__.py __main__.py cli.py config.py cron.py display.py fixes.py \
+        __init__.py __main__.py _paths.py cli.py config.py cron.py display.py fixes.py \
         i18n.py manage_logs.py output.py panorama.py registry.py report.py \
         report_markdown.py scoring.py sysinfo.py; do
         [[ -f "${LIB_DIR}/${module}" ]] && manifest_add "FILE ${LIB_DIR}/${module}"
     done
     manifest_add "FILE ${LIB_DIR}/checks/__init__.py"
-    for check_module in firewall.py services.py ports.py logs.py ddns.py docker.py virtualization.py; do
+    for check_module in _run.py firewall.py services.py ports.py logs.py ddns.py docker.py virtualization.py; do
         [[ -f "${LIB_DIR}/checks/${check_module}" ]] && \
             manifest_add "FILE ${LIB_DIR}/checks/${check_module}"
     done
