@@ -19,15 +19,13 @@ Usage:
 
 from __future__ import annotations
 
-import logging
 import re
-import subprocess
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 
+from ufw_audit.checks._run import _identity_t, _run
 from ufw_audit.scoring import CheckResult
-
-logger = logging.getLogger(__name__)
 
 # Ports above this threshold are considered ephemeral (kernel-assigned)
 EPHEMERAL_THRESHOLD = 32767
@@ -132,6 +130,19 @@ class PortsSnapshot:
 
         return cls(ports=ports, ufw_rules=ufw_rules, ss_output=ss_output)
 
+    @property
+    def loopback_only_ports(self) -> set[str]:
+        """Set of 'port/proto' strings where ALL bindings are loopback."""
+        bindings: dict[str, list[ListeningPort]] = defaultdict(list)
+        for lp in self.ports:
+            bindings[lp.port_proto].append(lp)
+        return {pp for pp, lps in bindings.items() if all(lp.is_loopback for lp in lps)}
+
+    @property
+    def active_external_ports(self) -> set[str]:
+        """Set of 'port/proto' strings with at least one non-loopback binding."""
+        return {lp.port_proto for lp in self.ports if not lp.is_loopback}
+
 
 # ---------------------------------------------------------------------------
 # Pure check logic
@@ -166,6 +177,7 @@ def check_ports(
     reported_system_ports: set[str] = set()  # deduplicate system internal ports
     reported_warn_ports:   set[str] = set()  # deduplicate warn/alert ports (multi-address)
     reported_alert_ports:  set[str] = set()  # deduplicate alert ports
+    reported_local_ports:  set[str] = set()  # deduplicate local/loopback ports (multi-address)
 
     for lport in snapshot.ports:
         pp = lport.port_proto
@@ -234,8 +246,11 @@ def check_ports(
             )
 
         elif category == PortCategory.UNCOVERED_LOCAL:
+            if pp in reported_local_ports:
+                continue
+            reported_local_ports.add(pp)
             result.info(
-                message=_t("ports.uncovered", port=pp),
+                message=_t("ports.uncovered_local", port=pp),
             )
 
     if not has_uncovered_public:
@@ -383,21 +398,3 @@ def _split_addr_port(local_addr: str) -> tuple[str | None, str | None]:
     return None, None
 
 
-# ---------------------------------------------------------------------------
-# Subprocess helpers
-# ---------------------------------------------------------------------------
-
-def _run(*args: str) -> str:
-    """Run a command and return stdout. Returns empty string on error."""
-    try:
-        proc = subprocess.run(
-            list(args), capture_output=True, text=True, timeout=10,
-        )
-        return proc.stdout
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
-        logger.debug("Command %r failed: %s", args, exc)
-        return ""
-
-
-def _identity_t(key: str, **kwargs) -> str:
-    return key

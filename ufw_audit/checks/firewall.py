@@ -20,14 +20,11 @@ Usage:
 
 from __future__ import annotations
 
-import logging
 import re
-import subprocess
 from dataclasses import dataclass, field
 
+from ufw_audit.checks._run import _command_exists, _identity_t, _run
 from ufw_audit.scoring import CheckResult
-
-logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -186,39 +183,12 @@ def check_firewall(status: FirewallStatus, t=None) -> CheckResult:
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _run(*args: str) -> str:
-    """Run a command and return its stdout. Returns empty string on error."""
-    try:
-        proc = subprocess.run(
-            list(args),
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        return proc.stdout
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
-        logger.debug("Command %r failed: %s", args, exc)
-        return ""
-
-
-def _command_exists(name: str) -> bool:
-    """Return True if the command is available in PATH."""
-    import shutil
-    return shutil.which(name) is not None
-
-
-def _identity_t(key: str, **kwargs) -> str:
-    """Fallback translation that returns the key itself."""
-    return key
-
-
 # ---------------------------------------------------------------------------
 # UFW rules check
 # ---------------------------------------------------------------------------
 
 def check_rules(ufw_verbose: str, ufw_numbered: str, t) -> "CheckResult":
     """Check UFW rules for duplicates, open-any, and IPv6 consistency."""
-    import re
     result = CheckResult()
 
     lines = [l for l in ufw_numbered.splitlines()
@@ -276,7 +246,8 @@ def check_rules(ufw_verbose: str, ufw_numbered: str, t) -> "CheckResult":
         result.ok(message=t("rules.no_duplicates"))
 
     open_any_pattern = re.compile(
-        r"Anywhere(?:/\w+)?\s+ALLOW\s+IN\s+Anywhere(?:/\w+)?\s*$", re.IGNORECASE
+        r"Anywhere(?:/\w+)?(?:\s+\(v6\))?\s+ALLOW\s+IN\s+Anywhere(?:/\w+)?(?:\s+\(v6\))?\s*$",
+        re.IGNORECASE,
     )
     found_open_any = False
     for line in lines:

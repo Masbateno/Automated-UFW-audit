@@ -27,6 +27,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
+from ufw_audit.checks._run import _identity_t
 from ufw_audit.scoring import CheckResult
 
 logger = logging.getLogger(__name__)
@@ -139,7 +140,7 @@ class LogsSnapshot:
             return cls(entries=[], days_available=0,
                        log_days=log_days, log_found=False)
 
-        _MAX_LOG_SIZE = 100 * 1024 * 1024  # 100 MB
+        _MAX_LOG_SIZE = 10 * 1024 * 1024  # 10 MB — sufficient for weeks of UFW logs
         try:
             with log_path.open(encoding="utf-8", errors="ignore") as fh:
                 content = fh.read(_MAX_LOG_SIZE)
@@ -472,14 +473,19 @@ def _parse_log(content: str, cutoff_date: str) -> list[LogEntry]:
             continue
 
         try:
-            entries.append(LogEntry(
-                timestamp=ts,
-                src_ip=src_ip,
-                dst_port=int(dpt),
-                proto=proto,
-            ))
+            port_num = int(dpt)
         except ValueError:
             continue
+
+        if not (1 <= port_num <= 65535):
+            continue
+
+        entries.append(LogEntry(
+            timestamp=ts,
+            src_ip=src_ip,
+            dst_port=port_num,
+            proto=proto,
+        ))
 
     return entries
 
@@ -518,5 +524,3 @@ def _extract_field(line: str, field: str) -> Optional[str]:
     return match.group(1) if match else None
 
 
-def _identity_t(key: str, **kwargs) -> str:
-    return key

@@ -12,6 +12,7 @@ Handles:
 from __future__ import annotations
 
 import re
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -434,10 +435,10 @@ def run_install_cron(user_config, config, t) -> int:
         "#!/bin/bash\n"
         f"# UFW-AUDIT script — generated {now_str} by ufw-audit --install-cron\n"
         "# Re-generate: sudo ufw-audit --install-cron\n\n"
-        f'NOTIFY_EMAIL="{notify_email}"\n'
-        f'LOG_DIR="{str(log_dir)}"\n'
-        f'export PYTHONPATH="{ufw_audit_path}:$PYTHONPATH"\n\n'
-        f'"{audit_bin}" --quiet --detailed\n'
+        f'NOTIFY_EMAIL={shlex.quote(notify_email)}\n'
+        f'LOG_DIR={shlex.quote(str(log_dir))}\n'
+        f'export PYTHONPATH={shlex.quote(ufw_audit_path)}:"$PYTHONPATH"\n\n'
+        f'{shlex.quote(str(audit_bin))} --quiet --detailed\n'
         "RC=$?\n\n"
         'if [ "$RC" -gt 0 ] && [ -n "$NOTIFY_EMAIL" ]; then\n'
         '    LOG=$(ls -t "$LOG_DIR"/ufw_audit_*.log 2>/dev/null | head -1)\n'
@@ -480,7 +481,7 @@ def run_install_cron(user_config, config, t) -> int:
     )
 
     try:
-        fd = os.open(str(cron_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+        fd = os.open(str(cron_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o640)
         with os.fdopen(fd, "w") as fh:
             fh.write(cron_content)
     except OSError as exc:
@@ -614,7 +615,7 @@ def edit_cron_email(entry, t) -> None:
     if entry.script_path.exists():
         try:
             text = entry.script_path.read_text(encoding="utf-8")
-            text = re.sub(r'^NOTIFY_EMAIL=".*"', f'NOTIFY_EMAIL="{new_email}"', text, flags=re.MULTILINE)
+            text = re.sub(r'^NOTIFY_EMAIL=".*"', lambda _: f'NOTIFY_EMAIL="{new_email}"', text, flags=re.MULTILINE)
             entry.script_path.write_text(text, encoding="utf-8")
         except OSError as exc:
             print(f"  ✖ Cannot update script: {exc}")
@@ -713,13 +714,13 @@ def edit_cron_schedule(entry, config, t) -> None:
     new_line = f"{schedule_expr}  root  {entry.script_path}"
     new_text = re.sub(
         r"^\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+root\s+\S+.*$",
-        new_line,
+        lambda _: new_line,
         text,
         flags=re.MULTILINE,
     )
 
     try:
-        fd = _os.open(str(entry.cron_path), _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC, 0o644)
+        fd = _os.open(str(entry.cron_path), _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC, 0o640)
         with _os.fdopen(fd, "w") as fh:
             fh.write(new_text)
     except OSError as exc:

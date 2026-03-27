@@ -23,6 +23,7 @@ Usage:
 
 from __future__ import annotations
 
+import html
 import logging
 import re
 from datetime import datetime
@@ -427,8 +428,9 @@ hr {{ margin: 20px 0; border: none; border-top: 1px solid #ccc; }}
 
 def _inline_format(text: str) -> str:
     """Apply inline formatting (bold, code, links) to text."""
+    # Escape HTML entities first to prevent injection from system-generated content
+    text = html.escape(text)
     # Bold: **text** → <strong>text</strong>
-    import re
     text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
 
     # Code: `text` → <code>text</code>
@@ -531,7 +533,6 @@ def send_html_email(
     # Plaintext fallback: if not provided, extract from HTML body
     if not plain_text_fallback:
         # Simple text extraction from HTML (strip tags)
-        import re
         text = re.sub(r"<[^>]+>", "", html_content)
         text = re.sub(r"\s+", " ", text).strip()
         plain_text_fallback = text[:500]  # Limit to 500 chars
@@ -563,7 +564,7 @@ def send_html_email(
         else:
             logger.error(f"mail command failed: {proc.stderr}")
             return False
-    except Exception as exc:
+    except (OSError, subprocess.TimeoutExpired, ValueError) as exc:
         logger.error(f"Failed to send email: {exc}")
         return False
 
@@ -601,7 +602,7 @@ def send_audit_log_as_html_email(
 
     try:
         log_text = log_file.read_text(encoding="utf-8")
-    except Exception as exc:
+    except OSError as exc:
         logger.error(f"Cannot read log file: {exc}")
         return False
 
@@ -641,7 +642,7 @@ def _audit_log_to_html(log_text: str) -> str:
 
         # Section headers: === TITLE ===
         if line.strip().startswith("===") and line.strip().endswith("==="):
-            title = line.strip().replace("=", "").strip()
+            title = html.escape(line.strip().replace("=", "").strip())
             if title:
                 html_lines.append(f"<h2>{title}</h2>")
             i += 1
@@ -649,7 +650,7 @@ def _audit_log_to_html(log_text: str) -> str:
 
         # Section headers with brackets: [TITLE]
         if line.strip().startswith("[") and line.strip().endswith("]"):
-            title = line.strip()[1:-1]  # Remove brackets
+            title = html.escape(line.strip()[1:-1])  # Remove brackets
             if title:
                 html_lines.append(f"<h2>{title}</h2>")
             i += 1
@@ -665,11 +666,10 @@ def _audit_log_to_html(log_text: str) -> str:
         match = re.match(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \[([A-Z]+)\] (.*)$", line)
         if match:
             timestamp, level, message = match.groups()
-            level_class = level.lower()  # "ok", "warn", "alert", "info"
             html_lines.append(
                 f'<div style="margin: 8px 0; padding: 8px; background: #f9f9f9; '
-                f'border-left: 4px solid #ccc;"><code>{timestamp}</code> '
-                f'<strong>[{level}]</strong> {message}</div>'
+                f'border-left: 4px solid #ccc;"><code>{html.escape(timestamp)}</code> '
+                f'<strong>[{html.escape(level)}]</strong> {html.escape(message)}</div>'
             )
             i += 1
             continue
@@ -677,8 +677,8 @@ def _audit_log_to_html(log_text: str) -> str:
         # Key-value lines: "Key : Value" or "Key  : Value  "
         if " : " in line and not line.startswith(" "):
             parts = line.split(" : ", 1)
-            key = parts[0].strip()
-            value = parts[1].strip() if len(parts) > 1 else ""
+            key = html.escape(parts[0].strip())
+            value = html.escape(parts[1].strip()) if len(parts) > 1 else ""
             if key and value:
                 html_lines.append(f"<p><strong>{key}:</strong> {value}</p>")
                 i += 1
@@ -687,8 +687,8 @@ def _audit_log_to_html(log_text: str) -> str:
         # Numbered list (next steps)
         match = re.match(r"^(\d+)\. (.*)$", line)
         if match:
-            num, text = match.groups()
-            html_lines.append(f"<li>{text}</li>")
+            _num, text = match.groups()
+            html_lines.append(f"<li>{html.escape(text)}</li>")
             i += 1
             continue
 
@@ -704,9 +704,9 @@ def _audit_log_to_html(log_text: str) -> str:
             # Indented text (details under findings)
             indent = len(line) - len(line.lstrip())
             if indent > 0:
-                html_lines.append(f"<p style='margin-left: {indent * 10}px;'>{line.strip()}</p>")
+                html_lines.append(f"<p style='margin-left: {indent * 10}px;'>{html.escape(line.strip())}</p>")
             else:
-                html_lines.append(f"<p>{line}</p>")
+                html_lines.append(f"<p>{html.escape(line)}</p>")
 
         i += 1
 

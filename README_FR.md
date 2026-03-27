@@ -1,389 +1,299 @@
-*[Read in English](README.md)*
+*[Read in English](README.md)* · *[Documentation technique](DOCUMENTS/README_TECH_FR.md)*
 
-# ufw-audit v0.14.1
+# 🔥 ufw-audit — Audit intelligent de votre firewall UFW
 
-![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.14.1-brightgreen)
-![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
-![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
+Analysez votre configuration UFW en quelques secondes, détectez les erreurs critiques et corrigez-les automatiquement.
 
-Outil d'audit de pare-feu UFW pour Linux — conçu pour les utilisateurs ordinaires, pas uniquement pour les administrateurs système.
-
-ufw-audit analyse votre configuration UFW, détecte les services réseau exposés, classe les risques par service, et fournit des explications en langage clair avec des commandes de correction prêtes à l'emploi.
+> ⚡ Pensé pour être **simple, lisible et actionnable**
+> 🛡️ Fait pour éviter les erreurs qui exposent vraiment votre machine
 
 ---
 
-## Fonctionnalités
+## 🚀 Pourquoi ufw-audit ?
 
-- **Bannière ASCII** avec informations système (distro, hôte, version UFW, utilisateur, date)
-- **Vérification du statut UFW** — actif/inactif, politique par défaut entrante
-- **Analyse des règles UFW** — règles en doublon, `allow from any` sans restriction de port, cohérence IPv6
-- **Score contextuel** — détection du contexte réseau (IP publique directe vs NAT) ; pénalités doublées sur les machines exposées sur internet ; pare-feu inactif plafonne le score à 3/10
-- **Détection de 22 services réseau courants** avec analyse de leur exposition UFW et contexte de risque à deux axes (exposition + menace) pour les services critiques et élevés
-- **Docker** — détection du contournement iptables et liste des ports exposés par les containers en cours d'exécution
-- **Virtualisation** — détecte les hyperviseurs actifs (libvirt/KVM, VirtualBox, VMware, LXD/LXC) et les paquets Snap réseau qui peuvent créer des interfaces bridge et manipuler iptables directement, contournant UFW — même risque que Docker
-- **Ports en écoute** — passe unique unifiée ; ports éphémères et système ignorés proprement ; NetBIOS géré avec avertissement contextuel
-- **Logs UFW** — parse `/var/log/ufw.log` sur une période configurable (`--log-days=N`, défaut 7 jours) ; total des tentatives bloquées, top IPs sources avec géolocalisation, top ports ciblés, détection bruteforce (>10 tentatives/60s), tentatives sur les ports de services installés
-- **Géolocalisation IP** — IPs sources enrichies avec pays et opérateur via GeoIP2 (optionnel, `python3-geoip2` + base GeoLite2) ; plages privées identifiées comme réseau local ; résultats mis en cache par session
-- **Détection DDNS / exposition externe** — détecte les clients DDNS actifs (ddclient, inadyn, No-IP, DuckDNS) ; extrait le domaine configuré ; croise avec les règles UFW ALLOW sans restriction pour identifier les ports exposés sur internet
-- **Classification d'exposition** par service : `ouvert sur internet` / `réseau local uniquement` / `bloqué par UFW` / `pas de règle`
-- **Mode fix** — section interactive après le résumé ; chaque correction automatisable demande une confirmation `[y/N]` ; éléments manuels affichés sans exécution ; `-y / --yes` applique tout sans confirmation avec une bannière d'avertissement et un résumé des commandes exécutées
-- **Résumé catégorisé** — findings répartis en trois blocs : *Action requise* / *Améliorations possibles* / *Configuration normale* ; phrase d'interprétation automatique
-- **Note de politique implicite** — signale quand des services à risque élevé s'appuient sur la politique `deny` par défaut plutôt que sur des règles explicites
-- **Score de sécurité** (0–10) avec niveau de risque : FAIBLE / MOYEN / ÉLEVÉ / CRITIQUE
-- **Panorama des services** — tableau compact de l'ensemble des 22 services connus après l'audit services (SERVICE / STATUT / PORT(S) / UFW), services non installés affichés en grisé
-- **Interface bilingue** — anglais par défaut, français avec `--french`
-- **Mode sans couleur** — `--no-color` pour une sortie propre dans les pipes et fichiers log
-- **Rapport détaillé optionnel** — fichier log horodaté avec en-tête ASCII art, informations système, findings et recommandations
-- **`--manage-logs`** — interface interactive pour lister les rapports sauvegardés (nom, taille, date) et les supprimer par index ou en totalité
-- **`--install-cron`** — wizard de planification : nommer le cron, choisir le type de schedule (tous les jours / certains jours de la semaine / certains jours du mois / expression cron personnalisée), définir l'heure et un email de notification optionnel ; aperçu en langage naturel avant confirmation ; crons nommés (`/etc/cron.d/ufw-audit-{nom}`)
-- **`--manage-cron`** — lister, modifier le planning ou supprimer les crons installés interactivement
+UFW est simple… mais **facile à mal configurer**.
 
----
-
-## Services détectés
-
-| Service                          | Port par défaut      | Risque   | Contexte                                                                           |
-|----------------------------------|----------------------|----------|------------------------------------------------------------------------------------|
-| SSH Server                       | 22/tcp               | Critique | Très ciblé par les scans automatisés ; accès shell complet si compromis            |
-| VNC Server                       | 5900/tcp             | Critique | Souvent sans chiffrement, auth faible ; équivalent à un accès physique             |
-| Samba (partage fichiers Windows) | 445/tcp, 139/tcp     | Critique | Conçu pour LAN uniquement ; vecteur ransomware (EternalBlue/WannaCry) si exposé    |
-| FTP Server                       | 21/tcp               | Critique | Protocole non chiffré ; credentials et fichiers transmis en clair                  |
-| MySQL / MariaDB                  | 3306/tcp             | Critique | Auth par mot de passe, historique CVE ; exfiltration complète si exposé            |
-| PostgreSQL                       | 5432/tcp             | Critique | Auth configurable ; RCE possible via pg_execute_server_program                     |
-| Redis                            | 6379/tcp             | Critique | Pas d'auth par défaut historiquement ; RCE documenté et exploité activement        |
-| Cockpit (admin web)              | 9090/tcp             | Élevé    | Interface d'admin système ; contrôle complet si compromis                          |
-| WireGuard VPN                    | 51820/udp            | Élevé    | Exposition internet intentionnelle ; accès réseau interne complet si clés volées   |
-| Home Assistant                   | 8123/tcp             | Élevé    | Contrôle équipements physiques (serrures, alarmes) ; accès réseau local            |
-| Nextcloud                        | 80/tcp, 443/tcp      | Élevé    | Serveur de fichiers personnel ; accès fichiers/contacts/calendriers si compromis   |
-| Mosquitto (MQTT)                 | 1883/tcp, 8883/tcp   | Élevé    | Pas d'auth par défaut ; contrôle équipements IoT si exposé                         |
-| Apache Web Server                | 80/tcp, 443/tcp      | Moyen    | Exposition web standard ; risque selon le contenu hébergé                          |
-| Nginx Web Server                 | 80/tcp, 443/tcp      | Moyen    | Exposition web standard ; risque selon le contenu hébergé                          |
-| Jellyfin                         | 8096/tcp             | Moyen    | Accès bibliothèque média ; pas de données système critiques                        |
-| Plex Media Server                | 32400/tcp            | Moyen    | Accès bibliothèque média ; pas de données système critiques                        |
-| Transmission (UI web)            | 9091/tcp             | Moyen    | Contrôle téléchargements ; accès fichiers limité au répertoire torrent             |
-| qBittorrent (UI web)             | 8080/tcp             | Moyen    | Contrôle téléchargements ; accès fichiers limité au répertoire torrent             |
-| Gitea                            | 3000/tcp             | Moyen    | Forge Git ; désactiver l'inscription publique si non nécessaire                    |
-| Avahi (découverte réseau local)  | 5353/udp             | Faible   | mDNS LAN uniquement ; pas d'accès aux données, découverte seulement                |
-| CUPS (impression réseau)         | 631/tcp              | Faible   | Écoute sur localhost par défaut ; risque négligeable si non exposé                 |
-| Syncthing                        | 8384/tcp, 22000/tcp  | Faible   | UI web sur localhost par défaut ; port de sync potentiellement exposé              |
-
-> **ℹ Note sur la couverture des services :** La détection et la classification des services suivants ont été validées par des tests réels : SSH, Samba, Avahi, CUPS, Redis, WireGuard, Docker, Mosquitto, Syncthing, Nginx. Les autres services sont implémentés mais pas encore validés par un protocole de test formel. Si vous utilisez l'un de ces services et observez un comportement incorrect, merci d'ouvrir une issue sur GitHub.
-
----
-
-## Prérequis
-
-- Système Linux — Debian, Ubuntu, Linux Mint, ou dérivé
-- UFW installé : `sudo apt install ufw`
-- Python 3.8+
-- `ss` recommandé (paquet `iproute2`) — disponible par défaut sur les systèmes modernes
-- `python3-geoip2` + base GeoLite2 recommandés pour la géolocalisation IP (optionnel) : `sudo apt install python3-geoip2 geoip-database`
-- `docker` CLI pour l'analyse Docker (optionnel)
-
----
-
-## Installation
+Une seule règle comme :
 
 ```bash
-# Cloner ou télécharger le dépôt
+sudo ufw allow from any
+```
+
+👉 et votre machine est **ouverte à tout Internet**.
+
+**ufw-audit détecte immédiatement ce type de problème**, explique le risque, et propose une correction.
+
+---
+
+## ✨ Fonctionnalités clés
+
+### 🔍 Audit complet
+
+- Analyse des règles UFW (`ufw status`)
+- Détection des configurations dangereuses
+- Vérification des incohérences IPv4 / IPv6
+
+### 🚨 Détection intelligente des risques
+
+- Règles trop permissives (`Anywhere ALLOW IN Anywhere`)
+- Ports critiques exposés (Redis, MySQL, PostgreSQL…)
+- Règles redondantes ou inutiles
+- Services actifs réellement exposés (pas juste "ouverts dans UFW")
+
+### 🧠 Analyse réelle du système
+
+- Croise UFW avec les ports réellement ouverts (`ss`)
+- Ignore les faux positifs (ex : services en loopback uniquement)
+- Filtre les ports système (DNS, DHCP, mDNS…)
+
+### 🌍 Vérification de l'exposition Internet
+
+- Détection des clients DDNS actifs (ddclient, inadyn, No-IP, DuckDNS…)
+- Liste claire des services accessibles depuis l'extérieur
+
+### 🛠️ Corrections automatiques
+
+- Suppression des règles dangereuses
+- Nettoyage des doublons
+- Mode interactif ou automatique (`-f -y`)
+
+### 📝 Rapports détaillés
+
+- Rapport complet exportable (`-d`)
+- Historique des audits avec gestion intégrée (`--manage-logs`)
+- Mode silencieux pour scripts / CI (`-q`)
+
+---
+
+## 📦 Installation
+
+```bash
 git clone https://github.com/Masbateno/Automated-UFW-audit.git
 cd Automated-UFW-audit
-
-# Rendre l'installateur exécutable
-chmod +x install.sh
-
-# Installer (nécessite les droits root)
 sudo ./install.sh
 ```
 
-L'installateur :
-- Vérifie la présence de Python 3.8+
-- Copie le package dans `/usr/local/lib/ufw_audit/`
-- Copie les données dans `/usr/local/share/ufw-audit/`
-- Crée le point d'entrée `/usr/local/bin/ufw-audit`
-- Installe l'autocomplétion bash dans `/etc/bash_completion.d/ufw-audit`
-- Génère un manifeste d'installation dans `/usr/local/share/ufw-audit/install.manifest`
-- Affiche chaque action effectuée
+### 🔍 Transparent par conception
 
-### Dry-run — voir sans toucher
+L'installeur est conçu pour que **rien ne se passe silencieusement**. Chaque action est affichée dans le terminal au fur et à mesure. Un manifeste d'installation complet est écrit dans `/usr/local/share/ufw-audit/install.manifest` — un relevé précis de chaque fichier et répertoire créé sur votre système.
+
+Ce que fait l'installeur :
+- Vérifie la présence de Python 3.8+
+- Copie le paquet dans `/usr/local/lib/ufw_audit/`
+- Copie les fichiers de données dans `/usr/local/share/ufw-audit/`
+- Crée le point d'entrée `/usr/local/bin/ufw-audit`
+- Installe la complétion bash dans `/etc/bash_completion.d/ufw-audit`
+- Écrit le manifeste d'installation
+
+### 👁 Aperçu avant installation
+
+Pas certain ? Lancez d'abord un dry-run — il affiche chaque action qui *serait* effectuée, sans toucher votre système :
 
 ```bash
 sudo ./install.sh --dry-run
 ```
 
-### Autocomplétion bash
+### 🧹 Désinstallation propre
 
-Après l'installation, activez l'autocomplétion pour la session courante :
-
-```bash
-source /etc/bash_completion.d/ufw-audit
-```
-
-Pour l'activer en permanence (toutes les sessions futures) :
-
-```bash
-echo "source /etc/bash_completion.d/ufw-audit" >> ~/.bashrc
-```
-
-Puis utilisez `ufw-audit --<TAB>` pour compléter les options.
-
----
-
-## Désinstallation
+Le désinstalleur lit le manifeste et supprime **exactement** ce qui a été installé — ni plus, ni moins. Les répertoires ne sont supprimés que s'ils sont vides. Votre configuration utilisateur (`~/.config/ufw-audit/`) est conservée par défaut et supprimée uniquement sur confirmation explicite.
 
 ```bash
 sudo ./install.sh --uninstall
 ```
 
-L'installateur lit le manifeste, supprime exactement les fichiers installés, ne supprime un répertoire que s'il est vide, et propose de supprimer la configuration utilisateur séparément.
-
 ---
 
-## Utilisation
+## ⚡ Utilisation rapide
 
 ```bash
 # Audit standard
 sudo ufw-audit
 
-# Audit en français
-sudo ufw-audit --french
-
-# Mode verbeux — détails techniques et tableau des ports
-sudo ufw-audit -v
-
-# Mode détaillé — génère un fichier rapport complet
+# Mode détaillé (rapport sauvegardé)
 sudo ufw-audit -d
 
-# Mode fix — propose et applique les corrections interactivement
+# Correction interactive
 sudo ufw-audit -f
 
-# Mode fix — applique toutes les corrections sans confirmation
+# Tout corriger sans confirmation
 sudo ufw-audit -f -y
 
-# Sortie sans couleur (utile pour les pipes et la redirection)
-sudo ufw-audit -n > audit.txt
+# Mode silencieux (scripts / CI)
+sudo ufw-audit -q
+echo $?   # 0 = OK · 1 = avertissements · 2 = alertes · 3 = erreur
 
-# Analyser les logs sur 14 jours au lieu de 7
-sudo ufw-audit --log-days=14
-
-# Reconfigurer les ports personnalisés
-sudo ufw-audit -r
-
-# Mode silencieux — aucune sortie, utilisez le code de retour
-sudo ufw-audit -q; echo $?   # 0=propre, 1=avertissements, 2=alertes, 3=erreur
-
-# Afficher la version (sans sudo)
-ufw-audit -V
-
-# Afficher l'aide (sans sudo)
-ufw-audit -h
-
-# Gérer les rapports sauvegardés interactivement
-sudo ufw-audit --manage-logs
-
-# Configurer un audit automatique (wizard de planification)
-sudo ufw-audit --install-cron
-
-# Lister, modifier ou supprimer les crons installés
-sudo ufw-audit --manage-cron
-```
-
-Les options se combinent :
-
-```bash
-sudo ufw-audit --french -v -d -f
+# En français
+sudo ufw-audit --french
 ```
 
 ---
 
-## Configuration des ports personnalisés
+## 🧪 Exemple de sortie
 
-Quand un service est détecté sur un port non standard (ex. SSH sur 2222), le script propose de sauvegarder le port. La réponse est sauvegardée dans `~/.config/ufw-audit/config.conf` et réutilisée lors des audits suivants. Pour reconfigurer :
-
-```bash
-sudo ufw-audit -r
-```
-
----
-
-## Exemple de sortie
-
-```
-╔══════════════════════════════════════════════════════════════╗
-║   ██╗   ██╗███████╗██╗    ██╗  ┌────────────────────────┐    ║
-║   ██║   ██║██╔════╝██║    ██║  │  UFW-AUDIT  v0.13      │    ║
-║   ██║   ██║█████╗  ██║ █╗ ██║  │  UFW firewall audit    │    ║
-║   ██║   ██║██╔══╝  ██║███╗██║  └────────────────────────┘    ║
-║   ╚██████╔╝██║     ╚███╔███╔╝              _ _               ║
-║    ╚═════╝ ╚═╝      ╚══╝╚══╝             _(-_-)_             ║
-║                                            audit             ║
-╠══════════════════════════════════════════════════════════════╣
-║  System       : Ubuntu 24.04 LTS                             ║
-║  Host         : my-machine                                   ║
-║  UFW          : v0.36.2                                      ║
-║  User         : alice                                        ║
-║  Date         : 23/03/2026 10:00                             ║
-╚══════════════════════════════════════════════════════════════╝
-
-
-┌──────────────────────────────────────────────────────────────┐
-│  ANALYSE DES SERVICES RÉSEAU                                 │
-└──────────────────────────────────────────────────────────────┘
-
-  ▶ SSH Server
-    ┄ Contexte de risque — CRITIQUE
-    Exposition : Très ciblé par les scans automatisés et les attaques brute-force
-    Menace     : Accès shell complet à la machine, élévation de privilèges
-
-✖ [ALERTE] Port 22/tcp : exposition = ouvert sur internet
+```text
+✖ [ALERT] Port 22/tcp : exposition = ouvert sur internet
     → sudo ufw delete allow 22/tcp
     → sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp
 
-
-┌──────────────────────────────────────────────────────────────┐
-│  ANALYSE DOCKER                                              │
-└──────────────────────────────────────────────────────────────┘
-
-⚠ [AVERTISSEMENT] Docker peut contourner les règles UFW — iptables n'est pas désactivé dans daemon.json
-
 ╔══════════════════════════════════════════════════════════════╗
 ║  Score de sécurité : 7/10                                    ║
-║  Niveau de risque  : ⚠ MOYEN                                 ║
-║  Contexte réseau   : 🏠 Réseau local uniquement              ║
+║  Niveau de risque  : ⚠ MEDIUM                                ║
 ╠══════════════════════════════════════════════════════════════╣
-║  ✖ Action requise                                            ║
+║  ✖ Actions requises                                          ║
 ║    ✖  Port 22/tcp : exposition = ouvert sur internet         ║
-║    ✖  Docker contourne les règles UFW via iptables…          ║
 ╠══════════════════════════════════════════════════════════════╣
-║  Décomposition du score                                      ║
-║    -2  Port 22/tcp ouvert sur internet                       ║
-║    -1  Contournement iptables Docker                         ║
+║  Déductions                                                  ║
+║    -2  Port 22/tcp exposé sur internet                       ║
 ╚══════════════════════════════════════════════════════════════╝
-
-  Corrections nécessaires. Priorisez les éléments marqués "Action requise".
 ```
 
 ---
 
-## Fichiers de rapport
+## 📊 Score de sécurité
 
-Avec `-d`, un rapport horodaté est créé dans un répertoire configurable (demandé au premier lancement, sauvegardé dans `config.conf`) :
+Chaque audit produit un score sur 10 :
 
-```
-ufw_audit_20260323_100000.log
-```
+| Score | Signification |
+|-------|---------------|
+| **10/10** | Configuration saine |
+| **7 – 9** | Quelques améliorations possibles |
+| **< 5** | ⚠️ Problèmes sérieux |
+| **≤ 2** | 🔥 Critique — exposition majeure |
 
-Le rapport s'ouvre avec un en-tête ASCII art sur 62 caractères et contient : informations système, tous les findings horodatés, liste complète des ports en écoute, analyse détaillée des logs (top IPs avec géolocalisation, top ports, bruteforce, tentatives sur les ports de services installés), contexte de risque pour les services critiques et élevés, résumé du score.
-
----
-
-## Référence des options
-
-| Option                  | Description                                                        |
-|-------------------------|--------------------------------------------------------------------|
-| *(sans option)*         | Audit standard                                                     |
-| `-v`, `--verbose`       | Afficher les détails techniques (tableau des ports, exposition)    |
-| `-d`, `--detailed`      | Générer un fichier rapport complet                                 |
-| `-q`, `--quiet`         | Supprimer toute sortie — utiliser le code de retour                |
-| `-f`, `--fix`           | Proposer et appliquer les corrections interactivement              |
-| `-y`, `--yes`           | Appliquer toutes les corrections sans confirmation (avec `-f`)     |
-| `-r`, `--reconfigure`   | Reconfigurer tous les ports personnalisés                          |
-| `-n`, `--no-color`      | Désactiver la sortie ANSI couleur                                  |
-| `--json`                | Exporter le résumé en JSON                                         |
-| `--json-full`           | Exporter l'audit complet en JSON                                   |
-| `--log-days=N`          | Analyser les logs sur N jours (défaut : 7)                         |
-| `--manage-logs`         | Interface interactive pour gérer les rapports sauvegardés          |
-| `--install-cron`        | Configurer un audit nocturne automatique (cron)                    |
-| `--french`              | Passer l'interface en français                                     |
-| `-V`, `--version`       | Afficher la version et quitter (sans sudo)                         |
-| `-h`, `--help`          | Afficher l'aide et quitter (sans sudo)                             |
+Le score tient compte du contexte réseau : les pénalités sont doublées si la machine est directement exposée sur Internet.
 
 ---
 
-## Fichiers
+## 🧠 Ce qui rend ufw-audit différent
 
-| Fichier                                  | Description                                                              |
-|------------------------------------------|--------------------------------------------------------------------------|
-| `/usr/local/bin/ufw-audit`               | Point d'entrée                                                           |
-| `/usr/local/bin/ufw-audit-nightly`       | Script wrapper nocturne (créé par `--install-cron`)                      |
-| `/usr/local/lib/ufw_audit/`              | Package Python                                                           |
-| `/usr/local/share/ufw-audit/`            | Données (locales, services.json, manifeste)                              |
-| `/usr/local/share/doc/ufw-audit/`        | Documentation                                                            |
-| `/etc/bash_completion.d/ufw-audit`       | Autocomplétion bash                                                      |
-| `/etc/cron.d/ufw-audit`                  | Entrée cron système (créée par `--install-cron`)                         |
-| `~/.config/ufw-audit/config.conf`        | Configuration utilisateur (ports personnalisés, répertoire logs ; 600)   |
-| `ufw_audit_YYYYMMDD_HHMMSS.log`          | Rapport détaillé (créé avec `-d`, dans le répertoire configuré)          |
+✔ Ne se contente pas de lire les règles UFW
+✔ Vérifie les **services réellement actifs** via `ss`
+✔ Évite les faux positifs (loopback, ports système, règles orphelines)
+✔ Fournit des **commandes de correction prêtes à l'emploi**
+✔ Conçu pour une utilisation régulière (cron, CI…)
 
 ---
 
-## Codes de retour
+## 🔄 Cas détectés
 
-En mode `--quiet`, le code de retour indique le résultat de l'audit :
+| Cas | Niveau |
+|-----|--------|
+| `ufw allow from any` — ouverture totale | ✖ Alerte |
+| `80/tcp` + `80` — règle redondante | ✖ Alerte |
+| Redis exposé sur `0.0.0.0` avec règle UFW ouverte | ✖ Alerte |
+| Docker contourne UFW via iptables | ⚠ Avertissement |
+| IPv6 non couvert | ⚠ Avertissement |
+| Service en loopback uniquement (pas de risque réel) | ℹ Info |
+| Port ouvert sans service actif (règle orpheline) | ℹ Info |
 
-| Code | Signification |
-|------|---------------|
-| `0`  | Audit propre — aucune alerte, aucun avertissement |
-| `1`  | Avertissements détectés |
-| `2`  | Alertes détectées — action requise |
-| `3`  | Erreur technique |
+---
 
-Exemple cron — audit quotidien à 6h, mail en cas de problème :
+## ⏱️ Automatisation
+
+Installer un audit automatique :
 
 ```bash
-0 6 * * * sudo ufw-audit --quiet -d || echo "ufw-audit exit $? on $(hostname)" | mail -s "UFW Alert" admin@example.com
+sudo ufw-audit --install-cron
+```
+
+Un assistant en 4 étapes : nom du job, type de planification (quotidien / jours de semaine / jours du mois / expression cron custom), heure, email de notification optionnel.
+
+Pour gérer les jobs existants :
+
+```bash
+sudo ufw-audit --manage-cron
 ```
 
 ---
 
-## Précision importante
+## 🌍 Langues
 
-ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. Il analyse votre configuration et vous signale les problèmes — mais il ne les corrige pas automatiquement sans votre accord, et il ne peut pas tout détecter. Certains logiciels comme Docker peuvent contourner UFW en manipulant directement iptables : ufw-audit détecte ce cas spécifique et vous le signale, mais il existe d'autres vecteurs similaires qui sortent du périmètre actuel du projet. En résumé : ufw-audit vous aide à voir plus clair, il ne se substitue pas à une bonne hygiène de sécurité générale.
-
----
-
-## Roadmap
-
-**v0.9** — Réécriture complète en Python, 421 tests unitaires, installateur transparent avec manifeste, autocomplétion bash, bilingue EN/FR, 22 services avec contexte de risque à deux axes
-
-**v0.10** — Géolocalisation GeoIP2 optionnelle, suppression whois, options courtes CLI, autocomplétion install.sh, note de périmètre du score
-
-**v0.11** — Consolidation CLI & tests terrain (Mint/Debian/Kali), mode non-interactif (`--quiet`, codes de sortie 0-3), `check_virtualization()`, déduplication des ports, corrections de scoring
-
-**v0.11.1** — Patch sécurité : 20 vulnérabilités corrigées (injection shell, injection ANSI, traversée de chemins, attaques symlink, ReDoS, JSON bomb, durcissement des permissions fichiers)
-
-**v0.11.2** — Passe UX/output : bandeau redessiné (art bloc "UFW-AUDIT" complet, largeur 80 chars, étage version), verdict log, corrections de cohérence des sections dans le rapport, corrections grammaticales des locales
-
-**v0.11.3** — Prompt emplacement des logs, panorama des services, `--manage-logs`, `--install-cron` / `--remove-cron`, en-tête ASCII art dans les rapports, bannière auto-fix et résumé des commandes, `AUTOMATION.md`
-
-**v0.11.4** — Patch correctifs : détection wildcards open-any (espaces trailing, variantes `/tcp`/`/udp`), doublons sémantiques (`PORT/proto` vs `PORT`), ignorance des commentaires, services CRITICAL/HIGH exposés → alerte, règles bare port DDNS, `TESTING.md`
-
-**v0.12** — Rapports email markdown : conversion HTML zéro-dépendance, emails MIME multipart (plaintext + HTML), rendu HTML dans nightly script, nettoyage des boîtes UTF-8
-
-**v0.13** — Planificateur multi-cron : crons nommés, wizard de planification en 4 étapes (tous les jours / jours de la semaine / jours du mois / expression personnalisée), TUI `--manage-cron`, `--remove-cron` avec sélection explicite, module `cron.py` isolé
-
-**v0.14** — Refactoring : `__main__.py` réduit de ~1820 à ~481 lignes ; nouveaux modules dédiés : `display.py`, `fixes.py`, `manage_logs.py`, `panorama.py`, `sysinfo.py` ; `check_rules()` déplacé vers `checks/firewall.py` ; orchestrateur pur sans logique métier
-
-**v0.14.1** *(stable)* — Corrections post-sortie : faux positif ALERT pour services liés au loopback (Redis/6379), faux positifs DDNS (ports système, règles orphelines, règles bare), `--remove-cron` non supprimé à la sortie, bannière VERSION affichant `v0.13.0b`
-
-**v0.15** *(planifiée)*
-- Audit de sécurité du code : revue complète de la validation des entrées, des permissions fichiers, des surfaces d'appel shell, de la gestion d'erreurs et des pratiques Python sur l'ensemble des modules
-- Approfondissement du plan de test : règles UFW dangereuses
-
-**v1.0** — CLI stable, complète, validée
-
-**Post v1.0**
-- Interface Web (`--gui`) — interface graphique pour utilisateurs non-techniques, approche pédagogique, périmètre simplifié
-- PPA Launchpad / paquet `.deb` si adoption suffisante
+- 🇬🇧 English (par défaut)
+- 🇫🇷 Français (`--french`)
 
 ---
 
-## Licence
+## 📁 Structure du projet
 
-Ce projet est sous licence MIT. Voir `LICENSE` pour les détails.
+```text
+Automated-UFW-audit/
+├── README.md                   # présentation du projet (EN)
+├── README_FR.md                # présentation du projet (FR) — vous êtes ici
+├── LICENSE                     # licence MIT
+├── .gitignore
+├── install.sh                  # installeur / désinstalleur
+├── ufw-audit.bash-completion   # complétion bash
+├── DOCUMENTS/                  # documentation complète
+│   ├── README_TECH.md          # référence technique complète (EN)
+│   ├── README_TECH_FR.md       # référence technique complète (FR)
+│   ├── CHANGELOG.md / _FR.md   # historique des versions
+│   ├── TESTING.md / _FR.md     # plan de test & scénarios validés
+│   ├── AUTOMATION.md / _FR.md  # guide d'automatisation cron & CI
+│   └── README_DEV.md / _FR.md  # notes développeur
+├── ufw_audit/                  # paquet Python principal
+│   ├── __main__.py             # orchestrateur — point d'entrée
+│   ├── cli.py                  # parsing des arguments CLI
+│   ├── config.py               # configuration utilisateur & emails (~/.config/ufw-audit/)
+│   ├── cron.py                 # planificateur multi-jobs (--install-cron / --manage-cron)
+│   ├── display.py              # helpers d'affichage terminal
+│   ├── fixes.py                # interface du mode correction interactif
+│   ├── i18n.py                 # chargeur de traductions
+│   ├── manage_logs.py          # interface de gestion des rapports
+│   ├── output.py               # primitives d'impression (OK / WARN / ALERT / INFO)
+│   ├── panorama.py             # constructeur du tableau panorama des services
+│   ├── registry.py             # registre des services connus (chargeur services.json)
+│   ├── report.py               # rédacteur de rapport texte
+│   ├── report_markdown.py      # rapport email markdown → HTML
+│   ├── scoring.py              # moteur de score (0–10)
+│   ├── sysinfo.py              # collecte des informations système
+│   ├── checks/
+│   │   ├── firewall.py         # statut UFW & analyse des règles
+│   │   ├── services.py         # 22 services connus — classification d'exposition
+│   │   ├── ports.py            # analyse des ports en écoute (ss)
+│   │   ├── logs.py             # analyse des logs UFW & détection de bruteforce
+│   │   ├── ddns.py             # détection DDNS / exposition Internet
+│   │   ├── docker.py           # détection du contournement iptables par Docker
+│   │   └── virtualization.py   # détection hyperviseur & bridges snap
+│   ├── data/
+│   │   └── services.json       # définitions des 22 services (ports, risque, contexte)
+│   └── locales/
+│       ├── en.json             # chaînes anglaises
+│       └── fr.json             # chaînes françaises
+└── tests/                      # suite de tests unitaires (un fichier par module)
+```
 
 ---
 
-## Auteur
+## 🛡️ Note importante
 
-so6
+ufw-audit est un outil d'audit et de diagnostic — **pas un bouclier de sécurité**. Il analyse votre configuration et signale les problèmes, mais ne remplace pas une bonne hygiène de sécurité générale. Certains logiciels comme Docker peuvent contourner UFW en manipulant iptables directement : ufw-audit détecte ce cas spécifique, mais d'autres vecteurs similaires existent en dehors du périmètre actuel.
+
+⚠️ Toujours vérifier les modifications avant de les appliquer en production.
+
+---
+
+## 📌 Roadmap
+
+**v0.15** ✅ — Durcissement sécurité, refactoring DRY, corrections du script d'installation, correction bug détection wildcards IPv6
+
+**v1.0** — Version stable, complète, validée
+
+**Post v1.0** — Interface web (`--gui`) pour utilisateurs non techniques
+
+---
+
+## 🤝 Contribution
+
+Contributions bienvenues — issues, suggestions, pull requests.
+
+---
+
+## 📄 Licence
+
+MIT License — © 2026 Cédric Clauzel
+
+---
+
+## 💬 En bref
+
+> ufw-audit transforme UFW en firewall **fiable, vérifié et compréhensible**.

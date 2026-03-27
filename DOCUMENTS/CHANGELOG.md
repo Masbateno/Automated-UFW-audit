@@ -6,6 +6,65 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.15] — in progress (beta)
+
+### Security hardening — full code audit
+
+Complete security and code quality review of all modules. No high-severity vulnerabilities found. Five medium and three low-severity issues addressed.
+
+#### Fixes
+
+- **`fixes.py` (M1)** — `subprocess.run()` called without `timeout`; added `timeout=30` and `subprocess.TimeoutExpired` to the caught exception types. Prevents indefinite hang if a UFW command stalls.
+- **`i18n.py` (M2)** — `UFW_AUDIT_SHARE` path validation used `is_symlink()` on the final component only, missing intermediate symlinks in the chain. Replaced with `Path.resolve()` which follows the full symlink chain before checking.
+- **`registry.py` (M3)** — Same symlink chain vulnerability as `i18n.py`. Same fix: `Path.resolve()`.
+- **`manage_logs.py` (M4)** — `prompt_path()` returned a raw user-supplied path without normalisation. Added `.resolve()` to expand and canonicalise the path, neutralising `..` traversal sequences.
+- **`cron.py` (M5)** — Cron files in `/etc/cron.d/` were created with `0o644` (world-readable), exposing the notification email address to all system users. Changed to `0o640` (readable by root and group only).
+- **`cron.py` (L1)** — Variables written into the generated bash script (`NOTIFY_EMAIL`, `LOG_DIR`, `PYTHONPATH` prefix, binary path) were embedded with double-quote wrapping. Replaced with `shlex.quote()` for correct shell escaping of all values.
+- **`display.py` (L2)** — Magic numbers `48` and `44` (message truncation widths in the summary box) extracted to module constants `_SUMMARY_MSG_LEN` and `_SUMMARY_REASON_LEN`.
+- **`report_markdown.py` (L3)** — Bare `except Exception` in the email send function replaced with specific types: `(OSError, subprocess.TimeoutExpired, ValueError)`.
+
+#### Round 2 fixes
+
+- **`cron.py`** — `edit_cron_schedule()` recreated cron files with `0o644` (world-readable), regressing the `0o640` permission set by `run_install_cron()`. Unified to `0o640`.
+- **`__main__.py`** — Dead `if False else` branch left over from an i18n transition removed (`t("report.title")` was unreachable; the expression always evaluated to the hard-coded string).
+- **`report_markdown.py`** — `_inline_format()` applied bold/code/link regex substitutions before HTML-escaping the input. System-generated content containing `<`, `>`, or `&` (process names, file paths) could produce malformed HTML in email reports. Added `html.escape()` as the first step. Also removed two stale inline `import re` statements (module-level import already present).
+- **`checks/ports.py`** — `UNCOVERED_LOCAL` ports (loopback/LAN bindings without a UFW rule) had no deduplication guard. Ports bound on both `127.0.0.1` and `[::1]` — such as Postfix on `25/tcp` — were reported twice. Added `reported_local_ports` set, mirroring the existing guards for other categories.
+
+#### Round 3 fixes
+
+- **`cron.py`** — Two `re.sub()` calls used user-supplied strings (notification email, schedule expression + script path) directly as replacement arguments. A value containing `\1` or other backslash sequences would be interpreted as a backreference by `re.sub()`, causing `re.error` or silently wrong output. Both replacement arguments replaced with lambdas, which `re.sub()` never pattern-interpolates.
+- **`report_markdown.py` (`_audit_log_to_html`)** — All dynamic content (section titles extracted from the audit log, log level, timestamp, message, key/value pairs, list items, paragraph text) was inserted into HTML without escaping. System-generated strings containing `<`, `>`, or `&` — such as hostnames, command output, or file paths — would produce malformed HTML in email reports. Applied `html.escape()` at every insertion point. Also narrowed `except Exception` → `except OSError` on the log file read.
+- **`checks/firewall.py`** — Redundant `import re` inside `check_rules()` removed (`re` already imported at module level).
+- **`output.py`** — Same redundant inline `import re` removed from `_strip_ansi()`.
+- **`checks/logs.py`** — After extracting `DPT` from a kernel log line, `int(dpt)` was called without range validation. A malformed log entry with a value outside `1–65535` would silently create a bogus `LogEntry`. Added explicit bounds check before appending.
+
+### Refactoring — DRY extraction
+
+- **`checks/_run.py`** (new) — shared hub for all check modules: `_run()`, `_CMD_TIMEOUT = 10`, `_command_exists()`, `_identity_t()`. All five duplicate implementations across `firewall.py`, `services.py`, `ports.py`, `ddns.py`, `docker.py`, `virtualization.py`, `logs.py` removed.
+- **`_paths.py`** (new) — `resolve_share_dir()` extracted from `i18n.py` and `registry.py`. Validates `UFW_AUDIT_SHARE` env var with full symlink-safe `Path.resolve()` before use.
+- **`display.py`** — `_truncate(text, max_len)` helper extracted; five inline ternary truncations in `display.py` and `fixes.py` replaced.
+- **`checks/ports.py`** — `UNCOVERED_LOCAL` ports (loopback/LAN, no UFW rule) now use a distinct locale key `ports.uncovered_local` instead of `ports.uncovered`. Prevents misleading "listening on all interfaces" messages for services bound to localhost only (e.g. Postfix on `25/tcp`).
+- **`checks/logs.py`** — `_MAX_LOG_SIZE` reduced from 100 MB to 10 MB, sufficient for weeks of UFW logs. Prevents memory exhaustion from inflated log files.
+
+### Security — config directory permissions
+
+- **`config.py`** — `_ensure_dir()` called `mkdir(mode=0o700)` but Python's `mkdir` ignores `mode` if the directory already exists. Added explicit `chmod(0o700)` after `mkdir` so the permission is enforced on every write, not just on creation.
+
+### Install script fixes
+
+- **Missing `__init__.py`** — `checks/__init__.py` was listed in a comment as "handled separately" but never actually copied or added to the manifest. Fixed.
+- **Python version check logic** — `major >= 3 AND minor >= 8` is wrong for Python 4+. Corrected to `(major > 3) OR (major == 3 AND minor >= 8)`.
+- **Dead `LAYOUT` variable** — unused variable removed.
+- **Locale copy** — two hardcoded `do_copy` lines replaced with a glob loop over `${SRC_LOCALES}/*.json`; manifest uses the same glob on installed files.
+- **Doc copy** — hardcoded list replaced with root files (`README.md`, `README_FR.md`, `LICENSE`) plus a glob over `DOCUMENTS/*.md`.
+- **New modules not in lists** — `_paths.py` and `checks/_run.py` added to both the copy loop and the manifest loop.
+
+### Bug fix — IPv6 wildcard detection
+
+- **`checks/firewall.py`** — `open_any_pattern` did not match `Anywhere (v6) ALLOW IN Anywhere (v6)` lines. `ufw allow from any` adds both an IPv4 and an IPv6 rule; only the IPv4 rule was detected and proposed for deletion. The IPv6 wildcard remained after `--fix`, leaving a real security gap. Fixed: pattern extended with `(?:\s+\(v6\))?` on both sides to cover all four variants (`bare`, `/tcp`, `/udp`, `(v6)`). Unit test `test_open_any_v6_both_detected` tightened from `>= 1` to `== 2`.
+
+---
+
 ## [v0.14.1] — 2026-03-26
 
 ### Bug fixes (post-release corrections)

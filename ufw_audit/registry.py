@@ -27,26 +27,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+from ufw_audit._paths import resolve_share_dir
+
 logger = logging.getLogger(__name__)
 
 # Service data location:
 # - If UFW_AUDIT_SHARE env var is set (installed), use that share directory
 # - Otherwise fall back to data/ next to this module (development)
-import os as _os
-_share = _os.environ.get("UFW_AUDIT_SHARE", "")
-if _share:
-    _share_path = Path(_share)
-    if (
-        _share_path.is_absolute()
-        and not _share_path.is_symlink()
-        and _share_path.is_dir()
-    ):
-        _DATA_DIR = _share_path / "data"
-    else:
-        logger.warning("UFW_AUDIT_SHARE is invalid or unsafe, ignoring: %r", _share)
-        _DATA_DIR = Path(__file__).parent / "data"
-else:
-    _DATA_DIR = Path(__file__).parent / "data"
+_share_path = resolve_share_dir()
+_DATA_DIR = (_share_path / "data") if _share_path else (Path(__file__).parent / "data")
 _SERVICES_FILE = _DATA_DIR / "services.json"
 
 # Valid values for the risk field

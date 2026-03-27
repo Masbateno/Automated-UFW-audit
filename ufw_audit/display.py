@@ -7,6 +7,15 @@ log analysis, and the final audit summary.
 
 from __future__ import annotations
 
+# Maximum display width for summary box entries
+_SUMMARY_MSG_LEN    = 48   # finding messages (action / improvement / structural)
+_SUMMARY_REASON_LEN = 44   # score deduction reasons
+
+
+def _truncate(text: str, max_len: int) -> str:
+    """Truncate text to max_len characters, appending ellipsis if needed."""
+    return text[:max_len] + "…" if len(text) > max_len else text
+
 
 # ---------------------------------------------------------------------------
 # Check result display
@@ -227,19 +236,19 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
             lines.append(("---", ""))
             lines.append((f"✖ {t('summary.block_action')}", ""))
             for item in action_items:
-                msg = item.message[:48] + "…" if len(item.message) > 48 else item.message
+                msg = _truncate(item.message, _SUMMARY_MSG_LEN)
                 lines.append((f"  ✖  {msg}", ""))
         if improvement_items:
             lines.append(("---", ""))
             lines.append((f"⚠ {t('summary.block_improve')}", ""))
             for item in improvement_items:
-                msg = item.message[:48] + "…" if len(item.message) > 48 else item.message
+                msg = _truncate(item.message, _SUMMARY_MSG_LEN)
                 lines.append((f"  ⚠  {msg}", ""))
         if structural_items:
             lines.append(("---", ""))
             lines.append((f"ℹ {t('summary.block_normal')}", ""))
             for item in structural_items:
-                msg = item.message[:48] + "…" if len(item.message) > 48 else item.message
+                msg = _truncate(item.message, _SUMMARY_MSG_LEN)
                 lines.append((f"  ℹ  {msg}", ""))
 
     if engine.breakdown or engine.cap_info:
@@ -248,7 +257,7 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
         for ded in engine.breakdown:
             if ded.points == 0:
                 continue
-            reason = ded.reason[:44] + "…" if len(ded.reason) > 44 else ded.reason
+            reason = _truncate(ded.reason, _SUMMARY_REASON_LEN)
             lines.append((f"  -{ded.points}  {reason}", ""))
         if engine.cap_info:
             cap_note = t("scoring.cap_note", max=engine.cap_info.maximum)
@@ -324,3 +333,75 @@ def build_risk_context_entries(snapshots, lang: str, t) -> list[dict]:
             "threat":         threat,
         })
     return entries
+
+
+# ---------------------------------------------------------------------------
+# GeoIP availability notice
+# ---------------------------------------------------------------------------
+
+def display_geoip_notice(geo_status: str, t, output) -> None:
+    """Print a one-time notice if GeoIP2 is unavailable or has no database."""
+    if geo_status == "unavailable":
+        msg = t("logs.geoip2_unavailable")
+        if msg.startswith("["):
+            msg = "GeoIP2 not available — install python3-geoip2 for IP geolocation"
+        output.print_info(msg)
+    elif geo_status == "no_database":
+        msg = t("logs.geoip2_no_db")
+        if msg.startswith("["):
+            msg = "GeoIP2 installed but no GeoLite2 database found"
+        output.print_info(msg)
+
+
+# ---------------------------------------------------------------------------
+# Ports overview section
+# ---------------------------------------------------------------------------
+
+def display_ports_overview(ports_snapshot, config, t, report, output) -> None:
+    """Print the listening ports count and optional ss table."""
+    from ufw_audit.output import print_section
+    print_section(t("sections.ports_overview"))
+    report.write_section(t("sections.ports_overview"))
+    output.print_info(t("ports.listening_count", count=len(ports_snapshot.ports)))
+    report.write_finding("INFO", t("ports.listening_count",
+                                   count=len(ports_snapshot.ports)))
+    if ports_snapshot.ss_output:
+        report.write_raw("")
+        report.write_raw(ports_snapshot.ss_output)
+        if config.verbose:
+            output.print_dim(t("ports.listening_detail"))
+            print()
+            print(ports_snapshot.ss_output)
+        else:
+            output.print_dim(t("ports.listening_verbose_hint"))
+    print()
+
+
+# ---------------------------------------------------------------------------
+# Services panorama section
+# ---------------------------------------------------------------------------
+
+def display_services_panorama(registry, ufw_numbered: str,
+                               loopback_only_ports: set, config, t) -> None:
+    """Print the compact services panorama table (all 22 known services)."""
+    from ufw_audit.output import print_section, print_services_panorama
+    from ufw_audit.checks.services import ServiceSnapshot
+    from ufw_audit.panorama import build_panorama_rows
+
+    print_section(t("sections.services_panorama"))
+    all_snaps = ServiceSnapshot.collect_all(
+        registry, ufw_rules=ufw_numbered, loopback_ports=loopback_only_ports
+    )
+    panorama_rows = build_panorama_rows(all_snaps)
+    panorama_labels = {
+        "header_service": t("services.panorama.header_service"),
+        "header_status":  t("services.panorama.header_status"),
+        "header_ports":   t("services.panorama.header_ports"),
+        "header_ufw":     t("services.panorama.header_ufw"),
+        "active":         t("services.panorama.active"),
+        "inactive":       t("services.panorama.inactive"),
+        "not_installed":  t("services.panorama.not_installed"),
+        "unknown":        t("services.panorama.unknown"),
+    }
+    print_services_panorama(panorama_rows, panorama_labels)
+    print()

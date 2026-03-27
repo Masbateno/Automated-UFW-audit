@@ -29,6 +29,7 @@ import subprocess
 from dataclasses import dataclass, field
 from typing import Optional
 
+from ufw_audit.checks._run import _command_exists, _identity_t
 from ufw_audit.scoring import CheckResult
 
 logger = logging.getLogger(__name__)
@@ -190,12 +191,3 @@ def _get_snap_network_packages() -> list[str]:
         return []
 
 
-def _command_exists(name: str) -> bool:
-    """Return True if the command is available in PATH."""
-    import shutil
-    return shutil.which(name) is not None
-
-
-def _identity_t(key: str, **kwargs) -> str:
-    """Fallback translation that returns the key itself."""
-    return key

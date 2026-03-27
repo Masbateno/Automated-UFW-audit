@@ -11,6 +11,8 @@ import re
 import shlex
 import subprocess
 
+from ufw_audit.display import _SUMMARY_MSG_LEN, _truncate
+
 
 def run_fixes(engine, config, t) -> None:
     """Display and optionally apply automatic fixes."""
@@ -63,7 +65,7 @@ def run_fixes(engine, config, t) -> None:
 
     print()
     for msg, cmd in sorted_items:
-        short = msg[:48] + "…" if len(msg) > 48 else msg
+        short = _truncate(msg, _SUMMARY_MSG_LEN)
         print(f"  ✖  {short}")
         print(f"  → {cmd}")
         if config.yes:
@@ -73,13 +75,15 @@ def run_fixes(engine, config, t) -> None:
 
         if answer == "y":
             try:
-                proc = subprocess.run(shlex.split(cmd), stdin=subprocess.DEVNULL)
+                proc = subprocess.run(
+                    shlex.split(cmd), stdin=subprocess.DEVNULL, timeout=30,
+                )
                 if proc.returncode == 0:
                     print(f"  ✔ {t('fixes.applied')}")
                     applied_cmds.append(cmd)
                 else:
                     print(f"  ✖ {t('fixes.manual')} (exit {proc.returncode})")
-            except (OSError, ValueError) as exc:
+            except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
                 print(f"  ✖ {t('fixes.manual')} ({type(exc).__name__})")
         else:
             print(f"  ✖ {t('fixes.manual')}")

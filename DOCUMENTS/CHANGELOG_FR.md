@@ -6,6 +6,65 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v0.15] — en cours (beta)
+
+### Durcissement sécurité — audit complet du code
+
+Revue de sécurité et de qualité complète sur l'ensemble des modules. Aucune vulnérabilité de haute sévérité trouvée. Cinq problèmes de sévérité moyenne et trois de faible sévérité corrigés.
+
+#### Corrections
+
+- **`fixes.py` (M1)** — `subprocess.run()` appelé sans `timeout` ; ajout de `timeout=30` et de `subprocess.TimeoutExpired` dans les exceptions attrapées. Empêche un blocage indéfini si une commande UFW se fige.
+- **`i18n.py` (M2)** — La validation du chemin `UFW_AUDIT_SHARE` utilisait `is_symlink()` uniquement sur le composant final, manquant les liens symboliques intermédiaires. Remplacé par `Path.resolve()` qui suit toute la chaîne de liens symboliques.
+- **`registry.py` (M3)** — Même vulnérabilité de chaîne de liens symboliques que `i18n.py`. Même correctif : `Path.resolve()`.
+- **`manage_logs.py` (M4)** — `prompt_path()` retournait le chemin brut fourni par l'utilisateur sans normalisation. Ajout de `.resolve()` pour développer et canonicaliser le chemin, neutralisant les séquences de traversée `..`.
+- **`cron.py` (M5)** — Les fichiers cron dans `/etc/cron.d/` étaient créés avec `0o644` (lisibles par tous), exposant l'adresse email de notification à tous les utilisateurs du système. Changé en `0o640` (lecture réservée à root et au groupe).
+- **`cron.py` (L1)** — Les variables écrites dans le script bash généré (`NOTIFY_EMAIL`, `LOG_DIR`, préfixe `PYTHONPATH`, chemin du binaire) étaient intégrées avec des guillemets doubles. Remplacé par `shlex.quote()` pour un échappement shell correct de toutes les valeurs.
+- **`display.py` (L2)** — Les nombres magiques `48` et `44` (largeurs de troncature des messages dans le récapitulatif) extraits vers des constantes de module `_SUMMARY_MSG_LEN` et `_SUMMARY_REASON_LEN`.
+- **`report_markdown.py` (L3)** — `except Exception` nu dans la fonction d'envoi d'email remplacé par des types spécifiques : `(OSError, subprocess.TimeoutExpired, ValueError)`.
+
+#### Corrections — second passage
+
+- **`cron.py`** — `edit_cron_schedule()` recréait les fichiers cron avec `0o644` (lisible par tous), régressant le `0o640` posé par `run_install_cron()`. Unifié en `0o640`.
+- **`__main__.py`** — Branche morte `if False else` laissée lors d'une transition i18n supprimée (`t("report.title")` était inaccessible ; l'expression évaluait toujours la chaîne codée en dur).
+- **`report_markdown.py`** — `_inline_format()` appliquait les substitutions regex gras/code/lien avant d'échapper le HTML de l'entrée. Du contenu généré par le système contenant `<`, `>` ou `&` (noms de processus, chemins) pouvait produire du HTML malformé dans les rapports email. Ajout de `html.escape()` en première étape. Suppression également de deux `import re` inline devenus obsolètes (import déjà présent au niveau du module).
+- **`checks/ports.py`** — Les ports `UNCOVERED_LOCAL` (bindings loopback/LAN sans règle UFW) n'avaient pas de garde de déduplication. Les ports liés à la fois sur `127.0.0.1` et `[::1]` — comme Postfix sur `25/tcp` — étaient rapportés deux fois. Ajout d'un ensemble `reported_local_ports`, analogue aux gardes existants pour les autres catégories.
+
+#### Corrections — troisième passage
+
+- **`cron.py`** — Deux appels `re.sub()` utilisaient des chaînes fournies par l'utilisateur (email de notification, expression de planification + chemin du script) directement comme argument de remplacement. Une valeur contenant `\1` ou d'autres séquences backslash serait interprétée comme une backreférence par `re.sub()`, provoquant une `re.error` ou une sortie incorrecte silencieuse. Les deux arguments de remplacement remplacés par des lambdas, que `re.sub()` n'interpole jamais comme des patterns.
+- **`report_markdown.py` (`_audit_log_to_html`)** — Tout le contenu dynamique (titres de section extraits du journal d'audit, niveau de log, horodatage, message, paires clé/valeur, éléments de liste, texte de paragraphe) était inséré dans le HTML sans échappement. Des chaînes générées par le système contenant `<`, `>` ou `&` — comme des noms d'hôtes, sorties de commandes ou chemins de fichiers — produiraient du HTML malformé dans les rapports email. Appliqué `html.escape()` à chaque point d'insertion. `except Exception` → `except OSError` sur la lecture du fichier journal.
+- **`checks/firewall.py`** — `import re` redondant à l'intérieur de `check_rules()` supprimé (`re` déjà importé au niveau du module).
+- **`output.py`** — Même `import re` inline redondant supprimé de `_strip_ansi()`.
+- **`checks/logs.py`** — Après extraction de `DPT` depuis une ligne de journal noyau, `int(dpt)` était appelé sans validation de plage. Une entrée de journal malformée avec une valeur hors de `1–65535` créerait silencieusement un `LogEntry` invalide. Vérification explicite des bornes ajoutée avant l'ajout.
+
+### Refactoring — extraction DRY
+
+- **`checks/_run.py`** (nouveau) — hub partagé pour tous les modules de vérification : `_run()`, `_CMD_TIMEOUT = 10`, `_command_exists()`, `_identity_t()`. Les cinq implémentations dupliquées dans `firewall.py`, `services.py`, `ports.py`, `ddns.py`, `docker.py`, `virtualization.py`, `logs.py` supprimées.
+- **`_paths.py`** (nouveau) — `resolve_share_dir()` extrait de `i18n.py` et `registry.py`. Valide la variable d'environnement `UFW_AUDIT_SHARE` avec `Path.resolve()` (sûr vis-à-vis des liens symboliques) avant utilisation.
+- **`display.py`** — Helper `_truncate(text, max_len)` extrait ; cinq ternaires inline dans `display.py` et `fixes.py` remplacés.
+- **`checks/ports.py`** — Les ports `UNCOVERED_LOCAL` (loopback/LAN, sans règle UFW) utilisent désormais la clé locale distincte `ports.uncovered_local` au lieu de `ports.uncovered`. Évite les messages trompeurs « en écoute sur toutes les interfaces » pour les services liés uniquement à localhost (ex. Postfix sur `25/tcp`).
+- **`checks/logs.py`** — `_MAX_LOG_SIZE` réduit de 100 Mo à 10 Mo, suffisant pour plusieurs semaines de logs UFW. Prévient l'épuisement de la mémoire sur des fichiers journaux gonflés.
+
+### Sécurité — permissions du répertoire de configuration
+
+- **`config.py`** — `_ensure_dir()` appelait `mkdir(mode=0o700)` mais Python ignore `mode` si le répertoire existe déjà. Ajout d'un `chmod(0o700)` explicite après `mkdir` pour que les permissions soient appliquées à chaque écriture, pas seulement à la création.
+
+### Corrections du script d'installation
+
+- **`__init__.py` manquant** — `checks/__init__.py` était mentionné dans un commentaire comme « géré séparément » mais n'était jamais copié ni ajouté au manifeste. Corrigé.
+- **Logique de vérification de version Python** — `major >= 3 AND minor >= 8` est incorrecte pour Python 4+. Corrigé en `(major > 3) OR (major == 3 AND minor >= 8)`.
+- **Variable morte `LAYOUT`** — variable inutilisée supprimée.
+- **Copie des locales** — deux lignes `do_copy` codées en dur remplacées par une boucle glob sur `${SRC_LOCALES}/*.json` ; le manifeste utilise le même glob sur les fichiers installés.
+- **Copie de la documentation** — liste codée en dur remplacée par les fichiers racine (`README.md`, `README_FR.md`, `LICENSE`) plus un glob sur `DOCUMENTS/*.md`.
+- **Nouveaux modules absents des listes** — `_paths.py` et `checks/_run.py` ajoutés à la fois à la boucle de copie et à la boucle du manifeste.
+
+### Correction de bug — détection des règles wildcard IPv6
+
+- **`checks/firewall.py`** — `open_any_pattern` ne correspondait pas aux lignes `Anywhere (v6) ALLOW IN Anywhere (v6)`. `ufw allow from any` ajoute à la fois une règle IPv4 et une règle IPv6 ; seule la règle IPv4 était détectée et proposée à la suppression. La règle wildcard IPv6 subsistait après `--fix`, laissant une faille de sécurité réelle. Corrigé : motif étendu avec `(?:\s+\(v6\))?` des deux côtés pour couvrir les quatre variantes (`bare`, `/tcp`, `/udp`, `(v6)`). Test unitaire `test_open_any_v6_both_detected` renforcé de `>= 1` à `== 2`.
+
+---
+
 ## [v0.14.1] — 2026-03-26
 
 ### Corrections de bugs (corrections post-sortie)

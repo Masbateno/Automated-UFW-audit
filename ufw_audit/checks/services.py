@@ -21,12 +21,12 @@ from __future__ import annotations
 
 import logging
 import re
-import subprocess
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Optional
 
+from ufw_audit.checks._run import _identity_t, _run
 from ufw_audit.registry import Service, ServiceRegistry
 from ufw_audit.scoring import CheckResult
 
@@ -517,24 +517,3 @@ def _classify_exposure(port: str, ufw_rules: str) -> Exposure:
     return Exposure.NO_RULE
 
 
-# ---------------------------------------------------------------------------
-# Subprocess helpers
-# ---------------------------------------------------------------------------
-
-def _run(*args: str) -> str:
-    """Run a command and return stdout. Returns empty string on error."""
-    try:
-        proc = subprocess.run(
-            list(args),
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        return proc.stdout
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
-        logger.debug("Command %r failed: %s", args, exc)
-        return ""
-
-
-def _identity_t(key: str, **kwargs) -> str:
-    return key

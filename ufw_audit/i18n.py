@@ -26,6 +26,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from ufw_audit._paths import resolve_share_dir
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -39,21 +41,8 @@ _initialized: bool = False
 # Locale files location:
 # - If UFW_AUDIT_SHARE env var is set (installed), use that share directory
 # - Otherwise fall back to locales/ next to this module (development)
-import os as _os
-_share = _os.environ.get("UFW_AUDIT_SHARE", "")
-if _share:
-    _share_path = Path(_share)
-    if (
-        _share_path.is_absolute()
-        and not _share_path.is_symlink()
-        and _share_path.is_dir()
-    ):
-        _LOCALES_DIR = _share_path / "locales"
-    else:
-        logger.warning("UFW_AUDIT_SHARE is invalid or unsafe, ignoring: %r", _share)
-        _LOCALES_DIR = Path(__file__).parent / "locales"
-else:
-    _LOCALES_DIR = Path(__file__).parent / "locales"
+_share_path = resolve_share_dir()
+_LOCALES_DIR = (_share_path / "locales") if _share_path else (Path(__file__).parent / "locales")
 
 SUPPORTED_LANGS = ("en", "fr")
 DEFAULT_LANG = "en"
