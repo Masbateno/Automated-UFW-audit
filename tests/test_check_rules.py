@@ -96,7 +96,7 @@ def test_open_any_v6_both_detected():
         1 for f in result.findings if f.level == FindingLevel.ALERT
         and "rules.open_any_found" in f.message
     )
-    assert alert_count >= 1
+    assert alert_count == 2, f"Expected 2 open-any alerts (IPv4 + IPv6), got {alert_count}"
 
 
 def test_open_any_deduction_applied():

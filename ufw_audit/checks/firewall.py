@@ -246,7 +246,8 @@ def check_rules(ufw_verbose: str, ufw_numbered: str, t) -> "CheckResult":
         result.ok(message=t("rules.no_duplicates"))
 
     open_any_pattern = re.compile(
-        r"Anywhere(?:/\w+)?\s+ALLOW\s+IN\s+Anywhere(?:/\w+)?\s*$", re.IGNORECASE
+        r"Anywhere(?:/\w+)?(?:\s+\(v6\))?\s+ALLOW\s+IN\s+Anywhere(?:/\w+)?(?:\s+\(v6\))?\s*$",
+        re.IGNORECASE,
     )
     found_open_any = False
     for line in lines:

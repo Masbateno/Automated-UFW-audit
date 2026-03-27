@@ -35,8 +35,11 @@ sudo ufw allow from any
 | `-2` score deduction | ✔ |
 | Fix proposed: `sudo ufw --force delete N` | ✔ |
 | Fix applied correctly | ✔ |
+| **IPv6 rule also detected and fixed** (`Anywhere (v6) ALLOW IN Anywhere (v6)`) | ✔ v0.15 |
 
-**Root cause fixed:** `ufw status numbered` pads lines with trailing spaces — the `$` anchor in the regex never matched. Fixed: `Anywhere$` → `Anywhere\s*$`. (commit `8ccd9b6`)
+**Root cause fixed (v0.11.4):** `ufw status numbered` pads lines with trailing spaces — the `$` anchor in the regex never matched. Fixed: `Anywhere$` → `Anywhere\s*$`. (commit `8ccd9b6`)
+
+**Root cause fixed (v0.15):** IPv6 wildcard rules (`Anywhere (v6) ALLOW IN Anywhere (v6)`) escaped detection — `open_any_pattern` did not account for the `(v6)` suffix. Fixed: pattern extended with `(?:\s+\(v6\))?` on both sides. Both IPv4 and IPv6 rules are now flagged and fixed independently.
 
 ---
 
@@ -51,8 +54,11 @@ sudo ufw allow proto tcp from any to any
 | `✖ [ALERT]` Rule allowing all incoming connections without port restriction | ✔ v0.11.4 |
 | `-2` score deduction | ✔ |
 | Fix applied correctly | ✔ |
+| **IPv6 variant also detected** (`Anywhere/tcp (v6) ALLOW IN Anywhere/tcp (v6)`) | ✔ v0.15 |
 
-**Root cause fixed:** Pattern extended to `Anywhere(?:/\w+)?` on both sides to cover `/tcp`, `/udp` variants. (commit `1dd9ede`)
+**Root cause fixed (v0.11.4):** Pattern extended to `Anywhere(?:/\w+)?` on both sides to cover `/tcp`, `/udp` variants. (commit `1dd9ede`)
+
+**v0.15:** Same IPv6 fix as A1 applies here.
 
 ---
 
@@ -67,6 +73,7 @@ sudo ufw allow proto udp from any to any
 | `✖ [ALERT]` Rule allowing all incoming connections without port restriction | ✔ v0.11.4 |
 | `-2` score deduction | ✔ |
 | Fix applied correctly | ✔ |
+| **IPv6 variant also detected** | ✔ v0.15 |
 
 ---
 
@@ -80,9 +87,25 @@ sudo ufw allow proto udp from any to any
 
 | Expected | Result |
 |----------|--------|
-| 3 distinct `✖ [ALERT]` findings | ✔ v0.11.4 |
-| Score: 1/10, Risk level: CRITICAL | ✔ |
-| 3 fixes proposed and applied in reverse index order (avoids renumbering) | ✔ |
+| 3 distinct `✖ [ALERT]` findings (IPv4 only) | ✔ v0.11.4 |
+| **6 distinct `✖ [ALERT]` findings (IPv4 + IPv6)** | ✔ v0.15 |
+| Score: 0/10 (capped), Risk level: CRITICAL | ✔ |
+| 6 fixes proposed and applied in reverse index order (avoids renumbering) | ✔ v0.15 |
+
+---
+
+### A5 — False positive: source-restricted rule
+
+```bash
+sudo ufw allow from 192.168.1.0/24
+```
+
+| Expected | Result |
+|----------|--------|
+| `✔ [OK]` No 'allow from any' rule without port restriction detected | ✔ v0.15 |
+| Source-restricted rule is NOT flagged as open-any | ✔ |
+
+> `ufw status numbered` shows `Anywhere ALLOW IN 192.168.1.0/24` — destination is `Anywhere` but source is restricted. Pattern correctly requires BOTH sides to be `Anywhere` to flag.
 
 ---
 
@@ -230,9 +253,63 @@ sudo ufw allow 3306
 
 ## Category D — IPv6 consistency
 
-Not yet tested live. Covered by unit tests in `test_check_rules.py`:
-- IPv4 rules with no IPv6 equivalent → `⚠ [WARNING]` (validated)
-- IPv4 + IPv6 rules present → `✔ [OK]` (validated)
+### D1 — IPv4 rules present, no IPv6 equivalent (warning expected)
+
+```bash
+# From baseline: 22/tcp and 80 are present, no (v6) rules
+sudo ufw status numbered
+```
+
+> **Note:** Some distributions (or VMs with `IPV6=no` in `/etc/default/ufw`) do not add IPv6 rules. If all rules are already paired (IPv4 + IPv6), use `sudo ufw --force reset` and re-add only IPv4 rules:
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 22/tcp   # Do NOT let UFW create (v6) rules — requires IPV6=no
+sudo ufw enable
+```
+
+| Expected | Result |
+|----------|--------|
+| `⚠ [WARNING]` IPv6 rules missing — only IPv4 rules present | ✔ unit test |
+| `-1` score deduction | ✔ unit test |
+| Live test | pending v0.15 |
+
+---
+
+### D2 — IPv4 and IPv6 rules both present (no warning)
+
+```bash
+# Baseline with IPV6=yes (default): 22/tcp and 22/tcp (v6) both present
+sudo ufw-audit
+```
+
+| Expected | Result |
+|----------|--------|
+| `✔ [OK]` IPv4 and IPv6 rules both present | ✔ unit test |
+| No deduction | ✔ unit test |
+| Live test | pending v0.15 |
+
+---
+
+## Category E — Loopback-only ports (v0.15)
+
+### E1 — Port listening on localhost only, no UFW rule — INFO not ALERT
+
+```bash
+# Any process bound exclusively to 127.0.0.1 without a UFW rule
+# Example: netcat listening on loopback (or rely on Redis default config)
+# Redis default: bind 127.0.0.1 — no UFW rule needed
+sudo ufw-audit
+```
+
+| Expected | Result |
+|----------|--------|
+| `ℹ [INFO]` Port X — bound to localhost only — no external exposure | pending v0.15 |
+| No ALERT, no score deduction | pending v0.15 |
+| Message uses `ports.uncovered_local` locale key (new in v0.15) | pending v0.15 |
+
+> **New in v0.15:** Ports in `PortCategory.UNCOVERED_LOCAL` now use a distinct locale key `ports.uncovered_local` instead of `ports.uncovered` (which implies all-interfaces exposure). This prevents misleading "listening on all interfaces" messages for loopback-only services.
 
 ---
 
