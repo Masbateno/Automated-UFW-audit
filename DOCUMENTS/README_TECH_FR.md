@@ -106,6 +106,19 @@ L'installateur :
 - Génère un manifeste d'installation dans `/usr/local/share/ufw-audit/install.manifest`
 - Affiche chaque action effectuée
 
+### Choix d'installation
+
+ufw-audit est installé globalement sous `/usr/local/` — la même convention qu'Ansible, Certbot ou Fail2ban.
+
+**Pourquoi pas d'environnement virtuel ?**
+ufw-audit n'a **aucune dépendance PyPI tierce** — uniquement la bibliothèque standard Python. Il tourne en `root` et interagit directement avec les ressources système (`ufw`, `/var/log/ufw.log`, `ss`). Un venv ajouterait de la complexité et un second chemin Python à maintenir sans aucun bénéfice.
+
+**Dépendance au Python système**
+Le shebang du point d'entrée (`#!/usr/bin/env python3`) est généré au moment de l'installation et pointe vers le binaire `python3` actif. Python 3.8+ est requis et vérifié lors des vérifications initiales. Une mise à jour du Python système qui change le binaire `python3` par défaut sera prise en compte automatiquement.
+
+**Rollback en cas d'échec**
+L'installateur suit chaque fichier et répertoire créés. En cas d'erreur à n'importe quelle étape (ex. copie impossible en cours d'installation), un `trap` se déclenche à la sortie et supprime ce qui a déjà été installé, laissant le système propre. Une installation partielle sans manifeste est impossible.
+
 ### Dry-run — voir sans toucher
 
 ```bash
