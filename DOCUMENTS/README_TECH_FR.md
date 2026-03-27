@@ -432,6 +432,8 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v0.15** — Durcissement sécurité (validation des entrées, permissions fichiers, surfaces d'appel shell, gestion d'erreurs) ; refactoring DRY (`checks/_run.py`, `_paths.py`, `_truncate`) ; corrections install script (copie `__init__.py`, vérification version Python, glob locales/docs, nouveaux modules) ; correction bug détection wildcard IPv6 (`open_any_pattern` couvre désormais les lignes `Anywhere (v6)`) ; correction message port loopback (clé `ports.uncovered_local`) ; suite de tests de régression complète validée en direct
 
+**v0.15.1** — Robustesse install script : trap + rollback en cas d'échec partiel, suppression du dead code `do_copy_dir` ; correction bug : open-any sans index `[N]` ne produit plus de commande de fix invalide ; nettoyage sortie UI fix (`capture_output`) ; `_meta.version` des locales corrigé ; choix d'installation documenté dans README_TECH
+
 **v1.0** — CLI stable, complète, validée
 
 **Post v1.0**
