@@ -1,9 +1,9 @@
 *[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
-# ufw-audit v0.14.1
+# ufw-audit v0.15
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.14.1-brightgreen)
+![Release](https://img.shields.io/badge/version-v0.15-brightgreen)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
 
@@ -370,9 +370,7 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v0.14.1** *(stable)* — Post-release corrections: false positive ALERT for loopback-bound services (Redis/6379), DDNS false positives (system ports, dangling rules, bare proto rules), `--remove-cron` not removed on release, VERSION banner showing `v0.13.0b`
 
-**v0.15** *(planned)*
-- Security code review: full audit of input validation, file permissions, shell call surfaces, error handling, and Python practices across all modules
-- Test plan deepening: additional dangerous UFW rule scenarios
+**v0.15** — Security hardening (input validation, file permissions, shell surfaces, error handling); DRY refactoring (`checks/_run.py`, `_paths.py`, `_truncate`); install script fixes (missing `__init__.py`, Python version check, glob-based locale/doc copy, new modules); IPv6 wildcard detection bug fix (`open_any_pattern` now matches `Anywhere (v6)` lines); loopback port message fix (`ports.uncovered_local` locale key); full live regression test suite validated
 
 **v1.0** — Stable, complete, validated CLI
 
