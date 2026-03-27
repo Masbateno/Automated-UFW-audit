@@ -250,7 +250,7 @@ def check_ports(
                 continue
             reported_local_ports.add(pp)
             result.info(
-                message=_t("ports.uncovered", port=pp),
+                message=_t("ports.uncovered_local", port=pp),
             )
 
     if not has_uncovered_public:

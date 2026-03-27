@@ -87,6 +87,7 @@
   "ports": {
     "all_covered": "Tous les ports en écoute sur 0.0.0.0 sont couverts par une règle UFW",
     "uncovered": "Port {port} en écoute sur toutes les interfaces sans règle UFW explicite",
+    "uncovered_local": "Port {port} — lié uniquement à localhost — pas d'exposition externe",
     "ephemeral_ignored": "Port éphémère ignoré (>{threshold}) — port temporaire attribué par le noyau, pas un service : {port}",
     "system_port": "Port système interne — aucun danger (service OS légitime, pas de règle UFW nécessaire) : {port} ({service})",
     "listening_count": "{count} port(s) en écoute détecté(s) sur ce système",
