@@ -85,7 +85,7 @@ Le carnet d'adresses (`m`) permet de gérer les adresses de notification enregis
 
 ```
   ╔════════════════════════════════════════════════════════════╗
-  ║  CARNET D'ADRESSES EMAIL                                     ║
+  ║  CARNET D'ADRESSES EMAIL                                   ║
   ╚════════════════════════════════════════════════════════════╝
 
   1. vous@exemple.com

@@ -1,9 +1,9 @@
 *[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
-# ufw-audit v0.21
+# ufw-audit v0.22
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.21-brightgreen)
+![Release](https://img.shields.io/badge/version-v0.22-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
@@ -232,7 +232,7 @@ sudo ufw-audit --reconfigure
 ║ ╚██████╔╝ ██║      ╚███╔███╔╝     ██║  ██║ ╚██████╔╝ ██████╔╝ ██║    ██║     ║
 ║  ╚═════╝  ╚═╝       ╚══╝╚══╝      ╚═╝  ╚═╝  ╚═════╝  ╚═════╝  ╚═╝    ╚═╝     ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
-║  UFW-AUDIT v0.21  │  UFW firewall audit                                      ║
+║  UFW-AUDIT v0.22  │  UFW firewall audit                                      ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║  System        : Ubuntu 24.04 LTS                                            ║
 ║  Host          : my-machine                                                  ║
@@ -445,7 +445,9 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v0.20** — 17 degraded-mode tests (`tests/test_degraded.py`): ss absent, empty UFW rules, missing log file, combined multi-module degradation; suite reaches 548/548
 
-**v0.21** *(current)* — Pre-v1.0 quality pass: 78 new tests + 3 bug fixes; `virtualization.py` fully covered; CGNAT/IPv6 false-positive fixed; commented config lines no longer mis-detected; CLI mode exclusion enforced; `--manage-cron` email address book (add/delete/clear); suite reaches 619/619
+**v0.21** — Pre-v1.0 quality pass: 78 new tests + 3 bug fixes; `virtualization.py` fully covered; CGNAT/IPv6 false-positive fixed; commented config lines no longer mis-detected; CLI mode exclusion enforced; `--manage-cron` email address book (add/delete/clear); suite reaches 619/619
+
+**v0.22** *(current)* — Internal quality pass: 5 modules refactored (`__main__`, `firewall`, `services`, `scoring`, `output`); box-border alignment fixed across all UI frames; `meta: dict` removed from `CheckResult` → typed `open_ports: List[str]`
 
 **v1.0** — Stable, complete, validated CLI
 
