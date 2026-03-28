@@ -6,6 +6,46 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v0.21] — 2026-03-28
+
+### TL;DR
+- Passe qualité pré-v1.0 : 78 nouveaux tests + 3 corrections de bugs
+- Suite atteint 619/619
+- `virtualization.py` entièrement couvert (seul module core sans tests)
+- Deux faux positifs corrigés : plages CGNAT/IPv6 privées, lignes commentées dans les configs
+- `--manage-cron` dispose d'un carnet d'adresses email complet : ajout, suppression par numéro/plage/all
+
+### Corrections de bugs
+
+- **`checks/services.py` — `_classify_exposure` — CGNAT et plages IPv6 privées** — Les règles autorisant l'accès depuis le CGNAT (`100.64.0.0/10`) ou les plages IPv6 privées (`::1`, `fe80::/10`, `fc00::/7`, `fd00::/8`) étaient incorrectement classées `OPEN_WORLD` au lieu de `OPEN_LOCAL`, déclenchant des déductions de score en faux positif. Le regex `_PRIVATE` inline a été remplacé par une constante module `_PRIVATE_ADDR` couvrant toutes les plages privées/locales.
+
+- **`checks/services.py` — `_auto_detect_port` — lignes de config commentées** — Des lignes comme `# port = 2121` dans les fichiers de config étaient matchées par le regex de détection de port. La fonction supprime maintenant les lignes commentées avant la recherche, n'examinant que les directives actives.
+
+- **`cli.py` — `parse_args` — modes mutuellement exclusifs** — `--manage-logs`, `--install-cron`, `--manage-cron` et `--fix` pouvaient précédemment être combinés sans erreur. Toute combinaison lève désormais une `CLIError` avec un message explicite.
+
+### Nouvelle fonctionnalité
+
+- **`--manage-cron` — carnet d'adresses email** — Nouvelle commande `m` dans le TUI de gestion des crons. Ouvre un sous-menu dédié pour gérer l'`EmailStore` directement, sans passer par `--install-cron` :
+  - Affiche toutes les adresses enregistrées avec leur numéro
+  - `a` — ajouter une nouvelle adresse validée
+  - `N` — supprimer l'adresse numéro N
+  - `1,3` ou `1-3` — supprimer une liste ou une plage
+  - `all` — supprimer toutes les adresses
+
+### Suite de tests — 619/619
+
+Nouveaux tests par domaine (+78) :
+
+| Fichier | Nouveaux | Couverture ajoutée |
+|---------|---------|-------------------|
+| `tests/test_virtualization.py` | 24 | Couverture complète de `check_virtualization()` : snapshot vide, chaque type d'hyperviseur, paquets snap, correspondance préfixe interface (virbr/vboxnet/vmnet/lxdbr/lxcbr) |
+| `tests/test_email_store_mgmt.py` | 24 | `_manage_email_store()` : quitter, ajout valide/invalide/doublon, supprimer tout, supprimer par numéro, liste virgule, plage, hors limites, saisie invalide |
+| `tests/test_services.py` | 16 | `_classify_exposure` : CGNAT, ULA IPv6 (fc/fd), link-local (fe80), loopback (::1), régression IP publique ; `TestAutoDetectPort` (9 tests) : toutes les directives, lignes commentées, fichier manquant, détection proto |
+| `tests/test_cli.py` | 10 | `TestMutuallyExclusiveModes` : les 6 paires invalides lèvent `CLIError` ; 4 cas mode-unique valides passent |
+| `tests/test_logs.py` | 7 | `_max_in_window` : frontière 60s (incluse), 61s (exclue), entrée désordonnée ; `_detect_bruteforce` : exactement le seuil (non détecté), seuil+1, IPs différentes, timestamps désordonnés |
+
+---
+
 ## [v0.20] — 2026-03-28
 
 ### TL;DR

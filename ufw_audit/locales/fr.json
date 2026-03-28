@@ -237,7 +237,8 @@
   "manage_cron": {
     "title": "GESTION DES CRONS UFW-AUDIT",
     "no_crons": "Aucun cron UFW-AUDIT installé. Lancez : sudo ufw-audit --install-cron",
-    "prompt": "Numéro pour modifier, 'e:N' pour l'email, 'd:N' pour supprimer, Entrée pour quitter",
+    "prompt": "Numéro pour modifier, 'e:N' pour l'email, 'd:N' pour supprimer, 'm' pour le carnet d'adresses, Entrée pour quitter",
+    "prompt_email_only": "'m' pour gérer le carnet d'adresses, Entrée pour quitter",
     "email_label": "email",
     "legacy_tag": "legacy",
     "confirm_delete": "Supprimer le cron '{name}' ? [y/N]",
@@ -251,7 +252,16 @@
     "no_email": "(aucun)",
     "confirm_update": "Appliquer ce nouveau planning ? [y/N]",
     "updated": "Cron '{name}' mis à jour — {schedule}",
-    "invalid": "Choix non reconnu"
+    "invalid": "Choix non reconnu",
+    "email_store_title": "CARNET D'ADRESSES EMAIL",
+    "email_store_empty": "Aucune adresse email enregistrée.",
+    "email_store_prompt": "Numéro à supprimer, '1,3' ou '1-3' pour une sélection, 'all' pour tout supprimer, 'a' pour ajouter, Entrée pour quitter",
+    "email_store_enter": "Nouvelle adresse email",
+    "email_store_invalid_email": "Adresse email invalide",
+    "email_store_added": "Adresse ajoutée : {email}",
+    "email_store_removed": "Adresse supprimée : {email}",
+    "email_store_cleared": "Toutes les adresses supprimées ({count})",
+    "email_store_invalid_sel": "Sélection invalide"
   },
   "email_prompt": {
     "title": "Email de notification :",

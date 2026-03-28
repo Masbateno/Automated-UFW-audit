@@ -220,7 +220,8 @@
   "manage_cron": {
     "title": "UFW-AUDIT CRON MANAGEMENT",
     "no_crons": "No UFW-AUDIT cron jobs installed. Run: sudo ufw-audit --install-cron",
-    "prompt": "Number to edit, 'e:N' to edit email, 'd:N' to delete, Enter to quit",
+    "prompt": "Number to edit, 'e:N' to edit email, 'd:N' to delete, 'm' for email book, Enter to quit",
+    "prompt_email_only": "'m' to manage email book, Enter to quit",
     "email_label": "email",
     "legacy_tag": "legacy",
     "confirm_delete": "Delete cron '{name}'? [y/N]",
@@ -234,7 +235,16 @@
     "no_email": "(none)",
     "confirm_update": "Apply this new schedule? [y/N]",
     "updated": "Cron '{name}' updated — {schedule}",
-    "invalid": "Unrecognised choice"
+    "invalid": "Unrecognised choice",
+    "email_store_title": "EMAIL ADDRESS BOOK",
+    "email_store_empty": "No email address saved yet.",
+    "email_store_prompt": "Number to delete, '1,3' or '1-3' for a selection, 'all' to delete all, 'a' to add, Enter to quit",
+    "email_store_enter": "New email address",
+    "email_store_invalid_email": "Invalid email address",
+    "email_store_added": "Address added: {email}",
+    "email_store_removed": "Address deleted: {email}",
+    "email_store_cleared": "All addresses deleted ({count})",
+    "email_store_invalid_sel": "Invalid selection"
   },
   "email_prompt": {
     "title": "Notification email:",

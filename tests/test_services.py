@@ -8,9 +8,12 @@ Run with: python -m pytest tests/test_services.py -v
 
 from __future__ import annotations
 
+import tempfile
+import os
 import pytest
 from ufw_audit.checks.services import (
     Exposure,
+    _auto_detect_port,
     ServiceSnapshot,
     ServiceState,
     _classify_exposure,
@@ -155,6 +158,42 @@ class TestClassifyExposure:
     def test_udp_port(self):
         rules = "[ 1] 5353/udp  ALLOW IN  Anywhere\n"
         assert _classify_exposure("5353/udp", rules) == Exposure.OPEN_WORLD
+
+    # CGNAT and IPv6 private ranges (regression for v0.21 fix)
+    def test_cgnat_range(self):
+        """ALLOW from CGNAT (100.64/10) → OPEN_LOCAL, not OPEN_WORLD."""
+        rules = "[ 1] 22/tcp  ALLOW IN  100.64.0.0/10\n"
+        assert _classify_exposure("22/tcp", rules) == Exposure.OPEN_LOCAL
+
+    def test_cgnat_upper_bound(self):
+        """100.127.x.x is still within CGNAT range → OPEN_LOCAL."""
+        rules = "[ 1] 22/tcp  ALLOW IN  100.127.0.0/24\n"
+        assert _classify_exposure("22/tcp", rules) == Exposure.OPEN_LOCAL
+
+    def test_ipv6_ula_fc(self):
+        """ALLOW from IPv6 ULA fc00::/7 → OPEN_LOCAL."""
+        rules = "[ 1] 22/tcp  ALLOW IN  fc00::/7\n"
+        assert _classify_exposure("22/tcp", rules) == Exposure.OPEN_LOCAL
+
+    def test_ipv6_ula_fd(self):
+        """ALLOW from IPv6 fd00::/8 → OPEN_LOCAL."""
+        rules = "[ 1] 22/tcp  ALLOW IN  fd00::/8\n"
+        assert _classify_exposure("22/tcp", rules) == Exposure.OPEN_LOCAL
+
+    def test_ipv6_link_local(self):
+        """ALLOW from fe80::/10 link-local → OPEN_LOCAL."""
+        rules = "[ 1] 22/tcp  ALLOW IN  fe80::/10\n"
+        assert _classify_exposure("22/tcp", rules) == Exposure.OPEN_LOCAL
+
+    def test_ipv6_loopback(self):
+        """ALLOW from ::1 → OPEN_LOCAL."""
+        rules = "[ 1] 22/tcp  ALLOW IN  ::1\n"
+        assert _classify_exposure("22/tcp", rules) == Exposure.OPEN_LOCAL
+
+    def test_public_ipv4_still_open_world(self):
+        """Non-private public IP → still OPEN_WORLD (no regression)."""
+        rules = "[ 1] 22/tcp  ALLOW IN  203.0.113.0/24\n"
+        assert _classify_exposure("22/tcp", rules) == Exposure.OPEN_WORLD
 
 
 # ---------------------------------------------------------------------------
@@ -534,3 +573,87 @@ class TestPanoramaNewVariants:
         )
         rows = build_panorama_rows([snap])
         assert rows[0]["ufw"] == "ok"
+
+
+# ---------------------------------------------------------------------------
+# _auto_detect_port — config file parsing
+# ---------------------------------------------------------------------------
+
+class TestAutoDetectPort:
+    """
+    _auto_detect_port() reads a service config file to find the active port.
+    Tests use temporary files to avoid touching the real filesystem.
+    """
+
+    def _make_service_with_config(self, config_path, proto="tcp"):
+        """Build a Service with config_key='auto' pointing to a temp file."""
+        return make_service(
+            config_key="auto",
+            ports=(f"21/{proto}",),
+            detection=Detection(
+                binary=(),
+                snap=(),
+                config_files=(config_path,),
+            ),
+        )
+
+    def test_detects_port_equals(self, tmp_path):
+        """'port = 2121' → detects 2121."""
+        cfg = tmp_path / "service.conf"
+        cfg.write_text("port = 2121\n")
+        svc = self._make_service_with_config(str(cfg))
+        assert _auto_detect_port(svc) == "2121/tcp"
+
+    def test_detects_listen_colon(self, tmp_path):
+        """'listen: 8080' → detects 8080."""
+        cfg = tmp_path / "service.conf"
+        cfg.write_text("listen: 8080\n")
+        svc = self._make_service_with_config(str(cfg))
+        assert _auto_detect_port(svc) == "8080/tcp"
+
+    def test_detects_http_port(self, tmp_path):
+        """'HTTP_PORT = 3000' → detects 3000."""
+        cfg = tmp_path / "service.conf"
+        cfg.write_text("HTTP_PORT = 3000\n")
+        svc = self._make_service_with_config(str(cfg))
+        assert _auto_detect_port(svc) == "3000/tcp"
+
+    def test_ignores_commented_port(self, tmp_path):
+        """'# port = 2121' (commented) → returns None, not 2121."""
+        cfg = tmp_path / "service.conf"
+        cfg.write_text("# port = 2121\n")
+        svc = self._make_service_with_config(str(cfg))
+        assert _auto_detect_port(svc) is None
+
+    def test_ignores_inline_comment_line(self, tmp_path):
+        """Line starting with whitespace + '#' is treated as a comment."""
+        cfg = tmp_path / "service.conf"
+        cfg.write_text("  # port = 9999\n")
+        svc = self._make_service_with_config(str(cfg))
+        assert _auto_detect_port(svc) is None
+
+    def test_active_port_wins_over_commented(self, tmp_path):
+        """Active directive takes precedence when a comment precedes it."""
+        cfg = tmp_path / "service.conf"
+        cfg.write_text("# port = 2121\nport = 21\n")
+        svc = self._make_service_with_config(str(cfg))
+        assert _auto_detect_port(svc) == "21/tcp"
+
+    def test_missing_config_file_returns_none(self, tmp_path):
+        """Config file path that doesn't exist → None."""
+        svc = self._make_service_with_config(str(tmp_path / "nonexistent.conf"))
+        assert _auto_detect_port(svc) is None
+
+    def test_no_matching_key_returns_none(self, tmp_path):
+        """Config file exists but has no recognisable port directive → None."""
+        cfg = tmp_path / "service.conf"
+        cfg.write_text("bind_address = 0.0.0.0\nmax_connections = 10\n")
+        svc = self._make_service_with_config(str(cfg))
+        assert _auto_detect_port(svc) is None
+
+    def test_proto_from_registry(self, tmp_path):
+        """Proto is taken from registry default port."""
+        cfg = tmp_path / "service.conf"
+        cfg.write_text("port = 5353\n")
+        svc = self._make_service_with_config(str(cfg), proto="udp")
+        assert _auto_detect_port(svc) == "5353/udp"

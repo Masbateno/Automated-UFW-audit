@@ -32,6 +32,22 @@ from ufw_audit.scoring import CheckResult
 
 logger = logging.getLogger(__name__)
 
+# Private / local address ranges for OPEN_LOCAL detection in _classify_exposure.
+# Covers: RFC-1918 (10/8, 172.16-31/12, 192.168/16), loopback (127/8),
+# CGNAT (100.64-127/10), IPv6 loopback (::1), ULA (fc00::/7), link-local (fe80::/10).
+_PRIVATE_ADDR = re.compile(
+    r"(?:"
+    r"192\.168\."
+    r"|10\."
+    r"|172\.(?:1[6-9]|2\d|3[01])\."
+    r"|127\."
+    r"|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\."
+    r"|::1(?:[/\s]|$)"
+    r"|fe80:"
+    r"|(?:fc|fd)[0-9a-fA-F]{2}:"
+    r")"
+)
+
 
 # ---------------------------------------------------------------------------
 # Enumerations
@@ -473,11 +489,15 @@ def _auto_detect_port(service: Service) -> Optional[str]:
         except OSError:
             continue
 
+        # Strip comment lines before searching to avoid matching
+        # commented-out directives like "# port = 2121"
+        content_clean = re.sub(r"^\s*#.*$", "", content, flags=re.MULTILINE)
+
         # Generic patterns — specific services may need custom parsing
         # Port = 8080 / port=8080 / listen 8080 / HTTP_PORT = 3000
         match = re.search(
             r"(?:^|\s)(?:port|listen|HTTP_PORT|http_port)\s*[=:]\s*(\d+)",
-            content,
+            content_clean,
             re.IGNORECASE | re.MULTILINE,
         )
         if match:
@@ -512,11 +532,6 @@ def _classify_exposure(port: str, ufw_rules: str) -> Exposure:
         logger.warning("Invalid protocol in registry: %r", proto)
         return Exposure.NO_RULE
 
-    # Private IP ranges for open_local detection
-    _PRIVATE = re.compile(
-        r"(?:192\.168\.|10\.|172\.(?:1[6-9]|2\d|3[01])\.|127\.)"
-    )
-
     port_pattern = re.compile(
         r"\b" + re.escape(port_num) + r"(?:/" + re.escape(proto) + r")?\b",
         re.IGNORECASE,
@@ -537,7 +552,7 @@ def _classify_exposure(port: str, ufw_rules: str) -> Exposure:
             return Exposure.DENY
         elif "ALLOW" in line_upper:
             # Check if rule has a source restriction to a private range
-            if _PRIVATE.search(line):
+            if _PRIVATE_ADDR.search(line):
                 return Exposure.OPEN_LOCAL
             else:
                 return Exposure.OPEN_WORLD

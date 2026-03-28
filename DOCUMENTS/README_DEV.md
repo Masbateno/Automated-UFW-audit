@@ -113,8 +113,11 @@ tests/
 ├── test_config.py
 ├── test_cron.py
 ├── test_ddns.py
+├── test_degraded.py
 ├── test_docker.py
+├── test_email_store_mgmt.py
 ├── test_firewall.py
+├── test_fixes.py
 ├── test_i18n.py
 ├── test_logs.py
 ├── test_output.py
@@ -122,7 +125,8 @@ tests/
 ├── test_registry.py
 ├── test_report.py
 ├── test_scoring.py
-└── test_services.py
+├── test_services.py
+└── test_virtualization.py
 
 install.sh               # Transparent installer with manifest
 README.md / README_FR.md           # User documentation (EN/FR)
@@ -169,7 +173,7 @@ python3 -m unittest tests/test_firewall.py
 ### Expected result
 
 ```
-548 tests, 0 failures
+619 tests, 0 failures
 ```
 
 Tests make no system calls — all snapshots are built directly in the test files. They can be run without `sudo` and without UFW installed.

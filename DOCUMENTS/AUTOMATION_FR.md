@@ -41,39 +41,70 @@ Un aperçu en langage naturel est affiché avant confirmation :
 sudo ufw-audit --manage-cron
 ```
 
-Liste tous les crons installés avec leur planning et leur email de notification :
+Liste tous les crons installés avec leur planning et leur email de notification. Le menu boucle jusqu'à ce que vous quittiez explicitement :
 
 ```
   1. nightly              tous les jours à 03:00
      → email: vous@exemple.com
   2. weekly-monday        tous les lundi à 02:00
 
-  Numéro pour modifier le planning, 'd:N' pour supprimer, Entrée pour quitter
+  Numéro pour modifier, 'e:N' pour l'email, 'd:N' pour supprimer, 'm' pour le carnet d'adresses, Entrée pour quitter
   >
 ```
 
-- Entrez un **numéro** pour modifier le planning de ce cron (relance le wizard de planification)
-- Entrez **`d:N`** pour supprimer le cron N et son script associé
-- Appuyez sur **Entrée** pour quitter
+| Commande | Action |
+|----------|--------|
+| `N` | Modifier le cron N — choisir entre planning ou email de notification |
+| `e:N` | Modifier directement l'email de notification du cron N |
+| `d:N` | Supprimer le cron N et son script associé |
+| `m` | Ouvrir le carnet d'adresses email (voir ci-dessous) |
+| Entrée / `q` | Quitter |
+
+Après chaque action, le menu se réaffiche pour enchaîner plusieurs opérations.
 
 ---
 
 ## Supprimer un cron
 
-Utilisez `--manage-cron` et entrez `d:N` pour supprimer le cron numéro N :
-
-```bash
-sudo ufw-audit --manage-cron
-```
+Entrez `d:N` pour supprimer le cron numéro N :
 
 ```
   1. nightly              tous les jours à 03:00
 
-  Numéro pour modifier, e:N pour l'email, d:N pour supprimer, Entrée pour quitter
+  Numéro pour modifier, 'e:N' pour l'email, 'd:N' pour supprimer, 'm' pour le carnet d'adresses, Entrée pour quitter
   > d:1
-  ✔ Cron supprimé : /etc/cron.d/ufw-audit-nightly
-  ✔ Script supprimé : /usr/local/bin/ufw-audit-nightly
+  Supprimer le cron 'nightly' ? [y/N] y
+  ✔ Cron 'nightly' supprimé
 ```
+
+---
+
+## Carnet d'adresses email
+
+Le carnet d'adresses (`m`) permet de gérer les adresses de notification enregistrées indépendamment des crons. Il est accessible même sans cron installé :
+
+```
+  ╔════════════════════════════════════════════════════════════╗
+  ║  CARNET D'ADRESSES EMAIL                                     ║
+  ╚════════════════════════════════════════════════════════════╝
+
+  1. vous@exemple.com
+  2. admin@exemple.com
+
+  Numéro à supprimer, '1,3' ou '1-3' pour une sélection, 'all' pour tout supprimer, 'a' pour ajouter, Entrée pour quitter
+  >
+```
+
+| Commande | Action |
+|----------|--------|
+| `a` | Ajouter une nouvelle adresse validée |
+| `N` | Supprimer l'adresse N |
+| `1,3` | Supprimer les adresses 1 et 3 |
+| `1-3` | Supprimer les adresses 1, 2 et 3 |
+| `all` | Supprimer toutes les adresses enregistrées |
+| Entrée / `q` | Revenir au menu de gestion des crons |
+
+Les adresses enregistrées ici sont proposées comme suggestions à chaque fois que `--install-cron` ou `--manage-cron` demande un email de notification.
 
 ---
 

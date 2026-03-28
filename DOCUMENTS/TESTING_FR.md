@@ -15,6 +15,38 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v0.17   | 505   | 15 échecs préexistants corrigés ; suite entièrement verte |
 | v0.18   | 531   | 26 nouveaux tests pour `fixes.py` ; `run_fixes()` entièrement couvert |
 | v0.20   | 548   | 17 tests en mode dégradé ; scénarios `ss`/règles/log absents |
+| v0.21   | 619   | 78 nouveaux tests + 3 corrections + carnet email ; passe qualité pré-v1.0 |
+
+### v0.21 — 619/619 (2026-03-28)
+
+**Plateforme :** Linux Mint 22.3 — `so6minttest` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -v
+619 passed in Xs
+```
+
+#### Nouveaux tests ajoutés (+78)
+
+| Fichier | Nouveaux | Couverture |
+|---------|---------|-----------|
+| `tests/test_virtualization.py` | 24 | `check_virtualization()` : snapshot vide, libvirt/VirtualBox/VMware/LXD, paquets snap, préfixes interface (virbr/vboxnet/vmnet/lxdbr/lxcbr) |
+| `tests/test_email_store_mgmt.py` | 24 | `_manage_email_store()` : quitter, ajout valide/invalide/doublon, supprimer tout, supprimer par numéro, liste virgule, plage, hors limites, saisie invalide |
+| `tests/test_services.py` | 16 | `_classify_exposure` : CGNAT, ULA IPv6 (fc/fd), link-local (fe80), loopback (::1), régression IP publique ; `TestAutoDetectPort` (9) : directives, lignes commentées, fichier manquant, proto |
+| `tests/test_cli.py` | 10 | `TestMutuallyExclusiveModes` : 6 paires invalides → `CLIError` ; 4 cas mode-unique valides |
+| `tests/test_logs.py` | 7 | `_max_in_window` : frontière 60s (incluse), 61s (exclue), désordre ; `_detect_bruteforce` : frontière seuil, IPs différentes, timestamps désordonnés |
+
+#### Corrections de bugs
+
+- **`checks/services.py` — `_classify_exposure`** : CGNAT (`100.64/10`) et IPv6 privé (`::1`, `fe80:`, ULA `fc/fd`) classés `OPEN_WORLD` au lieu de `OPEN_LOCAL` (faux positif). Corrigé avec la constante `_PRIVATE_ADDR`.
+- **`checks/services.py` — `_auto_detect_port`** : Lignes de config commentées (`# port = 2121`) matchées par le regex. Corrigé en supprimant les commentaires avant la recherche.
+- **`cli.py` — `parse_args`** : `--manage-logs`, `--install-cron`, `--manage-cron` et `--fix` n'étaient pas mutuellement exclusifs. Toute combinaison invalide lève désormais `CLIError`.
+
+#### Nouvelle fonctionnalité
+
+- **`--manage-cron` — carnet d'adresses email** : Nouvelle commande `m` pour gérer l'`EmailStore` directement. Ajouter une adresse validée (`a`), supprimer par numéro, liste virgule (`1,3`), plage (`1-3`), ou tout effacer (`all`).
+
+---
 
 ### v0.20 — 548/548 (2026-03-28)
 

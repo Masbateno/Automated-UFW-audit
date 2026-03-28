@@ -246,6 +246,25 @@ class TestMaxInWindow:
     def test_single(self):
         assert _max_in_window([datetime.now()], 60) == 1
 
+    def test_exactly_window_boundary_included(self):
+        """Two events exactly window_s apart are in the same window (uses >, not >=)."""
+        base = datetime(2026, 3, 19, 10, 0, 0)
+        ts = [base, base + timedelta(seconds=60)]
+        assert _max_in_window(ts, 60) == 2
+
+    def test_one_second_over_boundary_excluded(self):
+        """Two events window_s + 1s apart are in different windows."""
+        base = datetime(2026, 3, 19, 10, 0, 0)
+        ts = [base, base + timedelta(seconds=61)]
+        assert _max_in_window(ts, 60) == 1
+
+    def test_unsorted_input_handled(self):
+        """_max_in_window receives pre-sorted input from _detect_bruteforce;
+        verify that a pre-sorted reversed list still computes correctly."""
+        base = datetime(2026, 3, 19, 10, 0, 0)
+        ts = sorted([base + timedelta(seconds=i * 5) for i in range(5)])
+        assert _max_in_window(ts, 60) == 5
+
 
 class TestDetectBruteforce:
     def test_detects_bruteforce(self):
@@ -290,6 +309,51 @@ class TestDetectBruteforce:
                                           ts=base + timedelta(seconds=i)))
         hits = _detect_bruteforce(entries, threshold=10, window_s=60)
         assert hits == []
+
+    def test_exactly_threshold_not_detected(self):
+        """Exactly threshold (10) attempts → NOT detected (condition is > not >=)."""
+        base = datetime(2026, 3, 19, 10, 0, 0)
+        entries = [
+            make_entry(src_ip="1.2.3.4", dst_port=22, proto="TCP",
+                       ts=base + timedelta(seconds=i * 3))
+            for i in range(10)  # exactly threshold
+        ]
+        hits = _detect_bruteforce(entries, threshold=10, window_s=60)
+        assert hits == []
+
+    def test_threshold_plus_one_detected(self):
+        """Exactly threshold + 1 (11) attempts → detected."""
+        base = datetime(2026, 3, 19, 10, 0, 0)
+        entries = [
+            make_entry(src_ip="1.2.3.4", dst_port=22, proto="TCP",
+                       ts=base + timedelta(seconds=i * 3))
+            for i in range(11)  # threshold + 1
+        ]
+        hits = _detect_bruteforce(entries, threshold=10, window_s=60)
+        assert len(hits) == 1
+
+    def test_different_ips_not_grouped(self):
+        """Attempts from different IPs on same port are tracked separately."""
+        base = datetime(2026, 3, 19, 10, 0, 0)
+        entries = []
+        for ip in ("1.1.1.1", "2.2.2.2"):
+            for i in range(6):  # 6 each, neither reaches threshold alone
+                entries.append(make_entry(src_ip=ip, dst_port=22, proto="TCP",
+                                          ts=base + timedelta(seconds=i)))
+        hits = _detect_bruteforce(entries, threshold=10, window_s=60)
+        assert hits == []
+
+    def test_unsorted_timestamps_detected(self):
+        """Timestamps out of order in the log are sorted before windowing."""
+        base = datetime(2026, 3, 19, 10, 0, 0)
+        # Create 15 entries with timestamps in reverse order
+        entries = [
+            make_entry(src_ip="1.2.3.4", dst_port=22, proto="TCP",
+                       ts=base + timedelta(seconds=(14 - i) * 3))
+            for i in range(15)
+        ]
+        hits = _detect_bruteforce(entries, threshold=10, window_s=60)
+        assert len(hits) == 1
 
     def test_sorted_by_count_descending(self):
         base = datetime(2026, 3, 19, 10, 0, 0)
