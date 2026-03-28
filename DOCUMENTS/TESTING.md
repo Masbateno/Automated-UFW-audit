@@ -419,11 +419,12 @@ sudo ufw-audit
 
 | Expected | Result |
 |----------|--------|
-| `ℹ [INFO]` Port X — bound to localhost only — no external exposure | pending |
-| No ALERT, no score deduction | pending |
-| Message uses `ports.uncovered_local` locale key (new in v0.15) | pending |
+| `ℹ [INFO]` Port 6379/tcp — bound to localhost only — no UFW rule needed (covered by default deny) | ✔ v0.15.1 |
+| No ALERT, no score deduction | ✔ v0.15.1 |
+| Redis panorama ✔ | ✔ v0.15.1 |
+| Message uses `services.exposure.loopback_no_rule` locale key (added with `Exposure.LOOPBACK_NO_RULE` fix) | ✔ v0.15.1 |
 
-> **New in v0.15:** Ports in `PortCategory.UNCOVERED_LOCAL` now use a distinct locale key `ports.uncovered_local` instead of `ports.uncovered` (which implies all-interfaces exposure). This prevents misleading "listening on all interfaces" messages for loopback-only services.
+> **Note:** The original expected message referenced `ports.uncovered_local`. In practice, Redis on loopback with no UFW rule is handled by the services check path (`Exposure.LOOPBACK_NO_RULE`), not the ports check. The `ports.uncovered_local` key (`"Port {port} — bound to localhost only — no external exposure"`) applies to the ports section for processes not covered by the service registry.
 
 ---
 

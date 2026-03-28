@@ -466,8 +466,9 @@ sudo ufw-audit
 
 | Attendu | Résultat |
 |----------|----------|
-| `ℹ [INFO]` Port X — lié uniquement à localhost — pas d'exposition externe | pending |
-| Pas d'ALERTE, pas de déduction de score | pending |
-| Message utilise la clé locale `ports.uncovered_local` (nouveau en v0.15) | pending |
+| `ℹ [INFO]` Port 6379/tcp — lié uniquement à localhost — aucune règle UFW requise (couvert par refus par défaut) | ✔ v0.15.1 |
+| Pas d'ALERTE, pas de déduction de score | ✔ v0.15.1 |
+| Panorama Redis ✔ | ✔ v0.15.1 |
+| Message utilise la clé locale `services.exposure.loopback_no_rule` (ajoutée avec le fix `Exposure.LOOPBACK_NO_RULE`) | ✔ v0.15.1 |
 
-> **Nouveau en v0.15 :** Les ports dans `PortCategory.UNCOVERED_LOCAL` utilisent maintenant une clé locale distincte `ports.uncovered_local` au lieu de `ports.uncovered` (qui implique une exposition sur toutes les interfaces). Cela évite des messages trompeurs « listening on all interfaces » pour les services loopback uniquement.
+> **Note :** Le message attendu initialement référençait `ports.uncovered_local`. En pratique, Redis sur loopback sans règle UFW est traité par le chemin services (`Exposure.LOOPBACK_NO_RULE`), pas le chemin ports. La clé `ports.uncovered_local` s'applique aux ports de processus non couverts par le registre de services.
