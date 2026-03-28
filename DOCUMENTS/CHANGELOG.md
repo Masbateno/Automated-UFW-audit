@@ -8,6 +8,12 @@ All notable changes to this project are documented here.
 
 ## [v0.15.1] — 2026-03-27
 
+### TL;DR
+- Install script is now transactional — failure mid-install triggers automatic rollback, no partial installs left on disk
+- Bug fix: edge-case UFW output no longer generates an invalid fix command
+- Fix UI cleaner — UFW subprocess output no longer leaks to terminal
+- Installation design documented (why global install, no virtualenv)
+
 ### Install script — robustness
 
 - **Trap + rollback on failure** — every file copied and directory created is now tracked in memory. If any step fails (`set -e`), a `trap` fires on exit and removes what was installed so far, leaving the system clean. A partial install without a manifest is no longer possible.
@@ -30,6 +36,12 @@ All notable changes to this project are documented here.
 ---
 
 ## [v0.15] — 2026-03-27
+
+### TL;DR
+- Full security audit: 8 issues fixed across 3 rounds (cron permissions, path traversal, HTML injection, log bounds)
+- DRY refactoring: shared `checks/_run.py` and `_paths.py` modules, duplicate code eliminated across 7 files
+- Bug fix: IPv6 wildcard rules (`ufw allow from any`) now fully detected and removed by `--fix`
+- 6 install script correctness fixes (missing `__init__.py`, Python version check, glob copy)
 
 ### Security hardening — full code audit
 
@@ -90,6 +102,11 @@ Complete security and code quality review of all modules. No high-severity vulne
 
 ## [v0.14.1] — 2026-03-26
 
+### TL;DR
+- False positive fixes: loopback-bound services (Redis on 127.0.0.1) no longer raise an alert
+- DDNS false positives eliminated (system ports, dangling rules)
+- VERSION banner and `--remove-cron` cleanup left over from v0.14 corrected
+
 ### Bug fixes (post-release corrections)
 
 - **False positive ALERT — loopback-bound services**: a service listening exclusively on `127.0.0.1` (e.g. Redis on `6379/tcp`) was incorrectly reported as *"exposed on internet"* when an open UFW rule existed for that port. `PortsSnapshot` is now collected before CHECK 3; ports where all `ss` bindings are loopback get `Exposure.LOOPBACK` (INFO, no deduction) instead of `OPEN_WORLD`.
@@ -100,6 +117,11 @@ Complete security and code quality review of all modules. No high-severity vulne
 ---
 
 ## [v0.14] — 2026-03-25
+
+### TL;DR
+- Major refactoring: `__main__.py` reduced from 1820 to 481 lines — 5 new dedicated modules extracted
+- `check_rules()` moved to its natural home in `checks/firewall.py`
+- Pure orchestrator with no business logic — architecture significantly cleaner
 
 ### Refactoring — `__main__.py` modularisation
 
@@ -137,6 +159,11 @@ Complete security and code quality review of all modules. No high-severity vulne
 ---
 
 ## [v0.13] — 2026-03-24
+
+### TL;DR
+- Multi-cron scheduler: multiple named audit jobs, 4-step schedule wizard, `--manage-cron` TUI
+- Each cron job has its own name, file, and metadata — no more single `/etc/cron.d/ufw-audit`
+- 40+ unit tests added for all cron logic
 
 ### New features — Multi-cron scheduler
 
@@ -177,6 +204,11 @@ Complete security and code quality review of all modules. No high-severity vulne
 
 ## [v0.12.0] — 2026-03-24
 
+### TL;DR
+- Email reports now include an HTML version alongside plaintext — rendered nicely in all mail clients
+- Zero external dependencies: markdown → HTML converter written in pure Python stdlib
+- Cron nightly script updated to send MIME multipart emails automatically
+
 ### New features — Email reporting
 
 - **Markdown report generation** — new `MarkdownReport` class produces markdown-native reports optimized for email delivery (replaces ASCII boxes with clean markdown headers)
@@ -200,6 +232,11 @@ Complete security and code quality review of all modules. No high-severity vulne
 
 ## [v0.11.4] — 2026-03-23
 
+### TL;DR
+- Open-any regex fixed: trailing spaces, `/tcp`/`/udp` variants, semantic duplicates now all detected
+- Critical/high services exposed to internet now go to *Action required* — not buried in *Improvements*
+- `TESTING.md` added: first formal regression test plan with live VM results
+
 ### Bug fixes — UFW rule detection
 
 - **Open-any trailing spaces** — `ufw status numbered` pads rule lines with trailing spaces; the `$` anchor in the open-any regex never matched `Anywhere ALLOW IN Anywhere`. Fixed: `Anywhere$` → `Anywhere\s*$`
@@ -221,6 +258,12 @@ Complete security and code quality review of all modules. No high-severity vulne
 ---
 
 ## [v0.11.3] — 2026-03-23
+
+### TL;DR
+- `--install-cron`: schedule automated audits with email notifications
+- `--manage-logs`: interactive UI to browse and delete saved reports
+- Services panorama: compact table of all 22 known services after each audit
+- Auto-fix mode (`-y`) now shows a warning banner and full command summary
 
 ### New features
 
@@ -247,6 +290,11 @@ Complete security and code quality review of all modules. No high-severity vulne
 
 ## [v0.11.2] — 2026-03-22
 
+### TL;DR
+- Banner fully redesigned: "UFW-AUDIT" in Doom block ASCII art, 80-char width
+- Port exposure messages rewritten to be fully self-explanatory
+- Port table now shown only in verbose mode (`-v`) — cleaner default output
+
 ### Output & UX improvements
 
 - **Banner redesigned** — "UFW-AUDIT" in full block ASCII art (figlet Doom style) spanning the full 80-char banner width; dash rendered as `═══` on the vertical midpoint; mascot removed; new étage row (`╠═╣ / UFW-AUDIT vX.X  │  subtitle / ╠═╣`) inserted between the art and system info
@@ -272,6 +320,11 @@ Complete security and code quality review of all modules. No high-severity vulne
 ---
 
 ## [v0.11.1] — 2026-03-22
+
+### TL;DR
+- Security patch: 20 vulnerabilities fixed (shell injection, ANSI injection, path traversal, symlink attacks, ReDoS, JSON bomb)
+- No functional changes — all v0.11 features identical
+- File permissions hardened: report files `0o600`, config directory `0o700`
 
 ### Security hardening — 20 fixes across 3 passes
 
@@ -309,6 +362,11 @@ Patch release addressing security vulnerabilities found during internal code rev
 ---
 
 ## [v0.11] — 2026-03-22
+
+### TL;DR
+- Field tested on 3 distributions (Mint, Debian, Kali) — all bugs found fixed
+- `--quiet` mode with exit codes (0–3) for scripting and cron automation
+- Virtualisation detection: libvirt/KVM, VirtualBox, VMware, LXD, Snap network packages
 
 ### CLI consolidation & field testing
 
@@ -355,6 +413,11 @@ Patch release addressing security vulnerabilities found during internal code rev
 
 ## [v0.10] — 2026-03-22
 
+### TL;DR
+- `whois` removed — replaced by optional GeoIP2 (faster, offline, cached per session)
+- Short CLI flags added (`-f`, `-y`, `-r`, `-n`) — `-h` and `-V` no longer require sudo
+- Score scope disclaimer added after each summary
+
 ### IP geolocation — whois removed, GeoIP2 optional
 
 - **`whois` completely removed** — unreliable across registries, slow on large log files, blocking on 100+ IPs
@@ -394,6 +457,12 @@ Patch release addressing security vulnerabilities found during internal code rev
 ---
 
 ## [v0.9.0] — 2026-03-20
+
+### TL;DR
+- Complete rewrite from Bash to Python — 421 unit tests, zero PyPI dependencies
+- 22 services detected with two-axis risk context (exposure + threat level)
+- Transparent installer with manifest, `--uninstall`, `--dry-run`, bash completion
+- Bilingual EN/FR interface
 
 Complete rewrite in Python — all functionality preserved and extended, architecture overhauled.
 

@@ -8,6 +8,12 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ## [v0.15.1] — 2026-03-27
 
+### TL;DR
+- Le script d'installation est désormais transactionnel — un échec en cours d'installation déclenche un rollback automatique, aucune installation partielle laissée sur le disque
+- Correction de bug : un format de sortie UFW inhabituel ne génère plus de commande de fix invalide
+- Interface de fix plus propre — la sortie subprocess UFW ne fuite plus dans le terminal
+- Choix d'installation documenté (pourquoi install globale, pas de virtualenv)
+
 ### Script d'installation — robustesse
 
 - **Trap + rollback en cas d'échec** — chaque fichier copié et répertoire créé est désormais suivi en mémoire. Si une étape échoue (`set -e`), un `trap` se déclenche à la sortie et supprime ce qui a déjà été installé, laissant le système propre. Une installation partielle sans manifeste n'est plus possible.
@@ -30,6 +36,12 @@ Toutes les modifications notables du projet sont documentées ici.
 ---
 
 ## [v0.15] — 2026-03-27
+
+### TL;DR
+- Audit de sécurité complet : 8 problèmes corrigés en 3 passes (permissions cron, traversée de chemin, injection HTML, validation de plage dans les logs)
+- Refactoring DRY : modules partagés `checks/_run.py` et `_paths.py`, code dupliqué éliminé dans 7 fichiers
+- Correction de bug : les règles wildcard IPv6 (`ufw allow from any`) sont désormais entièrement détectées et supprimées par `--fix`
+- 6 corrections du script d'installation (`__init__.py` manquant, vérification version Python, copie par glob)
 
 ### Durcissement sécurité — audit complet du code
 
@@ -90,6 +102,11 @@ Revue de sécurité et de qualité complète sur l'ensemble des modules. Aucune 
 
 ## [v0.14.1] — 2026-03-26
 
+### TL;DR
+- Faux positifs corrigés : les services liés au loopback (Redis sur 127.0.0.1) ne déclenchent plus d'alerte
+- Faux positifs DDNS éliminés (ports système, règles orphelines)
+- Bannière VERSION et `--remove-cron` oubliés lors de v0.14 corrigés
+
 ### Corrections de bugs (corrections post-sortie)
 
 - **Faux positif ALERT — services liés au loopback** : un service écoutant exclusivement sur `127.0.0.1` (ex. Redis sur `6379/tcp`) était incorrectement signalé comme *"exposé sur internet"* lorsqu'une règle UFW ouverte existait pour ce port. `PortsSnapshot` est désormais collecté avant le CHECK 3 ; les ports dont tous les bindings `ss` sont sur loopback reçoivent `Exposure.LOOPBACK` (INFO, sans déduction) au lieu de `OPEN_WORLD`.
@@ -100,6 +117,11 @@ Revue de sécurité et de qualité complète sur l'ensemble des modules. Aucune 
 ---
 
 ## [v0.14] — 2026-03-25
+
+### TL;DR
+- Refactoring majeur : `__main__.py` réduit de 1820 à 481 lignes — 5 nouveaux modules dédiés extraits
+- `check_rules()` déplacé dans son emplacement naturel `checks/firewall.py`
+- Orchestrateur pur sans logique métier — architecture nettement plus claire
 
 ### Refactoring — Modularisation de `__main__.py`
 
@@ -137,6 +159,11 @@ Revue de sécurité et de qualité complète sur l'ensemble des modules. Aucune 
 ---
 
 ## [v0.13] — 2026-03-24
+
+### TL;DR
+- Planificateur multi-cron : plusieurs jobs nommés, wizard de planification en 4 étapes, TUI `--manage-cron`
+- Chaque job a son propre nom, fichier et métadonnées — plus de `/etc/cron.d/ufw-audit` unique
+- 40+ tests unitaires ajoutés pour toute la logique cron
 
 ### Nouvelles fonctionnalités — Planificateur multi-cron
 
@@ -177,6 +204,11 @@ Revue de sécurité et de qualité complète sur l'ensemble des modules. Aucune 
 
 ## [v0.12.0] — 2026-03-24
 
+### TL;DR
+- Les rapports email incluent désormais une version HTML en plus du texte brut — rendu soigné dans tous les clients mail
+- Zéro dépendance externe : convertisseur markdown → HTML écrit en Python stdlib pur
+- Le script nightly cron est mis à jour pour envoyer des emails MIME multipart automatiquement
+
 ### Nouvelles fonctionnalités — Rapports par email
 
 - **Génération de rapports Markdown** — nouvelle classe `MarkdownReport` produisant des rapports natifs Markdown optimisés pour la livraison par email (remplace les boîtes ASCII par des en-têtes Markdown propres)
@@ -200,6 +232,11 @@ Revue de sécurité et de qualité complète sur l'ensemble des modules. Aucune 
 
 ## [v0.11.4] — 2026-03-23
 
+### TL;DR
+- Regex open-any corrigée : espaces trailing, variantes `/tcp`/`/udp`, doublons sémantiques tous détectés
+- Les services CRITICAL/HIGH exposés à internet vont désormais dans *Action requise* — plus noyés dans les *Améliorations*
+- `TESTING.md` ajouté : premier plan de régression formel avec résultats VM en direct
+
 ### Corrections de bugs — Détection des règles UFW
 
 - **Espaces de fin « open-any »** — `ufw status numbered` remplit les lignes de règles avec des espaces de fin ; l'ancre `$` dans la regex « open-any » ne correspondait jamais à `Anywhere ALLOW IN Anywhere`. Corrigé : `Anywhere$` → `Anywhere\s*$`
@@ -221,6 +258,12 @@ Revue de sécurité et de qualité complète sur l'ensemble des modules. Aucune 
 ---
 
 ## [v0.11.3] — 2026-03-23
+
+### TL;DR
+- `--install-cron` : planifiez des audits automatiques avec notifications email
+- `--manage-logs` : interface interactive pour parcourir et supprimer les rapports sauvegardés
+- Panorama des services : tableau compact des 22 services connus après chaque audit
+- Le mode auto-fix (`-y`) affiche désormais une bannière d'avertissement et un résumé complet des commandes
 
 ### Nouvelles fonctionnalités
 
@@ -247,6 +290,11 @@ Revue de sécurité et de qualité complète sur l'ensemble des modules. Aucune 
 
 ## [v0.11.2] — 2026-03-22
 
+### TL;DR
+- Bandeau entièrement redessiné : "UFW-AUDIT" en art ASCII bloc Doom, largeur 80 chars
+- Messages d'exposition des ports réécrits pour être entièrement auto-explicatifs
+- Tableau des ports affiché uniquement en mode verbose (`-v`) — sortie par défaut plus lisible
+
 ### Améliorations output & UX
 
 - **Bandeau redessiné** — « UFW-AUDIT » en ASCII art bloc complet (style figlet Doom) sur toute la largeur 80-char du bandeau ; tiret rendu `═══` au point vertical médian ; mascotte supprimée ; nouvelle ligne étage (`╠═╣ / UFW-AUDIT vX.X  │  sous-titre / ╠═╣`) insérée entre l'art et infos système
@@ -272,6 +320,11 @@ Revue de sécurité et de qualité complète sur l'ensemble des modules. Aucune 
 ---
 
 ## [v0.11.1] — 2026-03-22
+
+### TL;DR
+- Patch sécurité : 20 vulnérabilités corrigées (injection shell, injection ANSI, traversée de chemin, attaques symlink, ReDoS, JSON bomb)
+- Aucun changement fonctionnel — toutes les fonctionnalités v0.11 identiques
+- Permissions fichiers durcies : rapports `0o600`, répertoire de configuration `0o700`
 
 ### Hardening sécurité — 20 corrections sur 3 passes
 
@@ -309,6 +362,11 @@ Release de patch adressant les vulnérabilités de sécurité trouvées lors de 
 ---
 
 ## [v0.11] — 2026-03-22
+
+### TL;DR
+- Tests terrain sur 3 distributions (Mint, Debian, Kali) — tous les bugs trouvés corrigés
+- Mode `--quiet` avec codes de sortie (0–3) pour l'automatisation et le cron
+- Détection de virtualisation : libvirt/KVM, VirtualBox, VMware, LXD, paquets Snap réseau
 
 ### Consolidation CLI & tests sur le terrain
 
@@ -355,6 +413,11 @@ Release de patch adressant les vulnérabilités de sécurité trouvées lors de 
 
 ## [v0.10] — 2026-03-22
 
+### TL;DR
+- `whois` supprimé — remplacé par GeoIP2 optionnel (plus rapide, hors-ligne, mis en cache par session)
+- Flags courts ajoutés (`-f`, `-y`, `-r`, `-n`) — `-h` et `-V` ne nécessitent plus sudo
+- Avertissement de portée du score affiché après chaque récapitulatif
+
 ### Géolocalisation IP — whois retiré, GeoIP2 optionnel
 
 - **`whois` complètement retiré** — non fiable sur registres, lent sur gros fichiers logs, bloquant sur 100+ IPs
@@ -394,6 +457,12 @@ Release de patch adressant les vulnérabilités de sécurité trouvées lors de 
 ---
 
 ## [v0.9.0] — 2026-03-20
+
+### TL;DR
+- Réécriture complète de Bash vers Python — 421 tests unitaires, zéro dépendance PyPI
+- 22 services détectés avec contexte de risque à deux axes (exposition + niveau de menace)
+- Installateur transparent avec manifeste, `--uninstall`, `--dry-run`, autocomplétion bash
+- Interface bilingue EN/FR
 
 Réécriture complète en Python — toutes les fonctionnalités conservées et étendues, architecture entièrement refactorisée.
 
