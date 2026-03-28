@@ -151,7 +151,7 @@ def check_firewall(status: FirewallStatus, t=None) -> CheckResult:
         )
         # Signal cap to orchestrator via a sentinel deduction with points=-1
         # (negative sentinel, filtered out from display — see __main__.py)
-        result._firewall_inactive = True  # type: ignore[attr-defined]
+        result.meta["firewall_inactive"] = True
         return result
 
     result.ok(message=_t("firewall.active"))

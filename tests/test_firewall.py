@@ -83,7 +83,7 @@ class TestUFWInactive:
     def test_firewall_inactive_flag_set(self):
         status = make_status(active=False)
         result = check_firewall(status)
-        assert getattr(result, "_firewall_inactive", False) is True
+        assert result.meta.get("firewall_inactive") is True
 
     def test_fix_cmd_is_ufw_enable(self):
         status = make_status(active=False)

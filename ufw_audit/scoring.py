@@ -118,6 +118,7 @@ class CheckResult:
     """
     deductions: List[Deduction] = field(default_factory=list)
     findings:   List[Finding]   = field(default_factory=list)
+    meta:       dict             = field(default_factory=dict)
 
     def add_deduction(self, reason: str, points: int, context: str = "local") -> None:
         """Convenience method to append a deduction."""

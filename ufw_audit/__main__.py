@@ -16,10 +16,10 @@ import sys
 from datetime import datetime
 
 # ---------------------------------------------------------------------------
-# Version
+# Version — single source of truth in ufw_audit/__init__.py
 # ---------------------------------------------------------------------------
 
-VERSION = "0.15"
+from ufw_audit import __version__ as VERSION
 
 # Exit codes
 EXIT_OK       = 0  # clean audit — no alerts, no warnings
@@ -27,34 +27,61 @@ EXIT_WARNINGS = 1  # warnings detected
 EXIT_ALERTS   = 2  # alerts detected (action required)
 EXIT_ERROR    = 3  # technical error
 
+# ---------------------------------------------------------------------------
+# Top-level imports (non-optional modules)
+# ---------------------------------------------------------------------------
+
+from ufw_audit import i18n, output
+from ufw_audit.cli import AuditConfig, CLIError, parse_args, print_help  # noqa: F401
+from ufw_audit.config import UserConfig
+from ufw_audit.display import (
+    build_risk_context_entries,
+    check_single_service_display,
+    display_geoip_notice,
+    display_log_results,
+    display_ports_overview,
+    display_result,
+    display_risk_context,
+    display_services_panorama,
+    print_audit_summary,
+)
+from ufw_audit.output import print_banner, print_section, print_service_header
+from ufw_audit.registry import ServiceRegistry
+from ufw_audit.report import AuditReport
+from ufw_audit.scoring import ScoreEngine
+from ufw_audit.sysinfo import collect_system_info, detect_network_context
+from ufw_audit.checks.ddns import DdnsSnapshot, check_ddns
+from ufw_audit.checks.docker import DockerSnapshot, check_docker
+from ufw_audit.checks.firewall import (
+    FirewallStatus,
+    _run as fw_run,
+    check_firewall,
+    check_rules,
+)
+from ufw_audit.checks.logs import LogsSnapshot, check_logs, geoip2_status
+from ufw_audit.checks.ports import PortsSnapshot, check_ports
+from ufw_audit.checks.services import ServiceSnapshot
+from ufw_audit.checks.virtualization import VirtSnapshot, check_virtualization
+
 
 # ---------------------------------------------------------------------------
-# Bootstrap — must happen before any other import that uses these modules
+# Root guard
 # ---------------------------------------------------------------------------
 
-def _bootstrap() -> None:
-    """Ensure we are running as root."""
+def require_root() -> None:
+    """Raise PermissionError if the process is not running as root."""
     if os.geteuid() != 0:
-        print("This script must be run as root: sudo ufw-audit", file=sys.stderr)
-        sys.exit(EXIT_ERROR)
+        raise PermissionError("This script must be run as root: sudo ufw-audit")
 
 
 # ---------------------------------------------------------------------------
-# Main
+# Audit implementation
 # ---------------------------------------------------------------------------
 
-def main(argv=None) -> int:
-    """
-    Main audit orchestrator.
+def _run(argv=None) -> int:
+    """Full audit implementation — separated from main() for global error handling."""
 
-    Args:
-        argv: Argument list. Defaults to sys.argv[1:].
-
-    Returns:
-        Exit code: 0 on success, 1 on error.
-    """
     # --- Parse arguments ---
-    from ufw_audit.cli import AuditConfig, CLIError, parse_args
     try:
         config = parse_args(argv)
     except CLIError as exc:
@@ -67,31 +94,25 @@ def main(argv=None) -> int:
         return 0
 
     if config.show_help:
-        from ufw_audit import i18n, output
-        from ufw_audit.cli import print_help
         i18n.init(lang=config.lang)
         output.init(no_color=config.no_color)
         print_help(i18n.t, VERSION)
         return 0
 
     # --- Root check — required for all modes ---
-    _bootstrap()
+    require_root()
 
     # --- Initialise i18n ---
-    from ufw_audit import i18n
     i18n.init(lang=config.lang)
     t = i18n.t
 
     # --- Initialise output ---
-    from ufw_audit import output
     output.init(no_color=config.no_color, quiet=config.quiet)
 
     # --- Load registry ---
-    from ufw_audit.registry import ServiceRegistry
     registry = ServiceRegistry.load()
 
     # --- Load user config ---
-    from ufw_audit.config import UserConfig
     user_config = UserConfig.load()
 
     # --- Standalone modes ---
@@ -110,32 +131,29 @@ def main(argv=None) -> int:
     if user_config.exists():
         output.print_info(t("config.found", path=str(user_config.path)))
         output.print_dim(t("config.reconfigure_hint"))
-    print()
+    if not config.quiet:
+        print()
 
     # --- Initialise report ---
-    from ufw_audit.report import AuditReport, SystemInfo
     if config.detailed:
         from ufw_audit.manage_logs import get_or_prompt_log_dir
         log_dir = get_or_prompt_log_dir(user_config, config, t)
         report = AuditReport.open(directory=log_dir, version=VERSION)
-        output.print_ok(f"Rapport détaillé : {report.path}" if config.lang == "fr"
-                        else f"Detailed report: {report.path}")
-        print()
+        output.print_ok(t("audit.report_saved", path=report.path))
+        if not config.quiet:
+            print()
     else:
         report = AuditReport.null()
 
     # --- Initialise scoring engine ---
-    from ufw_audit.scoring import ScoreEngine
     engine = ScoreEngine()
 
     # --- System information ---
-    from ufw_audit.sysinfo import collect_system_info
     sys_info = collect_system_info(VERSION, config.lang)
     report.write_header(sys_info)
 
     # --- Print banner (suppressed in quiet mode) ---
     if not config.quiet:
-        from ufw_audit.output import print_banner
         print_banner(
             version=f"v{VERSION}",
             subtitle=t("banner.subtitle"),
@@ -147,24 +165,17 @@ def main(argv=None) -> int:
             labels={k: t(f"banner.{k}") for k in
                     ("system", "host", "ufw", "user", "date")},
         )
-        output.print_info("Démarrage de l'audit" if config.lang == "fr" else "Starting audit")
+        output.print_info(t("audit.starting"))
         print()
 
     report.write_finding("INFO", "Starting audit")
 
     # --- Detect network context ---
-    from ufw_audit.sysinfo import detect_network_context
     network_context, public_ip = detect_network_context()
-
-    # --- Shared display helper ---
-    from ufw_audit.display import display_result
-    from ufw_audit.output import print_section
 
     # ======================================================================
     # CHECK 1 — Firewall status
     # ======================================================================
-    from ufw_audit.checks.firewall import FirewallStatus, check_firewall
-
     if not config.quiet:
         print_section(t("sections.firewall"))
     report.write_section(t("sections.firewall"))
@@ -173,7 +184,7 @@ def main(argv=None) -> int:
     fw_result = check_firewall(fw_status, t=t)
     engine.apply(fw_result)
 
-    if getattr(fw_result, "_firewall_inactive", False):
+    if fw_result.meta.get("firewall_inactive"):
         engine.cap(maximum=3, reason=t("firewall.inactive"))
 
     display_result(fw_result, report, config.verbose, quiet=config.quiet)
@@ -185,7 +196,6 @@ def main(argv=None) -> int:
     # ======================================================================
     # CHECK 2 — UFW rules
     # ======================================================================
-    from ufw_audit.checks.firewall import _run as fw_run, check_rules
     ufw_numbered = fw_run("ufw", "status", "numbered")
     ufw_verbose  = fw_run("ufw", "status", "verbose")
 
@@ -200,9 +210,6 @@ def main(argv=None) -> int:
     # ======================================================================
     # CHECK 3 — Network services
     # ======================================================================
-    from ufw_audit.checks.services import ServiceSnapshot, check_services
-    from ufw_audit.output import print_service_header, print_port_detail, print_risk_context
-    from ufw_audit.checks.ports import PortsSnapshot, check_ports
 
     # Collect ports early to detect loopback-only services and dangling rules
     ports_snapshot = PortsSnapshot.from_system()
@@ -226,10 +233,8 @@ def main(argv=None) -> int:
         report.write_raw(f"\n  > {snap.label}")
 
         if snap.service.is_high_or_critical and snap.is_active:
-            from ufw_audit.display import display_risk_context
             display_risk_context(snap.service.label, config.lang, t, report)
 
-        from ufw_audit.display import check_single_service_display
         svc_result = check_single_service_display(
             snap, network_context, t, report, config.verbose, quiet=config.quiet
         )
@@ -240,7 +245,6 @@ def main(argv=None) -> int:
 
     # --- Services panorama ---
     if not config.quiet:
-        from ufw_audit.display import display_services_panorama
         display_services_panorama(registry, ufw_numbered, loopback_only_ports,
                                    all_listening_ports, config, t)
 
@@ -260,33 +264,26 @@ def main(argv=None) -> int:
     engine.apply(ports_result)
     display_result(ports_result, report, config.verbose, quiet=config.quiet)
 
-    from ufw_audit.display import display_ports_overview
     display_ports_overview(ports_snapshot, config, t, report, output)
 
     # ======================================================================
     # CHECK 5 — UFW log analysis
     # ======================================================================
-    from ufw_audit.checks.logs import LogsSnapshot, check_logs, geoip2_status
-
     if not config.quiet:
         print_section(t("sections.logs"))
 
     logs_snapshot = LogsSnapshot.from_system(log_days=config.log_days)
 
-    from ufw_audit.display import display_geoip_notice
     display_geoip_notice(geoip2_status(), t, output)
 
     logs_result = check_logs(logs_snapshot, audited_ports=audited_ports, t=t)
     engine.apply(logs_result)
 
-    from ufw_audit.display import display_log_results
     display_log_results(logs_result, logs_snapshot, config, t, report)
 
     # ======================================================================
     # CHECK 6 — DDNS / external exposure
     # ======================================================================
-    from ufw_audit.checks.ddns import DdnsSnapshot, check_ddns
-
     if not config.quiet:
         print_section(t("sections.ddns"))
     report.write_section(t("sections.ddns"))
@@ -300,15 +297,12 @@ def main(argv=None) -> int:
     engine.apply(ddns_result)
     display_result(ddns_result, report, config.verbose, quiet=config.quiet)
 
-    if hasattr(ddns_result, "_ddns_open_ports") and ddns_result._ddns_open_ports:
-        for port in ddns_result._ddns_open_ports:
-            output.print_dim(f"  → {port}")
+    for port in ddns_result.meta.get("open_ports") or []:
+        output.print_dim(f"  → {port}")
 
     # ======================================================================
     # CHECK 7 — Docker
     # ======================================================================
-    from ufw_audit.checks.docker import DockerSnapshot, check_docker
-
     if not config.quiet:
         print_section(t("sections.docker"))
     report.write_section(t("sections.docker"))
@@ -327,13 +321,12 @@ def main(argv=None) -> int:
                 f"  {safe_name}: {port.port_proto} → "
                 f"{port.container_port}/{port.proto}"
             )
-    print()
+    if not config.quiet:
+        print()
 
     # ======================================================================
     # CHECK 8 — Virtualisation
     # ======================================================================
-    from ufw_audit.checks.virtualization import VirtSnapshot, check_virtualization
-
     if not config.quiet:
         print_section(t("sections.virtualization"))
     report.write_section(t("sections.virtualization"))
@@ -350,11 +343,9 @@ def main(argv=None) -> int:
     # ======================================================================
     engine.finalize()
     if not config.quiet:
-        from ufw_audit.display import print_audit_summary
         print_audit_summary(engine, network_context, public_ip, config, t, report, snapshots)
 
     # Finalise report
-    from ufw_audit.display import build_risk_context_entries
     report.write_risk_context_section(
         section_title=t("sections.risk_context"),
         entries=build_risk_context_entries(snapshots, config.lang, t),
@@ -378,6 +369,21 @@ def main(argv=None) -> int:
         return EXIT_WARNINGS
     else:
         return EXIT_OK
+
+
+# ---------------------------------------------------------------------------
+# Main — global error guard
+# ---------------------------------------------------------------------------
+
+def main(argv=None) -> int:
+    try:
+        return _run(argv)
+    except PermissionError as exc:
+        print(str(exc), file=sys.stderr)
+        return EXIT_ERROR
+    except Exception as exc:
+        print(f"Fatal error: {exc}", file=sys.stderr)
+        return EXIT_ERROR
 
 
 # ---------------------------------------------------------------------------

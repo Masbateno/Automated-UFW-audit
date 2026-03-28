@@ -233,7 +233,7 @@ def check_ddns(
     )
 
     # Store open ports for display by orchestrator
-    result._ddns_open_ports = open_ports  # type: ignore[attr-defined]
+    result.meta["open_ports"] = open_ports
 
     # Note Fail2ban advice
     result.info(message=_t("ddns.advice"))

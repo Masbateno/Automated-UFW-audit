@@ -375,5 +375,9 @@
     "none_detected": "No virtualisation technology detected",
     "bypass_risk": "{name} detected — {iface} bridge interface may insert iptables rules, bypassing UFW FORWARD policy",
     "snap_network": "Snap package '{pkg}' has active network connections — verify it does not bypass UFW"
+  },
+  "audit": {
+    "starting": "Starting audit",
+    "report_saved": "Detailed report: {path}"
   }
 }
