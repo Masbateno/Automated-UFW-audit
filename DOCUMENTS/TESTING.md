@@ -330,17 +330,19 @@ sudo ufw-audit
 | VNC Server | 5900/tcp | No service alert — VNC not detected | ✔ v0.15.1 |
 | FTP Server | 21/tcp | No service alert — FTP not detected | ✔ v0.15.1 |
 | PostgreSQL | 5432/tcp | No service alert — PostgreSQL not detected | ✔ v0.15.1 |
-| Mosquitto (MQTT) | 1883/tcp | Port bound to localhost only — LOOPBACK, no alert | ✔ v0.15.1 |
-| WireGuard | 51820/udp | No service alert — WireGuard not detected | pending |
-| Gitea | 3000/tcp | No service alert — Gitea not detected | pending |
-| Jellyfin | 8096/tcp | No service alert — Jellyfin not detected | pending |
+| Mosquitto (MQTT) | 1883/tcp | `ℹ [INFO]` 1883/tcp loopback — UFW rule has no effect; 8883/tcp not listening — no message; Panorama ✔ | ✔ v0.15.1 ² |
+| WireGuard | 51820/udp | `ℹ [INFO]` WireGuard installed but stopped/disabled — no port exposure check (INACTIVE early return) | ✔ v0.15.1 ¹ |
+| Gitea | 3000/tcp | No service alert — Gitea not detected | ✔ v0.15.1 |
+| Jellyfin | 8096/tcp | No service alert — Jellyfin not detected | ✔ v0.15.1 |
 | Home Assistant | 8123/tcp | No service alert — HASS not detected | ✔ v0.15.1 |
 | Cockpit | 9090/tcp | No service alert — Cockpit not detected | ✔ v0.15.1 |
 
-> **Mosquitto note:** Mosquitto IS installed on the test VM and listens on localhost only — `Port 1883/tcp — bound to localhost only` (LOOPBACK). This validates the LOOPBACK path for a second service beyond Redis.
-
 > For all above: the port should appear in **UFW RULES ANALYSIS** if an active listener exists, but since the service is not installed there is no listener — no ALERT in NETWORK SERVICES ANALYSIS.
 > DDNS cross-check: none of these ports should appear in DDNS exposed list (no active listener — v0.14.1 fix).
+
+> ¹ WireGuard was already installed (but inactive) on the test VM. The "not installed" path for WireGuard remains untested — behaviour confirmed: INACTIVE service with an open UFW rule → INFO only, no ALERT, no score deduction.
+
+> ² Mosquitto was installed and ACTIVE on the test VM (not matching the "not installed" C6 scenario). Test revealed a bug: registry ports not actively listening (8883/tcp) incorrectly triggered `Exposure.NO_RULE` → panorama ✖. Fixed in beta (commit `67743ca`): `Exposure.NOT_LISTENING` for non-listening registry ports → panorama ✔.
 
 > **Already validated:** MySQL / MariaDB (3306) → C2
 
@@ -409,6 +411,28 @@ sudo ufw-audit
 
 ## Category E — Loopback-only ports (v0.15)
 
+### C8 — SSH restricted to LAN (OPEN_LOCAL path)
+
+```bash
+sudo ufw delete allow 22/tcp
+sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp
+sudo ufw-audit
+```
+
+| Expected | Result |
+|----------|--------|
+| `⚠ [WARNING]` Port 22/tcp — restricted to local network by UFW rule | ✔ v0.16 |
+| No score deduction (OPEN_LOCAL ≠ OPEN_WORLD) | ✔ v0.16 |
+| Panorama: SSH `✔` (LAN restriction = correct config) | ✔ v0.16 |
+| DDNS: `ℹ` Port 22/tcp restricted to local network (not ALERT) | ✔ v0.16 |
+| Risk context CRITICAL still displayed | ✔ v0.16 |
+
+> **Cleanup:** `sudo ufw delete allow from 192.168.1.0/24 to any port 22 proto tcp && sudo ufw allow 22/tcp`
+
+---
+
+
+
 ### E1 — Port listening on localhost only, no UFW rule — INFO not ALERT
 
 ```bash
@@ -420,15 +444,28 @@ sudo ufw-audit
 
 | Expected | Result |
 |----------|--------|
-| `ℹ [INFO]` Port X — bound to localhost only — no external exposure | pending |
-| No ALERT, no score deduction | pending |
-| Message uses `ports.uncovered_local` locale key (new in v0.15) | pending |
+| `ℹ [INFO]` Port 6379/tcp — bound to localhost only — no UFW rule needed (covered by default deny) | ✔ v0.15.1 |
+| No ALERT, no score deduction | ✔ v0.15.1 |
+| Redis panorama ✔ | ✔ v0.15.1 |
+| Message uses `services.exposure.loopback_no_rule` locale key (added with `Exposure.LOOPBACK_NO_RULE` fix) | ✔ v0.15.1 |
 
-> **New in v0.15:** Ports in `PortCategory.UNCOVERED_LOCAL` now use a distinct locale key `ports.uncovered_local` instead of `ports.uncovered` (which implies all-interfaces exposure). This prevents misleading "listening on all interfaces" messages for loopback-only services.
+> **Note:** The original expected message referenced `ports.uncovered_local`. In practice, Redis on loopback with no UFW rule is handled by the services check path (`Exposure.LOOPBACK_NO_RULE`), not the ports check. The `ports.uncovered_local` key (`"Port {port} — bound to localhost only — no external exposure"`) applies to the ports section for processes not covered by the service registry.
 
 ---
 
 ## Additional observations
+
+### Obs — Avahi panorama shows ✖ despite INFO message (known issue, v0.16)
+
+Avahi binds on `0.0.0.0:5353/udp` (mDNS multicast). No UFW rule exists for 5353 → `Exposure.NO_RULE` → panorama ✖. The service check correctly emits `ℹ [INFO]` "covered by default deny policy", but the panorama symbol is set by the `NO_RULE` enum value regardless of the INFO severity.
+
+**Root cause:** `NO_RULE` on a non-loopback, non-listening-externally port (multicast/LAN-only in practice) is treated identically to `NO_RULE` on a genuinely exposed port. A future fix could introduce `Exposure.NO_RULE_MULTICAST` or a broader mechanism to distinguish locally-scoped `NO_RULE` from truly exposed `NO_RULE`.
+
+**Impact:** cosmetic only — no false ALERT, no score deduction.
+
+---
+
+
 
 ### Obs — DDNS does not detect protocol-less rules (fixed)
 

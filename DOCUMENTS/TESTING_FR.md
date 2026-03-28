@@ -332,17 +332,19 @@ sudo ufw-audit
 | Serveur VNC | 5900/tcp | Pas d'alerte service — VNC non détecté | ✔ v0.15.1 |
 | Serveur FTP | 21/tcp | Pas d'alerte service — FTP non détecté | ✔ v0.15.1 |
 | PostgreSQL | 5432/tcp | Pas d'alerte service — PostgreSQL non détecté | ✔ v0.15.1 |
-| Mosquitto (MQTT) | 1883/tcp | Port lié au loopback uniquement — LOOPBACK, sans alerte | ✔ v0.15.1 |
-| WireGuard | 51820/udp | Pas d'alerte service — WireGuard non détecté | pending |
-| Gitea | 3000/tcp | Pas d'alerte service — Gitea non détecté | pending |
-| Jellyfin | 8096/tcp | Pas d'alerte service — Jellyfin non détecté | pending |
+| Mosquitto (MQTT) | 1883/tcp | `ℹ [INFO]` 1883/tcp loopback — règle UFW sans effet ; 8883/tcp non en écoute — aucun message ; Panorama ✔ | ✔ v0.15.1 ² |
+| WireGuard | 51820/udp | `ℹ [INFO]` WireGuard installé mais arrêté/désactivé — pas de vérification d'exposition (retour anticipé INACTIVE) | ✔ v0.15.1 ¹ |
+| Gitea | 3000/tcp | Pas d'alerte service — Gitea non détecté | ✔ v0.15.1 |
+| Jellyfin | 8096/tcp | Pas d'alerte service — Jellyfin non détecté | ✔ v0.15.1 |
 | Home Assistant | 8123/tcp | Pas d'alerte service — HASS non détecté | ✔ v0.15.1 |
 | Cockpit | 9090/tcp | Pas d'alerte service — Cockpit non détecté | ✔ v0.15.1 |
 
-> **Note Mosquitto :** Mosquitto EST installé sur la VM de test et écoute sur localhost uniquement — `Port 1883/tcp — lié uniquement sur localhost` (LOOPBACK). Valide le chemin LOOPBACK pour un second service au-delà de Redis.
-
 > Pour tous les cas ci-dessus : le port n'a pas de listener actif — aucune ALERTE dans ANALYSE DES SERVICES RÉSEAU.
 > Vérification croisée DDNS : aucun de ces ports ne doit apparaître dans la liste exposée DDNS (aucun listener actif — correction v0.14.1).
+
+> ¹ WireGuard était déjà installé (mais inactif) sur la VM de test. Le chemin « non installé » reste non testé — comportement confirmé : service INACTIVE avec une règle UFW ouverte → INFO uniquement, pas d'ALERTE, pas de déduction.
+
+> ² Mosquitto était installé et ACTIF sur la VM de test (ne correspond pas au scénario C6 « non installé »). Le test a révélé un bug : les ports du registre non en écoute (8883/tcp) déclenchaient incorrectement `Exposure.NO_RULE` → panorama ✖. Corrigé en beta (commit `67743ca`) : `Exposure.NOT_LISTENING` pour les ports du registre non en écoute → panorama ✔.
 
 > **Déjà validé :** MySQL / MariaDB (3306) → C2
 
@@ -383,7 +385,7 @@ sudo ufw status numbered
 |----------|----------|
 | `⚠ [AVERTISSEMENT]` Règles IPv6 manquantes — seules des règles IPv4 présentes | ✔ unit test |
 | Déduction score `-1` | ✔ unit test |
-| Test direct | pending |
+| Test direct | ✔ v0.15.1 |
 
 ---
 
@@ -393,11 +395,23 @@ sudo ufw status numbered
 |----------|----------|
 | `✔ [OK]` Règles IPv4 et IPv6 toutes deux présentes | ✔ unit test |
 | Aucune déduction | ✔ unit test |
-| Test direct | pending |
+| Test direct | ✔ v0.15.1 |
 
 ---
 
 ## Observations supplémentaires
+
+### Obs — Avahi affiche ✖ au panorama malgré message INFO (problème connu, v0.16)
+
+Avahi écoute sur `0.0.0.0:5353/udp` (multicast mDNS). Aucune règle UFW pour 5353 → `Exposure.NO_RULE` → panorama ✖. Le check service émet correctement `ℹ [INFO]` "couvert par la politique deny par défaut", mais le symbole panorama est déterminé par la valeur enum `NO_RULE` indépendamment de la sévérité INFO.
+
+**Cause racine :** `NO_RULE` sur un port non-loopback, non exposé publiquement (multicast/LAN uniquement en pratique) est traité identiquement à `NO_RULE` sur un port réellement exposé. Un fix futur pourrait introduire `Exposure.NO_RULE_MULTICAST` ou un mécanisme plus large pour distinguer les `NO_RULE` à portée locale des `NO_RULE` réellement exposés.
+
+**Impact :** cosmétique uniquement — pas de fausse ALERTE, pas de déduction de score.
+
+---
+
+
 
 ### Obs — DDNS ne détecte pas règles sans-protocole (corrigé)
 
@@ -459,6 +473,28 @@ Pas encore testé — priorité pratique basse car CLI UFW le prévient.
 
 ## Catégorie E — Ports loopback uniquement (v0.15)
 
+### C8 — SSH restreint au LAN (chemin OPEN_LOCAL)
+
+```bash
+sudo ufw delete allow 22/tcp
+sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp
+sudo ufw-audit
+```
+
+| Attendu | Résultat |
+|---------|----------|
+| `⚠ [AVERTISSEMENT]` Port 22/tcp — restreint au réseau local par règle UFW | ✔ v0.16 |
+| Pas de déduction score (OPEN_LOCAL ≠ OPEN_WORLD) | ✔ v0.16 |
+| Panorama : SSH `✔` (restriction LAN = config correcte) | ✔ v0.16 |
+| DDNS : `ℹ` Port 22/tcp restreint au réseau local (pas d'ALERTE) | ✔ v0.16 |
+| Contexte risque CRITIQUE toujours affiché | ✔ v0.16 |
+
+> **Nettoyage :** `sudo ufw delete allow from 192.168.1.0/24 to any port 22 proto tcp && sudo ufw allow 22/tcp`
+
+---
+
+
+
 ### E1 — Port écoutant sur localhost uniquement, sans règle UFW — INFO pas ALERTE
 
 ```bash
@@ -469,8 +505,9 @@ sudo ufw-audit
 
 | Attendu | Résultat |
 |----------|----------|
-| `ℹ [INFO]` Port X — lié uniquement à localhost — pas d'exposition externe | pending |
-| Pas d'ALERTE, pas de déduction de score | pending |
-| Message utilise la clé locale `ports.uncovered_local` (nouveau en v0.15) | pending |
+| `ℹ [INFO]` Port 6379/tcp — lié uniquement à localhost — aucune règle UFW requise (couvert par refus par défaut) | ✔ v0.15.1 |
+| Pas d'ALERTE, pas de déduction de score | ✔ v0.15.1 |
+| Panorama Redis ✔ | ✔ v0.15.1 |
+| Message utilise la clé locale `services.exposure.loopback_no_rule` (ajoutée avec le fix `Exposure.LOOPBACK_NO_RULE`) | ✔ v0.15.1 |
 
-> **Nouveau en v0.15 :** Les ports dans `PortCategory.UNCOVERED_LOCAL` utilisent maintenant une clé locale distincte `ports.uncovered_local` au lieu de `ports.uncovered` (qui implique une exposition sur toutes les interfaces). Cela évite des messages trompeurs « listening on all interfaces » pour les services loopback uniquement.
+> **Note :** Le message attendu initialement référençait `ports.uncovered_local`. En pratique, Redis sur loopback sans règle UFW est traité par le chemin services (`Exposure.LOOPBACK_NO_RULE`), pas le chemin ports. La clé `ports.uncovered_local` s'applique aux ports de processus non couverts par le registre de services.

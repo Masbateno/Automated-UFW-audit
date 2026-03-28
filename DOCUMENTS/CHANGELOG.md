@@ -6,6 +6,31 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.16] — 2026-03-28
+
+### TL;DR
+- Two panorama false-positive fixes discovered during live regression testing
+- Registry ports not actively listening no longer show ✖ (`Exposure.NOT_LISTENING`)
+- Loopback-only ports with no UFW rule now show ✔ (`Exposure.LOOPBACK_NO_RULE`)
+- Full regression test suite completed — C6 (9 services), C8 (OPEN_LOCAL), E1 validated, zero `pending` entries
+
+### Bug fixes
+
+- **`checks/services.py` — `Exposure.NOT_LISTENING`** — Service ports in the registry but with no active listener (e.g. Mosquitto `8883/tcp` when TLS is not configured) were classified as `NO_RULE`, causing a false ✖ in the panorama. A new `Exposure.NOT_LISTENING` variant is set for any registry port absent from the active listener set (`ss`). Panorama treats it as `ok` (✔). No message emitted.
+
+- **`checks/services.py` — `Exposure.LOOPBACK_NO_RULE`** — Service ports bound exclusively to loopback *without* a UFW rule (e.g. Redis `6379/tcp` default config) were classified as `NO_RULE`, also causing a false ✖. A new `Exposure.LOOPBACK_NO_RULE` variant overrides `NO_RULE` when the port is in the loopback-only set. Panorama treats it as `ok` (✔). Message: *"bound to localhost only — no UFW rule needed (covered by default deny)"*.
+
+### Infrastructure
+
+- **`__main__.py`** — `all_listening_ports` set computed from `loopback_only_ports | active_external_ports` and passed to `ServiceSnapshot.collect()` and `display_services_panorama()`.
+- **`display.py`** — `display_services_panorama()` signature extended to accept and forward `all_listening_ports`.
+
+### Testing
+
+- **`TESTING.md` / `TESTING_FR.md`** — Full regression test suite completed on Linux Mint 22.3 VM. C6 extended to 9 services (VNC, FTP, PostgreSQL, Mosquitto, WireGuard, Gitea, Jellyfin, Home Assistant, Cockpit). C8 added (OPEN_LOCAL — SSH restricted to LAN). E1 validated (loopback, no UFW rule). Zero `pending` entries remaining. Avahi panorama ✖ anomaly documented (cosmetic, no score impact).
+
+---
+
 ## [v0.15.1] — 2026-03-27
 
 ### TL;DR

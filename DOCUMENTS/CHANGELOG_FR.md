@@ -6,6 +6,31 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v0.16] — 2026-03-28
+
+### TL;DR
+- Deux corrections de faux positifs panorama découvertes lors des tests de régression en direct
+- Les ports du registre non en écoute n'affichent plus ✖ (`Exposure.NOT_LISTENING`)
+- Les ports loopback sans règle UFW affichent désormais ✔ (`Exposure.LOOPBACK_NO_RULE`)
+- Suite de tests de régression complète — C6 (9 services), C8 (OPEN_LOCAL), E1 validés, zéro entrée `pending`
+
+### Corrections de bugs
+
+- **`checks/services.py` — `Exposure.NOT_LISTENING`** — Les ports du registre sans listener actif (ex. `8883/tcp` de Mosquitto quand le TLS n'est pas configuré) étaient classifiés `NO_RULE`, provoquant un faux ✖ au panorama. Un nouveau variant `Exposure.NOT_LISTENING` est assigné à tout port du registre absent des listeners actifs (`ss`). Le panorama traite ceci comme `ok` (✔). Aucun message émis.
+
+- **`checks/services.py` — `Exposure.LOOPBACK_NO_RULE`** — Les ports liés exclusivement au loopback *sans* règle UFW (ex. Redis `6379/tcp` en config par défaut) étaient classifiés `NO_RULE`, provoquant également un faux ✖. Un nouveau variant `Exposure.LOOPBACK_NO_RULE` remplace `NO_RULE` quand le port est dans l'ensemble loopback-only. Le panorama traite ceci comme `ok` (✔). Message : *"lié uniquement sur localhost — aucune règle UFW requise (couvert par refus par défaut)"*.
+
+### Infrastructure
+
+- **`__main__.py`** — Ensemble `all_listening_ports` calculé depuis `loopback_only_ports | active_external_ports` et transmis à `ServiceSnapshot.collect()` et `display_services_panorama()`.
+- **`display.py`** — Signature de `display_services_panorama()` étendue pour accepter et transmettre `all_listening_ports`.
+
+### Tests
+
+- **`TESTING.md` / `TESTING_FR.md`** — Suite de tests de régression complète sur VM Linux Mint 22.3. C6 étendu à 9 services (VNC, FTP, PostgreSQL, Mosquitto, WireGuard, Gitea, Jellyfin, Home Assistant, Cockpit). C8 ajouté (OPEN_LOCAL — SSH restreint au LAN). E1 validé (loopback, sans règle UFW). Zéro entrée `pending` restante. Anomalie panorama ✖ Avahi documentée (cosmétique, sans impact sur le score).
+
+---
+
 ## [v0.15.1] — 2026-03-27
 
 ### TL;DR
