@@ -38,7 +38,7 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **Optional detailed report** — timestamped log file with ASCII art header, system info, findings, and recommendations
 - **`--manage-logs`** — interactive UI to list saved reports (name, size, date) and delete them by index or all at once
 - **`--install-cron`** — schedule wizard: name the job, choose schedule type (daily / specific week days / specific month days / custom cron expression), set time, set optional notification email; preview in natural language before confirmation; named cron jobs (`/etc/cron.d/ufw-audit-{name}`)
-- **`--manage-cron`** — list, edit schedule, or delete installed cron jobs interactively
+- **`--manage-cron`** — looping TUI: list installed cron jobs, edit schedule or notification email, delete; `m` command opens the email address book (add / delete saved addresses) accessible even without any cron installed
 
 ---
 

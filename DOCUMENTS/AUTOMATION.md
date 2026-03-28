@@ -41,39 +41,70 @@ A plain-language preview is shown before confirmation:
 sudo ufw-audit --manage-cron
 ```
 
-Lists all installed cron jobs with their schedule and notification email:
+Lists all installed cron jobs with their schedule and notification email. The menu loops until you explicitly quit:
 
 ```
   1. nightly              every day at 03:00
      → email: you@example.com
   2. weekly-monday        every Monday at 02:00
 
-  Number to edit schedule, 'd:N' to delete, Enter to quit
+  Number to edit, 'e:N' to edit email, 'd:N' to delete, 'm' for email book, Enter to quit
   >
 ```
 
-- Enter a **number** to edit the schedule of that job (re-runs the schedule wizard)
-- Enter **`d:N`** to delete job N and its associated script
-- Press **Enter** to quit
+| Command | Action |
+|---------|--------|
+| `N` | Edit cron N — choose between schedule or notification email |
+| `e:N` | Edit the notification email of cron N directly |
+| `d:N` | Delete cron N and its associated script |
+| `m` | Open the email address book (see below) |
+| Enter / `q` | Quit |
+
+After each action the menu redisplays so you can chain multiple operations.
 
 ---
 
 ## Removing a cron job
 
-Use `--manage-cron` and enter `d:N` to delete job number N:
-
-```bash
-sudo ufw-audit --manage-cron
-```
+Enter `d:N` to delete job number N:
 
 ```
   1. nightly              every day at 03:00
 
-  Number to edit, e:N for email, d:N to delete, Enter to quit
+  Number to edit, 'e:N' to edit email, 'd:N' to delete, 'm' for email book, Enter to quit
   > d:1
-  ✔ Cron removed: /etc/cron.d/ufw-audit-nightly
-  ✔ Script removed: /usr/local/bin/ufw-audit-nightly
+  Delete cron 'nightly'? [y/N] y
+  ✔ Cron 'nightly' deleted
 ```
+
+---
+
+## Email address book
+
+The email address book (`m`) lets you manage saved notification addresses independently of any cron job. It is available even when no cron jobs are installed:
+
+```
+  ╔════════════════════════════════════════════════════════════╗
+  ║  EMAIL ADDRESS BOOK                                          ║
+  ╚════════════════════════════════════════════════════════════╝
+
+  1. you@example.com
+  2. admin@example.com
+
+  Number to delete, '1,3' or '1-3' for a selection, 'all' to delete all, 'a' to add, Enter to quit
+  >
+```
+
+| Command | Action |
+|---------|--------|
+| `a` | Add a new validated email address |
+| `N` | Delete address N |
+| `1,3` | Delete addresses 1 and 3 |
+| `1-3` | Delete addresses 1, 2 and 3 |
+| `all` | Delete all saved addresses |
+| Enter / `q` | Return to the cron management menu |
+
+Addresses saved here are offered as suggestions whenever `--install-cron` or `--manage-cron` asks for a notification email.
 
 ---
 
