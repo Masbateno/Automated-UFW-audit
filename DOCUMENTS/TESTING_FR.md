@@ -14,6 +14,29 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v0.9    | 421   | Première suite complète |
 | v0.17   | 505   | 15 échecs préexistants corrigés ; suite entièrement verte |
 | v0.18   | 531   | 26 nouveaux tests pour `fixes.py` ; `run_fixes()` entièrement couvert |
+| v0.20   | 548   | 17 tests en mode dégradé ; scénarios `ss`/règles/log absents |
+
+### v0.20 — 548/548 (2026-03-28)
+
+**Plateforme :** Linux Mint 22.3 — `so6minttest` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -v
+548 passed in Xs
+```
+
+#### Nouveaux tests ajoutés
+
+**`tests/test_degraded.py`** — 17 tests (nouveau fichier)
+
+| Classe | Tests | Couverture |
+|--------|-------|-----------|
+| `TestSSNotAvailable` | 4 | `check_ports` avec `PortsSnapshot` vide (pas de ports, pas de ss_output) → OK, zéro déductions |
+| `TestCheckRulesEmptyOutput` | 5 | `check_rules` avec `""`, espaces ou entête-seul → zéro déductions, pas d'alerte |
+| `TestLogFileDegraded` | 4 | `log_found=False` → INFO + zéro déductions ; entrées vides → OK + zéro déductions |
+| `TestCombinedDegradation` | 4 | Les trois modules dégradés simultanément — pas de crash, zéro déductions cumulées |
+
+---
 
 ### v0.18 — 531/531 (2026-03-28)
 

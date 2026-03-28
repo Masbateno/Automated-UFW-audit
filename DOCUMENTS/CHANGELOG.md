@@ -6,6 +6,26 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.20] — 2026-03-28
+
+### TL;DR
+- 17 new degraded-mode tests: behaviour when `ss`, UFW rules output, or the log file are absent
+- New test file `tests/test_degraded.py` — 4 classes covering each degraded scenario + a combined class
+- Suite reaches 548/548
+
+### Test suite — 548/548
+
+**`tests/test_degraded.py`** (new file — 17 tests)
+
+| Class | Tests | Scenario |
+|-------|-------|---------|
+| `TestSSNotAvailable` | 4 | `ss` absent → empty `PortsSnapshot` → OK, zero deductions, no alert |
+| `TestCheckRulesEmptyOutput` | 5 | `check_rules` called with `""`, whitespace, or status-header-only output → zero deductions |
+| `TestLogFileDegraded` | 4 | `log_found=False` and empty entries → INFO/OK, zero deductions |
+| `TestCombinedDegradation` | 4 | All three modules degraded simultaneously — no crash, no compounding deductions |
+
+---
+
 ## [v0.19] — 2026-03-28
 
 ### TL;DR
