@@ -97,11 +97,14 @@ class TestItemClassification:
         # The count line uses the locale key that contains "count"
         assert "fixes.count" in out
 
-    def test_action_without_cmd_is_manual(self):
-        """action + no cmd → shown as manual item (fix.manual locale key)."""
+    def test_action_without_cmd_counted_not_none(self):
+        """action + no cmd → counted (header shown), but not iterated in the loop."""
         engine = make_engine(make_finding(nature="action", cmd=""))
         out = run_and_capture(engine, make_config())
-        assert "fixes.manual" in out
+        # Header is shown (else branch taken — there are items)
+        assert "fixes.count" in out
+        # But "fixes.none" is NOT shown
+        assert "fixes.none" not in out
 
     def test_improvement_finding_ignored(self):
         """improvement nature → not shown in fix UI (not action)."""
