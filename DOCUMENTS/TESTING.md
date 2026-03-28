@@ -195,6 +195,26 @@ sudo ufw allow 80/udp
 
 ## Category C — Critical services exposed
 
+### C1 — SSH exposed (baseline state)
+
+SSH is always present in the reference state (`ufw allow 22/tcp`). This scenario documents the expected behaviour for a critical service with an unrestricted UFW ALLOW rule.
+
+```bash
+# Baseline state — SSH already exposed
+sudo ufw-audit
+```
+
+| Expected | Result |
+|----------|--------|
+| `✖ [ALERT]` Port 22/tcp — open to internet — no source restriction in UFW | pending |
+| Risk context CRITICAL displayed | pending |
+| `-2` score deduction (NAT/local context) | pending |
+| Panorama: SSH `✖` | pending |
+
+> **Remediation to test:** `sudo ufw delete allow 22/tcp && sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp` → switches to OPEN_LOCAL (WARN not ALERT, no deduction).
+
+---
+
 ### C3 — Redis exposed on all interfaces (service installed and active)
 
 ```bash
@@ -248,6 +268,96 @@ sudo ufw allow 3306
 | DDNS: `3306/tcp` and `3306/udp` NOT in exposed ports (no active listener) | ✔ v0.15 |
 
 > **Behaviour updated (v0.14.1):** `_find_open_ports()` now cross-checks against actual non-loopback listeners (`active_ports` set from `ss`). Orphan UFW rules (port open, no service running) are excluded from the DDNS exposed ports list. `3306/tcp` and `3306/udp` no longer appear in DDNS findings when MySQL is not installed.
+
+---
+
+### C4 — Nginx exposed (medium-risk service, installed and active)
+
+```bash
+sudo apt install nginx
+sudo ufw allow 80
+sudo ufw-audit
+```
+
+| Expected | Result |
+|----------|--------|
+| `⚠ [WARNING]` Port 80/tcp — open to internet — no source restriction in UFW | pending |
+| Risk context MEDIUM displayed | pending |
+| `-1` score deduction | pending |
+| Panorama: Nginx `⚠` | pending |
+| Finding appears in *Possible improvements* (not *Action required*) | pending |
+
+> Medium-risk services (`warn()` not `alert()`) — distinction from critical services like SSH or Redis.
+
+---
+
+### C5 — Samba exposed (critical service, installed and active)
+
+```bash
+sudo apt install samba
+sudo ufw allow 445
+sudo ufw allow 139
+sudo ufw-audit
+```
+
+| Expected | Result |
+|----------|--------|
+| `✖ [ALERT]` Port 445/tcp — open to internet — no source restriction in UFW | pending |
+| `✖ [ALERT]` Port 139/tcp — open to internet | pending |
+| Risk context CRITICAL displayed (ransomware vector, EternalBlue) | pending |
+| Score deduction × 2 (both ports) | pending |
+| Panorama: Samba `✖` | pending |
+| Both ports in *Action required* block | pending |
+
+> **Cleanup:** `sudo apt remove --purge samba && sudo ufw delete allow 445 && sudo ufw delete allow 139`
+
+---
+
+### C6 — Ports open in UFW, services not installed (multiple services)
+
+For each entry below: open the port in UFW with no matching service installed. Expected behaviour: **no service-level alert**, port may appear as an unmatched open rule.
+
+```bash
+sudo ufw allow <PORT>
+sudo ufw-audit
+```
+
+| Service | Port | Expected behaviour | Result |
+|---------|------|--------------------|--------|
+| VNC Server | 5900/tcp | No service alert — VNC not detected | pending |
+| FTP Server | 21/tcp | No service alert — FTP not detected | pending |
+| PostgreSQL | 5432/tcp | No service alert — PostgreSQL not detected | pending |
+| Mosquitto (MQTT) | 1883/tcp | No service alert — Mosquitto not detected | pending |
+| WireGuard | 51820/udp | No service alert — WireGuard not detected | pending |
+| Gitea | 3000/tcp | No service alert — Gitea not detected | pending |
+| Jellyfin | 8096/tcp | No service alert — Jellyfin not detected | pending |
+| Home Assistant | 8123/tcp | No service alert — HASS not detected | pending |
+| Cockpit | 9090/tcp | No service alert — Cockpit not detected | pending |
+
+> For all above: the port should appear in **UFW RULES ANALYSIS** if an active listener exists, but since the service is not installed there is no listener — no ALERT in NETWORK SERVICES ANALYSIS.
+> DDNS cross-check: none of these ports should appear in DDNS exposed list (no active listener — v0.14.1 fix).
+
+> **Already validated:** MySQL / MariaDB (3306) → C2
+
+---
+
+### C7 — CUPS exposed (low-risk service, usually pre-installed on desktop Linux)
+
+CUPS (print server) listens on `127.0.0.1:631` by default. This test verifies behaviour when CUPS is active and a UFW rule exists.
+
+```bash
+# CUPS is often pre-installed on Linux Mint
+sudo ufw allow 631
+sudo ufw-audit
+```
+
+| Expected | Result |
+|----------|--------|
+| `ℹ [INFO]` Port 631/tcp — bound to localhost only — UFW rule has no effect | pending |
+| No ALERT, no score deduction (loopback binding) | pending |
+| Panorama: CUPS `✔` (rule exists, loopback → INFO) | pending |
+
+> If CUPS binds to `0.0.0.0`: `⚠ [WARNING]` Port 631/tcp — open to internet (low risk, nature=improvement).
 
 ---
 
@@ -305,9 +415,9 @@ sudo ufw-audit
 
 | Expected | Result |
 |----------|--------|
-| `ℹ [INFO]` Port X — bound to localhost only — no external exposure | pending v0.15 |
-| No ALERT, no score deduction | pending v0.15 |
-| Message uses `ports.uncovered_local` locale key (new in v0.15) | pending v0.15 |
+| `ℹ [INFO]` Port X — bound to localhost only — no external exposure | pending |
+| No ALERT, no score deduction | pending |
+| Message uses `ports.uncovered_local` locale key (new in v0.15) | pending |
 
 > **New in v0.15:** Ports in `PortCategory.UNCOVERED_LOCAL` now use a distinct locale key `ports.uncovered_local` instead of `ports.uncovered` (which implies all-interfaces exposure). This prevents misleading "listening on all interfaces" messages for loopback-only services.
 

@@ -195,6 +195,26 @@ sudo ufw allow 80/udp
 
 ## Catégorie C — Services critiques exposés
 
+### C1 — SSH exposé (état de la baseline)
+
+SSH est toujours présent dans l'état de référence (`ufw allow 22/tcp`). Ce scénario documente le comportement attendu pour un service critique avec une règle UFW ALLOW non restreinte.
+
+```bash
+# État de la baseline — SSH déjà exposé
+sudo ufw-audit
+```
+
+| Attendu | Résultat |
+|---------|----------|
+| `✖ [ALERTE]` Port 22/tcp — ouvert à internet — aucune restriction source dans UFW | pending |
+| Contexte risque CRITIQUE affiché | pending |
+| Déduction score `-2` (contexte NAT/local) | pending |
+| Panorama : SSH `✖` | pending |
+
+> **Remédiation à tester :** `sudo ufw delete allow 22/tcp && sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp` → passe en OPEN_LOCAL (AVERTISSEMENT et non ALERTE, sans déduction).
+
+---
+
 ### C3 — Redis exposé sur toutes les interfaces (service installé et actif)
 
 ```bash
@@ -251,6 +271,96 @@ sudo ufw allow 3306
 
 ---
 
+### C4 — Nginx exposé (service à risque moyen, installé et actif)
+
+```bash
+sudo apt install nginx
+sudo ufw allow 80
+sudo ufw-audit
+```
+
+| Attendu | Résultat |
+|---------|----------|
+| `⚠ [AVERTISSEMENT]` Port 80/tcp — ouvert à internet — aucune restriction source dans UFW | pending |
+| Contexte risque MOYEN affiché | pending |
+| Déduction score `-1` | pending |
+| Panorama : Nginx `⚠` | pending |
+| Résultat dans *Améliorations possibles* (et non *Action requise*) | pending |
+
+> Les services à risque moyen utilisent `warn()` et non `alert()` — distinction par rapport aux services critiques comme SSH ou Redis.
+
+---
+
+### C5 — Samba exposé (service critique, installé et actif)
+
+```bash
+sudo apt install samba
+sudo ufw allow 445
+sudo ufw allow 139
+sudo ufw-audit
+```
+
+| Attendu | Résultat |
+|---------|----------|
+| `✖ [ALERTE]` Port 445/tcp — ouvert à internet — aucune restriction source dans UFW | pending |
+| `✖ [ALERTE]` Port 139/tcp — ouvert à internet | pending |
+| Contexte risque CRITIQUE affiché (vecteur ransomware, EternalBlue) | pending |
+| Déduction score × 2 (deux ports) | pending |
+| Panorama : Samba `✖` | pending |
+| Les deux ports dans le bloc *Action requise* | pending |
+
+> **Nettoyage :** `sudo apt remove --purge samba && sudo ufw delete allow 445 && sudo ufw delete allow 139`
+
+---
+
+### C6 — Ports ouverts dans UFW, services non installés (services multiples)
+
+Pour chaque entrée ci-dessous : ouvrir le port dans UFW sans service correspondant installé. Comportement attendu : **aucune alerte service**, le port peut apparaître comme règle UFW orpheline.
+
+```bash
+sudo ufw allow <PORT>
+sudo ufw-audit
+```
+
+| Service | Port | Comportement attendu | Résultat |
+|---------|------|---------------------|----------|
+| Serveur VNC | 5900/tcp | Pas d'alerte service — VNC non détecté | pending |
+| Serveur FTP | 21/tcp | Pas d'alerte service — FTP non détecté | pending |
+| PostgreSQL | 5432/tcp | Pas d'alerte service — PostgreSQL non détecté | pending |
+| Mosquitto (MQTT) | 1883/tcp | Pas d'alerte service — Mosquitto non détecté | pending |
+| WireGuard | 51820/udp | Pas d'alerte service — WireGuard non détecté | pending |
+| Gitea | 3000/tcp | Pas d'alerte service — Gitea non détecté | pending |
+| Jellyfin | 8096/tcp | Pas d'alerte service — Jellyfin non détecté | pending |
+| Home Assistant | 8123/tcp | Pas d'alerte service — HASS non détecté | pending |
+| Cockpit | 9090/tcp | Pas d'alerte service — Cockpit non détecté | pending |
+
+> Pour tous les cas ci-dessus : le port n'a pas de listener actif — aucune ALERTE dans ANALYSE DES SERVICES RÉSEAU.
+> Vérification croisée DDNS : aucun de ces ports ne doit apparaître dans la liste exposée DDNS (aucun listener actif — correction v0.14.1).
+
+> **Déjà validé :** MySQL / MariaDB (3306) → C2
+
+---
+
+### C7 — CUPS exposé (service à faible risque, souvent pré-installé sur desktop Linux)
+
+CUPS (serveur d'impression) écoute sur `127.0.0.1:631` par défaut. Ce test vérifie le comportement quand CUPS est actif et une règle UFW existe.
+
+```bash
+# CUPS est souvent pré-installé sur Linux Mint
+sudo ufw allow 631
+sudo ufw-audit
+```
+
+| Attendu | Résultat |
+|---------|----------|
+| `ℹ [INFO]` Port 631/tcp — lié uniquement sur localhost — la règle UFW n'a aucun effet | pending |
+| Pas d'ALERTE, pas de déduction de score (binding loopback) | pending |
+| Panorama : CUPS `✔` (règle existe, loopback → INFO) | pending |
+
+> Si CUPS écoute sur `0.0.0.0` : `⚠ [AVERTISSEMENT]` Port 631/tcp — ouvert à internet (risque faible, nature=improvement).
+
+---
+
 ## Catégorie D — Cohérence IPv6
 
 ### D1 — Règles IPv4 présentes, aucun équivalent IPv6 (avertissement attendu)
@@ -266,7 +376,7 @@ sudo ufw status numbered
 |----------|----------|
 | `⚠ [AVERTISSEMENT]` Règles IPv6 manquantes — seules des règles IPv4 présentes | ✔ unit test |
 | Déduction score `-1` | ✔ unit test |
-| Test direct | pending v0.15 |
+| Test direct | pending |
 
 ---
 
@@ -276,7 +386,7 @@ sudo ufw status numbered
 |----------|----------|
 | `✔ [OK]` Règles IPv4 et IPv6 toutes deux présentes | ✔ unit test |
 | Aucune déduction | ✔ unit test |
-| Test direct | pending v0.15 |
+| Test direct | pending |
 
 ---
 
@@ -352,8 +462,8 @@ sudo ufw-audit
 
 | Attendu | Résultat |
 |----------|----------|
-| `ℹ [INFO]` Port X — lié uniquement à localhost — pas d'exposition externe | pending v0.15 |
-| Pas d'ALERTE, pas de déduction de score | pending v0.15 |
-| Message utilise la clé locale `ports.uncovered_local` (nouveau en v0.15) | pending v0.15 |
+| `ℹ [INFO]` Port X — lié uniquement à localhost — pas d'exposition externe | pending |
+| Pas d'ALERTE, pas de déduction de score | pending |
+| Message utilise la clé locale `ports.uncovered_local` (nouveau en v0.15) | pending |
 
 > **Nouveau en v0.15 :** Les ports dans `PortCategory.UNCOVERED_LOCAL` utilisent maintenant une clé locale distincte `ports.uncovered_local` au lieu de `ports.uncovered` (qui implique une exposition sur toutes les interfaces). Cela évite des messages trompeurs « listening on all interfaces » pour les services loopback uniquement.
