@@ -375,5 +375,9 @@
     "none_detected": "Aucune technologie de virtualisation détectée",
     "bypass_risk": "{name} détecté — l'interface bridge {iface} peut insérer des règles iptables, contournant la politique FORWARD d'UFW",
     "snap_network": "Le paquet Snap '{pkg}' a des connexions réseau actives — vérifiez qu'il ne contourne pas UFW"
+  },
+  "audit": {
+    "starting": "Démarrage de l'audit",
+    "report_saved": "Rapport détaillé : {path}"
   }
 }

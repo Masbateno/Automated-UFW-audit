@@ -25,18 +25,18 @@ def run_fixes(engine, config, t) -> None:
     print()
     print(f"\033[1;34m╔{'═'*(W-2)}╗\033[0m")
     label = t("fixes.title")
-    pad = W - 4 - len(label)
+    pad = W - 6 - len(label)
     print(f"\033[1;34m║\033[0m  \033[1m{label}\033[0m{' '*max(0,pad)}  \033[1;34m║\033[0m")
     print(f"\033[1;34m╠{'═'*(W-2)}╣\033[0m")
 
     if not auto_items and not manual_items:
         none_msg = t("fixes.none")
-        pad = W - 4 - len(none_msg)
+        pad = W - 6 - len(none_msg)
         print(f"\033[1;34m║\033[0m    {none_msg}{' '*max(0,pad)}\033[1;34m║\033[0m")
     else:
         count = len(auto_items)
         count_msg = t("fixes.count", count=count)
-        pad = W - 4 - len(count_msg)
+        pad = W - 9 - len(count_msg)
         print(f"\033[1;34m║\033[0m    ✔  {count_msg}{' '*max(0,pad)}\033[1;34m║\033[0m")
     print(f"\033[1;34m╚{'═'*(W-2)}╝\033[0m")
 

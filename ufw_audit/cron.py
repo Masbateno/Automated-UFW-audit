@@ -314,7 +314,7 @@ def run_install_cron(user_config, config, t) -> int:
 
     W = 62
     title = t("install_cron.title")
-    pad = W - 4 - len(title)
+    pad = W - 6 - len(title)
     print(f"\033[1;34m╔{'═'*(W-2)}╗\033[0m")
     print(f"\033[1;34m║\033[0m  \033[1m{title}\033[0m{' '*max(0,pad)}  \033[1;34m║\033[0m")
     print(f"\033[1;34m╚{'═'*(W-2)}╝\033[0m")
@@ -514,7 +514,7 @@ def _manage_email_store(t) -> None:
 
     W = 62
     title = t("manage_cron.email_store_title")
-    pad = W - 4 - len(title)
+    pad = W - 6 - len(title)
 
     while True:
         store = EmailStore.load()
@@ -609,7 +609,7 @@ def run_manage_cron(config, t) -> int:
 
     W = 62
     title = t("manage_cron.title")
-    pad = W - 4 - len(title)
+    pad = W - 6 - len(title)
 
     while True:
         print(f"\033[1;34m╔{'═'*(W-2)}╗\033[0m")

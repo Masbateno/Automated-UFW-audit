@@ -106,6 +106,19 @@ class Finding:
 
 
 @dataclass
+class ScoreCap:
+    """
+    A score ceiling request emitted by a check and processed by ScoreEngine.apply().
+
+    Checks that need to impose a hard score ceiling (e.g. firewall inactive → max 3)
+    attach a ScoreCap to their CheckResult rather than calling engine.cap() directly.
+    This keeps orchestration logic inside the check where it belongs.
+    """
+    maximum: int
+    reason:  str
+
+
+@dataclass
 class CheckResult:
     """
     The complete output of a single check function.
@@ -113,15 +126,28 @@ class CheckResult:
     Returned by every check_* function and consumed by ScoreEngine.apply().
 
     Args:
-        deductions: List of score deductions to apply.
-        findings:   List of findings to display.
+        deductions:  List of score deductions to apply.
+        findings:    List of findings to display.
+        open_ports:  Ports identified as exposed (used by DDNS check for display).
+        caps:        Score ceiling requests to be applied by the engine.
     """
-    deductions: List[Deduction] = field(default_factory=list)
-    findings:   List[Finding]   = field(default_factory=list)
+    deductions:  List[Deduction] = field(default_factory=list)
+    findings:    List[Finding]   = field(default_factory=list)
+    open_ports:  List[str]       = field(default_factory=list)
+    caps:        List[ScoreCap]  = field(default_factory=list)
 
     def add_deduction(self, reason: str, points: int, context: str = "local") -> None:
         """Convenience method to append a deduction."""
         self.deductions.append(Deduction(reason=reason, points=points, context=context))
+
+    def set_cap(self, maximum: int, reason: str) -> None:
+        """
+        Request a score ceiling to be enforced by the engine.
+
+        Prefer this over calling engine.cap() directly in orchestrators —
+        it keeps the cap logic co-located with the check that motivates it.
+        """
+        self.caps.append(ScoreCap(maximum=maximum, reason=reason))
 
     def add_finding(
         self,
@@ -157,13 +183,6 @@ class CheckResult:
 # Score engine
 # ---------------------------------------------------------------------------
 
-@dataclass
-class _Cap:
-    """Internal record of a score cap applied via ScoreEngine.cap()."""
-    maximum: int
-    reason:  str
-
-
 class ScoreEngine:
     """
     Accumulates deductions from check results and computes the final score.
@@ -180,7 +199,7 @@ class ScoreEngine:
 
     def __init__(self) -> None:
         self._raw_score: int = MAX_SCORE
-        self._cap: _Cap | None = None
+        self._cap: ScoreCap | None = None
         self.breakdown: list[Deduction] = []
         self.findings:  list[Finding]   = []
         self._finalized: bool = False
@@ -191,7 +210,10 @@ class ScoreEngine:
 
     def apply(self, result: CheckResult) -> None:
         """
-        Apply all deductions and collect all findings from a CheckResult.
+        Apply all deductions, findings, and caps from a CheckResult.
+
+        Caps embedded in result.caps are forwarded to engine.cap() so
+        the orchestrator does not need to inspect check results directly.
 
         Args:
             result: Output of a check_* function.
@@ -199,6 +221,8 @@ class ScoreEngine:
         for deduction in result.deductions:
             self._apply_deduction(deduction)
         self.findings.extend(result.findings)
+        for cap in result.caps:
+            self.cap(maximum=cap.maximum, reason=cap.reason)
 
     def deduct(self, reason: str, points: int, context: str = "local") -> None:
         """
@@ -225,7 +249,7 @@ class ScoreEngine:
             reason:  Explanation string displayed in the breakdown.
         """
         if self._cap is None or maximum < self._cap.maximum:
-            self._cap = _Cap(maximum=maximum, reason=reason)
+            self._cap = ScoreCap(maximum=maximum, reason=reason)
 
     def finalize(self) -> None:
         """
@@ -266,7 +290,7 @@ class ScoreEngine:
         return RiskLevel.CRITICAL  # fallback — should never be reached
 
     @property
-    def cap_info(self) -> _Cap | None:
+    def cap_info(self) -> ScoreCap | None:
         """The registered cap, or None if no cap was set."""
         return self._cap
 

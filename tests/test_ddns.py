@@ -235,8 +235,7 @@ class TestCheckDdnsActiveWithPorts:
     def test_open_ports_stored(self):
         snap = DdnsSnapshot.detected("ddclient", domain="test.duckdns.org")
         result = check_ddns(snap, ufw_rules=UFW_OPEN)
-        assert hasattr(result, "_ddns_open_ports")
-        assert "8096/tcp" in result._ddns_open_ports
+        assert "8096/tcp" in result.open_ports
 
     def test_advice_info_present(self):
         snap = DdnsSnapshot.detected("ddclient", domain="test.duckdns.org")
