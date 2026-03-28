@@ -9,7 +9,7 @@
 #
 # Installation layout:
 #   /usr/local/bin/ufw-audit                  Entry point
-#   /usr/local/lib/ufw-audit/                 Python package
+#   /usr/local/lib/ufw_audit/                 Python package (underscore: Python import name)
 #   /usr/local/share/ufw-audit/               Data and locales
 #   /usr/local/share/doc/ufw-audit/           Documentation
 #   /usr/local/share/ufw-audit/install.manifest
@@ -25,12 +25,13 @@ set -euo pipefail
 # Constants
 # ---------------------------------------------------------------------------
 
-VERSION="0.16"
+VERSION="0.21"
 PACKAGE_NAME="ufw-audit"
+PY_PACKAGE_NAME="ufw_audit"   # Python import name (underscore); differs from CLI name (hyphen)
 
 PREFIX="/usr/local"
 BIN_DIR="${PREFIX}/bin"
-LIB_DIR="${PREFIX}/lib/ufw_audit"
+LIB_DIR="${PREFIX}/lib/${PY_PACKAGE_NAME}"
 SHARE_DIR="${PREFIX}/share/${PACKAGE_NAME}"
 DOC_DIR="${PREFIX}/share/doc/${PACKAGE_NAME}"
 COMPLETION_DIR="/etc/bash_completion.d"
