@@ -14,6 +14,29 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v0.9    | 421   | First full suite |
 | v0.17   | 505   | 15 pre-existing failures fixed; suite fully green |
 | v0.18   | 531   | 26 new tests for `fixes.py`; `run_fixes()` fully covered |
+| v0.20   | 548   | 17 degraded-mode tests; `ss`/rules/log absent scenarios |
+
+### v0.20 — 548/548 (2026-03-28)
+
+**Platform:** Linux Mint 22.3 — `so6minttest` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -v
+548 passed in Xs
+```
+
+#### New tests added
+
+**`tests/test_degraded.py`** — 17 tests (new file)
+
+| Class | Tests | Coverage |
+|-------|-------|----------|
+| `TestSSNotAvailable` | 4 | `check_ports` with empty `PortsSnapshot` (no ports, no ss_output) → OK, zero deductions |
+| `TestCheckRulesEmptyOutput` | 5 | `check_rules` with `""`, whitespace, or status-header-only → zero deductions, no alert |
+| `TestLogFileDegraded` | 4 | `log_found=False` → INFO + zero deductions; empty entries → OK + zero deductions |
+| `TestCombinedDegradation` | 4 | All three modules degraded simultaneously — no crash, zero combined deductions |
+
+---
 
 ### v0.18 — 531/531 (2026-03-28)
 
