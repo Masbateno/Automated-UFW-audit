@@ -603,6 +603,11 @@ def run_manage_cron(config, t) -> int:
 
     if not crons:
         print(f"  ℹ {t('manage_cron.no_crons')}")
+        print()
+        print(f"  {t('manage_cron.prompt_email_only')}")
+        answer = input("  > ").strip().lower()
+        if answer == "m":
+            _manage_email_store(t)
         return 0
 
     lang = config.lang

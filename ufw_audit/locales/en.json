@@ -221,6 +221,7 @@
     "title": "UFW-AUDIT CRON MANAGEMENT",
     "no_crons": "No UFW-AUDIT cron jobs installed. Run: sudo ufw-audit --install-cron",
     "prompt": "Number to edit, 'e:N' to edit email, 'd:N' to delete, 'm' for email book, Enter to quit",
+    "prompt_email_only": "'m' to manage email book, Enter to quit",
     "email_label": "email",
     "legacy_tag": "legacy",
     "confirm_delete": "Delete cron '{name}'? [y/N]",

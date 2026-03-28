@@ -238,6 +238,7 @@
     "title": "GESTION DES CRONS UFW-AUDIT",
     "no_crons": "Aucun cron UFW-AUDIT installé. Lancez : sudo ufw-audit --install-cron",
     "prompt": "Numéro pour modifier, 'e:N' pour l'email, 'd:N' pour supprimer, 'm' pour le carnet d'adresses, Entrée pour quitter",
+    "prompt_email_only": "'m' pour gérer le carnet d'adresses, Entrée pour quitter",
     "email_label": "email",
     "legacy_tag": "legacy",
     "confirm_delete": "Supprimer le cron '{name}' ? [y/N]",
