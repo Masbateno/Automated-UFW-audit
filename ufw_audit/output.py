@@ -19,6 +19,7 @@ from __future__ import annotations
 import re
 import shutil
 import sys
+import unicodedata
 from typing import NamedTuple
 
 
@@ -172,7 +173,7 @@ def print_section(title: str) -> None:
     """
     inner = _TERM_WIDTH - 2  # space inside │ borders
     bar = "─" * inner
-    padding = inner - 2 - len(_strip_ansi(title))
+    padding = inner - 2 - _visual_width(title)
     padding = max(0, padding)
 
     _p()  # blank line before each section
@@ -270,7 +271,7 @@ def print_summary_box(lines: list[tuple[str, str]]) -> None:
             print(f"{_c.blue_bold}╠{'═' * inner}╣{_c.reset}")
             continue
         content = f"  {label} : {value}" if value else f"  {label}"
-        padding = inner - len(_strip_ansi(content))
+        padding = inner - _visual_width(content)
         padding = max(0, padding)
         print(f"{_c.blue_bold}║{_c.reset}{content}{' ' * padding}{_c.blue_bold}║{_c.reset}")
     print(f"{_c.blue_bold}╚{'═' * inner}╝{_c.reset}")
@@ -421,14 +422,14 @@ def print_banner(
 
     print(f"{_c.blue_bold}╔{bar_double}╗{_c.reset}")
     for line in logo.splitlines():
-        padding = inner - len(_strip_ansi(line))
+        padding = inner - _visual_width(line)
         padding = max(0, padding)
         print(f"{_c.blue_bold}║{_c.reset}{line}{' ' * padding}{_c.blue_bold}║{_c.reset}")
 
     # Étage: version + subtitle between art and system info
     print(f"{_c.blue_bold}╠{bar_double}╣{_c.reset}")
     etage = f"  UFW-AUDIT {version}  │  {subtitle}"
-    etage_pad = max(0, inner - len(_strip_ansi(etage)))
+    etage_pad = max(0, inner - _visual_width(etage))
     print(f"{_c.blue_bold}║{_c.reset}{etage}{' ' * etage_pad}{_c.blue_bold}║{_c.reset}")
     print(f"{_c.blue_bold}╠{bar_double}╣{_c.reset}")
 
@@ -441,7 +442,7 @@ def print_banner(
     ]
     for label, value in info_rows:
         content = f"  {label:<14}: {value}"
-        padding = inner - len(_strip_ansi(content))
+        padding = inner - _visual_width(content)
         padding = max(0, padding)
         print(f"{_c.blue_bold}║{_c.reset}{content}{' ' * padding}{_c.blue_bold}║{_c.reset}")
 
@@ -456,6 +457,20 @@ def print_banner(
 def _strip_ansi(text: str) -> str:
     """Remove ANSI escape codes from a string for length calculation."""
     return re.sub(r"\033\[[0-9;]*m", "", text)
+
+
+def _visual_width(text: str) -> int:
+    """Return the terminal display width of a string.
+
+    Accounts for wide Unicode characters (emojis, CJK) that occupy 2 columns.
+    East-Asian-width 'W' and 'F' are counted as 2; everything else as 1.
+    ANSI escape codes are stripped before measurement.
+    """
+    width = 0
+    for ch in _strip_ansi(text):
+        eaw = unicodedata.east_asian_width(ch)
+        width += 2 if eaw in ("W", "F") else 1
+    return width
 
 
 def supports_color() -> bool:
