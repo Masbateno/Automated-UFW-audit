@@ -276,7 +276,19 @@ ufw-audit est un outil d'audit et de diagnostic — **pas un bouclier de sécuri
 
 **v0.15** ✅ — Durcissement sécurité, refactoring DRY, corrections du script d'installation, correction bug détection wildcards IPv6
 
-**v1.0** — Version stable, complète, validée
+**v0.16** ✅ — Corrections panorama (`Exposure.NOT_LISTENING`, `Exposure.LOOPBACK_NO_RULE`) ; suite de régression complète
+
+**v0.17** ✅ — 505/505 tests unitaires verts ; 15 échecs préexistants corrigés
+
+**v0.18** ✅ — 26 nouveaux tests pour `fixes.py` ; `run_fixes()` entièrement couvert
+
+**v0.19** ✅ — CI GitHub Actions ; matrice pytest Python 3.8 / 3.10 / 3.12
+
+**v0.20** ✅ — 17 tests en mode dégradé ; scénarios `ss`/règles/log absents
+
+**v0.21** ✅ *(actuel)* — Passe qualité pré-v1.0 : 78 nouveaux tests + 3 corrections ; carnet d'adresses email dans `--manage-cron` ; 619/619
+
+**v1.0** — Version stable, complète, validée — Debian 12, packaging final
 
 **Post v1.0** — Interface web (`--gui`) pour utilisateurs non techniques
 
