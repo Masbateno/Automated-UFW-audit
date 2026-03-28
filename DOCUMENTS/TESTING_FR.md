@@ -396,6 +396,18 @@ sudo ufw status numbered
 
 ## Observations supplémentaires
 
+### Obs — Avahi affiche ✖ au panorama malgré message INFO (problème connu, v0.16)
+
+Avahi écoute sur `0.0.0.0:5353/udp` (multicast mDNS). Aucune règle UFW pour 5353 → `Exposure.NO_RULE` → panorama ✖. Le check service émet correctement `ℹ [INFO]` "couvert par la politique deny par défaut", mais le symbole panorama est déterminé par la valeur enum `NO_RULE` indépendamment de la sévérité INFO.
+
+**Cause racine :** `NO_RULE` sur un port non-loopback, non exposé publiquement (multicast/LAN uniquement en pratique) est traité identiquement à `NO_RULE` sur un port réellement exposé. Un fix futur pourrait introduire `Exposure.NO_RULE_MULTICAST` ou un mécanisme plus large pour distinguer les `NO_RULE` à portée locale des `NO_RULE` réellement exposés.
+
+**Impact :** cosmétique uniquement — pas de fausse ALERTE, pas de déduction de score.
+
+---
+
+
+
 ### Obs — DDNS ne détecte pas règles sans-protocole (corrigé)
 
 Avec `80 ALLOW IN Anywhere` (pas `/tcp`), la vérification croisée DDNS n'affichait précédemment rien pour le port 80.
@@ -455,6 +467,28 @@ Pas encore testé — priorité pratique basse car CLI UFW le prévient.
 ---
 
 ## Catégorie E — Ports loopback uniquement (v0.15)
+
+### C8 — SSH restreint au LAN (chemin OPEN_LOCAL)
+
+```bash
+sudo ufw delete allow 22/tcp
+sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp
+sudo ufw-audit
+```
+
+| Attendu | Résultat |
+|---------|----------|
+| `⚠ [AVERTISSEMENT]` Port 22/tcp — restreint au réseau local par règle UFW | ✔ v0.16 |
+| Pas de déduction score (OPEN_LOCAL ≠ OPEN_WORLD) | ✔ v0.16 |
+| Panorama : SSH `✔` (restriction LAN = config correcte) | ✔ v0.16 |
+| DDNS : `ℹ` Port 22/tcp restreint au réseau local (pas d'ALERTE) | ✔ v0.16 |
+| Contexte risque CRITIQUE toujours affiché | ✔ v0.16 |
+
+> **Nettoyage :** `sudo ufw delete allow from 192.168.1.0/24 to any port 22 proto tcp && sudo ufw allow 22/tcp`
+
+---
+
+
 
 ### E1 — Port écoutant sur localhost uniquement, sans règle UFW — INFO pas ALERTE
 

@@ -408,6 +408,28 @@ sudo ufw-audit
 
 ## Category E — Loopback-only ports (v0.15)
 
+### C8 — SSH restricted to LAN (OPEN_LOCAL path)
+
+```bash
+sudo ufw delete allow 22/tcp
+sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp
+sudo ufw-audit
+```
+
+| Expected | Result |
+|----------|--------|
+| `⚠ [WARNING]` Port 22/tcp — restricted to local network by UFW rule | ✔ v0.16 |
+| No score deduction (OPEN_LOCAL ≠ OPEN_WORLD) | ✔ v0.16 |
+| Panorama: SSH `✔` (LAN restriction = correct config) | ✔ v0.16 |
+| DDNS: `ℹ` Port 22/tcp restricted to local network (not ALERT) | ✔ v0.16 |
+| Risk context CRITICAL still displayed | ✔ v0.16 |
+
+> **Cleanup:** `sudo ufw delete allow from 192.168.1.0/24 to any port 22 proto tcp && sudo ufw allow 22/tcp`
+
+---
+
+
+
 ### E1 — Port listening on localhost only, no UFW rule — INFO not ALERT
 
 ```bash
@@ -429,6 +451,18 @@ sudo ufw-audit
 ---
 
 ## Additional observations
+
+### Obs — Avahi panorama shows ✖ despite INFO message (known issue, v0.16)
+
+Avahi binds on `0.0.0.0:5353/udp` (mDNS multicast). No UFW rule exists for 5353 → `Exposure.NO_RULE` → panorama ✖. The service check correctly emits `ℹ [INFO]` "covered by default deny policy", but the panorama symbol is set by the `NO_RULE` enum value regardless of the INFO severity.
+
+**Root cause:** `NO_RULE` on a non-loopback, non-listening-externally port (multicast/LAN-only in practice) is treated identically to `NO_RULE` on a genuinely exposed port. A future fix could introduce `Exposure.NO_RULE_MULTICAST` or a broader mechanism to distinguish locally-scoped `NO_RULE` from truly exposed `NO_RULE`.
+
+**Impact:** cosmetic only — no false ALERT, no score deduction.
+
+---
+
+
 
 ### Obs — DDNS does not detect protocol-less rules (fixed)
 
