@@ -28,8 +28,10 @@ def make_status(**overrides) -> FirewallStatus:
         active=True,
         incoming_policy="deny",
         ufw_output="Status: active\nDefault: deny (incoming)",
+        numbered_output="",
         ipv4_rules_count=2,
         ipv6_rules_count=2,
+        ipv6_ufw_enabled=True,
     )
     defaults.update(overrides)
     return FirewallStatus(**defaults)
@@ -80,10 +82,12 @@ class TestUFWInactive:
         result = check_firewall(status)
         assert has_level(result, "alert")
 
-    def test_firewall_inactive_flag_set(self):
+    def test_firewall_inactive_sets_cap(self):
+        """Inactive firewall must embed a score cap (max=3) in the CheckResult."""
         status = make_status(active=False)
         result = check_firewall(status)
-        assert result.meta.get("firewall_inactive") is True
+        assert len(result.caps) == 1
+        assert result.caps[0].maximum == 3
 
     def test_fix_cmd_is_ufw_enable(self):
         status = make_status(active=False)
@@ -171,6 +175,16 @@ class TestIPv6Consistency:
         result = check_rules("", _NO_RULES, _t)
         all_messages = [f.message for f in result.findings]
         assert not any("ipv6" in m.lower() for m in all_messages)
+
+    def test_no_ipv6_warning_when_ipv6_disabled(self):
+        """When IPV6=no in /etc/default/ufw, no warning even with IPv4-only rules."""
+        result = check_rules("", _IPV4_ONLY, _t, ipv6_enabled=False)
+        assert not has_level(result, "warn")
+
+    def test_ipv6_warning_present_when_ipv6_enabled(self):
+        """Regression: ipv6_enabled=True (default) still warns on IPv4-only rules."""
+        result = check_rules("", _IPV4_ONLY, _t, ipv6_enabled=True)
+        assert has_level(result, "warn")
 
 
 # ---------------------------------------------------------------------------

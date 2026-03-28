@@ -54,7 +54,6 @@ from ufw_audit.checks.ddns import DdnsSnapshot, check_ddns
 from ufw_audit.checks.docker import DockerSnapshot, check_docker
 from ufw_audit.checks.firewall import (
     FirewallStatus,
-    _run as fw_run,
     check_firewall,
     check_rules,
 )
@@ -182,10 +181,7 @@ def _run(argv=None) -> int:
 
     fw_status = FirewallStatus.from_system()
     fw_result = check_firewall(fw_status, t=t)
-    engine.apply(fw_result)
-
-    if fw_result.meta.get("firewall_inactive"):
-        engine.cap(maximum=3, reason=t("firewall.inactive"))
+    engine.apply(fw_result)  # caps in fw_result (e.g. firewall inactive) applied here
 
     display_result(fw_result, report, config.verbose, quiet=config.quiet)
 
@@ -196,14 +192,15 @@ def _run(argv=None) -> int:
     # ======================================================================
     # CHECK 2 — UFW rules
     # ======================================================================
-    ufw_numbered = fw_run("ufw", "status", "numbered")
-    ufw_verbose  = fw_run("ufw", "status", "verbose")
+    # Reuse the outputs already fetched by FirewallStatus.from_system()
+    ufw_numbered = fw_status.numbered_output
+    ufw_verbose  = fw_status.ufw_output
 
     if not config.quiet:
         print_section(t("sections.rules"))
     report.write_section(t("sections.rules"))
 
-    rules_result = check_rules(ufw_verbose, ufw_numbered, t)
+    rules_result = check_rules(ufw_verbose, ufw_numbered, t, fw_status.ipv6_ufw_enabled)
     engine.apply(rules_result)
     display_result(rules_result, report, config.verbose, quiet=config.quiet)
 

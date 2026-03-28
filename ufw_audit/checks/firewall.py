@@ -21,7 +21,8 @@ Usage:
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from pathlib import Path
 
 from ufw_audit.checks._run import _command_exists, _identity_t, _run
 from ufw_audit.scoring import CheckResult
@@ -42,15 +43,20 @@ class FirewallStatus:
         incoming_policy:  Parsed default incoming policy string.
                           One of: "deny", "allow", "reject", "unknown".
         ufw_output:       Full output of `ufw status verbose` for the report.
+        numbered_output:  Full output of `ufw status numbered` (rules list).
         ipv4_rules_count: Number of non-IPv6 UFW rules found.
         ipv6_rules_count: Number of IPv6 UFW rules found (lines with (v6)).
+        ipv6_ufw_enabled: True if IPV6=yes (or absent) in /etc/default/ufw.
+                          Used to suppress false-positive IPv6 coverage warnings.
     """
     installed:        bool
     active:           bool
     incoming_policy:  str
     ufw_output:       str
+    numbered_output:  str
     ipv4_rules_count: int
     ipv6_rules_count: int
+    ipv6_ufw_enabled: bool = True
 
     @classmethod
     def from_system(cls) -> "FirewallStatus":
@@ -67,11 +73,13 @@ class FirewallStatus:
             return cls(
                 installed=False, active=False,
                 incoming_policy="unknown", ufw_output="",
+                numbered_output="",
                 ipv4_rules_count=0, ipv6_rules_count=0,
             )
 
-        # Get full status output
-        ufw_output = _run("ufw", "status", "verbose")
+        # Get full status output (verbose for policy, numbered for rules)
+        ufw_output     = _run("ufw", "status", "verbose")
+        numbered_output = _run("ufw", "status", "numbered")
 
         # Parse active state
         active = bool(re.search(r"^Status:\s+active", ufw_output, re.MULTILINE))
@@ -83,23 +91,25 @@ class FirewallStatus:
             incoming_policy = match.group(1).lower()
 
         # Count IPv4 vs IPv6 rules
-        numbered_output = _run("ufw", "status", "numbered")
-        ipv4_rules_count = len([
+        rule_lines = [
             line for line in numbered_output.splitlines()
-            if re.match(r"\s*\[\s*\d+\]", line) and "(v6)" not in line
-        ])
-        ipv6_rules_count = len([
-            line for line in numbered_output.splitlines()
-            if re.match(r"\s*\[\s*\d+\]", line) and "(v6)" in line
-        ])
+            if re.match(r"\s*\[\s*\d+\]", line)
+        ]
+        ipv4_rules_count = sum(1 for l in rule_lines if "(v6)" not in l)
+        ipv6_rules_count = sum(1 for l in rule_lines if "(v6)" in l)
+
+        # Read IPv6 config from /etc/default/ufw (default: enabled)
+        ipv6_ufw_enabled = _read_ipv6_config()
 
         return cls(
             installed=installed,
             active=active,
             incoming_policy=incoming_policy,
             ufw_output=ufw_output,
+            numbered_output=numbered_output,
             ipv4_rules_count=ipv4_rules_count,
             ipv6_rules_count=ipv6_rules_count,
+            ipv6_ufw_enabled=ipv6_ufw_enabled,
         )
 
 
@@ -143,15 +153,8 @@ def check_firewall(status: FirewallStatus, t=None) -> CheckResult:
             nature="action",
             cmd="sudo ufw enable",
         )
-        # Cap score at 3 when firewall is inactive
-        result.add_deduction(
-            reason=_t("firewall.inactive"),
-            points=0,  # actual cap applied by orchestrator via engine.cap()
-            context="local",
-        )
-        # Signal cap to orchestrator via a sentinel deduction with points=-1
-        # (negative sentinel, filtered out from display — see __main__.py)
-        result.meta["firewall_inactive"] = True
+        # Request a score cap — processed automatically by ScoreEngine.apply()
+        result.set_cap(maximum=3, reason=_t("firewall.inactive"))
         return result
 
     result.ok(message=_t("firewall.active"))
@@ -180,19 +183,41 @@ def check_firewall(status: FirewallStatus, t=None) -> CheckResult:
 
 
 # ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------
 # UFW rules check
 # ---------------------------------------------------------------------------
 
-def check_rules(ufw_verbose: str, ufw_numbered: str, t) -> "CheckResult":
-    """Check UFW rules for duplicates, open-any, and IPv6 consistency."""
-    result = CheckResult()
+def check_rules(
+    ufw_verbose: str,
+    ufw_numbered: str,
+    t,
+    ipv6_enabled: bool = True,
+) -> "CheckResult":
+    """
+    Check UFW rules for duplicates, open-any wildcards, and IPv6 consistency.
 
-    lines = [l for l in ufw_numbered.splitlines()
-             if re.match(r"\s*\[\s*\d+\]", l)]
+    Args:
+        ufw_verbose:  Output of `ufw status verbose`.
+        ufw_numbered: Output of `ufw status numbered`.
+        t:            Translation function.
+        ipv6_enabled: True if IPv6 is enabled in /etc/default/ufw.
+                      When False, the IPv6 coverage warning is suppressed.
+
+    Returns:
+        CheckResult with rule-level findings and deductions.
+    """
+    result = CheckResult()
+    lines = [
+        l for l in ufw_numbered.splitlines()
+        if re.match(r"\s*\[\s*\d+\]", l)
+    ]
+    _check_duplicates(lines, t, result)
+    _check_open_any(lines, t, result)
+    _check_ipv6_coverage(lines, t, result, ipv6_enabled)
+    return result
+
+
+def _check_duplicates(lines: list, t, result: CheckResult) -> None:
+    """Detect duplicate and proto-redundant UFW rules."""
 
     def _strip_comment(text: str) -> str:
         return re.sub(r"\s*#.*$", "", text).strip()
@@ -208,9 +233,9 @@ def check_rules(ufw_verbose: str, ufw_numbered: str, t) -> "CheckResult":
 
     seen_clean: dict[str, int] = {}
     for line in lines:
-        idx_match = re.match(r"\[\s*(\d+)\]", line)
+        idx_match  = re.match(r"\[\s*(\d+)\]", line)
         real_index = int(idx_match.group(1)) if idx_match else None
-        clean = " ".join(_strip_comment(_rule_without_index(line)).split())
+        clean      = " ".join(_strip_comment(_rule_without_index(line)).split())
 
         is_dup = False
         if clean in seen_clean:
@@ -245,6 +270,9 @@ def check_rules(ufw_verbose: str, ufw_numbered: str, t) -> "CheckResult":
                for f in result.findings):
         result.ok(message=t("rules.no_duplicates"))
 
+
+def _check_open_any(lines: list, t, result: CheckResult) -> None:
+    """Detect 'Anywhere ALLOW IN Anywhere' wildcard rules."""
     open_any_pattern = re.compile(
         r"Anywhere(?:/\w+)?(?:\s+\(v6\))?\s+ALLOW\s+IN\s+Anywhere(?:/\w+)?(?:\s+\(v6\))?\s*$",
         re.IGNORECASE,
@@ -252,7 +280,7 @@ def check_rules(ufw_verbose: str, ufw_numbered: str, t) -> "CheckResult":
     found_open_any = False
     for line in lines:
         if open_any_pattern.search(line):
-            idx_match = re.match(r"\[\s*(\d+)\]", line)
+            idx_match  = re.match(r"\[\s*(\d+)\]", line)
             real_index = int(idx_match.group(1)) if idx_match else None
             result.alert(
                 message=t("rules.open_any_found", rule=line.strip()),
@@ -265,12 +293,46 @@ def check_rules(ufw_verbose: str, ufw_numbered: str, t) -> "CheckResult":
     if not found_open_any:
         result.ok(message=t("rules.no_open_any"))
 
+
+def _check_ipv6_coverage(
+    lines: list,
+    t,
+    result: CheckResult,
+    ipv6_enabled: bool,
+) -> None:
+    """
+    Warn if IPv4 rules exist but no IPv6 rules are present.
+
+    Suppressed when IPv6 is disabled in /etc/default/ufw to avoid
+    false positives on systems that intentionally run IPv4-only.
+    """
     ipv4_count = sum(1 for l in lines if "(v6)" not in l)
     ipv6_count = sum(1 for l in lines if "(v6)" in l)
+
     if ipv4_count > 0 and ipv6_count == 0:
-        result.warn(message=t("rules.ipv6_missing"), nature="improvement")
-        result.add_deduction(reason=t("rules.ipv6_missing"), points=1)
+        if ipv6_enabled:
+            result.warn(message=t("rules.ipv6_missing"), nature="improvement")
+            result.add_deduction(reason=t("rules.ipv6_missing"), points=1)
+        # else: IPv6 is disabled in /etc/default/ufw — no warning
     elif ipv4_count > 0:
         result.ok(message=t("rules.ipv6_ok"))
 
-    return result
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _read_ipv6_config() -> bool:
+    """
+    Read /etc/default/ufw to determine if IPv6 is enabled.
+
+    Returns False only when IPV6=no is explicitly set.
+    Defaults to True (enabled) if the file is absent or unreadable.
+    """
+    try:
+        content = Path("/etc/default/ufw").read_text(encoding="utf-8", errors="ignore")
+        if re.search(r"^IPV6\s*=\s*no\b", content, re.MULTILINE | re.IGNORECASE):
+            return False
+    except OSError:
+        pass
+    return True
