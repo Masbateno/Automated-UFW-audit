@@ -294,7 +294,7 @@ def _run(argv=None) -> int:
     engine.apply(ddns_result)
     display_result(ddns_result, report, config.verbose, quiet=config.quiet)
 
-    for port in ddns_result.meta.get("open_ports") or []:
+    for port in ddns_result.open_ports:
         output.print_dim(f"  → {port}")
 
     # ======================================================================

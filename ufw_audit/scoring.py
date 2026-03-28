@@ -126,15 +126,15 @@ class CheckResult:
     Returned by every check_* function and consumed by ScoreEngine.apply().
 
     Args:
-        deductions: List of score deductions to apply.
-        findings:   List of findings to display.
-        meta:       Arbitrary key/value store for check-specific metadata.
-        caps:       Score ceiling requests to be applied by the engine.
+        deductions:  List of score deductions to apply.
+        findings:    List of findings to display.
+        open_ports:  Ports identified as exposed (used by DDNS check for display).
+        caps:        Score ceiling requests to be applied by the engine.
     """
-    deductions: List[Deduction] = field(default_factory=list)
-    findings:   List[Finding]   = field(default_factory=list)
-    meta:       dict             = field(default_factory=dict)
-    caps:       List[ScoreCap]  = field(default_factory=list)
+    deductions:  List[Deduction] = field(default_factory=list)
+    findings:    List[Finding]   = field(default_factory=list)
+    open_ports:  List[str]       = field(default_factory=list)
+    caps:        List[ScoreCap]  = field(default_factory=list)
 
     def add_deduction(self, reason: str, points: int, context: str = "local") -> None:
         """Convenience method to append a deduction."""
