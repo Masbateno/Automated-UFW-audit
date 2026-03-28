@@ -207,10 +207,22 @@ class TestActiveStates:
 # ---------------------------------------------------------------------------
 
 class TestPortExposureFindings:
-    def test_open_world_adds_warn(self):
+    def test_open_world_critical_adds_alert(self):
+        """Critical service (SSH default) with OPEN_WORLD → alert, not warn."""
         snap = make_snapshot(
+            service=make_service(risk="critical"),
             state=ServiceState.ACTIVE_ENABLED,
             exposures={"22/tcp": Exposure.OPEN_WORLD},
+        )
+        result = check_services([snap])
+        assert has_level(result, "alert")
+
+    def test_open_world_medium_adds_warn(self):
+        """Medium-risk service with OPEN_WORLD → warn."""
+        snap = make_snapshot(
+            service=make_service(risk="medium"),
+            state=ServiceState.ACTIVE_ENABLED,
+            exposures={"80/tcp": Exposure.OPEN_WORLD},
         )
         result = check_services([snap])
         assert has_level(result, "warn")
@@ -320,7 +332,7 @@ class TestPortExposureFindings:
 
     def test_multiple_ports(self):
         snap = make_snapshot(
-            service=make_service(ports=("445/tcp", "139/tcp")),
+            service=make_service(ports=("445/tcp", "139/tcp"), risk="critical"),
             state=ServiceState.ACTIVE_ENABLED,
             ports=["445/tcp", "139/tcp"],
             exposures={
@@ -329,7 +341,7 @@ class TestPortExposureFindings:
             },
         )
         result = check_services([snap])
-        assert has_level(result, "warn")   # from 445
+        assert has_level(result, "alert")  # from 445 (critical OPEN_WORLD)
         assert has_level(result, "info")   # from 139
 
 
