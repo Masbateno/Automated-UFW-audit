@@ -1,9 +1,9 @@
 *[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
-# ufw-audit v0.20
+# ufw-audit v0.21
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.20-brightgreen)
+![Release](https://img.shields.io/badge/version-v0.21-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
@@ -443,7 +443,9 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v0.19** — GitHub Actions CI: pytest on every push/PR, Python 3.8 / 3.10 / 3.12 matrix
 
-**v0.20** *(current)* — 17 degraded-mode tests (`tests/test_degraded.py`): ss absent, empty UFW rules, missing log file, combined multi-module degradation; suite reaches 548/548
+**v0.20** — 17 degraded-mode tests (`tests/test_degraded.py`): ss absent, empty UFW rules, missing log file, combined multi-module degradation; suite reaches 548/548
+
+**v0.21** *(current)* — Pre-v1.0 quality pass: 78 new tests + 3 bug fixes; `virtualization.py` fully covered; CGNAT/IPv6 false-positive fixed; commented config lines no longer mis-detected; CLI mode exclusion enforced; `--manage-cron` email address book (add/delete/clear); suite reaches 616/616
 
 **v1.0** — Stable, complete, validated CLI
 

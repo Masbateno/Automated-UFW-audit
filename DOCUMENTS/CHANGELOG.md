@@ -6,6 +6,46 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.21] — 2026-03-28
+
+### TL;DR
+- Pre-v1.0 quality pass: 78 new tests + 3 bug fixes
+- Suite reaches 616/616
+- `virtualization.py` now fully covered (was the only untested core module)
+- Two false-positive bugs fixed: CGNAT/IPv6 private ranges, commented config lines
+- `--manage-cron` gains a full email address book: add, delete by number/range/all
+
+### Bug fixes
+
+- **`checks/services.py` — `_classify_exposure` — CGNAT and IPv6 private ranges** — Rules allowing access from CGNAT (`100.64.0.0/10`) or IPv6 private ranges (`::1`, `fe80::/10`, `fc00::/7`, `fd00::/8`) were incorrectly classified as `OPEN_WORLD` instead of `OPEN_LOCAL`, triggering false-positive score deductions. The inline `_PRIVATE` regex was replaced by a module-level `_PRIVATE_ADDR` constant covering all private/local ranges.
+
+- **`checks/services.py` — `_auto_detect_port` — commented config lines** — Lines like `# port = 2121` in service config files were matched by the port-detection regex. The function now strips comment lines before searching, so only active directives are considered.
+
+- **`cli.py` — `parse_args` — mutually exclusive modes** — `--manage-logs`, `--install-cron`, `--manage-cron` and `--fix` could previously be combined without error. Any combination now raises `CLIError` with a clear message.
+
+### New feature
+
+- **`--manage-cron` — email address book** — New `m` command in the cron management TUI opens a dedicated sub-menu to manage the `EmailStore` directly, without going through `--install-cron`:
+  - Lists all saved addresses with numbers
+  - `a` — add a new validated address
+  - `N` — delete address number N
+  - `1,3` or `1-3` — delete a comma-separated list or a range
+  - `all` — delete all saved addresses
+
+### Test suite — 616/616
+
+New tests by area (+78):
+
+| File | New | Coverage added |
+|------|-----|---------------|
+| `tests/test_virtualization.py` | 24 | Full coverage of `check_virtualization()`: empty snapshot, each hypervisor type, snap packages, interface prefix matching (virbr/vboxnet/vmnet/lxdbr/lxcbr) |
+| `tests/test_email_store_mgmt.py` | 21 | `_manage_email_store()`: quit, add valid/invalid/duplicate, delete all, delete single, comma-list, range, out-of-range, garbage input |
+| `tests/test_services.py` | 16 | `_classify_exposure`: CGNAT, IPv6 ULA (fc/fd), link-local (fe80), loopback (::1), public IP regression; `TestAutoDetectPort` (9 tests): all directives, commented lines, missing file, proto detection |
+| `tests/test_cli.py` | 10 | `TestMutuallyExclusiveModes`: all 6 invalid pairs raise `CLIError`; 4 valid single-mode cases pass |
+| `tests/test_logs.py` | 7 | `_max_in_window`: 60s boundary (included), 61s (excluded), unsorted input; `_detect_bruteforce`: exactly-threshold (not detected), threshold+1, different IPs, unsorted timestamps |
+
+---
+
 ## [v0.20] — 2026-03-28
 
 ### TL;DR
