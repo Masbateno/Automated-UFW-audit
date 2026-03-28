@@ -181,6 +181,19 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
     if config.quiet and config.fix:
         raise CLIError("--quiet is incompatible with --fix (fix mode requires interactive prompts)")
 
+    # Mutually exclusive operating modes
+    exclusive_modes = [
+        (config.manage_logs,  "--manage-logs"),
+        (config.install_cron, "--install-cron"),
+        (config.manage_cron,  "--manage-cron"),
+        (config.fix,          "--fix"),
+    ]
+    active_modes = [name for flag, name in exclusive_modes if flag]
+    if len(active_modes) > 1:
+        raise CLIError(
+            f"Incompatible options: {' and '.join(active_modes)} cannot be used together"
+        )
+
     return config
 
 # ---------------------------------------------------------------------------

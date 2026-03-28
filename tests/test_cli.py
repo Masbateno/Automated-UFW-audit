@@ -125,3 +125,51 @@ class TestAuditConfigDirectInstantiation:
         assert config.verbose is True
         assert config.log_days == 30
         assert config.fix is False  # default preserved
+
+
+class TestMutuallyExclusiveModes:
+    def test_manage_logs_and_fix_raises(self):
+        """--manage-logs and --fix cannot be combined."""
+        with pytest.raises(CLIError):
+            parse_args(["--manage-logs", "--fix"])
+
+    def test_install_cron_and_fix_raises(self):
+        """--install-cron and --fix cannot be combined."""
+        with pytest.raises(CLIError):
+            parse_args(["--install-cron", "--fix"])
+
+    def test_manage_cron_and_fix_raises(self):
+        """--manage-cron and --fix cannot be combined."""
+        with pytest.raises(CLIError):
+            parse_args(["--manage-cron", "--fix"])
+
+    def test_manage_logs_and_install_cron_raises(self):
+        """--manage-logs and --install-cron cannot be combined."""
+        with pytest.raises(CLIError):
+            parse_args(["--manage-logs", "--install-cron"])
+
+    def test_manage_logs_and_manage_cron_raises(self):
+        """--manage-logs and --manage-cron cannot be combined."""
+        with pytest.raises(CLIError):
+            parse_args(["--manage-logs", "--manage-cron"])
+
+    def test_install_cron_and_manage_cron_raises(self):
+        """--install-cron and --manage-cron cannot be combined."""
+        with pytest.raises(CLIError):
+            parse_args(["--install-cron", "--manage-cron"])
+
+    def test_fix_alone_ok(self):
+        """--fix alone is valid."""
+        assert parse_args(["--fix"]).fix is True
+
+    def test_manage_logs_alone_ok(self):
+        """--manage-logs alone is valid."""
+        assert parse_args(["--manage-logs"]).manage_logs is True
+
+    def test_install_cron_alone_ok(self):
+        """--install-cron alone is valid."""
+        assert parse_args(["--install-cron"]).install_cron is True
+
+    def test_manage_cron_alone_ok(self):
+        """--manage-cron alone is valid."""
+        assert parse_args(["--manage-cron"]).manage_cron is True
