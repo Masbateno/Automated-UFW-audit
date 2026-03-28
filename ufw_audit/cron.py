@@ -599,103 +599,109 @@ def _manage_email_store(t) -> None:
 
 
 def run_manage_cron(config, t) -> int:
-    """Manage installed cron jobs — list, edit schedule/email, delete."""
+    """Manage installed cron jobs — list, edit schedule/email, delete.
+
+    Loops until the user explicitly quits (Enter / 'q').
+    The cron list is refreshed from disk at the start of each iteration.
+    """
     from ufw_audit import output
     output.init(no_color=config.no_color)
 
     W = 62
     title = t("manage_cron.title")
     pad = W - 4 - len(title)
-    print(f"\033[1;34m╔{'═'*(W-2)}╗\033[0m")
-    print(f"\033[1;34m║\033[0m  \033[1m{title}\033[0m{' '*max(0,pad)}  \033[1;34m║\033[0m")
-    print(f"\033[1;34m╚{'═'*(W-2)}╝\033[0m")
-    print()
 
-    crons = list_installed_crons()
-
-    if not crons:
-        print(f"  ℹ {t('manage_cron.no_crons')}")
+    while True:
+        print(f"\033[1;34m╔{'═'*(W-2)}╗\033[0m")
+        print(f"\033[1;34m║\033[0m  \033[1m{title}\033[0m{' '*max(0,pad)}  \033[1;34m║\033[0m")
+        print(f"\033[1;34m╚{'═'*(W-2)}╝\033[0m")
         print()
-        print(f"  {t('manage_cron.prompt_email_only')}")
+
+        crons = list_installed_crons()
+
+        if not crons:
+            print(f"  ℹ {t('manage_cron.no_crons')}")
+            print()
+            print(f"  {t('manage_cron.prompt_email_only')}")
+            answer = input("  > ").strip().lower()
+            if not answer or answer in ("q", "quit"):
+                return 0
+            if answer == "m":
+                _manage_email_store(t)
+            continue
+
+        lang = config.lang
+        for i, entry in enumerate(crons, 1):
+            human = cron_to_human(entry.schedule_expr, lang)
+            legacy_tag = f"  [{t('manage_cron.legacy_tag')}]" if entry.legacy else ""
+            print(f"  {i}. {entry.name:<20} {human}{legacy_tag}")
+            if entry.email:
+                print(f"     → {t('manage_cron.email_label')}: {entry.email}")
+
+        print()
+        print(f"  {t('manage_cron.prompt')}")
         answer = input("  > ").strip().lower()
+
+        if not answer or answer in ("q", "quit"):
+            return 0
+
         if answer == "m":
             _manage_email_store(t)
-        return 0
+            continue
 
-    lang = config.lang
-    for i, entry in enumerate(crons, 1):
-        human = cron_to_human(entry.schedule_expr, lang)
-        legacy_tag = f"  [{t('manage_cron.legacy_tag')}]" if entry.legacy else ""
-        print(f"  {i}. {entry.name:<20} {human}{legacy_tag}")
-        if entry.email:
-            print(f"     → {t('manage_cron.email_label')}: {entry.email}")
+        delete_match = re.match(r"^d:?(\d+)$", answer)
+        email_match  = re.match(r"^e:(\d+)$", answer)
+        edit_match   = re.match(r"^(\d+)$", answer)
 
-    print()
-    print(f"  {t('manage_cron.prompt')}")
-    answer = input("  > ").strip().lower()
-
-    if not answer or answer in ("q", "quit"):
-        return 0
-
-    if answer == "m":
-        _manage_email_store(t)
-        return 0
-
-    delete_match = re.match(r"^d:?(\d+)$", answer)
-    email_match  = re.match(r"^e:(\d+)$", answer)
-    edit_match   = re.match(r"^(\d+)$", answer)
-
-    if delete_match:
-        idx = int(delete_match.group(1)) - 1
-        if not (0 <= idx < len(crons)):
-            print(f"  ✖ {t('manage_cron.invalid')}")
-            return 0
-        entry = crons[idx]
-        ans = input(f"  {t('manage_cron.confirm_delete', name=entry.name)} ").strip().lower()
-        if ans == "y":
-            try:
-                entry.cron_path.unlink()
-            except OSError:
-                pass
-            if entry.script_path.exists():
+        if delete_match:
+            idx = int(delete_match.group(1)) - 1
+            if not (0 <= idx < len(crons)):
+                print(f"  ✖ {t('manage_cron.invalid')}")
+                continue
+            entry = crons[idx]
+            ans = input(f"  {t('manage_cron.confirm_delete', name=entry.name)} ").strip().lower()
+            if ans == "y":
                 try:
-                    entry.script_path.unlink()
+                    entry.cron_path.unlink()
                 except OSError:
                     pass
-            print(f"  ✔ {t('manage_cron.deleted', name=entry.name)}")
+                if entry.script_path.exists():
+                    try:
+                        entry.script_path.unlink()
+                    except OSError:
+                        pass
+                print(f"  ✔ {t('manage_cron.deleted', name=entry.name)}")
 
-    elif email_match:
-        idx = int(email_match.group(1)) - 1
-        if not (0 <= idx < len(crons)):
-            print(f"  ✖ {t('manage_cron.invalid')}")
-            return 0
-        entry = crons[idx]
-        print()
-        print(f"  {t('manage_cron.edit_email', name=entry.name)}")
-        edit_cron_email(entry, t)
-
-    elif edit_match:
-        idx = int(edit_match.group(1)) - 1
-        if not (0 <= idx < len(crons)):
-            print(f"  ✖ {t('manage_cron.invalid')}")
-            return 0
-        entry = crons[idx]
-        print()
-        print(f"  {t('manage_cron.edit_what', name=entry.name)}")
-        print(f"    1. {t('manage_cron.edit_schedule_option')}")
-        print(f"    2. {t('manage_cron.edit_email_option')}")
-        sub = input("  > ").strip()
-        if sub == "1":
-            edit_cron_schedule(entry, config, t)
-        elif sub == "2":
+        elif email_match:
+            idx = int(email_match.group(1)) - 1
+            if not (0 <= idx < len(crons)):
+                print(f"  ✖ {t('manage_cron.invalid')}")
+                continue
+            entry = crons[idx]
+            print()
+            print(f"  {t('manage_cron.edit_email', name=entry.name)}")
             edit_cron_email(entry, t)
+
+        elif edit_match:
+            idx = int(edit_match.group(1)) - 1
+            if not (0 <= idx < len(crons)):
+                print(f"  ✖ {t('manage_cron.invalid')}")
+                continue
+            entry = crons[idx]
+            print()
+            print(f"  {t('manage_cron.edit_what', name=entry.name)}")
+            print(f"    1. {t('manage_cron.edit_schedule_option')}")
+            print(f"    2. {t('manage_cron.edit_email_option')}")
+            sub = input("  > ").strip()
+            if sub == "1":
+                edit_cron_schedule(entry, config, t)
+            elif sub == "2":
+                edit_cron_email(entry, t)
+            else:
+                print(f"  ✖ {t('manage_cron.invalid')}")
+
         else:
             print(f"  ✖ {t('manage_cron.invalid')}")
-
-    else:
-        print(f"  ✖ {t('manage_cron.invalid')}")
-
-    return 0
 
 
 def edit_cron_email(entry, t) -> None:
