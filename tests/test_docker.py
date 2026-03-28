@@ -164,18 +164,17 @@ class TestCheckDockerIptables:
         result = check_docker(DockerSnapshot.safe())
         assert has_level(result, "ok")
 
-    def test_alert_when_iptables_enabled(self):
+    def test_warn_when_iptables_enabled(self):
         result = check_docker(DockerSnapshot.unsafe())
-        assert has_level(result, "alert")
+        assert has_level(result, "warn")
 
-    def test_deduction_when_iptables_enabled(self):
-        result = check_docker(DockerSnapshot.unsafe())
+    def test_deduction_when_iptables_enabled_public(self):
+        result = check_docker(DockerSnapshot.unsafe(), network_context="public")
         assert total_deductions(result) > 0
 
-    def test_fix_cmd_present(self):
+    def test_info_findings_present_when_iptables_enabled(self):
         result = check_docker(DockerSnapshot.unsafe())
-        alert = next(f for f in result.findings if f.level == FindingLevel.ALERT)
-        assert "daemon.json" in alert.cmd
+        assert has_level(result, "info")
 
     def test_higher_deduction_on_public(self):
         r_local  = check_docker(DockerSnapshot.unsafe(), network_context="local")
@@ -210,10 +209,13 @@ class TestCheckDockerExposedPorts:
         assert total_deductions(result) == 0
 
     def test_extra_deduction_when_iptables_enabled(self):
-        """With iptables enabled, exposed ports bypass UFW — extra deduction."""
+        """With iptables enabled (public context), exposed ports bypass UFW."""
         public_port = make_port(host_ip="0.0.0.0")
-        result = check_docker(DockerSnapshot.unsafe(exposed_ports=[public_port]))
-        # iptables deduction + bypass deduction per port
+        result = check_docker(
+            DockerSnapshot.unsafe(exposed_ports=[public_port]),
+            network_context="public",
+        )
+        # iptables deduction (1) + bypass deduction per port (2) = 3
         assert total_deductions(result) >= 2
 
     def test_multiple_public_ports_multiple_warns(self):

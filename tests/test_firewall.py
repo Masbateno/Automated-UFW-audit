@@ -7,8 +7,12 @@ Run with: python -m pytest tests/test_firewall.py -v
 """
 
 import pytest
-from ufw_audit.checks.firewall import FirewallStatus, check_firewall
+from ufw_audit.checks.firewall import FirewallStatus, check_firewall, check_rules
 from ufw_audit.scoring import FindingLevel
+
+
+def _t(key, **kwargs):
+    return key
 
 
 # ---------------------------------------------------------------------------
@@ -133,37 +137,38 @@ class TestIncomingPolicy:
 # IPv6 consistency
 # ---------------------------------------------------------------------------
 
+_IPV4_ONLY = (
+    "[ 1] 22/tcp                     ALLOW IN    Anywhere                  \n"
+    "[ 2] 80/tcp                     ALLOW IN    Anywhere                  \n"
+)
+
+_IPV4_AND_IPV6 = (
+    "[ 1] 22/tcp                     ALLOW IN    Anywhere                  \n"
+    "[ 2] 22/tcp (v6)                ALLOW IN    Anywhere (v6)             \n"
+)
+
+_NO_RULES = ""
+
+
 class TestIPv6Consistency:
     def test_warn_when_ipv4_rules_but_no_ipv6(self):
-        result = check_firewall(make_status(
-            ipv4_rules_count=2,
-            ipv6_rules_count=0,
-        ))
+        result = check_rules("", _IPV4_ONLY, _t)
         assert has_level(result, "warn")
 
     def test_deduction_1_for_ipv6_missing(self):
-        result = check_firewall(make_status(
-            ipv4_rules_count=2,
-            ipv6_rules_count=0,
-        ))
+        result = check_rules("", _IPV4_ONLY, _t)
         assert total_deductions(result) == 1
 
     def test_ok_when_ipv6_consistent(self):
-        result = check_firewall(make_status(
-            ipv4_rules_count=2,
-            ipv6_rules_count=2,
-        ))
+        result = check_rules("", _IPV4_AND_IPV6, _t)
         ok_messages = [f.message for f in result.findings if f.level == FindingLevel.OK]
-        assert any("ipv6" in m.lower() or "rules.ipv6_ok" in m for m in ok_messages)
+        assert any("rules.ipv6_ok" in m for m in ok_messages)
 
     def test_no_ipv6_check_when_no_rules(self):
-        """No IPv6 finding if there are no IPv4 rules either."""
-        result = check_firewall(make_status(
-            ipv4_rules_count=0,
-            ipv6_rules_count=0,
-        ))
+        """No IPv6 finding if there are no rules at all."""
+        result = check_rules("", _NO_RULES, _t)
         all_messages = [f.message for f in result.findings]
-        assert not any("ipv6" in m.lower() or "ipv6" in m for m in all_messages)
+        assert not any("ipv6" in m.lower() for m in all_messages)
 
 
 # ---------------------------------------------------------------------------
@@ -184,15 +189,13 @@ class TestCombinedScenarios:
         assert not has_level(result, "warn")
 
     def test_allow_policy_plus_no_ipv6(self):
-        """Two problems: open policy and missing IPv6 rules."""
-        result = check_firewall(make_status(
-            incoming_policy="allow",
-            ipv4_rules_count=2,
-            ipv6_rules_count=0,
-        ))
-        assert total_deductions(result) >= 4  # 3 for policy + 1 for IPv6
-        assert has_level(result, "alert")
-        assert has_level(result, "warn")
+        """Open policy (check_firewall) + missing IPv6 (check_rules) — combined."""
+        fw_result = check_firewall(make_status(incoming_policy="allow"))
+        rules_result = check_rules("", _IPV4_ONLY, _t)
+        combined_deductions = total_deductions(fw_result) + total_deductions(rules_result)
+        assert combined_deductions >= 4  # 3 for policy + 1 for IPv6
+        assert has_level(fw_result, "alert")
+        assert has_level(rules_result, "warn")
 
     def test_translation_function_used(self):
         """When a translation function is provided, its output appears in findings."""

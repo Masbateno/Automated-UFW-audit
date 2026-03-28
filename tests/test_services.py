@@ -207,10 +207,22 @@ class TestActiveStates:
 # ---------------------------------------------------------------------------
 
 class TestPortExposureFindings:
-    def test_open_world_adds_warn(self):
+    def test_open_world_critical_adds_alert(self):
+        """Critical service (SSH default) with OPEN_WORLD → alert, not warn."""
         snap = make_snapshot(
+            service=make_service(risk="critical"),
             state=ServiceState.ACTIVE_ENABLED,
             exposures={"22/tcp": Exposure.OPEN_WORLD},
+        )
+        result = check_services([snap])
+        assert has_level(result, "alert")
+
+    def test_open_world_medium_adds_warn(self):
+        """Medium-risk service with OPEN_WORLD → warn."""
+        snap = make_snapshot(
+            service=make_service(risk="medium"),
+            state=ServiceState.ACTIVE_ENABLED,
+            exposures={"80/tcp": Exposure.OPEN_WORLD},
         )
         result = check_services([snap])
         assert has_level(result, "warn")
@@ -266,9 +278,61 @@ class TestPortExposureFindings:
         result = check_services([snap])
         assert has_level(result, "info")
 
+    def test_loopback_no_rule_adds_info(self):
+        """LOOPBACK_NO_RULE: loopback port without a UFW rule → INFO, no deduction."""
+        snap = make_snapshot(
+            state=ServiceState.ACTIVE_ENABLED,
+            exposures={"6379/tcp": Exposure.LOOPBACK_NO_RULE},
+        )
+        result = check_services([snap])
+        assert has_level(result, "info")
+
+    def test_loopback_no_rule_no_deduction(self):
+        snap = make_snapshot(
+            state=ServiceState.ACTIVE_ENABLED,
+            exposures={"6379/tcp": Exposure.LOOPBACK_NO_RULE},
+        )
+        result = check_services([snap])
+        assert total_deductions(result) == 0
+
+    def test_not_listening_no_finding(self):
+        """NOT_LISTENING: registry port not actively listening → no finding, no deduction."""
+        snap = make_snapshot(
+            state=ServiceState.ACTIVE_ENABLED,
+            exposures={"8883/tcp": Exposure.NOT_LISTENING},
+        )
+        result = check_services([snap])
+        # Only the state OK finding, no port-level finding
+        port_findings = [f for f in result.findings if "8883" in f.message]
+        assert port_findings == []
+
+    def test_not_listening_no_deduction(self):
+        snap = make_snapshot(
+            state=ServiceState.ACTIVE_ENABLED,
+            exposures={"8883/tcp": Exposure.NOT_LISTENING},
+        )
+        result = check_services([snap])
+        assert total_deductions(result) == 0
+
+    def test_mixed_listening_and_not_listening(self):
+        """Service with one active port (loopback) + one non-listening port."""
+        snap = make_snapshot(
+            service=make_service(ports=("1883/tcp", "8883/tcp")),
+            state=ServiceState.ACTIVE_ENABLED,
+            ports=["1883/tcp", "8883/tcp"],
+            exposures={
+                "1883/tcp": Exposure.LOOPBACK,
+                "8883/tcp": Exposure.NOT_LISTENING,
+            },
+        )
+        result = check_services([snap])
+        assert has_level(result, "info")   # from 1883 LOOPBACK
+        port_findings_8883 = [f for f in result.findings if "8883" in f.message]
+        assert port_findings_8883 == []    # NOT_LISTENING → silent
+
     def test_multiple_ports(self):
         snap = make_snapshot(
-            service=make_service(ports=("445/tcp", "139/tcp")),
+            service=make_service(ports=("445/tcp", "139/tcp"), risk="critical"),
             state=ServiceState.ACTIVE_ENABLED,
             ports=["445/tcp", "139/tcp"],
             exposures={
@@ -277,7 +341,7 @@ class TestPortExposureFindings:
             },
         )
         result = check_services([snap])
-        assert has_level(result, "warn")   # from 445
+        assert has_level(result, "alert")  # from 445 (critical OPEN_WORLD)
         assert has_level(result, "info")   # from 139
 
 
@@ -340,3 +404,131 @@ class TestServiceSnapshotProperties:
     def test_is_not_active(self):
         snap = make_snapshot(state=ServiceState.INACTIVE_DISABLED)
         assert snap.is_active is False
+
+
+# ---------------------------------------------------------------------------
+# Exposure override — LOOPBACK_NO_RULE and NOT_LISTENING
+# ---------------------------------------------------------------------------
+
+class TestExposureOverrides:
+    """Test the loopback and not-listening override logic in ServiceSnapshot."""
+
+    UFW_OPEN = "[ 1] 22/tcp  ALLOW IN  Anywhere\n"
+    UFW_EMPTY = ""
+
+    def _make_snap_with_overrides(self, port, ufw_rules, loopback_ports=None,
+                                   all_listening_ports=None):
+        """Build a minimal snapshot using the override logic directly."""
+        from ufw_audit.checks.services import _classify_exposure
+        exposure = _classify_exposure(port, ufw_rules)
+        exposures = {port: exposure}
+
+        if loopback_ports and port in loopback_ports:
+            if exposures[port] == Exposure.OPEN_WORLD:
+                exposures[port] = Exposure.LOOPBACK
+            elif exposures[port] == Exposure.NO_RULE:
+                exposures[port] = Exposure.LOOPBACK_NO_RULE
+
+        if all_listening_ports is not None and port not in all_listening_ports:
+            if exposures.get(port) == Exposure.NO_RULE:
+                exposures[port] = Exposure.NOT_LISTENING
+
+        return make_snapshot(
+            service=make_service(ports=(port,)),
+            state=ServiceState.ACTIVE_ENABLED,
+            ports=[port],
+            exposures=exposures,
+        )
+
+    def test_no_rule_plus_loopback_gives_loopback_no_rule(self):
+        """Port with no UFW rule, bound to loopback → LOOPBACK_NO_RULE."""
+        snap = self._make_snap_with_overrides(
+            "6379/tcp", self.UFW_EMPTY,
+            loopback_ports={"6379/tcp"},
+            all_listening_ports={"6379/tcp"},
+        )
+        assert snap.exposures["6379/tcp"] == Exposure.LOOPBACK_NO_RULE
+
+    def test_open_world_plus_loopback_gives_loopback(self):
+        """Port with ALLOW rule, bound to loopback → LOOPBACK."""
+        snap = self._make_snap_with_overrides(
+            "22/tcp", self.UFW_OPEN,
+            loopback_ports={"22/tcp"},
+            all_listening_ports={"22/tcp"},
+        )
+        assert snap.exposures["22/tcp"] == Exposure.LOOPBACK
+
+    def test_no_rule_not_listening_gives_not_listening(self):
+        """Port with no UFW rule, not in active listeners → NOT_LISTENING."""
+        snap = self._make_snap_with_overrides(
+            "8883/tcp", self.UFW_EMPTY,
+            loopback_ports=set(),
+            all_listening_ports=set(),
+        )
+        assert snap.exposures["8883/tcp"] == Exposure.NOT_LISTENING
+
+    def test_open_world_not_in_listeners_stays_open_world(self):
+        """Port with ALLOW rule but not listening — rule exists, stays OPEN_WORLD (orphan UFW rule)."""
+        snap = self._make_snap_with_overrides(
+            "22/tcp", self.UFW_OPEN,
+            loopback_ports=set(),
+            all_listening_ports=set(),
+        )
+        # NOT_LISTENING only overrides NO_RULE — OPEN_WORLD stays as-is
+        assert snap.exposures["22/tcp"] == Exposure.OPEN_WORLD
+
+    def test_no_rule_not_loopback_but_listening_stays_no_rule(self):
+        """Port on 0.0.0.0 with no UFW rule, actively listening → stays NO_RULE."""
+        snap = self._make_snap_with_overrides(
+            "5353/udp", self.UFW_EMPTY,
+            loopback_ports=set(),
+            all_listening_ports={"5353/udp"},
+        )
+        assert snap.exposures["5353/udp"] == Exposure.NO_RULE
+
+
+# ---------------------------------------------------------------------------
+# Panorama build_panorama_rows — UFW indicator for new variants
+# ---------------------------------------------------------------------------
+
+class TestPanoramaNewVariants:
+    """Verify build_panorama_rows assigns correct UFW indicator for new Exposure variants."""
+
+    def _row_for(self, exposure: Exposure) -> dict:
+        from ufw_audit.panorama import build_panorama_rows
+        snap = make_snapshot(
+            state=ServiceState.ACTIVE_ENABLED,
+            exposures={"22/tcp": exposure},
+        )
+        rows = build_panorama_rows([snap])
+        return rows[0]
+
+    def test_loopback_no_rule_shows_ok(self):
+        assert self._row_for(Exposure.LOOPBACK_NO_RULE)["ufw"] == "ok"
+
+    def test_not_listening_shows_ok(self):
+        assert self._row_for(Exposure.NOT_LISTENING)["ufw"] == "ok"
+
+    def test_loopback_shows_ok(self):
+        assert self._row_for(Exposure.LOOPBACK)["ufw"] == "ok"
+
+    def test_open_world_shows_warn(self):
+        assert self._row_for(Exposure.OPEN_WORLD)["ufw"] == "warn"
+
+    def test_no_rule_shows_none(self):
+        assert self._row_for(Exposure.NO_RULE)["ufw"] == "none"
+
+    def test_mixed_loopback_no_rule_and_not_listening_shows_ok(self):
+        """Service with both LOOPBACK_NO_RULE and NOT_LISTENING → ok."""
+        from ufw_audit.panorama import build_panorama_rows
+        snap = make_snapshot(
+            service=make_service(ports=("1883/tcp", "8883/tcp")),
+            state=ServiceState.ACTIVE_ENABLED,
+            ports=["1883/tcp", "8883/tcp"],
+            exposures={
+                "1883/tcp": Exposure.LOOPBACK_NO_RULE,
+                "8883/tcp": Exposure.NOT_LISTENING,
+            },
+        )
+        rows = build_panorama_rows([snap])
+        assert rows[0]["ufw"] == "ok"

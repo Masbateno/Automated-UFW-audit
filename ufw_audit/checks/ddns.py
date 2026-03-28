@@ -360,6 +360,11 @@ def _extract_noip_domain(content: str) -> Optional[str]:
 
 def _extract_duckdns_domain(content: str) -> Optional[str]:
     """Extract domain from DuckDNS script or cron entry."""
+    # DuckDNS update URL: ?domains=myhost — reconstruct full domain
+    param_match = re.search(r"[?&]domains=([a-z0-9-]+)", content)
+    if param_match:
+        return f"{param_match.group(1)}.duckdns.org"
+    # Fallback: full domain already present in content
     match = re.search(r"([a-z0-9-]+\.duckdns\.org)", content)
     if match:
         return match.group(1)
