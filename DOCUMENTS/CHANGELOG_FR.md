@@ -6,6 +6,32 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v0.18] — 2026-03-28
+
+### TL;DR
+- 26 nouveaux tests unitaires pour `fixes.py` — `run_fixes()` était le dernier module core sans tests
+- Couverture : classification des items, ordre de suppression UFW, succès/échec/timeout subprocess, mode interactif, mode auto (`--yes`), résumé automatique
+- Suite atteint 531/531
+
+### Suite de tests — 531/531
+
+**`tests/test_fixes.py`** (nouveau fichier — 26 tests)
+
+Couvre `run_fixes()` dans `fixes.py` :
+
+- **Classification des items** — `action + cmd` → item auto ; `action + pas de cmd` → compté dans l'en-tête mais ignoré dans la boucle ; `improvement`/`structural`/`ok` → ignorés (chemin `fixes.none`)
+- **Ordre de suppression UFW** — les suppressions sont triées par index décroissant pour éviter les effets de renumérotation (supprimer la règle 5 avant la règle 3)
+- **Ordre non-suppression** — les commandes non-delete s'exécutent après toutes les suppressions UFW
+- **Chemin aucun item** — un engine vide et un engine avec uniquement des findings OK affichent tous les deux `fixes.none`, sans appel subprocess ni input
+- **Succès subprocess** — `returncode=0` → `fixes.applied` affiché ; commande correctement découpée transmise à `subprocess.run`
+- **Échec subprocess** — code retour non nul → `fixes.manual` affiché ; code de sortie inclus dans la sortie
+- **Timeout subprocess / OSError** — `TimeoutExpired` et `OSError` tombent tous les deux sur `fixes.manual`
+- **Mode interactif non** — `input()` retourne `"n"` → subprocess ignoré, item affiché comme manuel
+- **Mode auto (`--yes`)** — `input()` jamais appelé ; tous les items auto appliqués ; bannière mode auto affichée
+- **Résumé auto** — commandes appliquées listées après un run `--yes` ; pas de résumé si tout échoue ; `fixes.done` toujours affiché
+
+---
+
 ## [v0.17] — 2026-03-28
 
 ### TL;DR
