@@ -286,7 +286,9 @@ ufw-audit is an audit and diagnostic tool — **not a security shield**. It anal
 
 **v0.20** ✅ — 17 degraded-mode tests; `ss`/rules/log absent scenarios
 
-**v0.21** ✅ *(current)* — Pre-v1.0 quality pass: 78 new tests + 3 bug fixes; `--manage-cron` email address book; 619/619
+**v0.21** ✅ — Pre-v1.0 quality pass: 78 new tests + 3 bug fixes; `--manage-cron` email address book; 619/619
+
+**v0.22** ✅ *(current)* — Internal quality pass: 5 modules refactored; box-border alignment fixed; `meta` removed from `CheckResult`
 
 **v1.0** — Stable, complete, validated release — Debian 12, final packaging
 

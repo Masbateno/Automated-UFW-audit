@@ -6,6 +6,31 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v0.22] — 2026-03-29
+
+### TL;DR
+- Passe qualité interne : 5 modules refactorisés, aucune nouvelle fonctionnalité
+- Alignement des bordures de cadres corrigé sur toutes les interfaces (Unicode large + formule de padding incorrecte)
+- `meta: dict` supprimé de `CheckResult` — remplacé par `open_ports: list[str]` typé
+- `FirewallStatus` met en cache la sortie subprocess — plus d'appel double à `ufw status`
+- `__main__.py` découpé en `_run()` + `main()` pour une gestion propre des erreurs
+
+### Corrections de bugs
+
+- **`output.py` — décalage des bordures de cadres** — Toutes les fonctions de dessin de cadres (`print_section`, `print_summary_box`, `print_banner`, `fixes.py`, `cron.py`, `manage_logs.py`) avaient des formules de padding incorrectes causant le décalage du bord droit `║`. Deux bugs distincts : (1) l'overhead du padding comptait 2 au lieu de 4/6 ; (2) les caractères Unicode larges (emoji `🏠`) comptaient 1 colonne dans `len()` mais en occupent 2 dans le terminal. Corrigé par l'introduction de `_visual_width()` via `unicodedata.east_asian_width` et la correction de toutes les constantes d'overhead.
+
+### Refactorisations
+
+- **`__main__.py`** — `_bootstrap()` découpé en `require_root()` (lève `PermissionError`) + corps d'audit `_run(argv)` + garde globale `main(argv)`. Version déplacée dans `ufw_audit/__init__.py` comme source unique de vérité. Appel subprocess dupliqué `ufw status` supprimé — réutilise `fw_status.numbered_output` / `fw_status.ufw_output` en cache. Les caps de score de `check_firewall` sont traités automatiquement par `engine.apply()`, sans appel manuel à `engine.cap()`.
+
+- **`checks/firewall.py`** — `FirewallStatus` gagne `numbered_output: str` (cache de `ufw status numbered`) et `ipv6_ufw_enabled: bool` (lit `/etc/default/ufw`). `check_firewall()` utilise `result.set_cap()` au lieu de `meta`. `check_rules()` découpé en trois helpers privés : `_check_duplicates`, `_check_open_any`, `_check_ipv6_coverage`. Avertissement IPv6 supprimé quand `IPV6=no` dans `/etc/default/ufw`.
+
+- **`checks/services.py`** — Dictionnaire `_STATE_PRIORITY` remplace la logique fragile premier-match dans `_detect_state()`. `_detect_single_unit_state()` extrait pour la détection d'état par unité. Classmethod `_build_snapshot()` déduplique `collect()` / `collect_all()`. L'état `NOT_LISTENING` émet désormais un finding `INFO` au lieu de passer silencieusement.
+
+- **`scoring.py`** — `_Cap` renommé `ScoreCap` (public). `CheckResult` gagne `caps: List[ScoreCap]` et `set_cap()`. `meta: dict` supprimé — remplacé par `open_ports: List[str]` (utilisé par le check DDNS). `ScoreEngine.apply()` traite automatiquement les caps embarqués.
+
+---
+
 ## [v0.21] — 2026-03-28
 
 ### TL;DR

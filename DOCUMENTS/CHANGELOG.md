@@ -6,6 +6,31 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.22] — 2026-03-29
+
+### TL;DR
+- Internal quality pass: 5 modules refactored, no new features
+- Box-border alignment fixed across all UI frames (wide Unicode + wrong padding formula)
+- `meta: dict` removed from `CheckResult` — replaced by typed `open_ports: list[str]`
+- `FirewallStatus` caches subprocess output — no duplicate `ufw status` calls
+- `__main__.py` split into `_run()` + `main()` for clean error handling
+
+### Bug fixes
+
+- **`output.py` — box border misalignment** — All box-drawing functions (`print_section`, `print_summary_box`, `print_banner`, `fixes.py`, `cron.py`, `manage_logs.py`) had incorrect padding formulas causing the right `║` border to appear shifted. Two separate bugs: (1) padding overhead counted as 2 instead of 4/6; (2) wide Unicode characters (emoji `🏠`) counted as 1 column in `len()` but occupy 2 in the terminal. Fixed by introducing `_visual_width()` using `unicodedata.east_asian_width` and correcting all overhead constants.
+
+### Refactors
+
+- **`__main__.py`** — Split `_bootstrap()` into `require_root()` (raises `PermissionError`) + `_run(argv)` audit body + `main(argv)` global error guard. Version moved to `ufw_audit/__init__.py` as single source of truth. Removed duplicate `ufw status` subprocess call — reuses cached `fw_status.numbered_output` / `fw_status.ufw_output`. Score caps from `check_firewall` processed automatically by `engine.apply()`, no manual `engine.cap()` call.
+
+- **`checks/firewall.py`** — `FirewallStatus` gains `numbered_output: str` (cached `ufw status numbered`) and `ipv6_ufw_enabled: bool` (reads `/etc/default/ufw`). `check_firewall()` uses `result.set_cap()` instead of `meta`. `check_rules()` split into three private helpers: `_check_duplicates`, `_check_open_any`, `_check_ipv6_coverage`. IPv6 warning suppressed when `IPV6=no` in `/etc/default/ufw`.
+
+- **`checks/services.py`** — `_STATE_PRIORITY` dict replaces fragile first-match logic in `_detect_state()`. `_detect_single_unit_state()` extracted for per-unit state detection. `_build_snapshot()` classmethod deduplicates `collect()` / `collect_all()`. `NOT_LISTENING` state now emits an `INFO` finding instead of silently passing.
+
+- **`scoring.py`** — `_Cap` renamed to `ScoreCap` (public). `CheckResult` gains `caps: List[ScoreCap]` and `set_cap()`. `meta: dict` removed — replaced by `open_ports: List[str]` (used by DDNS check). `ScoreEngine.apply()` processes embedded caps automatically.
+
+---
+
 ## [v0.21] — 2026-03-28
 
 ### TL;DR

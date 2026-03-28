@@ -25,7 +25,7 @@ set -euo pipefail
 # Constants
 # ---------------------------------------------------------------------------
 
-VERSION="0.21"
+VERSION="0.22"
 PACKAGE_NAME="ufw-audit"
 PY_PACKAGE_NAME="ufw_audit"   # Python import name (underscore); differs from CLI name (hyphen)
 
