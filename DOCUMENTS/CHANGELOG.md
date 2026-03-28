@@ -6,6 +6,32 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.18] — 2026-03-28
+
+### TL;DR
+- 26 new unit tests for `fixes.py` — `run_fixes()` was the last untested core module
+- Tests cover: item classification, UFW delete sort order, subprocess success/failure/timeout, interactive mode, auto mode (`--yes`), and auto summary
+- Suite reaches 531/531
+
+### Test suite — 531/531
+
+**`tests/test_fixes.py`** (new file — 26 tests)
+
+Covers `run_fixes()` in `fixes.py`:
+
+- **Item classification** — `action + cmd` → auto item; `action + no cmd` → counted in header but skipped in loop; `improvement`/`structural`/`ok` → ignored (early `fixes.none` path)
+- **UFW delete sort order** — deletes are sorted descending by rule index to prevent renumbering side effects (deleting rule 5 before rule 3)
+- **Non-delete ordering** — non-delete commands run after all UFW deletes
+- **No-items path** — empty engine and OK-only engines both show `fixes.none`, no subprocess/input calls
+- **Subprocess success** — `returncode=0` → `fixes.applied` shown; correct command split passed to `subprocess.run`
+- **Subprocess failure** — non-zero return code → `fixes.manual` shown; exit code included in output
+- **Subprocess timeout / OSError** — `TimeoutExpired` and `OSError` both fall through to `fixes.manual`
+- **Interactive no** — `input()` returns `"n"` → subprocess skipped, item shown as manual
+- **Auto mode (`--yes`)** — `input()` never called; all auto items applied; auto mode banner shown
+- **Auto summary** — applied commands listed after `--yes` run; no summary when all fail; `fixes.done` always shown
+
+---
+
 ## [v0.17] — 2026-03-28
 
 ### TL;DR

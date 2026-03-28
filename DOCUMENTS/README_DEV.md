@@ -169,7 +169,7 @@ python3 -m unittest tests/test_firewall.py
 ### Expected result
 
 ```
-505 tests, 0 failures
+531 tests, 0 failures
 ```
 
 Tests make no system calls — all snapshots are built directly in the test files. They can be run without `sudo` and without UFW installed.

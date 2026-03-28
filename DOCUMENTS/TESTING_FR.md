@@ -13,6 +13,35 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 |---------|-------|-------|
 | v0.9    | 421   | Première suite complète |
 | v0.17   | 505   | 15 échecs préexistants corrigés ; suite entièrement verte |
+| v0.18   | 531   | 26 nouveaux tests pour `fixes.py` ; `run_fixes()` entièrement couvert |
+
+### v0.18 — 531/531 (2026-03-28)
+
+**Plateforme :** Linux Mint 22.3 — `so6minttest` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -v
+531 passed in Xs
+```
+
+#### Nouveaux tests ajoutés
+
+**`tests/test_fixes.py`** — 26 tests (nouveau fichier)
+
+| Classe | Tests | Couverture |
+|--------|-------|-----------|
+| `TestItemClassification` | 6 | `action+cmd` → auto ; `action` sans cmd → compté mais non bouclé ; `improvement`/`structural`/`ok` → ignorés |
+| `TestDeleteSortOrder` | 2 | Ordre de suppression par index décroissant ; non-delete après les deletes |
+| `TestNoItems` | 2 | Engine vide et engine OK-only → `fixes.none` ; pas de subprocess/input |
+| `TestSubprocessSuccess` | 2 | `returncode=0` → `fixes.applied` ; commande correctement découpée |
+| `TestSubprocessFailure` | 2 | Retour non nul → `fixes.manual` ; code de sortie dans la sortie |
+| `TestSubprocessTimeout` | 2 | `TimeoutExpired` → `fixes.manual` ; `OSError` → `fixes.manual` |
+| `TestInteractiveNo` | 2 | `input()="n"` → subprocess ignoré ; item affiché comme manuel |
+| `TestAutoMode` | 3 | `config.yes=True` → pas d'`input()` ; tous les items appliqués ; bannière auto affichée |
+| `TestAutoSummary` | 3 | Résumé après run `--yes` ; pas de résumé en cas d'échec ; commandes appliquées listées |
+| `TestDoneMessage` | 1 | `fixes.done` affiché en fin (non affiché sur sortie anticipée) |
+
+---
 
 ### v0.17 — 505/505 (2026-03-28)
 
