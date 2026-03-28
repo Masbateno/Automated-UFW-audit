@@ -224,7 +224,7 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
     lines = [
         (t("scoring.score_label"), f"{score}/10"),
         (t("scoring.risk_label"),  f"{icon} {level_str}"),
-        (t("scoring.network_context"), f"{'🏠' if network_context == 'local' else '🌐'} {ctx_str}"),
+        (t("scoring.network_context"), ctx_str),
     ]
 
     action_items      = [f for f in engine.findings if f.nature == "action"]
