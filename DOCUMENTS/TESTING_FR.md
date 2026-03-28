@@ -206,10 +206,14 @@ sudo ufw-audit
 
 | Attendu | Résultat |
 |---------|----------|
-| `✖ [ALERTE]` Port 22/tcp — ouvert à internet — aucune restriction source dans UFW | pending |
-| Contexte risque CRITIQUE affiché | pending |
-| Déduction score `-2` (contexte NAT/local) | pending |
-| Panorama : SSH `✖` | pending |
+| `✖ [ALERTE]` Port 22/tcp — ouvert à internet — aucune restriction source dans UFW | ✔ v0.15.1 |
+| Contexte risque CRITIQUE affiché | ✔ v0.15.1 |
+| Déduction score `-2` (contexte NAT/local) | ✔ v0.15.1 |
+| Panorama : SSH `⚠` (OPEN_WORLD) | ✔ v0.15.1 |
+| DDNS `→ 22/tcp` | ✔ v0.15.1 |
+| **Remédiation :** restriction source → passe en OPEN_LOCAL (WARN non ALERTE, sans déduction) | ✔ v0.15.1 |
+
+> **Note :** `openssh-server` doit être installé et actif (`sudo apt install openssh-server && sudo systemctl enable --now ssh`). Si inactif/désactivé, le service est en INFO uniquement sans vérification d'exposition des ports.
 
 > **Remédiation à tester :** `sudo ufw delete allow 22/tcp && sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp` → passe en OPEN_LOCAL (AVERTISSEMENT et non ALERTE, sans déduction).
 
@@ -281,11 +285,11 @@ sudo ufw-audit
 
 | Attendu | Résultat |
 |---------|----------|
-| `⚠ [AVERTISSEMENT]` Port 80/tcp — ouvert à internet — aucune restriction source dans UFW | pending |
-| Contexte risque MOYEN affiché | pending |
-| Déduction score `-1` | pending |
-| Panorama : Nginx `⚠` | pending |
-| Résultat dans *Améliorations possibles* (et non *Action requise*) | pending |
+| `⚠ [AVERTISSEMENT]` Port 80/tcp — ouvert à internet — aucune restriction source dans UFW | ✔ v0.15.1 |
+| Contexte risque MOYEN affiché | ✔ v0.15.1 |
+| Déduction score `-1` | ✔ v0.15.1 |
+| Panorama : Nginx `⚠` | ✔ v0.15.1 |
+| Résultat dans *Améliorations possibles* (et non *Action requise*) | ✔ v0.15.1 |
 
 > Les services à risque moyen utilisent `warn()` et non `alert()` — distinction par rapport aux services critiques comme SSH ou Redis.
 
@@ -302,12 +306,13 @@ sudo ufw-audit
 
 | Attendu | Résultat |
 |---------|----------|
-| `✖ [ALERTE]` Port 445/tcp — ouvert à internet — aucune restriction source dans UFW | pending |
-| `✖ [ALERTE]` Port 139/tcp — ouvert à internet | pending |
-| Contexte risque CRITIQUE affiché (vecteur ransomware, EternalBlue) | pending |
-| Déduction score × 2 (deux ports) | pending |
-| Panorama : Samba `✖` | pending |
-| Les deux ports dans le bloc *Action requise* | pending |
+| `✖ [ALERTE]` Port 445/tcp — ouvert à internet — aucune restriction source dans UFW | ✔ v0.15.1 |
+| `✖ [ALERTE]` Port 139/tcp — ouvert à internet | ✔ v0.15.1 |
+| Contexte risque CRITIQUE affiché (vecteur ransomware, EternalBlue) | ✔ v0.15.1 |
+| Déduction `-2` × 2 ports (−4 total) | ✔ v0.15.1 |
+| Panorama : Samba `⚠` (OPEN_WORLD) | ✔ v0.15.1 |
+| Les deux ports dans le bloc *Action requise* | ✔ v0.15.1 |
+| DDNS `→ 445/tcp`, `→ 139/tcp` | ✔ v0.15.1 |
 
 > **Nettoyage :** `sudo apt remove --purge samba && sudo ufw delete allow 445 && sudo ufw delete allow 139`
 
@@ -324,15 +329,17 @@ sudo ufw-audit
 
 | Service | Port | Comportement attendu | Résultat |
 |---------|------|---------------------|----------|
-| Serveur VNC | 5900/tcp | Pas d'alerte service — VNC non détecté | pending |
-| Serveur FTP | 21/tcp | Pas d'alerte service — FTP non détecté | pending |
-| PostgreSQL | 5432/tcp | Pas d'alerte service — PostgreSQL non détecté | pending |
-| Mosquitto (MQTT) | 1883/tcp | Pas d'alerte service — Mosquitto non détecté | pending |
+| Serveur VNC | 5900/tcp | Pas d'alerte service — VNC non détecté | ✔ v0.15.1 |
+| Serveur FTP | 21/tcp | Pas d'alerte service — FTP non détecté | ✔ v0.15.1 |
+| PostgreSQL | 5432/tcp | Pas d'alerte service — PostgreSQL non détecté | ✔ v0.15.1 |
+| Mosquitto (MQTT) | 1883/tcp | Port lié au loopback uniquement — LOOPBACK, sans alerte | ✔ v0.15.1 |
 | WireGuard | 51820/udp | Pas d'alerte service — WireGuard non détecté | pending |
 | Gitea | 3000/tcp | Pas d'alerte service — Gitea non détecté | pending |
 | Jellyfin | 8096/tcp | Pas d'alerte service — Jellyfin non détecté | pending |
-| Home Assistant | 8123/tcp | Pas d'alerte service — HASS non détecté | pending |
-| Cockpit | 9090/tcp | Pas d'alerte service — Cockpit non détecté | pending |
+| Home Assistant | 8123/tcp | Pas d'alerte service — HASS non détecté | ✔ v0.15.1 |
+| Cockpit | 9090/tcp | Pas d'alerte service — Cockpit non détecté | ✔ v0.15.1 |
+
+> **Note Mosquitto :** Mosquitto EST installé sur la VM de test et écoute sur localhost uniquement — `Port 1883/tcp — lié uniquement sur localhost` (LOOPBACK). Valide le chemin LOOPBACK pour un second service au-delà de Redis.
 
 > Pour tous les cas ci-dessus : le port n'a pas de listener actif — aucune ALERTE dans ANALYSE DES SERVICES RÉSEAU.
 > Vérification croisée DDNS : aucun de ces ports ne doit apparaître dans la liste exposée DDNS (aucun listener actif — correction v0.14.1).
@@ -353,9 +360,9 @@ sudo ufw-audit
 
 | Attendu | Résultat |
 |---------|----------|
-| `ℹ [INFO]` Port 631/tcp — lié uniquement sur localhost — la règle UFW n'a aucun effet | pending |
-| Pas d'ALERTE, pas de déduction de score (binding loopback) | pending |
-| Panorama : CUPS `✔` (règle existe, loopback → INFO) | pending |
+| `ℹ [INFO]` Port 631/tcp — lié uniquement sur localhost — la règle UFW n'a aucun effet | ✔ v0.15.1 |
+| Pas d'ALERTE, pas de déduction de score (binding loopback) | ✔ v0.15.1 |
+| Panorama : CUPS `✔` (règle existe, loopback → INFO) | ✔ v0.15.1 |
 
 > Si CUPS écoute sur `0.0.0.0` : `⚠ [AVERTISSEMENT]` Port 631/tcp — ouvert à internet (risque faible, nature=improvement).
 
