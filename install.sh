@@ -25,7 +25,7 @@ set -euo pipefail
 # Constants
 # ---------------------------------------------------------------------------
 
-VERSION="0.15"
+VERSION="0.16"
 PACKAGE_NAME="ufw-audit"
 
 PREFIX="/usr/local"
