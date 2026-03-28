@@ -327,7 +327,7 @@ sudo ufw-audit
 | Serveur VNC | 5900/tcp | Pas d'alerte service — VNC non détecté | ✔ v0.15.1 |
 | Serveur FTP | 21/tcp | Pas d'alerte service — FTP non détecté | ✔ v0.15.1 |
 | PostgreSQL | 5432/tcp | Pas d'alerte service — PostgreSQL non détecté | ✔ v0.15.1 |
-| Mosquitto (MQTT) | 1883/tcp | Pas d'alerte service — Mosquitto non détecté | pending |
+| Mosquitto (MQTT) | 1883/tcp | `ℹ [INFO]` 1883/tcp loopback — règle UFW sans effet ; 8883/tcp non en écoute — aucun message ; Panorama ✔ | ✔ v0.15.1 ² |
 | WireGuard | 51820/udp | `ℹ [INFO]` WireGuard installé mais arrêté/désactivé — pas de vérification d'exposition (retour anticipé INACTIVE) | ✔ v0.15.1 ¹ |
 | Gitea | 3000/tcp | Pas d'alerte service — Gitea non détecté | ✔ v0.15.1 |
 | Jellyfin | 8096/tcp | Pas d'alerte service — Jellyfin non détecté | ✔ v0.15.1 |
@@ -338,6 +338,8 @@ sudo ufw-audit
 > Vérification croisée DDNS : aucun de ces ports ne doit apparaître dans la liste exposée DDNS (aucun listener actif — correction v0.14.1).
 
 > ¹ WireGuard était déjà installé (mais inactif) sur la VM de test. Le chemin « non installé » reste non testé — comportement confirmé : service INACTIVE avec une règle UFW ouverte → INFO uniquement, pas d'ALERTE, pas de déduction.
+
+> ² Mosquitto était installé et ACTIF sur la VM de test (ne correspond pas au scénario C6 « non installé »). Le test a révélé un bug : les ports du registre non en écoute (8883/tcp) déclenchaient incorrectement `Exposure.NO_RULE` → panorama ✖. Corrigé en beta (commit `67743ca`) : `Exposure.NOT_LISTENING` pour les ports du registre non en écoute → panorama ✔.
 
 > **Déjà validé :** MySQL / MariaDB (3306) → C2
 

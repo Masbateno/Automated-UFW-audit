@@ -327,7 +327,7 @@ sudo ufw-audit
 | VNC Server | 5900/tcp | No service alert — VNC not detected | ✔ v0.15.1 |
 | FTP Server | 21/tcp | No service alert — FTP not detected | ✔ v0.15.1 |
 | PostgreSQL | 5432/tcp | No service alert — PostgreSQL not detected | ✔ v0.15.1 |
-| Mosquitto (MQTT) | 1883/tcp | No service alert — Mosquitto not detected | pending |
+| Mosquitto (MQTT) | 1883/tcp | `ℹ [INFO]` 1883/tcp loopback — UFW rule has no effect; 8883/tcp not listening — no message; Panorama ✔ | ✔ v0.15.1 ² |
 | WireGuard | 51820/udp | `ℹ [INFO]` WireGuard installed but stopped/disabled — no port exposure check (INACTIVE early return) | ✔ v0.15.1 ¹ |
 | Gitea | 3000/tcp | No service alert — Gitea not detected | ✔ v0.15.1 |
 | Jellyfin | 8096/tcp | No service alert — Jellyfin not detected | ✔ v0.15.1 |
@@ -338,6 +338,8 @@ sudo ufw-audit
 > DDNS cross-check: none of these ports should appear in DDNS exposed list (no active listener — v0.14.1 fix).
 
 > ¹ WireGuard was already installed (but inactive) on the test VM. The "not installed" path for WireGuard remains untested — behaviour confirmed: INACTIVE service with an open UFW rule → INFO only, no ALERT, no score deduction.
+
+> ² Mosquitto was installed and ACTIVE on the test VM (not matching the "not installed" C6 scenario). Test revealed a bug: registry ports not actively listening (8883/tcp) incorrectly triggered `Exposure.NO_RULE` → panorama ✖. Fixed in beta (commit `67743ca`): `Exposure.NOT_LISTENING` for non-listening registry ports → panorama ✔.
 
 > **Already validated:** MySQL / MariaDB (3306) → C2
 
