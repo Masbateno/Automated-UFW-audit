@@ -15,15 +15,15 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v0.17   | 505   | 15 pre-existing failures fixed; suite fully green |
 | v0.18   | 531   | 26 new tests for `fixes.py`; `run_fixes()` fully covered |
 | v0.20   | 548   | 17 degraded-mode tests; `ss`/rules/log absent scenarios |
-| v0.21   | 616   | 78 new tests + 3 bug fixes + email store feature; pre-v1.0 quality pass |
+| v0.21   | 619   | 78 new tests + 3 bug fixes + email store feature; pre-v1.0 quality pass |
 
-### v0.21 — 616/616 (2026-03-28)
+### v0.21 — 619/619 (2026-03-28)
 
 **Platform:** Linux Mint 22.3 — `so6minttest` — Python 3.12.3, pytest 7.4.4
 
 ```
 pytest tests/ -v
-616 passed in Xs
+619 passed in Xs
 ```
 
 #### New tests added (+78)
@@ -31,7 +31,7 @@ pytest tests/ -v
 | File | New | Coverage |
 |------|-----|----------|
 | `tests/test_virtualization.py` | 24 | `check_virtualization()`: empty snapshot, libvirt/VirtualBox/VMware/LXD, snap packages, interface prefix matching (virbr/vboxnet/vmnet/lxdbr/lxcbr) |
-| `tests/test_email_store_mgmt.py` | 21 | `_manage_email_store()`: quit, add valid/invalid/duplicate, delete all, delete single, comma list, range, out-of-range, garbage input |
+| `tests/test_email_store_mgmt.py` | 24 | `_manage_email_store()`: quit, add valid/invalid/duplicate, delete all, delete single, comma list, range, out-of-range, garbage input |
 | `tests/test_services.py` | 16 | `_classify_exposure`: CGNAT, IPv6 ULA (fc/fd), link-local (fe80), loopback (::1), public IP regression; `TestAutoDetectPort` (9): directives, commented lines, missing file, proto |
 | `tests/test_cli.py` | 10 | `TestMutuallyExclusiveModes`: 6 invalid pairs → `CLIError`; 4 valid single-mode cases |
 | `tests/test_logs.py` | 7 | `_max_in_window`: 60s boundary (included), 61s (excluded), unsorted; `_detect_bruteforce`: threshold boundary, different IPs, unsorted timestamps |

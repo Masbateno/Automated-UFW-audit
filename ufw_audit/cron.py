@@ -505,85 +505,97 @@ def run_install_cron(user_config, config, t) -> int:
 
 
 def _manage_email_store(t) -> None:
-    """Interactive sub-menu to manage the EmailStore (add / delete emails)."""
+    """Interactive sub-menu to manage the EmailStore (add / delete emails).
+
+    Loops until the user explicitly quits with Enter or 'q'.
+    The list is refreshed from disk before each iteration.
+    """
     from ufw_audit.config import EmailStore
 
     W = 62
     title = t("manage_cron.email_store_title")
     pad = W - 4 - len(title)
-    print()
-    print(f"\033[1;34m╔{'═'*(W-2)}╗\033[0m")
-    print(f"\033[1;34m║\033[0m  \033[1m{title}\033[0m{' '*max(0,pad)}  \033[1;34m║\033[0m")
-    print(f"\033[1;34m╚{'═'*(W-2)}╝\033[0m")
-    print()
 
-    store = EmailStore.load()
-    emails = store.all()
+    while True:
+        store = EmailStore.load()
+        emails = store.all()
 
-    if not emails:
-        print(f"  ℹ {t('manage_cron.email_store_empty')}")
-    else:
-        for i, addr in enumerate(emails, 1):
-            print(f"  {i}. {addr}")
+        print()
+        print(f"\033[1;34m╔{'═'*(W-2)}╗\033[0m")
+        print(f"\033[1;34m║\033[0m  \033[1m{title}\033[0m{' '*max(0,pad)}  \033[1;34m║\033[0m")
+        print(f"\033[1;34m╚{'═'*(W-2)}╝\033[0m")
+        print()
 
-    print()
-    print(f"  {t('manage_cron.email_store_prompt')}")
-    answer = input("  > ").strip().lower()
-
-    if not answer or answer in ("q", "quit"):
-        return
-
-    if answer == "a":
-        raw = input(f"  {t('manage_cron.email_store_enter')} : ").strip()
-        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", raw):
-            print(f"  ✖ {t('manage_cron.email_store_invalid_email')}")
-            return
-        store.add(raw)
-        print(f"  ✔ {t('manage_cron.email_store_added', email=raw)}")
-        return
-
-    if answer == "all":
         if not emails:
             print(f"  ℹ {t('manage_cron.email_store_empty')}")
-            return
-        for addr in emails:
-            store.remove(addr)
-        print(f"  ✔ {t('manage_cron.email_store_cleared', count=len(emails))}")
-        return
-
-    # Parse individual number, comma list, or range
-    indices = set()  # type: set[int]
-    try:
-        if re.match(r"^\d+$", answer):
-            indices.add(int(answer))
-        elif re.match(r"^\d+(?:,\d+)+$", answer):
-            for part in answer.split(","):
-                indices.add(int(part))
-        elif re.match(r"^\d+-\d+$", answer):
-            start_s, end_s = answer.split("-")
-            for n in range(int(start_s), int(end_s) + 1):
-                indices.add(n)
         else:
+            for i, addr in enumerate(emails, 1):
+                print(f"  {i}. {addr}")
+
+        print()
+        print(f"  {t('manage_cron.email_store_prompt')}")
+        answer = input("  > ").strip().lower()
+
+        if not answer or answer in ("q", "quit"):
+            return
+
+        if answer == "a":
+            raw = input(f"  {t('manage_cron.email_store_enter')} : ").strip()
+            if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", raw):
+                print(f"  ✖ {t('manage_cron.email_store_invalid_email')}")
+            else:
+                store.add(raw)
+                print(f"  ✔ {t('manage_cron.email_store_added', email=raw)}")
+            continue
+
+        if answer == "all":
+            if not emails:
+                print(f"  ℹ {t('manage_cron.email_store_empty')}")
+            else:
+                count = len(emails)
+                for addr in emails:
+                    store.remove(addr)
+                print(f"  ✔ {t('manage_cron.email_store_cleared', count=count)}")
+            continue
+
+        # Parse individual number, comma list, or range
+        indices = set()  # type: set[int]
+        valid = True
+        try:
+            if re.match(r"^\d+$", answer):
+                indices.add(int(answer))
+            elif re.match(r"^\d+(?:,\d+)+$", answer):
+                for part in answer.split(","):
+                    indices.add(int(part))
+            elif re.match(r"^\d+-\d+$", answer):
+                start_s, end_s = answer.split("-")
+                for n in range(int(start_s), int(end_s) + 1):
+                    indices.add(n)
+            else:
+                print(f"  ✖ {t('manage_cron.invalid')}")
+                valid = False
+        except ValueError:
             print(f"  ✖ {t('manage_cron.invalid')}")
-            return
-    except ValueError:
-        print(f"  ✖ {t('manage_cron.invalid')}")
-        return
+            valid = False
 
-    if not indices:
-        print(f"  ✖ {t('manage_cron.email_store_invalid_sel')}")
-        return
+        if not valid:
+            continue
 
-    to_delete = []
-    for idx in sorted(indices):
-        if not (1 <= idx <= len(emails)):
+        if not indices:
             print(f"  ✖ {t('manage_cron.email_store_invalid_sel')}")
-            return
-        to_delete.append(emails[idx - 1])
+            continue
 
-    for addr in to_delete:
-        store.remove(addr)
-        print(f"  ✔ {t('manage_cron.email_store_removed', email=addr)}")
+        to_delete = []
+        for idx in sorted(indices):
+            if not (1 <= idx <= len(emails)):
+                print(f"  ✖ {t('manage_cron.email_store_invalid_sel')}")
+                to_delete = []
+                break
+            to_delete.append(emails[idx - 1])
+
+        for addr in to_delete:
+            store.remove(addr)
+            print(f"  ✔ {t('manage_cron.email_store_removed', email=addr)}")
 
 
 def run_manage_cron(config, t) -> int:

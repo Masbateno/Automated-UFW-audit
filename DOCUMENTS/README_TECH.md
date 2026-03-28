@@ -445,7 +445,7 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v0.20** — 17 degraded-mode tests (`tests/test_degraded.py`): ss absent, empty UFW rules, missing log file, combined multi-module degradation; suite reaches 548/548
 
-**v0.21** *(current)* — Pre-v1.0 quality pass: 78 new tests + 3 bug fixes; `virtualization.py` fully covered; CGNAT/IPv6 false-positive fixed; commented config lines no longer mis-detected; CLI mode exclusion enforced; `--manage-cron` email address book (add/delete/clear); suite reaches 616/616
+**v0.21** *(current)* — Pre-v1.0 quality pass: 78 new tests + 3 bug fixes; `virtualization.py` fully covered; CGNAT/IPv6 false-positive fixed; commented config lines no longer mis-detected; CLI mode exclusion enforced; `--manage-cron` email address book (add/delete/clear); suite reaches 619/619
 
 **v1.0** — Stable, complete, validated CLI
 

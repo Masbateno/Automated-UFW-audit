@@ -10,7 +10,7 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ### TL;DR
 - Passe qualité pré-v1.0 : 78 nouveaux tests + 3 corrections de bugs
-- Suite atteint 616/616
+- Suite atteint 619/619
 - `virtualization.py` entièrement couvert (seul module core sans tests)
 - Deux faux positifs corrigés : plages CGNAT/IPv6 privées, lignes commentées dans les configs
 - `--manage-cron` dispose d'un carnet d'adresses email complet : ajout, suppression par numéro/plage/all
@@ -32,14 +32,14 @@ Toutes les modifications notables du projet sont documentées ici.
   - `1,3` ou `1-3` — supprimer une liste ou une plage
   - `all` — supprimer toutes les adresses
 
-### Suite de tests — 616/616
+### Suite de tests — 619/619
 
 Nouveaux tests par domaine (+78) :
 
 | Fichier | Nouveaux | Couverture ajoutée |
 |---------|---------|-------------------|
 | `tests/test_virtualization.py` | 24 | Couverture complète de `check_virtualization()` : snapshot vide, chaque type d'hyperviseur, paquets snap, correspondance préfixe interface (virbr/vboxnet/vmnet/lxdbr/lxcbr) |
-| `tests/test_email_store_mgmt.py` | 21 | `_manage_email_store()` : quitter, ajout valide/invalide/doublon, supprimer tout, supprimer par numéro, liste virgule, plage, hors limites, saisie invalide |
+| `tests/test_email_store_mgmt.py` | 24 | `_manage_email_store()` : quitter, ajout valide/invalide/doublon, supprimer tout, supprimer par numéro, liste virgule, plage, hors limites, saisie invalide |
 | `tests/test_services.py` | 16 | `_classify_exposure` : CGNAT, ULA IPv6 (fc/fd), link-local (fe80), loopback (::1), régression IP publique ; `TestAutoDetectPort` (9 tests) : toutes les directives, lignes commentées, fichier manquant, détection proto |
 | `tests/test_cli.py` | 10 | `TestMutuallyExclusiveModes` : les 6 paires invalides lèvent `CLIError` ; 4 cas mode-unique valides passent |
 | `tests/test_logs.py` | 7 | `_max_in_window` : frontière 60s (incluse), 61s (exclue), entrée désordonnée ; `_detect_bruteforce` : exactement le seuil (non détecté), seuil+1, IPs différentes, timestamps désordonnés |

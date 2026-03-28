@@ -445,7 +445,7 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v0.20** — 17 tests en mode dégradé (`tests/test_degraded.py`) : `ss` absent, règles UFW vides, fichier de log manquant, dégradation multi-modules combinée ; suite atteint 548/548
 
-**v0.21** *(actuel)* — Passe qualité pré-v1.0 : 78 nouveaux tests + 3 corrections ; `virtualization.py` entièrement couvert ; faux positif CGNAT/IPv6 corrigé ; lignes de config commentées non détectées ; exclusion des modes CLI appliquée ; carnet d'adresses email dans `--manage-cron` (ajout/suppression/tout effacer) ; suite atteint 616/616
+**v0.21** *(actuel)* — Passe qualité pré-v1.0 : 78 nouveaux tests + 3 corrections ; `virtualization.py` entièrement couvert ; faux positif CGNAT/IPv6 corrigé ; lignes de config commentées non détectées ; exclusion des modes CLI appliquée ; carnet d'adresses email dans `--manage-cron` (ajout/suppression/tout effacer) ; suite atteint 619/619
 
 **v1.0** — CLI stable, complète, validée
 

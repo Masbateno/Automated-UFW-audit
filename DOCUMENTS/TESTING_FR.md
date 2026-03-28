@@ -15,15 +15,15 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v0.17   | 505   | 15 échecs préexistants corrigés ; suite entièrement verte |
 | v0.18   | 531   | 26 nouveaux tests pour `fixes.py` ; `run_fixes()` entièrement couvert |
 | v0.20   | 548   | 17 tests en mode dégradé ; scénarios `ss`/règles/log absents |
-| v0.21   | 616   | 78 nouveaux tests + 3 corrections + carnet email ; passe qualité pré-v1.0 |
+| v0.21   | 619   | 78 nouveaux tests + 3 corrections + carnet email ; passe qualité pré-v1.0 |
 
-### v0.21 — 616/616 (2026-03-28)
+### v0.21 — 619/619 (2026-03-28)
 
 **Plateforme :** Linux Mint 22.3 — `so6minttest` — Python 3.12.3, pytest 7.4.4
 
 ```
 pytest tests/ -v
-616 passed in Xs
+619 passed in Xs
 ```
 
 #### Nouveaux tests ajoutés (+78)
@@ -31,7 +31,7 @@ pytest tests/ -v
 | Fichier | Nouveaux | Couverture |
 |---------|---------|-----------|
 | `tests/test_virtualization.py` | 24 | `check_virtualization()` : snapshot vide, libvirt/VirtualBox/VMware/LXD, paquets snap, préfixes interface (virbr/vboxnet/vmnet/lxdbr/lxcbr) |
-| `tests/test_email_store_mgmt.py` | 21 | `_manage_email_store()` : quitter, ajout valide/invalide/doublon, supprimer tout, supprimer par numéro, liste virgule, plage, hors limites, saisie invalide |
+| `tests/test_email_store_mgmt.py` | 24 | `_manage_email_store()` : quitter, ajout valide/invalide/doublon, supprimer tout, supprimer par numéro, liste virgule, plage, hors limites, saisie invalide |
 | `tests/test_services.py` | 16 | `_classify_exposure` : CGNAT, ULA IPv6 (fc/fd), link-local (fe80), loopback (::1), régression IP publique ; `TestAutoDetectPort` (9) : directives, lignes commentées, fichier manquant, proto |
 | `tests/test_cli.py` | 10 | `TestMutuallyExclusiveModes` : 6 paires invalides → `CLIError` ; 4 cas mode-unique valides |
 | `tests/test_logs.py` | 7 | `_max_in_window` : frontière 60s (incluse), 61s (exclue), désordre ; `_detect_bruteforce` : frontière seuil, IPs différentes, timestamps désordonnés |
