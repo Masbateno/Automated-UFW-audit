@@ -136,8 +136,8 @@ def cron_to_human(expr: str, lang: str = "en") -> str:
             return f"tous les jours à {time_str}"
         return f"every day at {time_str}"
 
-    if dom == "*" and month == "*" and dow != "*":
-        # Specific days of the week
+    if dom == "*" and month == "*" and dow != "*" and re.fullmatch(r"[\d,]+", dow):
+        # Specific days of the week (simple numeric values only — not ranges or expressions)
         day_names = _parse_day_names(dow, days_list)
         if lang == "fr":
             return f"tous les {', '.join(day_names)} à {time_str}"

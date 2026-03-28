@@ -42,10 +42,10 @@ class TestFlags:
         assert parse_args(["--fix"]).fix is True
 
     def test_yes_short(self):
-        assert parse_args(["-y"]).yes is True
+        assert parse_args(["-y", "--fix"]).yes is True
 
     def test_yes_long(self):
-        assert parse_args(["--yes"]).yes is True
+        assert parse_args(["--yes", "--fix"]).yes is True
 
     def test_reconfigure(self):
         assert parse_args(["--reconfigure"]).reconfigure is True

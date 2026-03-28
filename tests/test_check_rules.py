@@ -35,7 +35,7 @@ def has_alert(result):
 
 
 def has_warn(result):
-    return FindingLevel.WARNING.value in levels(result)
+    return FindingLevel.WARN.value in levels(result)
 
 
 def total_deductions(result):
