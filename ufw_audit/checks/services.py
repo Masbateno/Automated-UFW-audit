@@ -59,9 +59,10 @@ class Exposure(Enum):
     OPEN_WORLD = "open_world"   # ALLOW without source restriction
     OPEN_LOCAL = "open_local"   # ALLOW restricted to private IP/range
     DENY       = "deny"         # explicit DENY rule
-    NO_RULE         = "no_rule"          # no UFW rule covers this port
-    LOOPBACK        = "loopback"         # service bound to localhost only — UFW rule irrelevant
+    NO_RULE          = "no_rule"           # no UFW rule covers this port
+    LOOPBACK         = "loopback"          # service bound to localhost only — UFW rule irrelevant
     LOOPBACK_NO_RULE = "loopback_no_rule"  # loopback-only, no UFW rule — covered by default deny
+    NOT_LISTENING    = "not_listening"     # port in registry but not actively listening
 
 
 # ---------------------------------------------------------------------------
@@ -107,6 +108,7 @@ class ServiceSnapshot:
         registry: ServiceRegistry,
         ufw_rules: Optional[str] = None,
         loopback_ports: Optional[set] = None,
+        all_listening_ports: Optional[set] = None,
     ) -> list["ServiceSnapshot"]:
         """
         Collect snapshots for all services in the registry.
@@ -149,6 +151,12 @@ class ServiceSnapshot:
                         elif exposures[port] == Exposure.NO_RULE:
                             exposures[port] = Exposure.LOOPBACK_NO_RULE
 
+            # Override exposure for registry ports not actively listening
+            if all_listening_ports is not None:
+                for port in ports:
+                    if port not in all_listening_ports and exposures.get(port) == Exposure.NO_RULE:
+                        exposures[port] = Exposure.NOT_LISTENING
+
             snapshots.append(cls(
                 service=service,
                 installed=True,
@@ -166,6 +174,7 @@ class ServiceSnapshot:
         registry: ServiceRegistry,
         ufw_rules: Optional[str] = None,
         loopback_ports: Optional[set] = None,
+        all_listening_ports: Optional[set] = None,
     ) -> list["ServiceSnapshot"]:
         """
         Collect snapshots for ALL services in the registry.
@@ -205,6 +214,12 @@ class ServiceSnapshot:
                                 exposures[port] = Exposure.LOOPBACK
                             elif exposures[port] == Exposure.NO_RULE:
                                 exposures[port] = Exposure.LOOPBACK_NO_RULE
+
+                # Override exposure for registry ports not actively listening
+                if all_listening_ports is not None:
+                    for port in ports:
+                        if port not in all_listening_ports and exposures.get(port) == Exposure.NO_RULE:
+                            exposures[port] = Exposure.NOT_LISTENING
             else:
                 state     = ServiceState.UNKNOWN
                 ports     = list(service.ports)
@@ -340,6 +355,9 @@ def _check_port_exposure(
 
     elif exposure == Exposure.LOOPBACK_NO_RULE:
         result.info(message=port_msg)
+
+    elif exposure == Exposure.NOT_LISTENING:
+        pass  # port in registry but not actively listening — no exposure, no message
 
 
 # ---------------------------------------------------------------------------

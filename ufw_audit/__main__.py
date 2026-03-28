@@ -208,13 +208,15 @@ def main(argv=None) -> int:
     ports_snapshot = PortsSnapshot.from_system()
     loopback_only_ports = ports_snapshot.loopback_only_ports
     active_external_ports = ports_snapshot.active_external_ports
+    all_listening_ports = loopback_only_ports | active_external_ports
 
     if not config.quiet:
         print_section(t("sections.services"))
     report.write_section(t("sections.services"))
 
     snapshots = ServiceSnapshot.collect(
-        registry, ufw_rules=ufw_numbered, loopback_ports=loopback_only_ports
+        registry, ufw_rules=ufw_numbered, loopback_ports=loopback_only_ports,
+        all_listening_ports=all_listening_ports,
     )
     audited_ports: set[str] = set()
 
@@ -239,7 +241,8 @@ def main(argv=None) -> int:
     # --- Services panorama ---
     if not config.quiet:
         from ufw_audit.display import display_services_panorama
-        display_services_panorama(registry, ufw_numbered, loopback_only_ports, config, t)
+        display_services_panorama(registry, ufw_numbered, loopback_only_ports,
+                                   all_listening_ports, config, t)
 
     # ======================================================================
     # CHECK 4 — Listening ports

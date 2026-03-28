@@ -382,7 +382,8 @@ def display_ports_overview(ports_snapshot, config, t, report, output) -> None:
 # ---------------------------------------------------------------------------
 
 def display_services_panorama(registry, ufw_numbered: str,
-                               loopback_only_ports: set, config, t) -> None:
+                               loopback_only_ports: set, all_listening_ports: set,
+                               config, t) -> None:
     """Print the compact services panorama table (all 22 known services)."""
     from ufw_audit.output import print_section, print_services_panorama
     from ufw_audit.checks.services import ServiceSnapshot
@@ -390,7 +391,8 @@ def display_services_panorama(registry, ufw_numbered: str,
 
     print_section(t("sections.services_panorama"))
     all_snaps = ServiceSnapshot.collect_all(
-        registry, ufw_rules=ufw_numbered, loopback_ports=loopback_only_ports
+        registry, ufw_rules=ufw_numbered, loopback_ports=loopback_only_ports,
+        all_listening_ports=all_listening_ports,
     )
     panorama_rows = build_panorama_rows(all_snaps)
     panorama_labels = {
