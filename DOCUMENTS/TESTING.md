@@ -209,9 +209,11 @@ sudo ufw-audit
 | `✖ [ALERT]` Port 22/tcp — open to internet — no source restriction in UFW | ✔ v0.15.1 |
 | Risk context CRITICAL displayed | ✔ v0.15.1 |
 | `-2` score deduction (NAT/local context) | ✔ v0.15.1 |
-| Panorama: SSH `✖` | ✔ v0.15.1 |
+| Panorama: SSH `⚠` (OPEN_WORLD) | ✔ v0.15.1 |
+| DDNS `→ 22/tcp` | ✔ v0.15.1 |
+| **Remediation:** source-restrict → switches to OPEN_LOCAL (WARN not ALERT, no deduction) | ✔ v0.15.1 |
 
-> **Remediation to test:** `sudo ufw delete allow 22/tcp && sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp` → switches to OPEN_LOCAL (WARN not ALERT, no deduction).
+> **Note:** `openssh-server` must be installed and active (`sudo apt install openssh-server && sudo systemctl enable --now ssh`). If inactive/disabled, the service is INFO-only with no port exposure check.
 
 ---
 
@@ -305,9 +307,10 @@ sudo ufw-audit
 | `✖ [ALERT]` Port 445/tcp — open to internet — no source restriction in UFW | ✔ v0.15.1 |
 | `✖ [ALERT]` Port 139/tcp — open to internet | ✔ v0.15.1 |
 | Risk context CRITICAL displayed (ransomware vector, EternalBlue) | ✔ v0.15.1 |
-| Score deduction × 2 (both ports) | ✔ v0.15.1 |
-| Panorama: Samba `✖` | ✔ v0.15.1 |
+| `-2` deduction × 2 ports (−4 total) | ✔ v0.15.1 |
+| Panorama: Samba `⚠` (OPEN_WORLD) | ✔ v0.15.1 |
 | Both ports in *Action required* block | ✔ v0.15.1 |
+| DDNS `→ 445/tcp`, `→ 139/tcp` | ✔ v0.15.1 |
 
 > **Cleanup:** `sudo apt remove --purge samba && sudo ufw delete allow 445 && sudo ufw delete allow 139`
 
