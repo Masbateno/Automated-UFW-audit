@@ -242,7 +242,7 @@ sudo ufw-audit -r
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  STATUT DU PARE-FEU                                                            │
+│  STATUT DU PARE-FEU                                                          │
 └──────────────────────────────────────────────────────────────────────────────┘
 
 ✔ [OK] UFW est installé
@@ -250,7 +250,7 @@ sudo ufw-audit -r
 ✔ [OK] Politique par défaut : connexions entrantes bloquées (recommandé)
 
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  ANALYSE DES RÈGLES UFW                                                        │
+│  ANALYSE DES RÈGLES UFW                                                      │
 └──────────────────────────────────────────────────────────────────────────────┘
 
 ✔ [OK] Aucune règle UFW en doublon détectée
@@ -258,7 +258,7 @@ sudo ufw-audit -r
 ✔ [OK] Configuration IPv6 cohérente avec les règles UFW
 
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  ANALYSE DES SERVICES RÉSEAU                                                   │
+│  ANALYSE DES SERVICES RÉSEAU                                                 │
 └──────────────────────────────────────────────────────────────────────────────┘
 
   ▶ SSH Server
@@ -281,7 +281,7 @@ sudo ufw-audit -r
 ℹ [INFO] Port 6379/tcp — couvert par la politique de refus par défaut (pas de règle UFW explicite nécessaire)
 
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  PANORAMA DES SERVICES                                                         │
+│  PANORAMA DES SERVICES                                                       │
 └──────────────────────────────────────────────────────────────────────────────┘
 
   SERVICE                           STATUT         PORT(S)               UFW
@@ -292,7 +292,7 @@ sudo ufw-audit -r
   ...
 
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  ANALYSE DES PORTS EN ÉCOUTE                                                   │
+│  ANALYSE DES PORTS EN ÉCOUTE                                                 │
 └──────────────────────────────────────────────────────────────────────────────┘
 
 ℹ [INFO] Port système interne — aucun risque : 53/udp (DNS)
@@ -300,7 +300,7 @@ sudo ufw-audit -r
 ✔ [OK] Tous les ports en écoute sur 0.0.0.0 sont couverts par une règle UFW
 
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  ANALYSE DES LOGS UFW                                                          │
+│  ANALYSE DES LOGS UFW                                                        │
 └──────────────────────────────────────────────────────────────────────────────┘
 
   Période analysée : 7 jour(s) — 7 jour(s) de logs disponibles

@@ -242,7 +242,7 @@ sudo ufw-audit --reconfigure
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  FIREWALL STATUS                                                               │
+│  FIREWALL STATUS                                                             │
 └──────────────────────────────────────────────────────────────────────────────┘
 
 ✔ [OK] UFW is installed
@@ -250,7 +250,7 @@ sudo ufw-audit --reconfigure
 ✔ [OK] Default policy: incoming connections blocked (recommended)
 
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  UFW RULES ANALYSIS                                                            │
+│  UFW RULES ANALYSIS                                                          │
 └──────────────────────────────────────────────────────────────────────────────┘
 
 ✔ [OK] No duplicate UFW rules detected
@@ -258,7 +258,7 @@ sudo ufw-audit --reconfigure
 ✔ [OK] IPv6 configuration consistent with UFW rules
 
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  NETWORK SERVICES ANALYSIS                                                     │
+│  NETWORK SERVICES ANALYSIS                                                   │
 └──────────────────────────────────────────────────────────────────────────────┘
 
   ▶ SSH Server
@@ -281,7 +281,7 @@ sudo ufw-audit --reconfigure
 ℹ [INFO] Port 6379/tcp — covered by default deny policy (no explicit UFW rule needed)
 
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  SERVICES PANORAMA                                                             │
+│  SERVICES PANORAMA                                                           │
 └──────────────────────────────────────────────────────────────────────────────┘
 
   SERVICE                           STATUS         PORT(S)               UFW
@@ -292,7 +292,7 @@ sudo ufw-audit --reconfigure
   ...
 
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  LISTENING PORTS ANALYSIS                                                      │
+│  LISTENING PORTS ANALYSIS                                                    │
 └──────────────────────────────────────────────────────────────────────────────┘
 
 ℹ [INFO] Internal system port — no risk: 53/udp (DNS)
@@ -300,7 +300,7 @@ sudo ufw-audit --reconfigure
 ✔ [OK] All ports listening on 0.0.0.0 are covered by a UFW rule
 
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  UFW LOG ANALYSIS                                                              │
+│  UFW LOG ANALYSIS                                                            │
 └──────────────────────────────────────────────────────────────────────────────┘
 
   Period analysed : 7 day(s) — 7 day(s) of logs available
