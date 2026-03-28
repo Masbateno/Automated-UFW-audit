@@ -109,9 +109,12 @@ do_mkdir() {
 do_copy() {
     local src="$1" dst="$2"
     if $DRY_RUN; then
-        dry "cp ${src} → ${dst}"
+        dry "install -m 644 ${src} → ${dst}"
     else
-        cp "$src" "$dst"
+        if ! install -m 644 "$src" "$dst"; then
+            error "Failed to copy: ${src} → ${dst}"
+            exit 1
+        fi
         _INSTALLED_FILES+=("$dst")
         ok "Copied: ${dst}"
     fi
@@ -142,7 +145,7 @@ do_rmdir_if_empty() {
         dry "rmdir (if empty): ${dir}"
         return
     fi
-    if [[ -d "$dir" ]] && [[ -z "$(ls -A "$dir" 2>/dev/null)" ]]; then
+    if [[ -d "$dir" ]] && [[ -z "$(find "$dir" -mindepth 1 -print -quit 2>/dev/null)" ]]; then
         rmdir "$dir"
         ok "Removed empty directory: ${dir}"
     elif [[ -d "$dir" ]]; then
@@ -176,7 +179,7 @@ cleanup_on_failure() {
     # Remove directories in reverse order (deepest first)
     for (( i=${#_INSTALLED_DIRS[@]}-1; i>=0; i-- )); do
         local d="${_INSTALLED_DIRS[$i]}"
-        if [[ -d "$d" ]] && [[ -z "$(ls -A "$d" 2>/dev/null)" ]]; then
+        if [[ -d "$d" ]] && [[ -z "$(find "$d" -mindepth 1 -print -quit 2>/dev/null)" ]]; then
             rmdir "$d" && warn "Rolled back directory: ${d}"
         fi
     done
@@ -224,11 +227,11 @@ if $UNINSTALL; then
 
     while IFS= read -r entry; do
         [[ -z "$entry" || "$entry" == \#* ]] && continue
-        type="${entry%% *}"
-        path="${entry#* }"
-        case "$type" in
-            FILE) FILES_TO_REMOVE+=("$path") ;;
-            DIR)  DIRS_TO_REMOVE+=("$path") ;;
+        entry_type="${entry%% *}"
+        entry_path="${entry#* }"
+        case "$entry_type" in
+            FILE) FILES_TO_REMOVE+=("$entry_path") ;;
+            DIR)  DIRS_TO_REMOVE+=("$entry_path") ;;
         esac
     done < "$MANIFEST"
 
@@ -250,9 +253,11 @@ if $UNINSTALL; then
     echo ""
     section "User configuration"
     local_configs=()
-    while IFS= read -r -d '' cfg; do
-        local_configs+=("$cfg")
-    done < <(find /home -name "ufw-audit" -type d -print0 2>/dev/null)
+    for home_dir in /home/*/; do
+        [[ -d "$home_dir" ]] || continue
+        cfg="${home_dir}.config/ufw-audit"
+        [[ -d "$cfg" ]] && local_configs+=("$cfg")
+    done
     [[ -d "/root/.config/ufw-audit" ]] && local_configs+=("/root/.config/ufw-audit")
 
     if [[ ${#local_configs[@]} -eq 0 ]]; then
@@ -363,7 +368,7 @@ do_mkdir "${SHARE_DIR}"
 do_mkdir "${SHARE_DIR}/locales"
 do_mkdir "${SHARE_DIR}/data"
 do_mkdir "${DOC_DIR}"
-do_mkdir "${COMPLETION_DIR}"
+# Note: COMPLETION_DIR is a pre-existing system directory — not created or tracked
 
 # ---------------------------------------------------------------------------
 # INSTALL — copy package files
@@ -415,11 +420,13 @@ fi
 section "Installing bash completion"
 
 COMPLETION_SRC="${SCRIPT_DIR}/ufw-audit.bash-completion"
-if [[ -f "${COMPLETION_SRC}" ]]; then
+if [[ ! -d "${COMPLETION_DIR}" ]]; then
+    warn "Bash completion directory not found (${COMPLETION_DIR}) — skipping"
+elif [[ ! -f "${COMPLETION_SRC}" ]]; then
+    warn "Bash completion file not found — skipping"
+else
     do_copy "${COMPLETION_SRC}" "${COMPLETION_DIR}/ufw-audit"
     info "To activate immediately: source ${COMPLETION_DIR}/ufw-audit"
-else
-    warn "Bash completion file not found — skipping"
 fi
 
 section "Creating entry point"
@@ -506,13 +513,16 @@ else
     manifest_add "FILE ${MANIFEST}"
 
     # Directories (shallowest first for removal reference, deepest removed first at uninstall)
+    # Only package-owned directories are listed here.
+    # System directories that pre-exist (BIN_DIR=/usr/local/bin,
+    # COMPLETION_DIR=/etc/bash_completion.d) are intentionally omitted
+    # — removing them would break other packages.
     manifest_add "DIR ${LIB_DIR}/checks"
     manifest_add "DIR ${LIB_DIR}"
     manifest_add "DIR ${SHARE_DIR}/locales"
     manifest_add "DIR ${SHARE_DIR}/data"
     manifest_add "DIR ${SHARE_DIR}"
     manifest_add "DIR ${DOC_DIR}"
-    # Note: /etc/bash_completion.d is a system dir — never removed
 
     ok "Manifest written: ${MANIFEST}"
 fi
