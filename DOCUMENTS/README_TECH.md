@@ -1,9 +1,9 @@
 *[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
-# ufw-audit v0.15
+# ufw-audit v0.17
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.15-brightgreen)
+![Release](https://img.shields.io/badge/version-v0.17-brightgreen)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
 
@@ -433,6 +433,10 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 **v0.15** — Security hardening (input validation, file permissions, shell surfaces, error handling); DRY refactoring (`checks/_run.py`, `_paths.py`, `_truncate`); install script fixes (missing `__init__.py`, Python version check, glob-based locale/doc copy, new modules); IPv6 wildcard detection bug fix (`open_any_pattern` now matches `Anywhere (v6)` lines); loopback port message fix (`ports.uncovered_local` locale key); full live regression test suite validated
 
 **v0.15.1** — Install script robustness: trap + rollback on partial failure, `do_copy_dir` dead code removed; bug fix: open-any without `[N]` index no longer produces invalid fix command; fix UI output cleanup (`capture_output`); locale `_meta.version` corrected; installation design documented in README_TECH
+
+**v0.16** — Two panorama false-positive fixes: `Exposure.NOT_LISTENING` (registry port not actively listening → panorama ✔, no message) and `Exposure.LOOPBACK_NO_RULE` (loopback port with no UFW rule → panorama ✔, INFO message); full live regression suite (C6 × 9 services, C8 OPEN_LOCAL, E1 loopback)
+
+**v0.17** *(current)* — Unit test suite fully green: 505/505; 15 pre-existing failures fixed across 6 test files; two code fixes (`_extract_duckdns_domain` query-param parsing, `cron_to_human` DOW range guard)
 
 **v1.0** — Stable, complete, validated CLI
 

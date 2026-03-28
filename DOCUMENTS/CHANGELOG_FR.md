@@ -6,6 +6,28 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v0.17] — 2026-03-28
+
+### TL;DR
+- Suite de tests unitaires complète : 505/505 — 15 échecs préexistants corrigés dans 6 fichiers
+- Deux corrections de code : extraction de domaine DuckDNS et fallback des plages dans `cron_to_human`
+- Aucun changement fonctionnel sur l'audit lui-même
+
+### Corrections de bugs
+
+- **`checks/ddns.py` — `_extract_duckdns_domain`** — La fonction retournait `www.duckdns.org` lors du parsing d'une URL DuckDNS de la forme `?domains=myhost&token=...`. Corrigé : le paramètre `?domains=` est désormais parsé en priorité et reconstruit en `myhost.duckdns.org` ; le fallback regex simple est conservé pour le contenu contenant déjà un domaine complet.
+
+- **`cron.py` — `cron_to_human`** — Une expression cron avec une plage DOW telle que `0 */6 * * 1-5` était routée vers le chemin jours de la semaine car `dow != "*"` était la seule garde. Corrigé : le chemin jours de la semaine exige désormais que `dow` corresponde à `[\d,]+`. Les plages, les pas et les noms de jours tombent dans le fallback expression personnalisée.
+
+### Suite de tests — 505/505
+
+- **`test_check_rules.py`** — `has_warn` utilisait `FindingLevel.WARNING` (inexistant) ; corrigé en `FindingLevel.WARN`.
+- **`test_firewall.py`** — `TestIPv6Consistency` appelait `check_firewall()` mais le check IPv6 est dans `check_rules()`. Réécrit pour appeler `check_rules("", texte_règles, t)`. Le scénario combiné `test_allow_policy_plus_no_ipv6` appelle désormais les deux fonctions et somme les déductions.
+- **`test_cli.py`** — `test_yes_short` / `test_yes_long` appelaient `parse_args(["-y"])` seul ; le CLI requiert `--yes` avec `--fix`. Mis à jour en `parse_args(["-y", "--fix"])`.
+- **`test_docker.py`** — Quatre tests supposaient que `check_docker` émet `alert` et déduit en contexte `local` pour un contournement iptables ; l'implémentation émet `warn` et ne déduit qu'en contexte `public`. Tests mis à jour pour correspondre au comportement réel.
+
+---
+
 ## [v0.16] — 2026-03-28
 
 ### TL;DR

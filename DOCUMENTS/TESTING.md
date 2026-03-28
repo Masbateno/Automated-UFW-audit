@@ -5,6 +5,54 @@
 Manual regression tests using deliberately dangerous UFW rules.
 Each test verifies that ufw-audit correctly detects (and fixes) a specific misconfiguration.
 
+---
+
+## Unit test history
+
+| Version | Tests | Notes |
+|---------|-------|-------|
+| v0.9    | 421   | First full suite |
+| v0.17   | 505   | 15 pre-existing failures fixed; suite fully green |
+
+### v0.17 — 505/505 (2026-03-28)
+
+**Platform:** Linux Mint 22.3 — `so6minttest` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -v
+505 passed in Xs
+```
+
+#### New tests added (v0.16 work, included in v0.17 count)
+
+**`tests/test_services.py`** — 52 tests (previously 34)
+- `TestPortExposureFindings` — 5 new tests:
+  - `test_loopback_no_rule_adds_info` — `Exposure.LOOPBACK_NO_RULE` emits INFO finding
+  - `test_loopback_no_rule_no_deduction` — no score deduction
+  - `test_not_listening_no_finding` — `Exposure.NOT_LISTENING` emits no finding
+  - `test_not_listening_no_deduction` — no deduction
+  - `test_mixed_listening_and_not_listening` — only the listening port generates a finding
+- `TestExposureOverrides` — 5 new tests verifying the override logic in `ServiceSnapshot.collect()` directly
+- `TestPanoramaNewVariants` — 6 new tests verifying `build_panorama_rows()` UFW indicator for all exposure variants (LOOPBACK, LOOPBACK_NO_RULE, NOT_LISTENING → `ok`; NO_RULE → `none`; OPEN_WORLD → `warn`)
+
+#### Pre-existing failures fixed (15 total)
+
+| File | Count | Root cause |
+|------|-------|------------|
+| `test_check_rules.py` | 2 | `FindingLevel.WARNING` → `FindingLevel.WARN` (typo) |
+| `test_firewall.py` | 4+1 | `TestIPv6Consistency` called `check_firewall()` — IPv6 check is in `check_rules()`; combined scenario fixed to call both |
+| `test_cli.py` | 2 | `parse_args(["-y"])` raises CLIError — `--yes` requires `--fix` |
+| `test_docker.py` | 4 | `check_docker` emits `warn` not `alert` for iptables bypass; deduction only in `public` context |
+| `test_ddns.py` | 1 | `_extract_duckdns_domain` matched `www.duckdns.org` instead of parsing `?domains=myhost` |
+| `test_cron.py` | 2 | `cron_to_human("0 */6 * * 1-5")` took DOW path — `dow != "*"` guard insufficient for ranges |
+
+#### Code fixes (behaviour, not test-only)
+
+- **`checks/ddns.py` — `_extract_duckdns_domain`**: now parses `?domains=` query parameter first, reconstructs `myhost.duckdns.org`; falls back to direct regex for pre-formed domains.
+- **`cron.py` — `cron_to_human`**: DOW path now guards `re.fullmatch(r"[\d,]+", dow)` — ranges like `1-5`, steps like `*/2`, and day names fall through to the custom expression fallback.
+
+---
+
 **Test VM:** Linux Mint 22.3 — `so6minttest`
 **Reference state** (clean baseline after each test):
 

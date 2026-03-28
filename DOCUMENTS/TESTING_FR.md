@@ -5,6 +5,54 @@
 Tests de régression manuel utilisant délibérément des règles UFW dangereuses.
 Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configuration spécifique.
 
+---
+
+## Historique des tests unitaires
+
+| Version | Tests | Notes |
+|---------|-------|-------|
+| v0.9    | 421   | Première suite complète |
+| v0.17   | 505   | 15 échecs préexistants corrigés ; suite entièrement verte |
+
+### v0.17 — 505/505 (2026-03-28)
+
+**Plateforme :** Linux Mint 22.3 — `so6minttest` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -v
+505 passed in Xs
+```
+
+#### Nouveaux tests ajoutés (travail v0.16, inclus dans le compte v0.17)
+
+**`tests/test_services.py`** — 52 tests (précédemment 34)
+- `TestPortExposureFindings` — 5 nouveaux tests :
+  - `test_loopback_no_rule_adds_info` — `Exposure.LOOPBACK_NO_RULE` émet un finding INFO
+  - `test_loopback_no_rule_no_deduction` — aucune déduction de score
+  - `test_not_listening_no_finding` — `Exposure.NOT_LISTENING` n'émet aucun finding
+  - `test_not_listening_no_deduction` — aucune déduction
+  - `test_mixed_listening_and_not_listening` — seul le port en écoute génère un finding
+- `TestExposureOverrides` — 5 nouveaux tests vérifiant la logique d'override dans `ServiceSnapshot.collect()` directement
+- `TestPanoramaNewVariants` — 6 nouveaux tests vérifiant l'indicateur UFW de `build_panorama_rows()` pour tous les variants d'exposition (LOOPBACK, LOOPBACK_NO_RULE, NOT_LISTENING → `ok` ; NO_RULE → `none` ; OPEN_WORLD → `warn`)
+
+#### Échecs préexistants corrigés (15 au total)
+
+| Fichier | Nb | Cause racine |
+|---------|----|-------------|
+| `test_check_rules.py` | 2 | `FindingLevel.WARNING` → `FindingLevel.WARN` (faute de frappe) |
+| `test_firewall.py` | 4+1 | `TestIPv6Consistency` appelait `check_firewall()` — le check IPv6 est dans `check_rules()` ; scénario combiné corrigé pour appeler les deux fonctions |
+| `test_cli.py` | 2 | `parse_args(["-y"])` lève CLIError — `--yes` requiert `--fix` |
+| `test_docker.py` | 4 | `check_docker` émet `warn` et non `alert` pour bypass iptables ; déduction uniquement en contexte `public` |
+| `test_ddns.py` | 1 | `_extract_duckdns_domain` matchait `www.duckdns.org` au lieu de parser `?domains=myhost` |
+| `test_cron.py` | 2 | `cron_to_human("0 */6 * * 1-5")` prenait le chemin DOW — garde `dow != "*"` insuffisante pour les plages |
+
+#### Corrections de code (comportement, pas seulement les tests)
+
+- **`checks/ddns.py` — `_extract_duckdns_domain`** : parse désormais le paramètre `?domains=` en priorité, reconstruit `myhost.duckdns.org` ; retombe sur le regex direct pour les domaines déjà formés.
+- **`cron.py` — `cron_to_human`** : le chemin DOW vérifie maintenant `re.fullmatch(r"[\d,]+", dow)` — les plages comme `1-5`, les pas comme `*/2` et les noms de jours tombent dans le fallback expression personnalisée.
+
+---
+
 **VM de test :** Linux Mint 22.3 — `so6minttest`
 **État de référence** (baseline propre après chaque test) :
 
