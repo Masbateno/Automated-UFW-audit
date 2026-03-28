@@ -189,15 +189,13 @@ class TestCombinedScenarios:
         assert not has_level(result, "warn")
 
     def test_allow_policy_plus_no_ipv6(self):
-        """Two problems: open policy and missing IPv6 rules."""
-        result = check_firewall(make_status(
-            incoming_policy="allow",
-            ipv4_rules_count=2,
-            ipv6_rules_count=0,
-        ))
-        assert total_deductions(result) >= 4  # 3 for policy + 1 for IPv6
-        assert has_level(result, "alert")
-        assert has_level(result, "warn")
+        """Open policy (check_firewall) + missing IPv6 (check_rules) — combined."""
+        fw_result = check_firewall(make_status(incoming_policy="allow"))
+        rules_result = check_rules("", _IPV4_ONLY, _t)
+        combined_deductions = total_deductions(fw_result) + total_deductions(rules_result)
+        assert combined_deductions >= 4  # 3 for policy + 1 for IPv6
+        assert has_level(fw_result, "alert")
+        assert has_level(rules_result, "warn")
 
     def test_translation_function_used(self):
         """When a translation function is provided, its output appears in findings."""
