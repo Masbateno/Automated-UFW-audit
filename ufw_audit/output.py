@@ -173,7 +173,7 @@ def print_section(title: str) -> None:
     """
     inner = _TERM_WIDTH - 2  # space inside │ borders
     bar = "─" * inner
-    padding = inner - 2 - _visual_width(title)
+    padding = inner - 4 - _visual_width(title)
     padding = max(0, padding)
 
     _p()  # blank line before each section
