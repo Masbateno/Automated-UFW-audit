@@ -336,16 +336,16 @@ class TestPortExposureFindings:
         result = check_services([snap])
         assert total_deductions(result) == 0
 
-    def test_not_listening_no_finding(self):
-        """NOT_LISTENING: registry port not actively listening → no finding, no deduction."""
+    def test_not_listening_adds_info(self):
+        """NOT_LISTENING: registry port not actively listening → INFO finding, no deduction."""
         snap = make_snapshot(
             state=ServiceState.ACTIVE_ENABLED,
             exposures={"8883/tcp": Exposure.NOT_LISTENING},
         )
         result = check_services([snap])
-        # Only the state OK finding, no port-level finding
         port_findings = [f for f in result.findings if "8883" in f.message]
-        assert port_findings == []
+        assert len(port_findings) == 1
+        assert port_findings[0].level.value == "info"
 
     def test_not_listening_no_deduction(self):
         snap = make_snapshot(
@@ -369,7 +369,8 @@ class TestPortExposureFindings:
         result = check_services([snap])
         assert has_level(result, "info")   # from 1883 LOOPBACK
         port_findings_8883 = [f for f in result.findings if "8883" in f.message]
-        assert port_findings_8883 == []    # NOT_LISTENING → silent
+        assert len(port_findings_8883) == 1                  # NOT_LISTENING → INFO
+        assert port_findings_8883[0].level.value == "info"
 
     def test_multiple_ports(self):
         snap = make_snapshot(

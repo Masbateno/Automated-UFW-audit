@@ -48,7 +48,6 @@ _PRIVATE_ADDR = re.compile(
     r")"
 )
 
-
 # ---------------------------------------------------------------------------
 # Enumerations
 # ---------------------------------------------------------------------------
@@ -79,6 +78,16 @@ class Exposure(Enum):
     LOOPBACK         = "loopback"          # service bound to localhost only — UFW rule irrelevant
     LOOPBACK_NO_RULE = "loopback_no_rule"  # loopback-only, no UFW rule — covered by default deny
     NOT_LISTENING    = "not_listening"     # port in registry but not actively listening
+
+
+# Resolved after ServiceState is defined
+_STATE_PRIORITY = {
+    ServiceState.ACTIVE_ENABLED:    4,
+    ServiceState.ACTIVE_DISABLED:   3,
+    ServiceState.INACTIVE_ENABLED:  2,
+    ServiceState.INACTIVE_DISABLED: 1,
+    ServiceState.UNKNOWN:           0,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -119,38 +128,22 @@ class ServiceSnapshot:
         return self.state.is_active
 
     @classmethod
-    def collect(
+    def _build_snapshot(
         cls,
-        registry: ServiceRegistry,
-        ufw_rules: Optional[str] = None,
-        loopback_ports: Optional[set] = None,
-        all_listening_ports: Optional[set] = None,
-    ) -> list["ServiceSnapshot"]:
+        service: Service,
+        ufw_rules: str,
+        loopback_ports: Optional[set],
+        all_listening_ports: Optional[set],
+    ) -> "ServiceSnapshot":
         """
-        Collect snapshots for all services in the registry.
+        Build a ServiceSnapshot for a single service, installed or not.
 
-        Args:
-            registry:       Loaded ServiceRegistry.
-            ufw_rules:      Output of `ufw status numbered` (injected for testing).
-                            If None, fetched from the system.
-            loopback_ports: Set of port strings (e.g. "6379/tcp") where the service
-                            is bound exclusively to loopback. Exposure is overridden
-                            to LOOPBACK so the UFW open rule does not trigger a false
-                            positive ALERT.
-
-        Returns:
-            List of ServiceSnapshot for every installed service.
-            Non-installed services are excluded.
+        Contains all exposure-override logic in one place to avoid
+        duplication between collect() and collect_all().
         """
-        if ufw_rules is None:
-            ufw_rules = _run("ufw", "status", "numbered")
+        installed, via = _detect_installation(service)
 
-        snapshots = []
-        for service in registry:
-            installed, via = _detect_installation(service)
-            if not installed:
-                continue
-
+        if installed:
             state = _detect_state(service)
             ports = _resolve_ports(service)
             exposures = {
@@ -172,17 +165,52 @@ class ServiceSnapshot:
                 for port in ports:
                     if port not in all_listening_ports and exposures.get(port) == Exposure.NO_RULE:
                         exposures[port] = Exposure.NOT_LISTENING
+        else:
+            state     = ServiceState.UNKNOWN
+            ports     = list(service.ports)
+            exposures = {}
 
-            snapshots.append(cls(
-                service=service,
-                installed=True,
-                install_via=via,
-                state=state,
-                ports=ports,
-                exposures=exposures,
-            ))
+        return cls(
+            service=service,
+            installed=installed,
+            install_via=via,
+            state=state,
+            ports=ports,
+            exposures=exposures,
+        )
 
-        return snapshots
+    @classmethod
+    def collect(
+        cls,
+        registry: ServiceRegistry,
+        ufw_rules: Optional[str] = None,
+        loopback_ports: Optional[set] = None,
+        all_listening_ports: Optional[set] = None,
+    ) -> list["ServiceSnapshot"]:
+        """
+        Collect snapshots for installed services only.
+
+        Args:
+            registry:           Loaded ServiceRegistry.
+            ufw_rules:          Output of `ufw status numbered` (injected for testing).
+                                If None, fetched from the system.
+            loopback_ports:     Set of port strings bound exclusively to loopback.
+            all_listening_ports: Set of all actively listening port strings.
+
+        Returns:
+            List of ServiceSnapshot for every installed service.
+            Non-installed services are excluded.
+        """
+        if ufw_rules is None:
+            ufw_rules = _run("ufw", "status", "numbered")
+        return [
+            snap
+            for snap in (
+                cls._build_snapshot(service, ufw_rules, loopback_ports, all_listening_ports)
+                for service in registry
+            )
+            if snap.installed
+        ]
 
     @classmethod
     def collect_all(
@@ -200,57 +228,21 @@ class ServiceSnapshot:
         services panorama display.
 
         Args:
-            registry:       Loaded ServiceRegistry.
-            ufw_rules:      Output of `ufw status numbered` (injected for testing).
-                            If None, fetched from the system.
-            loopback_ports: Set of port strings bound exclusively to loopback.
+            registry:           Loaded ServiceRegistry.
+            ufw_rules:          Output of `ufw status numbered` (injected for testing).
+                                If None, fetched from the system.
+            loopback_ports:     Set of port strings bound exclusively to loopback.
+            all_listening_ports: Set of all actively listening port strings.
 
         Returns:
             List of ServiceSnapshot for every service in the registry.
         """
         if ufw_rules is None:
             ufw_rules = _run("ufw", "status", "numbered")
-
-        snapshots = []
-        for service in registry:
-            installed, via = _detect_installation(service)
-
-            if installed:
-                state = _detect_state(service)
-                ports = _resolve_ports(service)
-                exposures = {
-                    port: _classify_exposure(port, ufw_rules)
-                    for port in ports
-                }
-                # Override exposure for ports bound exclusively to loopback
-                if loopback_ports:
-                    for port in ports:
-                        if port in loopback_ports:
-                            if exposures[port] == Exposure.OPEN_WORLD:
-                                exposures[port] = Exposure.LOOPBACK
-                            elif exposures[port] == Exposure.NO_RULE:
-                                exposures[port] = Exposure.LOOPBACK_NO_RULE
-
-                # Override exposure for registry ports not actively listening
-                if all_listening_ports is not None:
-                    for port in ports:
-                        if port not in all_listening_ports and exposures.get(port) == Exposure.NO_RULE:
-                            exposures[port] = Exposure.NOT_LISTENING
-            else:
-                state     = ServiceState.UNKNOWN
-                ports     = list(service.ports)
-                exposures = {}
-
-            snapshots.append(cls(
-                service=service,
-                installed=installed,
-                install_via=via,
-                state=state,
-                ports=ports,
-                exposures=exposures,
-            ))
-
-        return snapshots
+        return [
+            cls._build_snapshot(service, ufw_rules, loopback_ports, all_listening_ports)
+            for service in registry
+        ]
 
 
 # ---------------------------------------------------------------------------
@@ -373,7 +365,7 @@ def _check_port_exposure(
         result.info(message=port_msg)
 
     elif exposure == Exposure.NOT_LISTENING:
-        pass  # port in registry but not actively listening — no exposure, no message
+        result.info(message=port_msg)
 
 
 # ---------------------------------------------------------------------------
@@ -384,14 +376,17 @@ def _detect_installation(service: Service) -> tuple[bool, str]:
     """
     Check if a service is installed via dpkg, snap, or binary.
 
+    Uses dpkg-query (scripting API) rather than dpkg -l (display only)
+    for reliable status parsing.
+
     Returns:
         Tuple of (installed: bool, method: str).
         Method is one of: "dpkg", "snap", "binary", or "".
     """
-    # dpkg check
+    # dpkg-query check — stable scripting interface, locale-independent
     for pkg in service.packages:
-        output = _run("dpkg", "-l", pkg)
-        if re.search(r"^ii\s+" + re.escape(pkg), output, re.MULTILINE):
+        output = _run("dpkg-query", "-W", "-f=${Status}", pkg)
+        if "install ok installed" in output:
             return True, "dpkg"
 
     # snap check
@@ -408,46 +403,64 @@ def _detect_installation(service: Service) -> tuple[bool, str]:
     return False, ""
 
 
+def _detect_single_unit_state(svc_name: str) -> ServiceState:
+    """
+    Determine the systemd state of a single service unit.
+
+    Handles template services (e.g. wg-quick@) by finding the first
+    active instance.
+
+    Returns:
+        ServiceState enum value for this unit.
+    """
+    # Handle template services like wg-quick@
+    if svc_name.endswith("@"):
+        list_output = _run("systemctl", "list-units", "--all", svc_name + "*")
+        if not list_output.strip():
+            return ServiceState.INACTIVE_DISABLED
+        match = re.search(r"(\S+\.service)", list_output)
+        if match:
+            svc_name = match.group(1)
+        else:
+            return ServiceState.INACTIVE_DISABLED
+
+    active  = _run("systemctl", "is-active",  svc_name).strip()
+    enabled = _run("systemctl", "is-enabled", svc_name).strip()
+
+    is_active  = active  == "active"
+    is_enabled = enabled == "enabled"
+
+    if is_active and is_enabled:
+        return ServiceState.ACTIVE_ENABLED
+    if is_active:
+        return ServiceState.ACTIVE_DISABLED
+    if is_enabled:
+        return ServiceState.INACTIVE_ENABLED
+    if active in ("inactive", "failed", "activating"):
+        return ServiceState.INACTIVE_DISABLED
+    return ServiceState.UNKNOWN
+
+
 def _detect_state(service: Service) -> ServiceState:
     """
-    Determine the systemd state of a service.
+    Determine the effective systemd state of a service.
+
+    Aggregates across all units in service.services: returns the
+    highest-priority state found. This prevents a first-match bug
+    where an inactive unit would mask an active sibling.
+
+    Priority: ACTIVE_ENABLED > ACTIVE_DISABLED > INACTIVE_ENABLED
+              > INACTIVE_DISABLED > UNKNOWN
 
     Returns:
         ServiceState enum value.
     """
+    best = ServiceState.UNKNOWN
     for svc_name in service.services:
-        # Handle template services like wg-quick@
-        if svc_name.endswith("@"):
-            pattern = svc_name
-            list_output = _run("systemctl", "list-units", "--all", pattern + "*")
-            if not list_output.strip():
-                # No instance found — service is installed but not configured
-                return ServiceState.INACTIVE_DISABLED
-            # Find the first active instance
-            match = re.search(r"(\S+\.service)", list_output)
-            if match:
-                svc_name = match.group(1)
-            else:
-                return ServiceState.INACTIVE_DISABLED
-
-        active  = _run("systemctl", "is-active",  svc_name).strip()
-        enabled = _run("systemctl", "is-enabled", svc_name).strip()
-
-        is_active  = active  == "active"
-        is_enabled = enabled == "enabled"
-
-        if is_active and is_enabled:
-            return ServiceState.ACTIVE_ENABLED
-        if is_active:
-            return ServiceState.ACTIVE_DISABLED
-        if is_enabled:
-            return ServiceState.INACTIVE_ENABLED
-
-        # Service exists in systemd but is inactive/disabled
-        if active in ("inactive", "failed", "activating"):
-            return ServiceState.INACTIVE_DISABLED
-
-    return ServiceState.UNKNOWN
+        state = _detect_single_unit_state(svc_name)
+        if _STATE_PRIORITY[state] > _STATE_PRIORITY[best]:
+            best = state
+    return best
 
 
 def _resolve_ports(service: Service) -> list[str]:
@@ -558,5 +571,3 @@ def _classify_exposure(port: str, ufw_rules: str) -> Exposure:
                 return Exposure.OPEN_WORLD
 
     return Exposure.NO_RULE
-
-
