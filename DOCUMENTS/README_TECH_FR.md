@@ -1,9 +1,10 @@
 *[Read in English](README_TECH.md)* · *[Vue d'ensemble](../README_FR.md)*
 
-# ufw-audit v0.18
+# ufw-audit v0.19
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.18-brightgreen)
+![Release](https://img.shields.io/badge/version-v0.19-brightgreen)
+![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
 
@@ -438,7 +439,9 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v0.17** — Suite de tests unitaires entièrement verte : 505/505 ; 15 échecs préexistants corrigés dans 6 fichiers de tests ; deux corrections de code (`_extract_duckdns_domain` parsing paramètre query, garde plage DOW dans `cron_to_human`)
 
-**v0.18** *(actuel)* — 26 nouveaux tests unitaires pour `fixes.py` (`run_fixes()`) : classification des items, ordre de suppression UFW, chemins subprocess, mode interactif, mode auto (`--yes`), résumé automatique ; suite atteint 531/531
+**v0.18** — 26 nouveaux tests unitaires pour `fixes.py` (`run_fixes()`) : classification des items, ordre de suppression UFW, chemins subprocess, mode interactif, mode auto (`--yes`), résumé automatique ; suite atteint 531/531
+
+**v0.19** *(actuel)* — CI GitHub Actions : pytest sur chaque push/PR, matrice Python 3.8 / 3.10 / 3.12
 
 **v1.0** — CLI stable, complète, validée
 
