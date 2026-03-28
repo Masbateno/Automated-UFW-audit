@@ -85,7 +85,7 @@ The email address book (`m`) lets you manage saved notification addresses indepe
 
 ```
   ╔════════════════════════════════════════════════════════════╗
-  ║  EMAIL ADDRESS BOOK                                          ║
+  ║  EMAIL ADDRESS BOOK                                        ║
   ╚════════════════════════════════════════════════════════════╝
 
   1. you@example.com

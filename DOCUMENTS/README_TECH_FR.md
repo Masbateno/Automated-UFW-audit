@@ -1,9 +1,9 @@
 *[Read in English](README_TECH.md)* · *[Vue d'ensemble](../README_FR.md)*
 
-# ufw-audit v0.21
+# ufw-audit v0.22
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.21-brightgreen)
+![Release](https://img.shields.io/badge/version-v0.22-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
@@ -232,7 +232,7 @@ sudo ufw-audit -r
 ║ ╚██████╔╝ ██║      ╚███╔███╔╝     ██║  ██║ ╚██████╔╝ ██████╔╝ ██║    ██║     ║
 ║  ╚═════╝  ╚═╝       ╚══╝╚══╝      ╚═╝  ╚═╝  ╚═════╝  ╚═════╝  ╚═╝    ╚═╝     ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
-║  UFW-AUDIT v0.21  │  UFW firewall audit                                      ║
+║  UFW-AUDIT v0.22  │  UFW firewall audit                                      ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║  System        : Ubuntu 24.04 LTS                                            ║
 ║  Host          : my-machine                                                  ║
@@ -445,7 +445,9 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v0.20** — 17 tests en mode dégradé (`tests/test_degraded.py`) : `ss` absent, règles UFW vides, fichier de log manquant, dégradation multi-modules combinée ; suite atteint 548/548
 
-**v0.21** *(actuel)* — Passe qualité pré-v1.0 : 78 nouveaux tests + 3 corrections ; `virtualization.py` entièrement couvert ; faux positif CGNAT/IPv6 corrigé ; lignes de config commentées non détectées ; exclusion des modes CLI appliquée ; carnet d'adresses email dans `--manage-cron` (ajout/suppression/tout effacer) ; suite atteint 619/619
+**v0.21** — Passe qualité pré-v1.0 : 78 nouveaux tests + 3 corrections ; `virtualization.py` entièrement couvert ; faux positif CGNAT/IPv6 corrigé ; lignes de config commentées non détectées ; exclusion des modes CLI appliquée ; carnet d'adresses email dans `--manage-cron` (ajout/suppression/tout effacer) ; suite atteint 619/619
+
+**v0.22** *(actuel)* — Passe qualité interne : 5 modules refactorisés (`__main__`, `firewall`, `services`, `scoring`, `output`) ; alignement des cadres corrigé sur toutes les interfaces ; `meta: dict` supprimé de `CheckResult` → `open_ports: List[str]` typé
 
 **v1.0** — CLI stable, complète, validée
 
