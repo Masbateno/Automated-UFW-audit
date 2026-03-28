@@ -6,6 +6,28 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.17] — 2026-03-28
+
+### TL;DR
+- Full unit test suite reaches 505/505 — 15 pre-existing failures across 6 files fixed
+- Two code fixes: DuckDNS domain extraction and `cron_to_human` range fallback
+- No functional change to the audit itself
+
+### Bug fixes
+
+- **`checks/ddns.py` — `_extract_duckdns_domain`** — Returned `www.duckdns.org` when parsing a DuckDNS update URL of the form `?domains=myhost&token=...`. Fixed: `?domains=` query parameter is now parsed first and reconstructed as `myhost.duckdns.org`; the simple regex fallback is kept for content that already contains a full domain.
+
+- **`cron.py` — `cron_to_human`** — A cron expression with a DOW range such as `0 */6 * * 1-5` was routed to the weekday path because `dow != "*"` was the only guard. Fixed: the weekday path now requires `dow` to match `[\d,]+`. Ranges, steps, and day names fall through to the custom expression fallback.
+
+### Test suite — 505/505
+
+- **`test_check_rules.py`** — `has_warn` used `FindingLevel.WARNING` (non-existent); corrected to `FindingLevel.WARN`.
+- **`test_firewall.py`** — `TestIPv6Consistency` called `check_firewall()` but the IPv6 check lives in `check_rules()`. Rewritten to call `check_rules("", rules_text, t)`. Combined scenario `test_allow_policy_plus_no_ipv6` now calls both functions and sums deductions.
+- **`test_cli.py`** — `test_yes_short` / `test_yes_long` called `parse_args(["-y"])` alone; the CLI requires `--yes` with `--fix`. Updated to `parse_args(["-y", "--fix"])`.
+- **`test_docker.py`** — Four tests assumed `check_docker` emits `alert` and deducts in `local` context for an iptables bypass; the implementation emits `warn` and only deducts in `public` context. Tests updated to match actual behaviour.
+
+---
+
 ## [v0.16] — 2026-03-28
 
 ### TL;DR

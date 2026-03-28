@@ -1,9 +1,9 @@
 *[Read in English](README_TECH.md)* · *[Vue d'ensemble](../README_FR.md)*
 
-# ufw-audit v0.15
+# ufw-audit v0.17
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.15-brightgreen)
+![Release](https://img.shields.io/badge/version-v0.17-brightgreen)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
 
@@ -433,6 +433,10 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 **v0.15** — Durcissement sécurité (validation des entrées, permissions fichiers, surfaces d'appel shell, gestion d'erreurs) ; refactoring DRY (`checks/_run.py`, `_paths.py`, `_truncate`) ; corrections install script (copie `__init__.py`, vérification version Python, glob locales/docs, nouveaux modules) ; correction bug détection wildcard IPv6 (`open_any_pattern` couvre désormais les lignes `Anywhere (v6)`) ; correction message port loopback (clé `ports.uncovered_local`) ; suite de tests de régression complète validée en direct
 
 **v0.15.1** — Robustesse install script : trap + rollback en cas d'échec partiel, suppression du dead code `do_copy_dir` ; correction bug : open-any sans index `[N]` ne produit plus de commande de fix invalide ; nettoyage sortie UI fix (`capture_output`) ; `_meta.version` des locales corrigé ; choix d'installation documenté dans README_TECH
+
+**v0.16** — Deux corrections de faux positifs panorama : `Exposure.NOT_LISTENING` (port du registre non en écoute → panorama ✔, aucun message) et `Exposure.LOOPBACK_NO_RULE` (port loopback sans règle UFW → panorama ✔, message INFO) ; suite de régression complète (C6 × 9 services, C8 OPEN_LOCAL, E1 loopback)
+
+**v0.17** *(actuel)* — Suite de tests unitaires entièrement verte : 505/505 ; 15 échecs préexistants corrigés dans 6 fichiers de tests ; deux corrections de code (`_extract_duckdns_domain` parsing paramètre query, garde plage DOW dans `cron_to_human`)
 
 **v1.0** — CLI stable, complète, validée
 
