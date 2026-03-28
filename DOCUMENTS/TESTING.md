@@ -324,18 +324,20 @@ sudo ufw-audit
 
 | Service | Port | Expected behaviour | Result |
 |---------|------|--------------------|--------|
-| VNC Server | 5900/tcp | No service alert — VNC not detected | pending |
-| FTP Server | 21/tcp | No service alert — FTP not detected | pending |
-| PostgreSQL | 5432/tcp | No service alert — PostgreSQL not detected | pending |
+| VNC Server | 5900/tcp | No service alert — VNC not detected | ✔ v0.15.1 |
+| FTP Server | 21/tcp | No service alert — FTP not detected | ✔ v0.15.1 |
+| PostgreSQL | 5432/tcp | No service alert — PostgreSQL not detected | ✔ v0.15.1 |
 | Mosquitto (MQTT) | 1883/tcp | No service alert — Mosquitto not detected | pending |
-| WireGuard | 51820/udp | No service alert — WireGuard not detected | pending |
-| Gitea | 3000/tcp | No service alert — Gitea not detected | pending |
-| Jellyfin | 8096/tcp | No service alert — Jellyfin not detected | pending |
-| Home Assistant | 8123/tcp | No service alert — HASS not detected | pending |
-| Cockpit | 9090/tcp | No service alert — Cockpit not detected | pending |
+| WireGuard | 51820/udp | `ℹ [INFO]` WireGuard installed but stopped/disabled — no port exposure check (INACTIVE early return) | ✔ v0.15.1 ¹ |
+| Gitea | 3000/tcp | No service alert — Gitea not detected | ✔ v0.15.1 |
+| Jellyfin | 8096/tcp | No service alert — Jellyfin not detected | ✔ v0.15.1 |
+| Home Assistant | 8123/tcp | No service alert — HASS not detected | ✔ v0.15.1 |
+| Cockpit | 9090/tcp | No service alert — Cockpit not detected | ✔ v0.15.1 |
 
 > For all above: the port should appear in **UFW RULES ANALYSIS** if an active listener exists, but since the service is not installed there is no listener — no ALERT in NETWORK SERVICES ANALYSIS.
 > DDNS cross-check: none of these ports should appear in DDNS exposed list (no active listener — v0.14.1 fix).
+
+> ¹ WireGuard was already installed (but inactive) on the test VM. The "not installed" path for WireGuard remains untested — behaviour confirmed: INACTIVE service with an open UFW rule → INFO only, no ALERT, no score deduction.
 
 > **Already validated:** MySQL / MariaDB (3306) → C2
 

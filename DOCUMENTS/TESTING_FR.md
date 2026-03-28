@@ -324,18 +324,20 @@ sudo ufw-audit
 
 | Service | Port | Comportement attendu | Résultat |
 |---------|------|---------------------|----------|
-| Serveur VNC | 5900/tcp | Pas d'alerte service — VNC non détecté | pending |
-| Serveur FTP | 21/tcp | Pas d'alerte service — FTP non détecté | pending |
-| PostgreSQL | 5432/tcp | Pas d'alerte service — PostgreSQL non détecté | pending |
+| Serveur VNC | 5900/tcp | Pas d'alerte service — VNC non détecté | ✔ v0.15.1 |
+| Serveur FTP | 21/tcp | Pas d'alerte service — FTP non détecté | ✔ v0.15.1 |
+| PostgreSQL | 5432/tcp | Pas d'alerte service — PostgreSQL non détecté | ✔ v0.15.1 |
 | Mosquitto (MQTT) | 1883/tcp | Pas d'alerte service — Mosquitto non détecté | pending |
-| WireGuard | 51820/udp | Pas d'alerte service — WireGuard non détecté | pending |
-| Gitea | 3000/tcp | Pas d'alerte service — Gitea non détecté | pending |
-| Jellyfin | 8096/tcp | Pas d'alerte service — Jellyfin non détecté | pending |
-| Home Assistant | 8123/tcp | Pas d'alerte service — HASS non détecté | pending |
-| Cockpit | 9090/tcp | Pas d'alerte service — Cockpit non détecté | pending |
+| WireGuard | 51820/udp | `ℹ [INFO]` WireGuard installé mais arrêté/désactivé — pas de vérification d'exposition (retour anticipé INACTIVE) | ✔ v0.15.1 ¹ |
+| Gitea | 3000/tcp | Pas d'alerte service — Gitea non détecté | ✔ v0.15.1 |
+| Jellyfin | 8096/tcp | Pas d'alerte service — Jellyfin non détecté | ✔ v0.15.1 |
+| Home Assistant | 8123/tcp | Pas d'alerte service — HASS non détecté | ✔ v0.15.1 |
+| Cockpit | 9090/tcp | Pas d'alerte service — Cockpit non détecté | ✔ v0.15.1 |
 
 > Pour tous les cas ci-dessus : le port n'a pas de listener actif — aucune ALERTE dans ANALYSE DES SERVICES RÉSEAU.
 > Vérification croisée DDNS : aucun de ces ports ne doit apparaître dans la liste exposée DDNS (aucun listener actif — correction v0.14.1).
+
+> ¹ WireGuard était déjà installé (mais inactif) sur la VM de test. Le chemin « non installé » reste non testé — comportement confirmé : service INACTIVE avec une règle UFW ouverte → INFO uniquement, pas d'ALERTE, pas de déduction.
 
 > **Déjà validé :** MySQL / MariaDB (3306) → C2
 

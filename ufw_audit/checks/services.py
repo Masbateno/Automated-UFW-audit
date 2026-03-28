@@ -59,8 +59,9 @@ class Exposure(Enum):
     OPEN_WORLD = "open_world"   # ALLOW without source restriction
     OPEN_LOCAL = "open_local"   # ALLOW restricted to private IP/range
     DENY       = "deny"         # explicit DENY rule
-    NO_RULE    = "no_rule"      # no UFW rule covers this port
-    LOOPBACK   = "loopback"     # service bound to localhost only — UFW rule irrelevant
+    NO_RULE         = "no_rule"          # no UFW rule covers this port
+    LOOPBACK        = "loopback"         # service bound to localhost only — UFW rule irrelevant
+    LOOPBACK_NO_RULE = "loopback_no_rule"  # loopback-only, no UFW rule — covered by default deny
 
 
 # ---------------------------------------------------------------------------
@@ -142,8 +143,11 @@ class ServiceSnapshot:
             # Override exposure for ports bound exclusively to loopback
             if loopback_ports:
                 for port in ports:
-                    if port in loopback_ports and exposures[port] == Exposure.OPEN_WORLD:
-                        exposures[port] = Exposure.LOOPBACK
+                    if port in loopback_ports:
+                        if exposures[port] == Exposure.OPEN_WORLD:
+                            exposures[port] = Exposure.LOOPBACK
+                        elif exposures[port] == Exposure.NO_RULE:
+                            exposures[port] = Exposure.LOOPBACK_NO_RULE
 
             snapshots.append(cls(
                 service=service,
@@ -196,8 +200,11 @@ class ServiceSnapshot:
                 # Override exposure for ports bound exclusively to loopback
                 if loopback_ports:
                     for port in ports:
-                        if port in loopback_ports and exposures[port] == Exposure.OPEN_WORLD:
-                            exposures[port] = Exposure.LOOPBACK
+                        if port in loopback_ports:
+                            if exposures[port] == Exposure.OPEN_WORLD:
+                                exposures[port] = Exposure.LOOPBACK
+                            elif exposures[port] == Exposure.NO_RULE:
+                                exposures[port] = Exposure.LOOPBACK_NO_RULE
             else:
                 state     = ServiceState.UNKNOWN
                 ports     = list(service.ports)
@@ -329,6 +336,9 @@ def _check_port_exposure(
         result.info(message=port_msg)
 
     elif exposure == Exposure.LOOPBACK:
+        result.info(message=port_msg)
+
+    elif exposure == Exposure.LOOPBACK_NO_RULE:
         result.info(message=port_msg)
 
 

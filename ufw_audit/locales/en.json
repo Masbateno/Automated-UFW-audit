@@ -78,7 +78,8 @@
       "open_local": "restricted to local network by UFW rule",
       "deny": "explicitly blocked by a UFW rule",
       "no_rule": "covered by default deny policy (no explicit UFW rule needed)",
-      "loopback": "bound to localhost only — UFW rule has no effect on external access"
+      "loopback": "bound to localhost only — UFW rule has no effect on external access",
+      "loopback_no_rule": "bound to localhost only — no UFW rule needed (covered by default deny)"
     },
     "port_from_config": "Port read from configuration: {port}",
     "port_auto": "Port auto-detected: {port}",
