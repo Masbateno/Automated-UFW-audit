@@ -206,10 +206,10 @@ sudo ufw-audit
 
 | Attendu | Résultat |
 |---------|----------|
-| `✖ [ALERTE]` Port 22/tcp — ouvert à internet — aucune restriction source dans UFW | pending |
-| Contexte risque CRITIQUE affiché | pending |
-| Déduction score `-2` (contexte NAT/local) | pending |
-| Panorama : SSH `✖` | pending |
+| `✖ [ALERTE]` Port 22/tcp — ouvert à internet — aucune restriction source dans UFW | ✔ v0.15.1 |
+| Contexte risque CRITIQUE affiché | ✔ v0.15.1 |
+| Déduction score `-2` (contexte NAT/local) | ✔ v0.15.1 |
+| Panorama : SSH `✖` | ✔ v0.15.1 |
 
 > **Remédiation à tester :** `sudo ufw delete allow 22/tcp && sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp` → passe en OPEN_LOCAL (AVERTISSEMENT et non ALERTE, sans déduction).
 
@@ -281,11 +281,11 @@ sudo ufw-audit
 
 | Attendu | Résultat |
 |---------|----------|
-| `⚠ [AVERTISSEMENT]` Port 80/tcp — ouvert à internet — aucune restriction source dans UFW | pending |
-| Contexte risque MOYEN affiché | pending |
-| Déduction score `-1` | pending |
-| Panorama : Nginx `⚠` | pending |
-| Résultat dans *Améliorations possibles* (et non *Action requise*) | pending |
+| `⚠ [AVERTISSEMENT]` Port 80/tcp — ouvert à internet — aucune restriction source dans UFW | ✔ v0.15.1 |
+| Contexte risque MOYEN affiché | ✔ v0.15.1 |
+| Déduction score `-1` | ✔ v0.15.1 |
+| Panorama : Nginx `⚠` | ✔ v0.15.1 |
+| Résultat dans *Améliorations possibles* (et non *Action requise*) | ✔ v0.15.1 |
 
 > Les services à risque moyen utilisent `warn()` et non `alert()` — distinction par rapport aux services critiques comme SSH ou Redis.
 
@@ -302,12 +302,12 @@ sudo ufw-audit
 
 | Attendu | Résultat |
 |---------|----------|
-| `✖ [ALERTE]` Port 445/tcp — ouvert à internet — aucune restriction source dans UFW | pending |
-| `✖ [ALERTE]` Port 139/tcp — ouvert à internet | pending |
-| Contexte risque CRITIQUE affiché (vecteur ransomware, EternalBlue) | pending |
-| Déduction score × 2 (deux ports) | pending |
-| Panorama : Samba `✖` | pending |
-| Les deux ports dans le bloc *Action requise* | pending |
+| `✖ [ALERTE]` Port 445/tcp — ouvert à internet — aucune restriction source dans UFW | ✔ v0.15.1 |
+| `✖ [ALERTE]` Port 139/tcp — ouvert à internet | ✔ v0.15.1 |
+| Contexte risque CRITIQUE affiché (vecteur ransomware, EternalBlue) | ✔ v0.15.1 |
+| Déduction score × 2 (deux ports) | ✔ v0.15.1 |
+| Panorama : Samba `✖` | ✔ v0.15.1 |
+| Les deux ports dans le bloc *Action requise* | ✔ v0.15.1 |
 
 > **Nettoyage :** `sudo apt remove --purge samba && sudo ufw delete allow 445 && sudo ufw delete allow 139`
 
@@ -357,9 +357,9 @@ sudo ufw-audit
 
 | Attendu | Résultat |
 |---------|----------|
-| `ℹ [INFO]` Port 631/tcp — lié uniquement sur localhost — la règle UFW n'a aucun effet | pending |
-| Pas d'ALERTE, pas de déduction de score (binding loopback) | pending |
-| Panorama : CUPS `✔` (règle existe, loopback → INFO) | pending |
+| `ℹ [INFO]` Port 631/tcp — lié uniquement sur localhost — la règle UFW n'a aucun effet | ✔ v0.15.1 |
+| Pas d'ALERTE, pas de déduction de score (binding loopback) | ✔ v0.15.1 |
+| Panorama : CUPS `✔` (règle existe, loopback → INFO) | ✔ v0.15.1 |
 
 > Si CUPS écoute sur `0.0.0.0` : `⚠ [AVERTISSEMENT]` Port 631/tcp — ouvert à internet (risque faible, nature=improvement).
 
@@ -380,7 +380,7 @@ sudo ufw status numbered
 |----------|----------|
 | `⚠ [AVERTISSEMENT]` Règles IPv6 manquantes — seules des règles IPv4 présentes | ✔ unit test |
 | Déduction score `-1` | ✔ unit test |
-| Test direct | pending |
+| Test direct | ✔ v0.15.1 |
 
 ---
 
@@ -390,7 +390,7 @@ sudo ufw status numbered
 |----------|----------|
 | `✔ [OK]` Règles IPv4 et IPv6 toutes deux présentes | ✔ unit test |
 | Aucune déduction | ✔ unit test |
-| Test direct | pending |
+| Test direct | ✔ v0.15.1 |
 
 ---
 
