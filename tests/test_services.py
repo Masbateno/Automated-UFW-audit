@@ -6,6 +6,8 @@ All tests build ServiceSnapshot instances directly — no subprocess calls.
 Run with: python -m pytest tests/test_services.py -v
 """
 
+from __future__ import annotations
+
 import pytest
 from ufw_audit.checks.services import (
     Exposure,
