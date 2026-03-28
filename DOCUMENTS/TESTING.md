@@ -14,14 +14,7 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v0.9    | 421   | First full suite |
 | v0.17   | 505   | 15 pre-existing failures fixed; suite fully green |
 | v0.18   | 531   | 26 new tests for `fixes.py`; `run_fixes()` fully covered |
-| v0.19   | 531   | No new tests — GitHub Actions CI added (auto-run on push/PR) |
 | v0.20   | 548   | 17 degraded-mode tests; `ss`/rules/log absent scenarios |
-
-### v0.19 — CI GitHub Actions (2026-03-28)
-
-No new unit tests added. Added `.github/workflows/tests.yml` — pytest runs automatically on every push and pull request across Python 3.8, 3.10, and 3.12. Suite count unchanged at 531.
-
----
 
 ### v0.20 — 548/548 (2026-03-28)
 

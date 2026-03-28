@@ -14,14 +14,7 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v0.9    | 421   | Première suite complète |
 | v0.17   | 505   | 15 échecs préexistants corrigés ; suite entièrement verte |
 | v0.18   | 531   | 26 nouveaux tests pour `fixes.py` ; `run_fixes()` entièrement couvert |
-| v0.19   | 531   | Aucun nouveau test — CI GitHub Actions ajouté (exécution auto sur push/PR) |
 | v0.20   | 548   | 17 tests en mode dégradé ; scénarios `ss`/règles/log absents |
-
-### v0.19 — CI GitHub Actions (2026-03-28)
-
-Aucun nouveau test unitaire. Ajout de `.github/workflows/tests.yml` — pytest s'exécute automatiquement sur chaque push et pull request pour Python 3.8, 3.10 et 3.12. Compteur de tests inchangé : 531.
-
----
 
 ### v0.20 — 548/548 (2026-03-28)
 
