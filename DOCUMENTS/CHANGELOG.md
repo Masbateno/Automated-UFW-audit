@@ -6,6 +6,18 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.19] — 2026-03-28
+
+### TL;DR
+- GitHub Actions CI: pytest runs automatically on every push and pull request
+- Matrix: Python 3.8, 3.10, 3.12 — all three versions validated on every change
+
+### CI
+
+- **`.github/workflows/tests.yml`** — New workflow `Tests` triggered on push/PR for all branches. Runs `python -m pytest tests/ -v --tb=short` on `ubuntu-latest` with a 3-version Python matrix (3.8, 3.10, 3.12). No external dependencies beyond `pytest` — the project is stdlib-only.
+
+---
+
 ## [v0.18] — 2026-03-28
 
 ### TL;DR
