@@ -6,6 +6,8 @@ All tests use FirewallStatus instances built directly — no subprocess calls.
 Run with: python -m pytest tests/test_firewall.py -v
 """
 
+from __future__ import annotations
+
 import pytest
 from ufw_audit.checks.firewall import FirewallStatus, check_firewall, check_rules
 from ufw_audit.scoring import FindingLevel

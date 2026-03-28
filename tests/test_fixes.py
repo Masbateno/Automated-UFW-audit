@@ -36,11 +36,13 @@ def make_finding(
     message="test finding",
     nature="action",
     cmd="sudo ufw --force delete 1",
-) -> Finding:
+):
+    # type: (...) -> Finding
     return Finding(level=level, message=message, nature=nature, cmd=cmd)
 
 
-def make_engine(*findings: Finding) -> ScoreEngine:
+def make_engine(*findings):
+    # type: (*Finding) -> ScoreEngine
     """Build a ScoreEngine with pre-loaded findings."""
     engine = ScoreEngine()
     for f in findings:
@@ -48,17 +50,20 @@ def make_engine(*findings: Finding) -> ScoreEngine:
     return engine
 
 
-def make_config(yes: bool = False) -> AuditConfig:
+def make_config(yes=False):
+    # type: (bool) -> AuditConfig
     """Build an AuditConfig for fix mode."""
     return AuditConfig(fix=True, yes=yes)
 
 
-def _t(key, **kwargs) -> str:
+def _t(key, **kwargs):
+    # type: (str, **object) -> str
     """Minimal translation stub — returns the key."""
     return key
 
 
-def run_and_capture(engine, config, mock_proc=None, mock_input=None) -> str:
+def run_and_capture(engine, config, mock_proc=None, mock_input=None):
+    # type: (...) -> str
     """
     Run run_fixes with mocked subprocess and input, capture stdout.
 
@@ -75,11 +80,9 @@ def run_and_capture(engine, config, mock_proc=None, mock_input=None) -> str:
         mock_input = "n"
 
     buf = io.StringIO()
-    with (
-        patch("ufw_audit.fixes.subprocess.run", return_value=mock_proc) as _sp,
-        patch("builtins.input", return_value=mock_input) as _inp,
-        redirect_stdout(buf),
-    ):
+    with patch("ufw_audit.fixes.subprocess.run", return_value=mock_proc) as _sp, \
+         patch("builtins.input", return_value=mock_input) as _inp, \
+         redirect_stdout(buf):
         run_fixes(engine, config, _t)
 
     return buf.getvalue()
@@ -160,18 +163,16 @@ class TestDeleteSortOrder:
             calls.append(args)
             return MagicMock(returncode=0)
 
-        with (
-            patch("ufw_audit.fixes.subprocess.run", side_effect=fake_run),
-            patch("builtins.input", return_value="y"),
-            redirect_stdout(buf),
-        ):
+        with patch("ufw_audit.fixes.subprocess.run", side_effect=fake_run), \
+             patch("builtins.input", return_value="y"), \
+             redirect_stdout(buf):
             run_fixes(engine, make_config(), _t)
 
         # Both deletes were applied — extract indices
         delete_calls = [a for a in calls if "delete" in " ".join(a)]
         indices = [int(a[-1]) for a in delete_calls]
         assert indices == sorted(indices, reverse=True), \
-            f"Expected descending delete order, got {indices}"
+            "Expected descending delete order, got {}".format(indices)
 
     def test_non_delete_appended_after_deletes(self):
         """Non-delete commands run after all UFW deletes."""
@@ -185,11 +186,9 @@ class TestDeleteSortOrder:
             call_order.append(" ".join(args))
             return MagicMock(returncode=0)
 
-        with (
-            patch("ufw_audit.fixes.subprocess.run", side_effect=fake_run),
-            patch("builtins.input", return_value="y"),
-            redirect_stdout(buf),
-        ):
+        with patch("ufw_audit.fixes.subprocess.run", side_effect=fake_run), \
+             patch("builtins.input", return_value="y"), \
+             redirect_stdout(buf):
             run_fixes(engine, make_config(), _t)
 
         assert call_order.index("sudo ufw --force delete 2") < \
@@ -205,15 +204,13 @@ class TestNoItems:
     def test_empty_engine_shows_none_message(self):
         """No findings at all → 'fixes.none' shown, no subprocess call."""
         engine = make_engine()
-        with (
-            patch("ufw_audit.fixes.subprocess.run") as mock_sp,
-            patch("builtins.input") as mock_inp,
-        ):
-            buf = io.StringIO()
-            with redirect_stdout(buf):
-                run_fixes(engine, make_config(), _t)
-            mock_sp.assert_not_called()
-            mock_inp.assert_not_called()
+        buf = io.StringIO()
+        with patch("ufw_audit.fixes.subprocess.run") as mock_sp, \
+             patch("builtins.input") as mock_inp, \
+             redirect_stdout(buf):
+            run_fixes(engine, make_config(), _t)
+        mock_sp.assert_not_called()
+        mock_inp.assert_not_called()
         assert "fixes.none" in buf.getvalue()
 
     def test_only_ok_findings_shows_none_message(self):
@@ -242,12 +239,11 @@ class TestSubprocessSuccess:
         """The command string is split and passed to subprocess.run."""
         cmd = "sudo ufw --force delete 1"
         engine = make_engine(make_finding(cmd=cmd))
-        with (
-            patch("ufw_audit.fixes.subprocess.run",
-                  return_value=MagicMock(returncode=0)) as mock_sp,
-            patch("builtins.input", return_value="y"),
-            redirect_stdout(io.StringIO()),
-        ):
+        buf = io.StringIO()
+        with patch("ufw_audit.fixes.subprocess.run",
+                   return_value=MagicMock(returncode=0)) as mock_sp, \
+             patch("builtins.input", return_value="y"), \
+             redirect_stdout(buf):
             run_fixes(engine, make_config(), _t)
         mock_sp.assert_called_once()
         called_args = mock_sp.call_args[0][0]
@@ -277,11 +273,9 @@ class TestSubprocessTimeout:
         engine = make_engine(make_finding(cmd="sudo ufw --force delete 1"))
         buf = io.StringIO()
         exc = subprocess.TimeoutExpired(cmd="sudo ufw --force delete 1", timeout=30)
-        with (
-            patch("ufw_audit.fixes.subprocess.run", side_effect=exc),
-            patch("builtins.input", return_value="y"),
-            redirect_stdout(buf),
-        ):
+        with patch("ufw_audit.fixes.subprocess.run", side_effect=exc), \
+             patch("builtins.input", return_value="y"), \
+             redirect_stdout(buf):
             run_fixes(engine, make_config(), _t)
         assert "fixes.manual" in buf.getvalue()
 
@@ -289,11 +283,9 @@ class TestSubprocessTimeout:
         """OSError (command not found) → 'fixes.manual' shown."""
         engine = make_engine(make_finding(cmd="sudo ufw --force delete 1"))
         buf = io.StringIO()
-        with (
-            patch("ufw_audit.fixes.subprocess.run", side_effect=OSError("not found")),
-            patch("builtins.input", return_value="y"),
-            redirect_stdout(buf),
-        ):
+        with patch("ufw_audit.fixes.subprocess.run", side_effect=OSError("not found")), \
+             patch("builtins.input", return_value="y"), \
+             redirect_stdout(buf):
             run_fixes(engine, make_config(), _t)
         assert "fixes.manual" in buf.getvalue()
 
@@ -306,11 +298,10 @@ class TestInteractiveNo:
     def test_no_answer_skips_subprocess(self):
         """input() returns 'n' → subprocess.run not called."""
         engine = make_engine(make_finding(cmd="sudo ufw --force delete 1"))
-        with (
-            patch("ufw_audit.fixes.subprocess.run") as mock_sp,
-            patch("builtins.input", return_value="n"),
-            redirect_stdout(io.StringIO()),
-        ):
+        buf = io.StringIO()
+        with patch("ufw_audit.fixes.subprocess.run") as mock_sp, \
+             patch("builtins.input", return_value="n"), \
+             redirect_stdout(buf):
             run_fixes(engine, make_config(yes=False), _t)
         mock_sp.assert_not_called()
 
@@ -329,12 +320,11 @@ class TestAutoMode:
     def test_yes_mode_does_not_call_input(self):
         """config.yes=True → input() never called."""
         engine = make_engine(make_finding(cmd="sudo ufw --force delete 1"))
-        with (
-            patch("ufw_audit.fixes.subprocess.run",
-                  return_value=MagicMock(returncode=0)),
-            patch("builtins.input") as mock_inp,
-            redirect_stdout(io.StringIO()),
-        ):
+        buf = io.StringIO()
+        with patch("ufw_audit.fixes.subprocess.run",
+                   return_value=MagicMock(returncode=0)), \
+             patch("builtins.input") as mock_inp, \
+             redirect_stdout(buf):
             run_fixes(engine, make_config(yes=True), _t)
         mock_inp.assert_not_called()
 
@@ -344,32 +334,22 @@ class TestAutoMode:
             make_finding(cmd="sudo ufw --force delete 5"),
             make_finding(cmd="sudo ufw --force delete 3"),
         )
-        with (
-            patch("ufw_audit.fixes.subprocess.run",
-                  return_value=MagicMock(returncode=0)) as mock_sp,
-            patch("builtins.input"),
-            redirect_stdout(io.StringIO()),
-        ):
+        buf = io.StringIO()
+        with patch("ufw_audit.fixes.subprocess.run",
+                   return_value=MagicMock(returncode=0)) as mock_sp, \
+             patch("builtins.input"), \
+             redirect_stdout(buf):
             run_fixes(engine, make_config(yes=True), _t)
         assert mock_sp.call_count == 2
 
     def test_yes_mode_shows_auto_banner(self):
         """config.yes=True → auto mode banner shown before items."""
         engine = make_engine(make_finding(cmd="sudo ufw --force delete 1"))
-        with (
-            patch("ufw_audit.fixes.subprocess.run",
-                  return_value=MagicMock(returncode=0)),
-            redirect_stdout(io.StringIO()) as buf,
-        ):
-            # redirect_stdout doesn't work as context manager for assignment
-            pass
         buf = io.StringIO()
-        with (
-            patch("ufw_audit.fixes.subprocess.run",
-                  return_value=MagicMock(returncode=0)),
-            patch("builtins.input"),
-            redirect_stdout(buf),
-        ):
+        with patch("ufw_audit.fixes.subprocess.run",
+                   return_value=MagicMock(returncode=0)), \
+             patch("builtins.input"), \
+             redirect_stdout(buf):
             run_fixes(engine, make_config(yes=True), _t)
         assert "fixes.auto_mode_banner" in buf.getvalue()
 
@@ -383,12 +363,10 @@ class TestAutoSummary:
         """config.yes=True + applied → 'fixes.auto_summary_title' shown."""
         engine = make_engine(make_finding(cmd="sudo ufw --force delete 1"))
         buf = io.StringIO()
-        with (
-            patch("ufw_audit.fixes.subprocess.run",
-                  return_value=MagicMock(returncode=0)),
-            patch("builtins.input"),
-            redirect_stdout(buf),
-        ):
+        with patch("ufw_audit.fixes.subprocess.run",
+                   return_value=MagicMock(returncode=0)), \
+             patch("builtins.input"), \
+             redirect_stdout(buf):
             run_fixes(engine, make_config(yes=True), _t)
         assert "fixes.auto_summary_title" in buf.getvalue()
 
@@ -397,11 +375,9 @@ class TestAutoSummary:
         engine = make_engine(make_finding(cmd="sudo ufw --force delete 1"))
         buf = io.StringIO()
         mock_proc = MagicMock(returncode=1, stderr=b"")
-        with (
-            patch("ufw_audit.fixes.subprocess.run", return_value=mock_proc),
-            patch("builtins.input"),
-            redirect_stdout(buf),
-        ):
+        with patch("ufw_audit.fixes.subprocess.run", return_value=mock_proc), \
+             patch("builtins.input"), \
+             redirect_stdout(buf):
             run_fixes(engine, make_config(yes=True), _t)
         assert "fixes.auto_summary_title" not in buf.getvalue()
 
@@ -410,12 +386,10 @@ class TestAutoSummary:
         cmd = "sudo ufw --force delete 1"
         engine = make_engine(make_finding(cmd=cmd))
         buf = io.StringIO()
-        with (
-            patch("ufw_audit.fixes.subprocess.run",
-                  return_value=MagicMock(returncode=0)),
-            patch("builtins.input"),
-            redirect_stdout(buf),
-        ):
+        with patch("ufw_audit.fixes.subprocess.run",
+                   return_value=MagicMock(returncode=0)), \
+             patch("builtins.input"), \
+             redirect_stdout(buf):
             run_fixes(engine, make_config(yes=True), _t)
         assert cmd in buf.getvalue()
 
