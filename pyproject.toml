@@ -8,6 +8,7 @@ version = "0.22.1"
 description = "UFW firewall audit tool — cross-checks rules against listening services"
 readme = "README.md"
 license = { text = "MIT" }
+license-files = []
 requires-python = ">=3.8"
 keywords = ["ufw", "firewall", "security", "audit", "linux"]
 classifiers = [
