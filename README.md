@@ -1,217 +1,158 @@
 *[Lire en français](README_FR.md)* · *[Technical documentation](DOCUMENTS/README_TECH.md)*
 
-# 🔥 ufw-audit — Smart UFW Firewall Auditor
+# 🔒 ufw-audit
 
-Analyse your UFW configuration in seconds, detect critical misconfigurations, and fix them automatically.
+Smart UFW security audit — fast, readable, actionable.
 
-> ⚡ Designed to be **simple, readable, and actionable**
-> 🛡️ Built to catch the mistakes that actually expose your machine
+Analyses your UFW configuration, exposed services and logs to detect real risks, with clear recommendations.
+
+---
+
+## ⚡ TL;DR
+
+```bash
+sudo apt install pipx && pipx ensurepath
+# open a new terminal, then:
+pipx install ufw-audit
+sudo ~/.local/bin/ufw-audit --install-completion
+sudo ufw-audit
+```
+
+---
+
+## 🛠 Installation
+
+### Prerequisites
+
+- Linux: Debian, Ubuntu, Mint or derivative
+- UFW: `sudo apt install ufw`
+- pipx: `sudo apt install pipx && pipx ensurepath`
+
+> Open a new terminal after `pipx ensurepath` to activate the PATH.
+
+### Install
+
+```bash
+pipx install ufw-audit
+```
+
+### Enable sudo + bash completion
+
+pipx installs the binary in `~/.local/bin/`, which is not in sudo's restricted PATH.
+`--install-completion` creates the symlink `/usr/local/bin/ufw-audit` and installs the bash completion script:
+
+```bash
+sudo ~/.local/bin/ufw-audit --install-completion
+source /etc/bash_completion.d/ufw-audit
+```
+
+After this step, `sudo ufw-audit` works normally.
+
+### Uninstall
+
+```bash
+pipx uninstall ufw-audit
+```
 
 ---
 
 ## 🚀 Why ufw-audit?
 
-UFW is simple… but **easy to misconfigure**.
+- 🔍 **Full audit** — firewall, services, ports, logs, DDNS, Docker, virtualisation
+- 🎯 **Smart prioritisation** — score + classification (OK / Warning / Action required)
+- 🧠 **Context-aware** — network exposure + service criticality
+- 🛠 **Optional auto-fix** — corrections proposed or applied automatically
+- 📊 **Clear output** — human-readable + scriptable
+- 🌍 **Bilingual EN/FR**
 
-A single rule like:
+---
+
+## 🔎 What the tool analyses
+
+**🔥 Firewall (UFW)**
+- Active/inactive status
+- Dangerous rules (`allow from any`)
+- IPv4 / IPv6 consistency
+- Duplicates and errors
+
+**🌐 Exposed services (22+)**
+- SSH, Redis, PostgreSQL, Docker, etc.
+- Detection via systemd / active ports
+- Real exposure, risk level, UFW consistency
+
+**📡 Ports**
+- Open ports (`ss`)
+- Interfaces (loopback / LAN / public)
+- Unintended exposures
+
+**📜 UFW logs**
+- Suspicious attempts, brute-force detection
+- IP analysis (optional GeoIP)
+
+**☁️ DDNS / Docker / Virtualisation**
+- Advanced network correlations
+- Indirect exposure detection
+
+---
+
+## 📊 Example output
+
+```
+✔ Firewall active
+⚠ SSH exposed to the Internet
+✖ Redis open without restriction
+
+Score: 6/10
+→ Action required
+```
+
+---
+
+## ▶️ Usage
 
 ```bash
-sudo ufw allow from any
-```
-
-👉 leaves your machine **wide open to the entire Internet**.
-
-**ufw-audit detects this type of problem immediately**, explains the risk, and suggests a fix.
-
----
-
-## ✨ Key features
-
-### 🔍 Full audit
-
-- UFW rule analysis (`ufw status`)
-- Detection of dangerous configurations
-- IPv4 / IPv6 consistency check
-
-### 🚨 Intelligent risk detection
-
-- Overly permissive rules (`Anywhere ALLOW IN Anywhere`)
-- Critical ports exposed (Redis, MySQL, PostgreSQL…)
-- Redundant or useless rules
-- Services that are actually exposed — not just "open in UFW"
-
-### 🧠 Real system analysis
-
-- Cross-checks UFW against ports actually listening (`ss`)
-- Eliminates false positives (e.g. loopback-only services)
-- Filters system ports (DNS, DHCP, mDNS…)
-
-### 🌍 Internet exposure check
-
-- Detects active DDNS clients (ddclient, inadyn, No-IP, DuckDNS…)
-- Clear list of services reachable from outside
-
-### 🛠️ Automatic fixes
-
-- Removal of dangerous rules
-- Cleanup of duplicates
-- Interactive or automatic mode (`-f -y`)
-
-### 📝 Detailed reports
-
-- Full exportable report (`-d`)
-- Audit history with integrated management (`--manage-logs`)
-- Silent mode for scripts / CI (`-q`)
-
----
-
-## 📦 Installation
-
-### Recommended — pipx
-
-```bash
-pipx install ufw-audit
-sudo ufw-audit --install-completion   # bash completion + sudo PATH symlink
-```
-
-> **pipx** installs ufw-audit in an isolated environment without affecting your system Python.
-> Install pipx with: `sudo apt install pipx && pipx ensurepath`
-
-### After installation — bash completion
-
-`--install-completion` installs the bash completion script to `/etc/bash_completion.d/ufw-audit`
-and creates a symlink `/usr/local/bin/ufw-audit` so that `sudo ufw-audit` works.
-
-```
-Open a new shell or run: source /etc/bash_completion.d/ufw-audit
-```
-
-### Alternative — install.sh (deprecated)
-
-> ⚠️ **Deprecated** — the shell installer is kept for systems without pip/pipx.
-> The recommended method is `pipx install ufw-audit`.
-
-```bash
-git clone https://github.com/Masbateno/Automated-UFW-audit.git
-cd Automated-UFW-audit
-sudo ./install.sh
-```
-
-Clean uninstall:
-
-```bash
-sudo ./install.sh --uninstall
+sudo ufw-audit           # standard audit
+sudo ufw-audit -f        # interactive fix mode
+sudo ufw-audit -f -y     # auto-fix without confirmation
+sudo ufw-audit -v        # verbose
+sudo ufw-audit -q        # silent — exit code 0/1/2/3
+sudo ufw-audit --french  # French interface
 ```
 
 ---
 
-## ⚡ Quick start
+## 🤖 Automation
 
-```bash
-# Standard audit
-sudo ufw-audit
-
-# Detailed mode (save report to file)
-sudo ufw-audit -d
-
-# Interactive fix mode
-sudo ufw-audit -f
-
-# Apply all fixes without confirmation
-sudo ufw-audit -f -y
-
-# Silent mode (scripts / CI)
-sudo ufw-audit -q
-echo $?   # 0 = clean · 1 = warnings · 2 = alerts · 3 = error
-
-# French interface
-sudo ufw-audit --french
-```
+- 🕒 Built-in cron (`--install-cron`)
+- 📧 Email notifications (HTML + plain text)
+- 📁 Report management (`--manage-logs`)
+- 🔁 Multi-job scheduling (`--manage-cron`)
 
 ---
 
-## 🧪 Example output
+## 🧪 Quality & reliability
 
-```text
-✖ [ALERT] Port 22/tcp: exposure = open to internet
-    → sudo ufw delete allow 22/tcp
-    → sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp
-
-╔══════════════════════════════════════════════════════════════╗
-║  Security score : 7/10                                       ║
-║  Risk level     : ⚠ MEDIUM                                   ║
-╠══════════════════════════════════════════════════════════════╣
-║  ✖ Action required                                           ║
-║    ✖  Port 22/tcp: exposure = open to internet               ║
-╠══════════════════════════════════════════════════════════════╣
-║  Score breakdown                                             ║
-║    -2  Port 22/tcp exposed to internet                       ║
-╚══════════════════════════════════════════════════════════════╝
-```
+- ✅ 619 unit tests
+- 🧱 Modular architecture (snapshot / check separated)
+- 🧪 Tested on Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 📊 Security score
+## 🆕 v1.0
 
-Each audit produces a score out of 10:
-
-| Score | Meaning |
-|-------|---------|
-| **10/10** | Clean configuration |
-| **7 – 9** | Some improvements possible |
-| **< 5** | ⚠️ Serious issues |
-| **≤ 2** | 🔥 Critical — major exposure |
-
-Scores account for network context: penalties are doubled on machines directly exposed to the Internet.
+- 📦 PyPI packaging — `pipx install ufw-audit`
+- 🔌 Clean CLI entry point (`ufw-audit`)
+- 🧩 Built-in bash completion (`--install-completion`)
+- 🗂 Bundled data (service registry + locales)
+- ⚙️ Python ≥ 3.9
 
 ---
 
-## 🧠 What makes ufw-audit different
+## 🧠 Philosophy
 
-✔ Doesn't just read UFW rules
-✔ Checks **services actually listening** via `ss`
-✔ Avoids false positives (loopback, system ports, dangling rules)
-✔ Provides **ready-to-run fix commands**
-✔ Designed for regular use (cron, CI…)
+Not just listing ports — understanding the real risk.
 
----
-
-## 🔄 Detected cases
-
-| Case | Level |
-|------|-------|
-| `ufw allow from any` — full open | ✖ Alert |
-| `80/tcp` + `80` — redundant rule | ✖ Alert |
-| Redis exposed on `0.0.0.0` with open UFW rule | ✖ Alert |
-| Docker bypasses UFW via iptables | ⚠ Warning |
-| IPv6 not covered | ⚠ Warning |
-| Service on loopback only (no real risk) | ℹ Info |
-| Open port with no active service (orphan rule) | ℹ Info |
-
----
-
-## ⏱️ Automation
-
-Set up an automated audit:
-
-```bash
-sudo ufw-audit --install-cron
-```
-
-A 4-step wizard: job name, schedule type (daily / specific weekdays / specific month days / custom cron expression), time, optional notification email.
-
-Manage existing jobs:
-
-```bash
-sudo ufw-audit --manage-cron
-```
-
----
-
-## 🌍 Languages
-
-- 🇬🇧 English (default)
-- 🇫🇷 French (`--french`)
+ufw-audit prioritises what matters: real exposure, attack surface, potential impact.
 
 ---
 
@@ -219,100 +160,35 @@ sudo ufw-audit --manage-cron
 
 ```text
 Automated-UFW-audit/
-├── README.md                   # project overview (EN) — you are here
-├── README_FR.md                # project overview (FR)
-├── LICENSE                     # MIT License
-├── .gitignore
-├── pyproject.toml              # build config (pip/pipx install)
-├── install.sh                  # shell installer [DEPRECATED]
-├── DOCUMENTS/                  # full documentation
-│   ├── README_TECH.md          # complete technical reference (EN)
-│   ├── README_TECH_FR.md       # complete technical reference (FR)
-│   ├── CHANGELOG.md / _FR.md   # version history
-│   ├── TESTING.md / _FR.md     # test plan & validated scenarios
-│   ├── AUTOMATION.md / _FR.md  # cron & CI automation guide
-│   └── README_DEV.md / _FR.md  # developer notes
-├── ufw_audit/                  # main Python package
-│   ├── __main__.py             # orchestrator — entry point
-│   ├── cli.py                  # CLI argument parsing
-│   ├── config.py               # user config & email store (~/.config/ufw-audit/)
-│   ├── cron.py                 # multi-job scheduler (--install-cron / --manage-cron)
-│   ├── display.py              # terminal output helpers
-│   ├── fixes.py                # interactive fix mode UI
-│   ├── i18n.py                 # translation loader
-│   ├── manage_logs.py          # report file management UI
-│   ├── output.py               # print primitives (OK / WARN / ALERT / INFO)
-│   ├── panorama.py             # services panorama table builder
-│   ├── registry.py             # known services registry (services.json loader)
-│   ├── report.py               # plain-text report writer
-│   ├── report_markdown.py      # markdown → HTML email report
-│   ├── scoring.py              # scoring engine (0–10)
-│   ├── sysinfo.py              # system info collection
-│   ├── checks/
-│   │   ├── firewall.py         # UFW status & rule analysis
-│   │   ├── services.py         # 22 known services — exposure classification
-│   │   ├── ports.py            # listening ports analysis (ss)
-│   │   ├── logs.py             # UFW log parsing & brute-force detection
-│   │   ├── ddns.py             # DDNS / internet exposure detection
-│   │   ├── docker.py           # Docker iptables-bypass detection
-│   │   └── virtualization.py   # hypervisor & snap bridge detection
+├── README.md / README_FR.md        # project overview (EN/FR)
+├── LICENSE
+├── pyproject.toml                  # build config (pip/pipx install)
+├── install.sh                      # shell installer [DEPRECATED]
+├── DOCUMENTS/
+│   ├── README_TECH.md / _FR.md     # complete technical reference
+│   ├── README_DEV.md / _FR.md      # developer documentation
+│   ├── CHANGELOG.md / _FR.md       # version history
+│   ├── TESTING.md / _FR.md         # test plan & validated scenarios
+│   └── AUTOMATION.md / _FR.md      # cron & automation guide
+├── ufw_audit/                      # Python package
+│   ├── checks/                     # firewall, services, ports, logs, ddns, docker, virt
 │   ├── data/
-│   │   ├── services.json       # 22 service definitions (ports, risk, context)
-│   │   └── ufw-audit.bash-completion  # bash completion script
+│   │   ├── services.json           # 22 service definitions
+│   │   └── ufw-audit.bash-completion
 │   └── locales/
-│       ├── en.json             # English strings
-│       └── fr.json             # French strings
-└── tests/                      # unit test suite (one file per module)
+│       ├── en.json
+│       └── fr.json
+└── tests/                          # 619 unit tests
 ```
-
----
-
-## 🛡️ Important note
-
-ufw-audit is an audit and diagnostic tool — **not a security shield**. It analyses your configuration and flags problems, but does not replace good general security hygiene. Some software like Docker can bypass UFW by directly manipulating iptables: ufw-audit detects this specific case, but other similar vectors exist outside the current scope of the project.
-
-⚠️ Always review changes before applying them in production.
-
----
-
-## 📌 Roadmap
-
-**v0.15** ✅ — Security hardening, DRY refactoring, install script fixes, IPv6 wildcard detection bug fix
-
-**v0.16** ✅ — Panorama bug fixes (`Exposure.NOT_LISTENING`, `Exposure.LOOPBACK_NO_RULE`); full regression test suite
-
-**v0.17** ✅ — 505/505 unit tests green; 15 pre-existing failures fixed
-
-**v0.18** ✅ — 26 new tests for `fixes.py`; `run_fixes()` fully covered
-
-**v0.19** ✅ — GitHub Actions CI; pytest matrix Python 3.8 / 3.10 / 3.12
-
-**v0.20** ✅ — 17 degraded-mode tests; `ss`/rules/log absent scenarios
-
-**v0.21** ✅ — Pre-v1.0 quality pass: 78 new tests + 3 bug fixes; `--manage-cron` email address book; 619/619
-
-**v0.22** ✅ — Internal quality pass: 5 modules refactored; box-border alignment fixed; `meta` removed from `CheckResult`
-
-**v0.22.1** ✅ — Hotfix: UFW detected as inactive on French-locale systems (`LANGUAGE` env var now cleared)
-
-**v1.0** ✅ *(current)* — Stable release; `pipx install ufw-audit`; `--install-completion`; Python 3.9+; `not_listening` locale fix; install.sh deprecated
-
-**Post v1.0** — Web UI (`--gui`) for non-technical users
-
----
-
-## 🤝 Contributing
-
-Contributions welcome — issues, suggestions, pull requests.
 
 ---
 
 ## 📄 License
 
-MIT License — © 2026 Cédric Clauzel
+MIT — © 2026 Cédric Clauzel
 
 ---
 
-## 💬 TL;DR
+## 🤝 Contributing
 
-> ufw-audit turns UFW into a **reliable, verified, and understandable** firewall.
+Bug reports, new detections, UX improvements — contributions welcome.

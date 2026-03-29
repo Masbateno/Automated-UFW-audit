@@ -86,31 +86,35 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 
 ## Installation
 
-### Recommandé — pipx
+### Prérequis
+
+- Système Linux — Debian, Ubuntu, Linux Mint, ou dérivé
+- UFW installé : `sudo apt install ufw`
+- pipx : `sudo apt install pipx && pipx ensurepath`
+
+> Ouvrir un nouveau terminal après `pipx ensurepath` pour activer le PATH.
+
+### Installer
 
 ```bash
 pipx install ufw-audit
-sudo ufw-audit --install-completion   # autocomplétion bash + lien symbolique sudo PATH
 ```
 
-> **pipx** installe ufw-audit dans un environnement isolé sans toucher au Python système.
-> Installer pipx avec : `sudo apt install pipx && pipx ensurepath`
+### Activer sudo + autocomplétion bash
 
-`--install-completion` installe le script d'autocomplétion bash dans `/etc/bash_completion.d/ufw-audit`
-et crée un lien symbolique `/usr/local/bin/ufw-audit` pour que `sudo ufw-audit` fonctionne depuis n'importe quel shell.
-
-Après avoir lancé `--install-completion`, activez l'autocomplétion pour la session courante :
+pipx installe le binaire dans `~/.local/bin/`, absent du PATH restreint de sudo.
+`--install-completion` crée le lien symbolique `/usr/local/bin/ufw-audit` et installe le script d'autocomplétion bash :
 
 ```bash
+sudo ~/.local/bin/ufw-audit --install-completion
 source /etc/bash_completion.d/ufw-audit
 ```
 
-Puis utilisez `ufw-audit --<TAB>` pour compléter les options.
+Après cette étape, `sudo ufw-audit` fonctionne normalement et `ufw-audit --<TAB>` complète les options.
 
 ### Alternative — install.sh (déprécié)
 
 > ⚠️ **Déprécié** — conservé pour les systèmes sans accès pip/pipx.
-> La méthode recommandée est `pipx install ufw-audit`.
 
 ```bash
 git clone https://github.com/Masbateno/Automated-UFW-audit.git
