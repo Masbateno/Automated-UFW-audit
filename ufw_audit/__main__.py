@@ -12,8 +12,10 @@ Run as:
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 from datetime import datetime
+from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Version — single source of truth in ufw_audit/__init__.py
@@ -97,6 +99,20 @@ def _run(argv=None) -> int:
         output.init(no_color=config.no_color)
         print_help(i18n.t, VERSION)
         return 0
+
+    # --- Handle --install-completion (requires root) ---
+    if config.install_completion:
+        require_root()
+        src = Path(__file__).parent / "data" / "ufw-audit.bash-completion"
+        dst = Path("/etc/bash_completion.d/ufw-audit")
+        try:
+            shutil.copy2(src, dst)
+            print(f"✔ Bash completion installed: {dst}")
+            print("  Reload your shell or run: source /etc/bash_completion.d/ufw-audit")
+        except OSError as exc:
+            print(f"✖ Failed to install completion: {exc}", file=sys.stderr)
+            return EXIT_ERROR
+        return EXIT_OK
 
     # --- Root check — required for all modes ---
     require_root()

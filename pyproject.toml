@@ -39,6 +39,6 @@ include = ["ufw_audit*"]
 
 [tool.setuptools.package-data]
 ufw_audit = [
-    "data/*.json",
+    "data/*",
     "locales/*.json",
 ]
