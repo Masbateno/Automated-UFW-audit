@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.0.1](#v101) | 2026-03-29 | Hotfix: SSH on non-standard port not detected; TCP high ports wrongly classified as ephemeral |
 | [v1.0](#v10) | 2026-03-29 | PyPI packaging, `--install-completion`, Python 3.9+, install.sh deprecated |
 | [v0.22.1](#v0221) | 2026-03-29 | Hotfix: firewall detected inactive on French-locale systems |
 | [v0.22](#v022) | 2026-03-29 | 5 modules refactored, box-border alignment fixed, `CheckResult` cleanup |
@@ -26,6 +27,16 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.0.1
+
+**2026-03-29**
+
+- Bug fix: SSH on a non-standard port (e.g. `Port 49732` in sshd_config) was always reported as listening on 22 — auto-detection now reads `/etc/ssh/sshd_config` correctly
+- Bug fix: TCP ports above 32767 were wrongly classified as ephemeral — only UDP high ports are ephemeral; TCP LISTEN sockets are always server sockets
+- 634/634 unit tests (15 new)
 
 ---
 

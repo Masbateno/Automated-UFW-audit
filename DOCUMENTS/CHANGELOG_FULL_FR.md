@@ -6,6 +6,19 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.0.1] — 2026-03-29
+
+### Corrections
+
+- **Détection du port SSH** — SSH sur un port non-standard était toujours signalé sur le port 22. Cause : `config_key` valait `"ssh_port"` dans le registre mais `_resolve_ports()` ne déclenche la détection automatique que pour `"auto"`. De plus, le regex de `_auto_detect_port()` exigeait `=` ou `:` comme séparateur, alors que sshd_config utilise un espace (`Port 49732`). Les deux points corrigés : `config_key` passé à `"auto"`, regex mis à jour vers `(?:\s*[=:]\s*|\s+)`.
+- **Ports TCP élevés classés comme éphémères** — Les ports supérieurs à 32767 en TCP étaient marqués éphémères et silencieusement ignorés. Les sockets TCP retournés par `ss -tuln` sont toujours en état LISTEN (sockets serveur) — ils ne peuvent pas être éphémères. Le filtre éphémère s'applique désormais à UDP uniquement.
+
+### Tests
+
+- 634/634 — 15 nouveaux tests : `test_ephemeral_udp`, `test_tcp_high_port_not_ephemeral`, `test_sshd_config_space_format`, `test_sshd_config_commented_port_ignored`
+
+---
+
 ## [v1.0] — 2026-03-29
 
 ### TL;DR

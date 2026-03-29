@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.0.1](#v101) | 2026-03-29 | Hotfix : SSH sur port non-standard non détecté ; ports TCP élevés classés à tort comme éphémères |
 | [v1.0](#v10) | 2026-03-29 | Packaging PyPI, `--install-completion`, Python 3.9+, install.sh déprécié |
 | [v0.22.1](#v0221) | 2026-03-29 | Hotfix : pare-feu détecté inactif sur les locales non-anglaises |
 | [v0.22](#v022) | 2026-03-29 | 5 modules refactorisés, alignement des cadres corrigé, `CheckResult` nettoyé |
@@ -26,6 +27,16 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.0.1
+
+**2026-03-29**
+
+- Correction : SSH sur un port non-standard (ex. `Port 49732` dans sshd_config) était toujours signalé sur le port 22 — la détection automatique lit désormais `/etc/ssh/sshd_config` correctement
+- Correction : les ports TCP supérieurs à 32767 étaient classés comme éphémères à tort — seuls les ports UDP élevés sont éphémères ; les sockets TCP LISTEN sont toujours des sockets serveur
+- 634/634 tests unitaires (15 nouveaux)
 
 ---
 

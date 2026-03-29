@@ -266,8 +266,8 @@ def check_ports(
 def _categorize_port(lport: ListeningPort, ufw_rules: str) -> PortCategory:
     """Classify a single listening port."""
 
-    # Ephemeral
-    if lport.port > EPHEMERAL_THRESHOLD:
+    # Ephemeral — only applies to UDP; TCP sockets in ss -l are always LISTEN (server sockets)
+    if lport.proto == "udp" and lport.port > EPHEMERAL_THRESHOLD:
         return PortCategory.EPHEMERAL
 
     # System internal

@@ -654,3 +654,20 @@ class TestAutoDetectPort:
         cfg.write_text("port = 5353\n")
         svc = self._make_service_with_config(str(cfg), proto="udp")
         assert _auto_detect_port(svc) == "5353/udp"
+
+    def test_sshd_config_space_format(self, tmp_path):
+        """sshd_config uses 'Port 49732' (space-separated, no = or :) — must be detected."""
+        cfg = tmp_path / "sshd_config"
+        cfg.write_text("# This is the sshd server system-wide configuration file.\n"
+                       "# Default: 22\n"
+                       "Port 49732\n"
+                       "PermitRootLogin no\n")
+        svc = self._make_service_with_config(str(cfg))
+        assert _auto_detect_port(svc) == "49732/tcp"
+
+    def test_sshd_config_commented_port_ignored(self, tmp_path):
+        """'# Port 49732' (commented) must not be detected."""
+        cfg = tmp_path / "sshd_config"
+        cfg.write_text("# Port 49732\n")
+        svc = self._make_service_with_config(str(cfg))
+        assert _auto_detect_port(svc) is None

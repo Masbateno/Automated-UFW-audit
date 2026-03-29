@@ -509,7 +509,7 @@ def _auto_detect_port(service: Service) -> Optional[str]:
         # Generic patterns — specific services may need custom parsing
         # Port = 8080 / port=8080 / listen 8080 / HTTP_PORT = 3000
         match = re.search(
-            r"(?:^|\s)(?:port|listen|HTTP_PORT|http_port)\s*[=:]\s*(\d+)",
+            r"(?:^|\s)(?:port|listen|HTTP_PORT|http_port)(?:\s*[=:]\s*|\s+)(\d+)",
             content_clean,
             re.IGNORECASE | re.MULTILINE,
         )

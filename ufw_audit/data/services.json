@@ -6,7 +6,7 @@
     "services": ["ssh"],
     "ports": ["22/tcp"],
     "risk": "critical",
-    "config_key": "ssh_port",
+    "config_key": "auto",
     "detection": {
       "binary": [],
       "snap": [],

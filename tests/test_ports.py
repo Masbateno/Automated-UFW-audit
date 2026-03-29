@@ -178,9 +178,14 @@ class TestIsCoveredByUfw:
 # ---------------------------------------------------------------------------
 
 class TestCategorizePort:
-    def test_ephemeral(self):
-        p = make_port(port=EPHEMERAL_THRESHOLD + 1)
+    def test_ephemeral_udp(self):
+        p = make_port(port=EPHEMERAL_THRESHOLD + 1, proto="udp")
         assert _categorize_port(p, "") == PortCategory.EPHEMERAL
+
+    def test_tcp_high_port_not_ephemeral(self):
+        """TCP ports above the threshold are server sockets (LISTEN), not ephemeral."""
+        p = make_port(port=EPHEMERAL_THRESHOLD + 1, proto="tcp", address="0.0.0.0")
+        assert _categorize_port(p, "") != PortCategory.EPHEMERAL
 
     def test_system_dns_tcp(self):
         p = make_port(port=53, proto="tcp", address="127.0.0.1")
@@ -260,7 +265,7 @@ class TestCheckPorts:
 
     def test_ephemeral_info(self):
         snapshot = make_snapshot(
-            ports=[make_port(port=EPHEMERAL_THRESHOLD + 1)],
+            ports=[make_port(port=EPHEMERAL_THRESHOLD + 1, proto="udp")],
             ufw_rules="",
         )
         result = check_ports(snapshot)
