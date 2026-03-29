@@ -18,7 +18,9 @@ logger = logging.getLogger(__name__)
 # Force English output for all system commands so regexes work regardless
 # of the system locale (e.g. French UFW outputs "État : actif" instead of
 # "Status: active" when LC_ALL is not overridden).
-_C_LOCALE_ENV = {**os.environ, "LC_ALL": "C", "LANG": "C"}
+# LANGUAGE must be cleared explicitly: gettext gives it higher priority
+# than LC_ALL, so "LANGUAGE=fr_FR" would still override LC_ALL=C.
+_C_LOCALE_ENV = {**os.environ, "LC_ALL": "C", "LANG": "C", "LANGUAGE": ""}
 
 
 def _run(*args: str) -> str:
