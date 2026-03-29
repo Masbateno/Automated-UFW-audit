@@ -103,16 +103,43 @@ def _run(argv=None) -> int:
     # --- Handle --install-completion (requires root) ---
     if config.install_completion:
         require_root()
+        ok = True
+
+        # 1. Install bash completion script
         src = Path(__file__).parent / "data" / "ufw-audit.bash-completion"
-        dst = Path("/etc/bash_completion.d/ufw-audit")
+        dst_comp = Path("/etc/bash_completion.d/ufw-audit")
         try:
-            shutil.copy2(src, dst)
-            print(f"✔ Bash completion installed: {dst}")
-            print("  Reload your shell or run: source /etc/bash_completion.d/ufw-audit")
+            shutil.copy2(src, dst_comp)
+            print(f"✔ Bash completion installed: {dst_comp}")
         except OSError as exc:
-            print(f"✖ Failed to install completion: {exc}", file=sys.stderr)
-            return EXIT_ERROR
-        return EXIT_OK
+            print(f"✖ Failed to install completion script: {exc}", file=sys.stderr)
+            ok = False
+
+        # 2. Symlink binary to /usr/local/bin so sudo can find it
+        dst_bin = Path("/usr/local/bin/ufw-audit")
+        sudo_user = os.environ.get("SUDO_USER")
+        bin_src = None
+        if sudo_user:
+            import pwd
+            home = Path(pwd.getpwnam(sudo_user).pw_dir)
+            candidate = home / ".local" / "bin" / "ufw-audit"
+            if candidate.exists():
+                bin_src = candidate
+        if bin_src:
+            try:
+                if dst_bin.exists() or dst_bin.is_symlink():
+                    dst_bin.unlink()
+                dst_bin.symlink_to(bin_src)
+                print(f"✔ Symlink created: {dst_bin} → {bin_src}")
+            except OSError as exc:
+                print(f"✖ Failed to create symlink: {exc}", file=sys.stderr)
+                ok = False
+        else:
+            print("ℹ  Symlink skipped — binary not found in ~/.local/bin")
+
+        if ok:
+            print("  Open a new shell or run: source /etc/bash_completion.d/ufw-audit")
+        return EXIT_OK if ok else EXIT_ERROR
 
     # --- Root check — required for all modes ---
     require_root()
