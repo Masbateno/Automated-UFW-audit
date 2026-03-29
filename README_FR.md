@@ -223,8 +223,8 @@ Automated-UFW-audit/
 ├── README_FR.md                # présentation du projet (FR) — vous êtes ici
 ├── LICENSE                     # licence MIT
 ├── .gitignore
-├── install.sh                  # installeur / désinstalleur
-├── ufw-audit.bash-completion   # complétion bash
+├── pyproject.toml              # config de build (installation pip/pipx)
+├── install.sh                  # installeur shell [DÉPRÉCIÉ]
 ├── DOCUMENTS/                  # documentation complète
 │   ├── README_TECH.md          # référence technique complète (EN)
 │   ├── README_TECH_FR.md       # référence technique complète (FR)
@@ -257,7 +257,8 @@ Automated-UFW-audit/
 │   │   ├── docker.py           # détection du contournement iptables par Docker
 │   │   └── virtualization.py   # détection hyperviseur & bridges snap
 │   ├── data/
-│   │   └── services.json       # définitions des 22 services (ports, risque, contexte)
+│   │   ├── services.json       # définitions des 22 services (ports, risque, contexte)
+│   │   └── ufw-audit.bash-completion  # script d'autocomplétion bash
 │   └── locales/
 │       ├── en.json             # chaînes anglaises
 │       └── fr.json             # chaînes françaises
@@ -292,9 +293,9 @@ ufw-audit est un outil d'audit et de diagnostic — **pas un bouclier de sécuri
 
 **v0.22** ✅ — Passe qualité interne : 5 modules refactorisés ; alignement des cadres corrigé ; `meta` supprimé de `CheckResult`
 
-**v0.22.1** ✅ *(actuel)* — Hotfix : pare-feu détecté comme inactif sur les systèmes en locale française (variable `LANGUAGE` maintenant vidée)
+**v0.22.1** ✅ — Hotfix : pare-feu détecté comme inactif sur les systèmes en locale française (variable `LANGUAGE` maintenant vidée)
 
-**v1.0** — Version stable, complète, validée — Debian 12, packaging final
+**v1.0** ✅ *(actuel)* — Version stable ; `pipx install ufw-audit` ; `--install-completion` ; Python 3.9+ ; correctif locale `not_listening` ; install.sh déprécié
 
 **Post v1.0** — Interface web (`--gui`) pour utilisateurs non techniques
 
