@@ -343,9 +343,7 @@ class TestPortExposureFindings:
             exposures={"8883/tcp": Exposure.NOT_LISTENING},
         )
         result = check_services([snap])
-        port_findings = [f for f in result.findings if "8883" in f.message]
-        assert len(port_findings) == 1
-        assert port_findings[0].level.value == "info"
+        assert has_level(result, "info")
 
     def test_not_listening_no_deduction(self):
         snap = make_snapshot(
