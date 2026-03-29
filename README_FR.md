@@ -67,35 +67,37 @@ sudo ufw allow from any
 
 ## 📦 Installation
 
+### Recommandé — pipx
+
+```bash
+pipx install ufw-audit
+sudo ufw-audit --install-completion   # complétion bash + lien symbolique sudo PATH
+```
+
+> **pipx** installe ufw-audit dans un environnement isolé sans toucher votre Python système.
+> Installer pipx avec : `sudo apt install pipx && pipx ensurepath`
+
+### Après l'installation — complétion bash
+
+`--install-completion` installe le script de complétion bash dans `/etc/bash_completion.d/ufw-audit`
+et crée un lien symbolique `/usr/local/bin/ufw-audit` pour que `sudo ufw-audit` fonctionne.
+
+```
+Ouvrez un nouveau shell ou exécutez : source /etc/bash_completion.d/ufw-audit
+```
+
+### Alternative — install.sh (déprécié)
+
+> ⚠️ **Déprécié** — le script shell est conservé pour les systèmes sans pip/pipx.
+> La méthode recommandée est `pipx install ufw-audit`.
+
 ```bash
 git clone https://github.com/Masbateno/Automated-UFW-audit.git
 cd Automated-UFW-audit
 sudo ./install.sh
 ```
 
-### 🔍 Transparent par conception
-
-L'installeur est conçu pour que **rien ne se passe silencieusement**. Chaque action est affichée dans le terminal au fur et à mesure. Un manifeste d'installation complet est écrit dans `/usr/local/share/ufw-audit/install.manifest` — un relevé précis de chaque fichier et répertoire créé sur votre système.
-
-Ce que fait l'installeur :
-- Vérifie la présence de Python 3.8+
-- Copie le paquet dans `/usr/local/lib/ufw_audit/`
-- Copie les fichiers de données dans `/usr/local/share/ufw-audit/`
-- Crée le point d'entrée `/usr/local/bin/ufw-audit`
-- Installe la complétion bash dans `/etc/bash_completion.d/ufw-audit`
-- Écrit le manifeste d'installation
-
-### 👁 Aperçu avant installation
-
-Pas certain ? Lancez d'abord un dry-run — il affiche chaque action qui *serait* effectuée, sans toucher votre système :
-
-```bash
-sudo ./install.sh --dry-run
-```
-
-### 🧹 Désinstallation propre
-
-Le désinstalleur lit le manifeste et supprime **exactement** ce qui a été installé — ni plus, ni moins. Les répertoires ne sont supprimés que s'ils sont vides. Votre configuration utilisateur (`~/.config/ufw-audit/`) est conservée par défaut et supprimée uniquement sur confirmation explicite.
+Désinstallation propre :
 
 ```bash
 sudo ./install.sh --uninstall
