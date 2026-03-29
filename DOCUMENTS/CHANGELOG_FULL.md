@@ -1,4 +1,4 @@
-*[Lire en français](CHANGELOG_FR.md)*
+*[Lire en français](CHANGELOG_FULL_FR.md)* · *[TL;DR](../CHANGELOG.md)*
 
 # UFW-audit — Changelog
 

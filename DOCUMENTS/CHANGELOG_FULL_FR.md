@@ -1,4 +1,4 @@
-*[Read in English](CHANGELOG.md)*
+*[Read in English](CHANGELOG_FULL.md)* · *[TL;DR](../CHANGELOG_FR.md)*
 
 # UFW-audit — Journal des modifications
 

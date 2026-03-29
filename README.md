@@ -167,7 +167,7 @@ Automated-UFW-audit/
 ├── DOCUMENTS/
 │   ├── README_TECH.md / _FR.md     # complete technical reference
 │   ├── README_DEV.md / _FR.md      # developer documentation
-│   ├── CHANGELOG.md / _FR.md       # version history
+│   ├── CHANGELOG_FULL.md / _FR.md  # full version history
 │   ├── TESTING.md / _FR.md         # test plan & validated scenarios
 │   └── AUTOMATION.md / _FR.md      # cron & automation guide
 ├── ufw_audit/                      # Python package

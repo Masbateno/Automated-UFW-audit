@@ -136,7 +136,7 @@ pyproject.toml           # Config de build (setuptools, installation pip/pipx)
 install.sh               # Installateur shell [DÉPRÉCIÉ — utiliser pipx install ufw-audit]
 README.md / README_FR.md           # Documentation utilisateur (EN/FR)
 README_DEV.md / README_DEV_FR.md   # Ce fichier (EN/FR)
-CHANGELOG.md / CHANGELOG_FR.md     # Historique des versions (EN/FR)
+CHANGELOG_FULL.md / CHANGELOG_FULL_FR.md  # Historique complet des versions (EN/FR)
 TESTING.md / TESTING_FR.md         # Plan de test manuel (EN/FR)
 AUTOMATION.md / AUTOMATION_FR.md   # Guide d'automatisation (EN/FR)
 ```

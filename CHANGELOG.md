@@ -1,0 +1,250 @@
+*[Lire en français](CHANGELOG_FR.md)* · *[Full changelog](DOCUMENTS/CHANGELOG_FULL.md)*
+
+# ufw-audit — Changelog
+
+| Version | Date | Summary |
+|---------|------|---------|
+| [v1.0](#v10) | 2026-03-29 | PyPI packaging, `--install-completion`, Python 3.9+, install.sh deprecated |
+| [v0.22.1](#v0221) | 2026-03-29 | Hotfix: firewall detected inactive on French-locale systems |
+| [v0.22](#v022) | 2026-03-29 | 5 modules refactored, box-border alignment fixed, `CheckResult` cleanup |
+| [v0.21](#v021) | 2026-03-28 | 619/619 tests — CGNAT/IPv6 false-positive fixes, `--manage-cron` email book |
+| [v0.20](#v020) | 2026-03-28 | 548/548 — 17 degraded-mode tests (`ss`/rules/log absent) |
+| [v0.19](#v019) | 2026-03-28 | GitHub Actions CI — Python 3.8/3.10/3.12 matrix |
+| [v0.18](#v018) | 2026-03-28 | 531/531 — 26 new tests for `fixes.py` |
+| [v0.17](#v017) | 2026-03-28 | 505/505 — 15 pre-existing failures fixed; two code bug fixes |
+| [v0.16](#v016) | 2026-03-28 | Panorama false-positives: `NOT_LISTENING` + `LOOPBACK_NO_RULE` fixed |
+| [v0.15.1](#v0151) | 2026-03-27 | Install script: transactional rollback; fix UI cleaner |
+| [v0.15](#v015) | 2026-03-27 | Security audit (8 fixes), DRY refactor, IPv6 wildcard detection fixed |
+| [v0.14.1](#v0141) | 2026-03-26 | False positives: loopback Redis, DDNS system ports, VERSION banner |
+| [v0.14](#v014) | 2026-03-25 | `__main__.py` 1820→481 lines — 5 new modules extracted |
+| [v0.13](#v013) | 2026-03-24 | Multi-cron scheduler, `--manage-cron` TUI, 40+ cron tests |
+| [v0.12](#v012) | 2026-03-24 | HTML email reports, zero-dependency markdown→HTML |
+| [v0.11.4](#v0114) | 2026-03-23 | Open-any regex fixed, critical services→Action required, `TESTING.md` |
+| [v0.11.3](#v0113) | 2026-03-23 | `--install-cron`, `--manage-logs`, services panorama, auto-fix banner |
+| [v0.11.2](#v0112) | 2026-03-22 | Banner redesigned (Doom ASCII art), port messages rewritten |
+| [v0.11.1](#v0111) | 2026-03-22 | Security patch: 20 vulnerabilities fixed |
+| [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
+| [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
+| [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.0
+
+**2026-03-29**
+
+- PyPI packaging — `pipx install ufw-audit` is now the recommended install method
+- `--install-completion` — installs bash completion + `/usr/local/bin/` symlink for sudo PATH
+- Bug fix: `services.exposure.not_listening` key displayed raw in audit output
+- `install.sh` deprecated; Python 3.9 minimum; CI matrix updated (3.9/3.10/3.12)
+
+---
+
+## v0.22.1
+
+**2026-03-29**
+
+- Hotfix: UFW detected as inactive on non-English locale systems
+- Root cause: `LANGUAGE` env var overrides `LC_ALL=C` in gettext — now cleared in all subprocess calls
+
+---
+
+## v0.22
+
+**2026-03-29**
+
+- 5 modules refactored (`__main__`, `firewall`, `services`, `scoring`, `output`) — no new features
+- Box-border alignment fixed across all UI frames (wide Unicode + wrong overhead constant)
+- `meta: dict` removed from `CheckResult` → typed `open_ports: List[str]`
+- `FirewallStatus` caches subprocess output — no duplicate `ufw status` calls
+
+---
+
+## v0.21
+
+**2026-03-28** — 619/619 tests
+
+- 78 new tests + 3 bug fixes — pre-v1.0 quality pass
+- False positive fix: CGNAT (`100.64/10`) and IPv6 private ranges were classified `OPEN_WORLD`
+- False positive fix: commented config lines matched by port-detection regex
+- `--manage-cron` gains a full email address book (add/delete/clear)
+- `--fix` / `--manage-logs` / `--install-cron` / `--manage-cron` are now mutually exclusive
+
+---
+
+## v0.20
+
+**2026-03-28** — 548/548 tests
+
+- 17 new degraded-mode tests: `ss` absent, empty UFW rules, missing log file, combined degradation
+- No crash, no false deductions when system tools are unavailable
+
+---
+
+## v0.19
+
+**2026-03-28**
+
+- GitHub Actions CI: pytest on every push/PR
+- Python 3.8 / 3.10 / 3.12 matrix on ubuntu-latest
+
+---
+
+## v0.18
+
+**2026-03-28** — 531/531 tests
+
+- 26 new tests for `fixes.py` — `run_fixes()` fully covered
+- Item classification, subprocess success/failure/timeout, interactive and auto (`--yes`) modes
+
+---
+
+## v0.17
+
+**2026-03-28** — 505/505 tests
+
+- 15 pre-existing test failures fixed across 6 files — no functional change to the audit
+- Bug fix: DuckDNS domain extraction (`?domains=` query param)
+- Bug fix: `cron_to_human` DOW range guard (`1-5` no longer routed to weekday path)
+
+---
+
+## v0.16
+
+**2026-03-28**
+
+- `Exposure.NOT_LISTENING` — registry port with no active listener → panorama ✔, no message (was ✖)
+- `Exposure.LOOPBACK_NO_RULE` — loopback port without UFW rule → panorama ✔, INFO message (was ✖)
+- Full regression suite completed (C6 × 9 services, C8, E1) — zero `pending` entries
+
+---
+
+## v0.15.1
+
+**2026-03-27**
+
+- Install script: trap + rollback on partial failure — partial installs are impossible
+- Bug fix: open-any rule without `[N]` index no longer generates invalid fix command
+- Fix UI: UFW subprocess output no longer leaks to terminal
+
+---
+
+## v0.15
+
+**2026-03-27**
+
+- Full security audit — 8 issues fixed (cron permissions, path traversal, HTML injection, log bounds)
+- DRY: shared `checks/_run.py` + `_paths.py`, duplicate code removed from 7 files
+- Bug fix: IPv6 wildcard rules (`Anywhere (v6)`) now fully detected and fixed by `--fix`
+- 6 install script correctness fixes
+
+---
+
+## v0.14.1
+
+**2026-03-26**
+
+- False positive fix: loopback-bound services (Redis on `127.0.0.1`) no longer trigger ALERT
+- DDNS false positives eliminated: system ports and dangling rules filtered out
+- `--remove-cron` actually removed; VERSION banner corrected
+
+---
+
+## v0.14
+
+**2026-03-25**
+
+- `__main__.py` reduced from ~1820 to ~481 lines
+- 5 new modules extracted: `display.py`, `fixes.py`, `manage_logs.py`, `panorama.py`, `sysinfo.py`
+- `check_rules()` moved to `checks/firewall.py`
+
+---
+
+## v0.13
+
+**2026-03-24**
+
+- Multi-cron scheduler: multiple named audit jobs (`/etc/cron.d/ufw-audit-{name}`)
+- 4-step schedule wizard (daily / weekdays / month days / custom expression)
+- `--manage-cron` TUI: list, edit, delete jobs
+- `cron.py` isolated module + 40+ unit tests
+
+---
+
+## v0.12
+
+**2026-03-24**
+
+- Email reports now include HTML (MIME multipart) alongside plaintext
+- Zero-dependency markdown→HTML converter (pure Python stdlib)
+- Cron nightly script generates and sends HTML emails automatically
+
+---
+
+## v0.11.4
+
+**2026-03-23**
+
+- Open-any regex fixed: trailing spaces, `/tcp`/`/udp` variants, semantic duplicates all detected
+- Critical/high services exposed to internet → *Action required* (was *Possible improvements*)
+- `TESTING.md` added — first formal manual regression test plan
+
+---
+
+## v0.11.3
+
+**2026-03-23**
+
+- `--install-cron`: schedule automated audits with optional email notification
+- `--manage-logs`: interactive UI to browse and delete saved reports
+- Services panorama: compact table of all 22 services after each audit
+- Auto-fix (`-y`) now shows warning banner + full command summary
+
+---
+
+## v0.11.2
+
+**2026-03-22**
+
+- Banner fully redesigned: "UFW-AUDIT" in Doom block ASCII art, 80-char width
+- Port exposure messages rewritten to be fully self-explanatory
+- Port table moved to verbose mode (`-v`) only
+
+---
+
+## v0.11.1
+
+**2026-03-22**
+
+- Security patch: 20 vulnerabilities fixed across 3 rounds
+- Shell injection, ANSI injection, path traversal, symlink attacks, ReDoS, JSON bomb
+- File permissions hardened: report files `0o600`, config directory `0o700`
+
+---
+
+## v0.11
+
+**2026-03-22**
+
+- Field-tested on Mint 22.3, Debian 13, Kali Rolling — all bugs fixed
+- `--quiet` mode with exit codes 0–3 for scripting and cron
+- Virtualisation detection: libvirt/KVM, VirtualBox, VMware, LXD, Snap network packages
+
+---
+
+## v0.10
+
+- Optional GeoIP2 geolocation (country + operator), whois removed
+- Short CLI flags (`-v`, `-d`, `-f`, `-q`, `-n`)
+- Score scope disclaimer added to output
+
+---
+
+## v0.9
+
+- Complete rewrite in Python (from bash)
+- 421 unit tests
+- Transparent installer with manifest and rollback
+- 22 services with two-axis risk context (exposure + threat)
+- Bilingual EN/FR interface
+- Bash completion
