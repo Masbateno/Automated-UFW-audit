@@ -24,8 +24,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install pytest
-        run: pip install pytest
+      - name: Install package and pytest
+        run: pip install pytest && pip install -e .
 
       - name: Run tests
         run: python -m pytest tests/ -v --tb=short
+
+      - name: Verify entry point
+        run: python -c "from ufw_audit.__main__ import main; print('entry point OK')"
