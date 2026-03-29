@@ -189,12 +189,7 @@ def check_ports(
         category = _categorize_port(lport, snapshot.ufw_rules)
 
         if category == PortCategory.EPHEMERAL:
-            result.info(
-                message=_t("ports.ephemeral_ignored",
-                           threshold=EPHEMERAL_THRESHOLD,
-                           port=f"{pp}"),
-            )
-            continue
+            continue  # silently ignored — kernel-assigned, no security relevance
 
         if category == PortCategory.SYSTEM_INTERNAL:
             # Deduplicate — same port/proto may appear on multiple loopback addresses

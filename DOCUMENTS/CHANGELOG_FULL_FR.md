@@ -6,6 +6,18 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.0.2] — 2026-03-29
+
+### Corrections
+
+- **Inondation de messages ports éphémères** — Chaque port UDP éphémère générait un finding INFO individuel. Sur les bureaux actifs faisant tourner Samba ou avec de nombreux sockets UDP ouverts, cela produisait des centaines de lignes inutiles dans la section ports. Les ports éphémères sont maintenant silencieusement ignorés (`continue` sans finding). La clé locale `ports.ephemeral_ignored` n'est plus utilisée.
+
+### Tests
+
+- `test_ephemeral_info` renommé en `test_ephemeral_silent` — vérifie qu'aucun finding INFO n'est produit et que la section se termine par le OK `all_covered`.
+
+---
+
 ## [v1.0.1] — 2026-03-29
 
 ### Corrections

@@ -263,13 +263,15 @@ class TestCheckPorts:
         result = check_ports(snapshot)
         assert has_level(result, "info")
 
-    def test_ephemeral_info(self):
+    def test_ephemeral_silent(self):
+        """Ephemeral UDP ports produce no findings — silently ignored."""
         snapshot = make_snapshot(
             ports=[make_port(port=EPHEMERAL_THRESHOLD + 1, proto="udp")],
             ufw_rules="",
         )
         result = check_ports(snapshot)
-        assert has_level(result, "info")
+        assert not has_level(result, "info")
+        assert has_level(result, "ok")  # all_covered OK
 
     def test_audited_ports_skipped(self):
         snapshot = make_snapshot(

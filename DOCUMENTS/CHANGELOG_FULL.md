@@ -6,6 +6,18 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.0.2] — 2026-03-29
+
+### Bug fixes
+
+- **Ephemeral port output flood** — Each ephemeral UDP port generated an individual INFO finding. On active desktop systems running Samba or with many open UDP sockets, this produced hundreds of lines of noise in the ports section. Ephemeral ports are now silently discarded (`continue` with no finding). The `ports.ephemeral_ignored` locale key is no longer used.
+
+### Tests
+
+- `test_ephemeral_info` renamed to `test_ephemeral_silent` — asserts no INFO finding is produced and the section ends with the `all_covered` OK.
+
+---
+
 ## [v1.0.1] — 2026-03-29
 
 ### Bug fixes

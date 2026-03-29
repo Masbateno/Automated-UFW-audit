@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.0.2](#v102) | 2026-03-29 | Hotfix: hundreds of ephemeral UDP port messages flooding output (Samba/busy desktop) |
 | [v1.0.1](#v101) | 2026-03-29 | Hotfix: SSH on non-standard port not detected; TCP high ports wrongly classified as ephemeral |
 | [v1.0](#v10) | 2026-03-29 | PyPI packaging, `--install-completion`, Python 3.9+, install.sh deprecated |
 | [v0.22.1](#v0221) | 2026-03-29 | Hotfix: firewall detected inactive on French-locale systems |
@@ -27,6 +28,14 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.0.2
+
+**2026-03-29**
+
+- Bug fix: ephemeral UDP ports were each generating an INFO message — on active desktops (Samba, browser, etc.) this produced hundreds of lines of noise. Ephemeral ports are now silently discarded.
 
 ---
 
