@@ -16,6 +16,7 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v0.18   | 531   | 26 new tests for `fixes.py`; `run_fixes()` fully covered |
 | v0.20   | 548   | 17 degraded-mode tests; `ss`/rules/log absent scenarios |
 | v0.21   | 619   | 78 new tests + 3 bug fixes + email store feature; pre-v1.0 quality pass |
+| v1.0    | 619   | No new tests — packaging (`pipx`), `not_listening` locale fix, Python 3.9 minimum |
 
 ### v0.21 — 619/619 (2026-03-28)
 

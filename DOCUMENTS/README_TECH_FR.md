@@ -1,12 +1,12 @@
 *[Read in English](README_TECH.md)* · *[Vue d'ensemble](../README_FR.md)*
 
-# ufw-audit v0.22.1
+# ufw-audit v1.0.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.22.1-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.0.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
-![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
+![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
 
 Outil d'audit de pare-feu UFW pour Linux — conçu pour les utilisateurs ordinaires, pas uniquement pour les administrateurs système.
 
@@ -77,7 +77,7 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 
 - Système Linux — Debian, Ubuntu, Linux Mint, ou dérivé
 - UFW installé : `sudo apt install ufw`
-- Python 3.8+
+- Python 3.9+
 - `ss` recommandé (paquet `iproute2`) — disponible par défaut sur les systèmes modernes
 - `python3-geoip2` + base GeoLite2 recommandés pour la géolocalisation IP (optionnel) : `sudo apt install python3-geoip2 geoip-database`
 - `docker` CLI pour l'analyse Docker (optionnel)
@@ -86,71 +86,47 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 
 ## Installation
 
-```bash
-# Cloner ou télécharger le dépôt
-git clone https://github.com/Masbateno/Automated-UFW-audit.git
-cd Automated-UFW-audit
-
-# Rendre l'installateur exécutable
-chmod +x install.sh
-
-# Installer (nécessite les droits root)
-sudo ./install.sh
-```
-
-L'installateur :
-- Vérifie la présence de Python 3.8+
-- Copie le package dans `/usr/local/lib/ufw_audit/`
-- Copie les données dans `/usr/local/share/ufw-audit/`
-- Crée le point d'entrée `/usr/local/bin/ufw-audit`
-- Installe l'autocomplétion bash dans `/etc/bash_completion.d/ufw-audit`
-- Génère un manifeste d'installation dans `/usr/local/share/ufw-audit/install.manifest`
-- Affiche chaque action effectuée
-
-### Choix d'installation
-
-ufw-audit est installé globalement sous `/usr/local/` — la même convention qu'Ansible, Certbot ou Fail2ban.
-
-**Pourquoi pas d'environnement virtuel ?**
-ufw-audit n'a **aucune dépendance PyPI tierce** — uniquement la bibliothèque standard Python. Il tourne en `root` et interagit directement avec les ressources système (`ufw`, `/var/log/ufw.log`, `ss`). Un venv ajouterait de la complexité et un second chemin Python à maintenir sans aucun bénéfice.
-
-**Dépendance au Python système**
-Le shebang du point d'entrée (`#!/usr/bin/env python3`) est généré au moment de l'installation et pointe vers le binaire `python3` actif. Python 3.8+ est requis et vérifié lors des vérifications initiales. Une mise à jour du Python système qui change le binaire `python3` par défaut sera prise en compte automatiquement.
-
-**Rollback en cas d'échec**
-L'installateur suit chaque fichier et répertoire créés. En cas d'erreur à n'importe quelle étape (ex. copie impossible en cours d'installation), un `trap` se déclenche à la sortie et supprime ce qui a déjà été installé, laissant le système propre. Une installation partielle sans manifeste est impossible.
-
-### Dry-run — voir sans toucher
+### Recommandé — pipx
 
 ```bash
-sudo ./install.sh --dry-run
+pipx install ufw-audit
+sudo ufw-audit --install-completion   # autocomplétion bash + lien symbolique sudo PATH
 ```
 
-### Autocomplétion bash
+> **pipx** installe ufw-audit dans un environnement isolé sans toucher au Python système.
+> Installer pipx avec : `sudo apt install pipx && pipx ensurepath`
 
-Après l'installation, activez l'autocomplétion pour la session courante :
+`--install-completion` installe le script d'autocomplétion bash dans `/etc/bash_completion.d/ufw-audit`
+et crée un lien symbolique `/usr/local/bin/ufw-audit` pour que `sudo ufw-audit` fonctionne depuis n'importe quel shell.
+
+Après avoir lancé `--install-completion`, activez l'autocomplétion pour la session courante :
 
 ```bash
 source /etc/bash_completion.d/ufw-audit
 ```
 
-Pour l'activer en permanence (toutes les sessions futures) :
+Puis utilisez `ufw-audit --<TAB>` pour compléter les options.
+
+### Alternative — install.sh (déprécié)
+
+> ⚠️ **Déprécié** — conservé pour les systèmes sans accès pip/pipx.
+> La méthode recommandée est `pipx install ufw-audit`.
 
 ```bash
-echo "source /etc/bash_completion.d/ufw-audit" >> ~/.bashrc
+git clone https://github.com/Masbateno/Automated-UFW-audit.git
+cd Automated-UFW-audit
+sudo ./install.sh
 ```
-
-Puis utilisez `ufw-audit --<TAB>` pour compléter les options.
 
 ---
 
 ## Désinstallation
 
 ```bash
-sudo ./install.sh --uninstall
+pipx uninstall ufw-audit
 ```
 
-L'installateur lit le manifeste, supprime exactement les fichiers installés, ne supprime un répertoire que s'il est vide, et propose de supprimer la configuration utilisateur séparément.
+> Si installé via install.sh : `sudo ./install.sh --uninstall`
 
 ---
 
@@ -201,6 +177,9 @@ sudo ufw-audit --install-cron
 
 # Lister, modifier ou supprimer les crons installés
 sudo ufw-audit --manage-cron
+
+# Installer l'autocomplétion bash et créer le lien symbolique sudo PATH (une seule fois après pipx install)
+sudo ufw-audit --install-completion
 ```
 
 Les options se combinent :
@@ -232,7 +211,7 @@ sudo ufw-audit -r
 ║ ╚██████╔╝ ██║      ╚███╔███╔╝     ██║  ██║ ╚██████╔╝ ██████╔╝ ██║    ██║     ║
 ║  ╚═════╝  ╚═╝       ╚══╝╚══╝      ╚═╝  ╚═╝  ╚═════╝  ╚═════╝  ╚═╝    ╚═╝     ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
-║  UFW-AUDIT v0.22  │  UFW firewall audit                                      ║
+║  UFW-AUDIT v1.0  │  UFW firewall audit                                       ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║  System        : Ubuntu 24.04 LTS                                            ║
 ║  Host          : my-machine                                                  ║
@@ -360,6 +339,7 @@ Le rapport s'ouvre avec un en-tête ASCII art sur 62 caractères et contient : i
 | `--log-days=N`          | Analyser les logs sur N jours (défaut : 7)                         |
 | `--manage-logs`         | Interface interactive pour gérer les rapports sauvegardés          |
 | `--install-cron`        | Configurer un audit nocturne automatique (cron)                    |
+| `--install-completion`  | Installer l'autocomplétion bash et créer le lien symbolique sudo PATH |
 | `--french`              | Passer l'interface en français                                     |
 | `-V`, `--version`       | Afficher la version et quitter (sans sudo)                         |
 | `-h`, `--help`          | Afficher l'aide et quitter (sans sudo)                             |
@@ -370,13 +350,11 @@ Le rapport s'ouvre avec un en-tête ASCII art sur 62 caractères et contient : i
 
 | Fichier                                  | Description                                                              |
 |------------------------------------------|--------------------------------------------------------------------------|
-| `/usr/local/bin/ufw-audit`               | Point d'entrée                                                           |
+| `~/.local/bin/ufw-audit`                 | Point d'entrée pipx                                                      |
+| `/usr/local/bin/ufw-audit`               | Lien symbolique pour l'accès sudo (créé par `--install-completion`)      |
+| `/etc/bash_completion.d/ufw-audit`       | Autocomplétion bash (créée par `--install-completion`)                   |
 | `/usr/local/bin/ufw-audit-nightly`       | Script wrapper nocturne (créé par `--install-cron`)                      |
-| `/usr/local/lib/ufw_audit/`              | Package Python                                                           |
-| `/usr/local/share/ufw-audit/`            | Données (locales, services.json, manifeste)                              |
-| `/usr/local/share/doc/ufw-audit/`        | Documentation                                                            |
-| `/etc/bash_completion.d/ufw-audit`       | Autocomplétion bash                                                      |
-| `/etc/cron.d/ufw-audit`                  | Entrée cron système (créée par `--install-cron`)                         |
+| `/etc/cron.d/ufw-audit-{nom}`            | Entrée cron nommée (créée par `--install-cron`)                          |
 | `~/.config/ufw-audit/config.conf`        | Configuration utilisateur (ports personnalisés, répertoire logs ; 600)   |
 | `ufw_audit_YYYYMMDD_HHMMSS.log`          | Rapport détaillé (créé avec `-d`, dans le répertoire configuré)          |
 
@@ -449,9 +427,9 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v0.22** — Passe qualité interne : 5 modules refactorisés (`__main__`, `firewall`, `services`, `scoring`, `output`) ; alignement des cadres corrigé sur toutes les interfaces ; `meta: dict` supprimé de `CheckResult` → `open_ports: List[str]` typé
 
-**v0.22.1** *(actuel)* — Hotfix : pare-feu détecté comme inactif sur les locales non-anglaises ; variable `LANGUAGE` maintenant vidée avec `LC_ALL=C`
+**v0.22.1** — Hotfix : pare-feu détecté comme inactif sur les locales non-anglaises ; variable `LANGUAGE` maintenant vidée avec `LC_ALL=C`
 
-**v1.0** — CLI stable, complète, validée
+**v1.0** *(actuel)* — Version stable ; `pipx install ufw-audit` comme méthode d'installation principale ; `--install-completion` crée l'autocomplétion bash et le lien symbolique sudo PATH ; Python 3.9 minimum ; matrice CI mise à jour (3.9 / 3.10 / 3.12) ; clé locale `not_listening` ajoutée ; install.sh déprécié
 
 **Post v1.0**
 - Interface Web (`--gui`) — interface graphique pour utilisateurs non-techniques, approche pédagogique, périmètre simplifié

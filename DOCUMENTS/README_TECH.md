@@ -1,12 +1,12 @@
 *[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
-# ufw-audit v0.22.1
+# ufw-audit v1.0.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v0.22.1-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.0.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
-![Language](https://img.shields.io/badge/language-Python%203.8%2B-yellow)
+![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
 
 Lightweight UFW firewall audit tool for Linux — designed for regular users, not system administrators.
 
@@ -77,7 +77,7 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 
 - Linux system — Debian, Ubuntu, Linux Mint, or derivative
 - UFW installed: `sudo apt install ufw`
-- Python 3.8+
+- Python 3.9+
 - `ss` recommended (`iproute2` package) — available by default on modern systems
 - `python3-geoip2` + GeoLite2 database recommended for IP geolocation (optional): `sudo apt install python3-geoip2 geoip-database`
 - `docker` CLI for Docker analysis (optional)
@@ -86,71 +86,47 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 
 ## Installation
 
-```bash
-# Clone or download the repository
-git clone https://github.com/Masbateno/Automated-UFW-audit.git
-cd Automated-UFW-audit
-
-# Make the installer executable
-chmod +x install.sh
-
-# Install (requires root)
-sudo ./install.sh
-```
-
-The installer:
-- Checks for Python 3.8+
-- Copies the package to `/usr/local/lib/ufw_audit/`
-- Copies data files to `/usr/local/share/ufw-audit/`
-- Creates the entry point at `/usr/local/bin/ufw-audit`
-- Installs bash completion to `/etc/bash_completion.d/ufw-audit`
-- Writes an installation manifest to `/usr/local/share/ufw-audit/install.manifest`
-- Displays every action taken
-
-### Installation design
-
-ufw-audit is installed globally under `/usr/local/` — the same convention used by tools like Ansible, Certbot, and Fail2ban.
-
-**Why not a virtual environment?**
-ufw-audit has **no third-party PyPI dependencies** — only the Python standard library. It runs as `root` and interacts directly with system resources (`ufw`, `/var/log/ufw.log`, `ss`). A venv would add complexity and a second Python path to maintain with no benefit.
-
-**Python system dependency**
-The entry point shebang (`#!/usr/bin/env python3`) is generated at install time and resolves to the active `python3` binary. Python 3.8+ is required and verified during pre-flight. A system Python upgrade that changes the default `python3` binary will be picked up automatically.
-
-**Rollback on failure**
-The installer tracks every file and directory it creates. If any step fails (e.g. a copy error mid-install), a `trap` fires on exit and removes what was installed so far, leaving the system clean. A partial install without a manifest cannot occur.
-
-### Dry-run — see without touching
+### Recommended — pipx
 
 ```bash
-sudo ./install.sh --dry-run
+pipx install ufw-audit
+sudo ufw-audit --install-completion   # bash completion + sudo PATH symlink
 ```
 
-### Bash completion
+> **pipx** installs ufw-audit in an isolated environment without affecting your system Python.
+> Install pipx with: `sudo apt install pipx && pipx ensurepath`
 
-After installation, activate bash completion for the current session:
+`--install-completion` installs the bash completion script to `/etc/bash_completion.d/ufw-audit`
+and creates a symlink `/usr/local/bin/ufw-audit` so that `sudo ufw-audit` works from any shell.
+
+After running `--install-completion`, activate bash completion for the current session:
 
 ```bash
 source /etc/bash_completion.d/ufw-audit
 ```
 
-To activate permanently (all future sessions):
+Then use `ufw-audit --<TAB>` to complete options.
+
+### Alternative — install.sh (deprecated)
+
+> ⚠️ **Deprecated** — kept for systems without pip/pipx access.
+> The recommended method is `pipx install ufw-audit`.
 
 ```bash
-echo "source /etc/bash_completion.d/ufw-audit" >> ~/.bashrc
+git clone https://github.com/Masbateno/Automated-UFW-audit.git
+cd Automated-UFW-audit
+sudo ./install.sh
 ```
-
-Then use `ufw-audit --<TAB>` to complete options.
 
 ---
 
 ## Uninstall
 
 ```bash
-sudo ./install.sh --uninstall
+pipx uninstall ufw-audit
 ```
 
-The installer reads the manifest, removes exactly the installed files, only removes a directory if it is empty, and offers to remove the user configuration separately.
+> If installed via install.sh: `sudo ./install.sh --uninstall`
 
 ---
 
@@ -201,6 +177,9 @@ sudo ufw-audit --install-cron
 
 # List, edit or delete installed cron jobs
 sudo ufw-audit --manage-cron
+
+# Install bash completion and create sudo PATH symlink (run once after pipx install)
+sudo ufw-audit --install-completion
 ```
 
 Options can be combined:
@@ -232,7 +211,7 @@ sudo ufw-audit --reconfigure
 ║ ╚██████╔╝ ██║      ╚███╔███╔╝     ██║  ██║ ╚██████╔╝ ██████╔╝ ██║    ██║     ║
 ║  ╚═════╝  ╚═╝       ╚══╝╚══╝      ╚═╝  ╚═╝  ╚═════╝  ╚═════╝  ╚═╝    ╚═╝     ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
-║  UFW-AUDIT v0.22  │  UFW firewall audit                                      ║
+║  UFW-AUDIT v1.0  │  UFW firewall audit                                       ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║  System        : Ubuntu 24.04 LTS                                            ║
 ║  Host          : my-machine                                                  ║
@@ -360,6 +339,7 @@ The report opens with a 62-char ASCII art header and contains: system informatio
 | `--log-days=N`          | Analyse logs over N days (default: 7)                              |
 | `--manage-logs`         | Interactive UI to list and delete saved report files               |
 | `--install-cron`        | Set up an automated nightly audit (cron)                           |
+| `--install-completion`  | Install bash completion and create sudo PATH symlink               |
 | `--french`              | Switch interface to French                                         |
 | `-V`, `--version`       | Show version and exit (no sudo required)                           |
 | `-h`, `--help`          | Show help and exit (no sudo required)                              |
@@ -370,13 +350,11 @@ The report opens with a 62-char ASCII art header and contains: system informatio
 
 | File                                     | Description                                                          |
 |------------------------------------------|----------------------------------------------------------------------|
-| `/usr/local/bin/ufw-audit`               | Entry point                                                          |
+| `~/.local/bin/ufw-audit`                 | pipx entry point                                                     |
+| `/usr/local/bin/ufw-audit`               | Symlink for sudo access (created by `--install-completion`)          |
+| `/etc/bash_completion.d/ufw-audit`       | Bash completion (created by `--install-completion`)                  |
 | `/usr/local/bin/ufw-audit-nightly`       | Nightly wrapper script (created by `--install-cron`)                 |
-| `/usr/local/lib/ufw_audit/`              | Python package                                                       |
-| `/usr/local/share/ufw-audit/`            | Data files (locales, services.json, manifest)                        |
-| `/usr/local/share/doc/ufw-audit/`        | Documentation                                                        |
-| `/etc/bash_completion.d/ufw-audit`       | Bash completion                                                       |
-| `/etc/cron.d/ufw-audit`                  | System cron entry (created by `--install-cron`)                      |
+| `/etc/cron.d/ufw-audit-{name}`           | Named system cron entry (created by `--install-cron`)                |
 | `~/.config/ufw-audit/config.conf`        | User configuration (custom ports, log directory; permissions 600)    |
 | `ufw_audit_YYYYMMDD_HHMMSS.log`          | Detailed report (created with `-d`, in the configured directory)     |
 
@@ -449,9 +427,9 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v0.22** — Internal quality pass: 5 modules refactored (`__main__`, `firewall`, `services`, `scoring`, `output`); box-border alignment fixed across all UI frames; `meta: dict` removed from `CheckResult` → typed `open_ports: List[str]`
 
-**v0.22.1** *(current)* — Hotfix: UFW detected as inactive on non-English locales; `LANGUAGE` env var now cleared alongside `LC_ALL=C`
+**v0.22.1** — Hotfix: UFW detected as inactive on non-English locales; `LANGUAGE` env var now cleared alongside `LC_ALL=C`
 
-**v1.0** — Stable, complete, validated CLI
+**v1.0** *(current)* — Stable release; `pipx install ufw-audit` as primary install method; `--install-completion` creates bash completion and sudo PATH symlink; Python 3.9 minimum; CI matrix updated (3.9 / 3.10 / 3.12); `not_listening` locale key added; install.sh deprecated
 
 **Post v1.0**
 - Web UI (`--gui`) — graphical interface for non-technical users, pedagogical approach, simplified scope

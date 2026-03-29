@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ufw-audit"
-version = "0.22.1"
+version = "1.0.0"
 description = "UFW firewall audit tool — cross-checks rules against listening services"
 readme = "README.md"
 license = "MIT"

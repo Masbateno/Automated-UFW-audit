@@ -6,7 +6,7 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
-## [v1.0] — non publié
+## [v1.0] — 2026-03-29
 
 ### TL;DR
 - Packaging PyPI — `pipx install ufw-audit` devient la méthode d'installation recommandée
