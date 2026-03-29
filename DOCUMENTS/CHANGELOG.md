@@ -6,6 +6,17 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v0.22.1] — 2026-03-29
+
+### TL;DR
+- Hotfix: UFW detected as inactive on French-locale systems
+
+### Bug fix
+
+- **`checks/_run.py` — French locale causes false "firewall inactive"** — All subprocess calls now run with `LC_ALL=C`, `LANG=C`, and `LANGUAGE=""`. Without clearing `LANGUAGE`, gettext (used by UFW, a Python script) overrides `LC_ALL` and outputs `État : actif` instead of `Status: active`, causing the firewall to be incorrectly reported as inactive. Affected any system with `LANGUAGE` set to a non-English locale.
+
+---
+
 ## [v0.22] — 2026-03-29
 
 ### TL;DR
