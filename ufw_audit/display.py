@@ -360,18 +360,34 @@ def display_geoip_notice(geo_status: str, t, output) -> None:
 def display_ports_overview(ports_snapshot, config, t, report, output) -> None:
     """Print the listening ports count and optional ss table."""
     from ufw_audit.output import print_section
+    from ufw_audit.checks.ports import EPHEMERAL_THRESHOLD
     print_section(t("sections.ports_overview"))
     report.write_section(t("sections.ports_overview"))
-    output.print_info(t("ports.listening_count", count=len(ports_snapshot.ports)))
-    report.write_finding("INFO", t("ports.listening_count",
-                                   count=len(ports_snapshot.ports)))
+
+    # Exclude ephemeral UDP ports from count and display
+    visible_ports = [
+        lp for lp in ports_snapshot.ports
+        if not (lp.proto == "udp" and lp.port > EPHEMERAL_THRESHOLD)
+    ]
+    visible_raw = {lp.raw_line for lp in visible_ports}
+
+    output.print_info(t("ports.listening_count", count=len(visible_ports)))
+    report.write_finding("INFO", t("ports.listening_count", count=len(visible_ports)))
+
     if ports_snapshot.ss_output:
+        # Rebuild filtered table: keep header/blank lines, drop ephemeral data lines
+        filtered_lines = [
+            line for line in ports_snapshot.ss_output.splitlines()
+            if not (line.split() and line.split()[0].lower() in ("tcp", "udp"))
+            or line in visible_raw
+        ]
+        filtered_output = "\n".join(filtered_lines)
         report.write_raw("")
-        report.write_raw(ports_snapshot.ss_output)
+        report.write_raw(filtered_output)
         if config.verbose:
             output.print_dim(t("ports.listening_detail"))
             print()
-            print(ports_snapshot.ss_output)
+            print(filtered_output)
         else:
             output.print_dim(t("ports.listening_verbose_hint"))
     print()

@@ -6,6 +6,14 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.0.4] — 2026-03-29
+
+### Corrections
+
+- **Ports éphémères dans lOVERVIEW** — `display_ports_overview()` affichait le raw `ss` complet, contournant le filtre éphémère appliqué dans `check_ports()`. La couche affichage filtre désormais les ports UDP éphémères (port > 32767) avant de calculer le compteur et dafficher le tableau.
+
+---
+
 ## [v1.0.3] — 2026-03-29
 
 ### Corrections

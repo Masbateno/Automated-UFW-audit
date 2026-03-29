@@ -6,6 +6,14 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.0.4] — 2026-03-29
+
+### Bug fixes
+
+- **Ephemeral ports in OVERVIEW** — `display_ports_overview()` was printing the full raw `ss` output, bypassing the ephemeral filter applied in `check_ports()`. The display layer now filters out ephemeral UDP ports (port > 32767) before computing the count and printing the table.
+
+---
+
 ## [v1.0.3] — 2026-03-29
 
 ### Bug fixes
