@@ -288,7 +288,9 @@ ufw-audit est un outil d'audit et de diagnostic — **pas un bouclier de sécuri
 
 **v0.21** ✅ — Passe qualité pré-v1.0 : 78 nouveaux tests + 3 corrections ; carnet d'adresses email dans `--manage-cron` ; 619/619
 
-**v0.22** ✅ *(actuel)* — Passe qualité interne : 5 modules refactorisés ; alignement des cadres corrigé ; `meta` supprimé de `CheckResult`
+**v0.22** ✅ — Passe qualité interne : 5 modules refactorisés ; alignement des cadres corrigé ; `meta` supprimé de `CheckResult`
+
+**v0.22.1** ✅ *(actuel)* — Hotfix : pare-feu détecté comme inactif sur les systèmes en locale française (variable `LANGUAGE` maintenant vidée)
 
 **v1.0** — Version stable, complète, validée — Debian 12, packaging final
 

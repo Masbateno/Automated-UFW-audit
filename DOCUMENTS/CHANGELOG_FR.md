@@ -6,6 +6,17 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v0.22.1] — 2026-03-29
+
+### TL;DR
+- Hotfix : pare-feu détecté comme inactif sur les systèmes en locale française
+
+### Correction de bug
+
+- **`checks/_run.py` — locale française provoque un faux "pare-feu inactif"** — Tous les appels subprocess s'exécutent maintenant avec `LC_ALL=C`, `LANG=C` et `LANGUAGE=""`. Sans vider `LANGUAGE`, gettext (utilisé par UFW, un script Python) écrase `LC_ALL` et retourne `État : actif` au lieu de `Status: active`, faisant détecter le pare-feu comme inactif à tort. Affectait tout système avec `LANGUAGE` défini sur une locale non-anglaise.
+
+---
+
 ## [v0.22] — 2026-03-29
 
 ### TL;DR
