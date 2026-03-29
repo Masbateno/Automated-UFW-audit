@@ -4,7 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
-| [v1.0.2](#v102) | 2026-03-29 | Hotfix: hundreds of ephemeral UDP port messages flooding output (Samba/busy desktop) |
+| [v1.0.3](#v103) | 2026-03-29 | Hotfix: hundreds of ephemeral UDP port messages flooding output (Samba/busy desktop) |
 | [v1.0.1](#v101) | 2026-03-29 | Hotfix: SSH on non-standard port not detected; TCP high ports wrongly classified as ephemeral |
 | [v1.0](#v10) | 2026-03-29 | PyPI packaging, `--install-completion`, Python 3.9+, install.sh deprecated |
 | [v0.22.1](#v0221) | 2026-03-29 | Hotfix: firewall detected inactive on French-locale systems |
@@ -31,7 +31,7 @@
 
 ---
 
-## v1.0.2
+## v1.0.3
 
 **2026-03-29**
 

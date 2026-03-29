@@ -4,7 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
-| [v1.0.2](#v102) | 2026-03-29 | Hotfix : des centaines de messages de ports UDP éphémères inondaient la sortie (Samba/bureau actif) |
+| [v1.0.3](#v103) | 2026-03-29 | Hotfix : des centaines de messages de ports UDP éphémères inondaient la sortie (Samba/bureau actif) |
 | [v1.0.1](#v101) | 2026-03-29 | Hotfix : SSH sur port non-standard non détecté ; ports TCP élevés classés à tort comme éphémères |
 | [v1.0](#v10) | 2026-03-29 | Packaging PyPI, `--install-completion`, Python 3.9+, install.sh déprécié |
 | [v0.22.1](#v0221) | 2026-03-29 | Hotfix : pare-feu détecté inactif sur les locales non-anglaises |
@@ -31,7 +31,7 @@
 
 ---
 
-## v1.0.2
+## v1.0.3
 
 **2026-03-29**
 
