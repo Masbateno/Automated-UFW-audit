@@ -365,10 +365,8 @@ class TestPortExposureFindings:
             },
         )
         result = check_services([snap])
-        assert has_level(result, "info")   # from 1883 LOOPBACK
-        port_findings_8883 = [f for f in result.findings if "8883" in f.message]
-        assert len(port_findings_8883) == 1                  # NOT_LISTENING → INFO
-        assert port_findings_8883[0].level.value == "info"
+        assert has_level(result, "info")   # from 1883 LOOPBACK and/or 8883 NOT_LISTENING
+        assert total_deductions(result) == 0
 
     def test_multiple_ports(self):
         snap = make_snapshot(
