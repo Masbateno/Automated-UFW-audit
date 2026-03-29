@@ -16,6 +16,7 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v0.18   | 531   | 26 nouveaux tests pour `fixes.py` ; `run_fixes()` entièrement couvert |
 | v0.20   | 548   | 17 tests en mode dégradé ; scénarios `ss`/règles/log absents |
 | v0.21   | 619   | 78 nouveaux tests + 3 corrections + carnet email ; passe qualité pré-v1.0 |
+| v1.0    | 619   | Pas de nouveaux tests — packaging (`pipx`), correctif locale `not_listening`, Python 3.9 minimum |
 
 ### v0.21 — 619/619 (2026-03-28)
 

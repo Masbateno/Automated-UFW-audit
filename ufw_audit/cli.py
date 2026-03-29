@@ -76,6 +76,9 @@ class AuditConfig:
     show_help: bool = False
     """-h / --help: print help message and exit."""
 
+    install_completion: bool = False
+    """--install-completion: install bash completion script to /etc/bash_completion.d/."""
+
 
 # ---------------------------------------------------------------------------
 # Parser
@@ -170,6 +173,9 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         elif arg in ("-h", "--help"):
             config.show_help = True
 
+        elif arg == "--install-completion":
+            config.install_completion = True
+
         else:
             raise CLIError(f"Unknown option: {arg!r}")
 
@@ -217,6 +223,7 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
         ("-c, --install-cron", "Install an automated audit cron job (schedule wizard)"),
         ("--manage-cron",      "List, edit or delete installed cron jobs"),
         ("--french",           "Switch interface to French"),
+        ("--install-completion", "Install bash completion to /etc/bash_completion.d/"),
         ("-V, --version",      "Show version and exit (no sudo required)"),
         ("-h, --help",         "Show this help message (no sudo required)"),
     ]

@@ -67,35 +67,37 @@ sudo ufw allow from any
 
 ## 📦 Installation
 
+### Recommended — pipx
+
+```bash
+pipx install ufw-audit
+sudo ufw-audit --install-completion   # bash completion + sudo PATH symlink
+```
+
+> **pipx** installs ufw-audit in an isolated environment without affecting your system Python.
+> Install pipx with: `sudo apt install pipx && pipx ensurepath`
+
+### After installation — bash completion
+
+`--install-completion` installs the bash completion script to `/etc/bash_completion.d/ufw-audit`
+and creates a symlink `/usr/local/bin/ufw-audit` so that `sudo ufw-audit` works.
+
+```
+Open a new shell or run: source /etc/bash_completion.d/ufw-audit
+```
+
+### Alternative — install.sh (deprecated)
+
+> ⚠️ **Deprecated** — the shell installer is kept for systems without pip/pipx.
+> The recommended method is `pipx install ufw-audit`.
+
 ```bash
 git clone https://github.com/Masbateno/Automated-UFW-audit.git
 cd Automated-UFW-audit
 sudo ./install.sh
 ```
 
-### 🔍 Transparent by design
-
-The installer is built so that **nothing happens silently**. Every action is printed to the terminal as it occurs. A complete installation manifest is written to `/usr/local/share/ufw-audit/install.manifest` — a precise record of every file and directory created on your system.
-
-What the installer does:
-- Checks for Python 3.8+
-- Copies the package to `/usr/local/lib/ufw_audit/`
-- Copies data files to `/usr/local/share/ufw-audit/`
-- Creates the entry point `/usr/local/bin/ufw-audit`
-- Installs bash completion to `/etc/bash_completion.d/ufw-audit`
-- Writes the installation manifest
-
-### 👁 Preview before installing
-
-Not sure? Run a dry-run first — it shows every action that *would* be taken, without touching your system:
-
-```bash
-sudo ./install.sh --dry-run
-```
-
-### 🧹 Clean uninstall
-
-The uninstaller reads the manifest and removes **exactly** what was installed — no more, no less. Directories are only removed if empty. Your user configuration (`~/.config/ufw-audit/`) is kept by default and removed only if you explicitly confirm.
+Clean uninstall:
 
 ```bash
 sudo ./install.sh --uninstall

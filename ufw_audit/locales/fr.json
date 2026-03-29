@@ -79,7 +79,8 @@
       "deny": "bloqué explicitement par règle UFW",
       "no_rule": "couvert par la politique deny par défaut",
       "loopback": "lié uniquement sur localhost — la règle UFW n'a aucun effet sur l'accès externe",
-      "loopback_no_rule": "lié uniquement sur localhost — aucune règle UFW requise (couvert par refus par défaut)"
+      "loopback_no_rule": "lié uniquement sur localhost — aucune règle UFW requise (couvert par refus par défaut)",
+      "not_listening": "n'écoute pas activement — port présent dans le registre mais non détecté sur ce système"
     },
     "port_from_config": "Port lu depuis la configuration : {port}",
     "port_auto": "Port détecté automatiquement : {port}",

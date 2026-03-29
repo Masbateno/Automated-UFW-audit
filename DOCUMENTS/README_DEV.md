@@ -78,6 +78,7 @@ This separation allows the entire business logic to be tested by instantiating s
 ufw_audit/
 ├── __init__.py
 ├── __main__.py          # Orchestrator (~481 lines — pure coordination)
+├── _paths.py            # Path resolution for data files (install.sh compat)
 ├── cli.py               # AuditConfig + parse_args()
 ├── config.py            # UserConfig, EmailStore
 ├── cron.py              # CronEntry, schedule wizard, --manage-cron TUI
@@ -94,6 +95,7 @@ ufw_audit/
 ├── sysinfo.py           # collect_system_info(), detect_network_context(), get_user_home()
 ├── checks/
 │   ├── __init__.py
+│   ├── _run.py          # Shared _run() subprocess helper + C locale env
 │   ├── firewall.py      # FirewallStatus + check_firewall() + check_rules()
 │   ├── services.py      # ServiceSnapshot + check_services()
 │   ├── ports.py         # PortsSnapshot + check_ports()
@@ -102,10 +104,11 @@ ufw_audit/
 │   ├── docker.py        # DockerSnapshot + check_docker()
 │   └── virtualization.py # VirtSnapshot + check_virtualization()
 ├── data/
-│   └── services.json    # Declarative registry of the 22 services
+│   ├── services.json            # Declarative registry of the 22 services
+│   └── ufw-audit.bash-completion  # Bash completion script
 └── locales/
-    ├── en.json          # English translation keys
-    └── fr.json          # French translation keys
+    ├── en.json          # English translation keys (290 keys)
+    └── fr.json          # French translation keys (290 keys)
 
 tests/
 ├── test_check_rules.py
@@ -128,7 +131,8 @@ tests/
 ├── test_services.py
 └── test_virtualization.py
 
-install.sh               # Transparent installer with manifest
+pyproject.toml           # Build config (setuptools, pip/pipx install)
+install.sh               # Shell installer [DEPRECATED — use pipx install ufw-audit]
 README.md / README_FR.md           # User documentation (EN/FR)
 README_DEV.md / README_DEV_FR.md   # This file (EN/FR)
 CHANGELOG.md / CHANGELOG_FR.md     # Version history (EN/FR)
@@ -143,7 +147,7 @@ AUTOMATION.md / AUTOMATION_FR.md   # Automation guide (EN/FR)
 ### Prerequisites
 
 ```bash
-python3 --version   # 3.8+ required
+python3 --version   # 3.9+ required
 ```
 
 No PyPI dependencies — stdlib only.
@@ -151,7 +155,7 @@ No PyPI dependencies — stdlib only.
 ### Run all tests
 
 ```bash
-cd ~/Desktop/ufw_audit/python/
+cd Automated-UFW-audit
 python3 -m pytest tests/ -v
 ```
 
@@ -173,7 +177,7 @@ python3 -m unittest tests/test_firewall.py
 ### Expected result
 
 ```
-619 tests, 0 failures
+619 passed in X.XXs
 ```
 
 Tests make no system calls — all snapshots are built directly in the test files. They can be run without `sudo` and without UFW installed.
@@ -285,14 +289,27 @@ In `locales/fr.json`:
 After any change to the locales:
 
 ```bash
-cd ~/Desktop/ufw_audit/python/
-python3 check_keys.py
+python3 -c "
+import json
+def keys(d, p=''):
+    k = set()
+    for a,v in d.items():
+        f = f'{p}.{a}' if p else a
+        k |= keys(v,f) if isinstance(v,dict) else {f}
+    return k
+en = keys(json.load(open('ufw_audit/locales/en.json')))
+fr = keys(json.load(open('ufw_audit/locales/fr.json')))
+print(f'EN keys: {len(en)}')
+print(f'FR keys: {len(fr)}')
+missing = en - fr
+print(f'Missing in FR: {missing if missing else \"none\"}')
+"
 ```
 
 Expected output:
 ```
-EN keys: 183
-FR keys: 183
+EN keys: 290
+FR keys: 290
 Missing in FR: none
 ```
 
@@ -308,7 +325,7 @@ cp ufw_audit/locales/en.json ufw_audit/locales/de.json
 
 ### 2. Translate all values
 
-The file contains 183 keys organised into sections. Translate all values while keeping `{variable}` placeholders intact.
+The file contains 290 keys organised into sections. Translate all values while keeping `{variable}` placeholders intact.
 
 Example:
 ```json
@@ -574,9 +591,9 @@ If a key does not exist, `t()` returns `"[missing.key]"` — never an exception.
 
 ### Data file location
 
-In production (installed), locale files and `services.json` are read from `$UFW_AUDIT_SHARE` (set by the entry point to `/usr/local/share/ufw-audit/`).
+Locale files and `services.json` are read from the `locales/` and `data/` directories relative to the Python module (`Path(__file__).parent`). This works both in development and with pipx (which includes the package data files in the isolated environment).
 
-In development (run from source), they are read from the `locales/` and `data/` directories relative to the Python module.
+`$UFW_AUDIT_SHARE` is a legacy env var set by the install.sh installer (points to `/usr/local/share/ufw-audit/`). It takes priority when present, for backward compatibility with existing install.sh installations.
 
 ```python
 # i18n.py
@@ -593,6 +610,6 @@ else:
 
 | Variable | Effect |
 |---|---|
-| `UFW_AUDIT_SHARE` | Shared data directory (locales, services.json) — set by the installer |
+| `UFW_AUDIT_SHARE` | Shared data directory (locales, services.json) — set by install.sh installer; not used by pipx installs |
 | `SUDO_USER` | Real user under sudo — used for config path and report |
 | `NO_COLOR` | Disables ANSI colours (standard) |

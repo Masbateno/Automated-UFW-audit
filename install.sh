@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # =============================================================================
-# ufw-audit installer
+# ufw-audit installer  [DEPRECATED]
+# =============================================================================
+# ⚠️  This script is deprecated. The recommended installation method is:
+#
+#     pipx install ufw-audit
+#     sudo ufw-audit --install-completion
+#
+# This script is kept for systems without pip/pipx only.
 # =============================================================================
 # Usage:
 #   sudo ./install.sh              Install ufw-audit

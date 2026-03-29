@@ -6,6 +6,42 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.0] — 2026-03-29
+
+### TL;DR
+- PyPI packaging — `pipx install ufw-audit` is now the recommended installation method
+- New `--install-completion` flag — installs bash completion and `/usr/local/bin/` symlink for sudo PATH
+- Bug fix: `services.exposure.not_listening` translation key was displayed raw in audit output
+- `install.sh` deprecated in favour of pip/pipx
+
+### New features
+
+- **`pyproject.toml`** — Package declared with setuptools>=77. Entry point `ufw-audit = "ufw_audit.__main__:main"` registered. Data files (`data/*`, `locales/*.json`) bundled inside the package. Enables `pipx install ufw-audit` and `pip install ufw-audit`.
+
+- **`--install-completion`** — New CLI flag. Copies the bundled bash completion script to `/etc/bash_completion.d/ufw-audit`. Creates a symlink `/usr/local/bin/ufw-audit → ~/.local/bin/ufw-audit` so that `sudo ufw-audit` works when installed via pipx (which places the binary in `~/.local/bin/`, outside sudo's restricted PATH). Uses `SUDO_USER` to resolve the real user's home directory.
+
+- **`ufw_audit/data/ufw-audit.bash-completion`** — Bash completion script bundled inside the package so it is available after `pipx install` without requiring a git clone.
+
+### Bug fixes
+
+- **`locales/en.json` + `locales/fr.json` — `services.exposure.not_listening` key missing** — Ports classified as `Exposure.NOT_LISTENING` (in registry but not actively listening on the system) displayed the raw translation key `[services.exposure.not_listening]` in the audit output. Added the missing key: EN `"not actively listening — port in registry but not detected on this system"`, FR `"n'écoute pas activement — port présent dans le registre mais non détecté sur ce système"`.
+
+### Deprecations
+
+- **`install.sh`** — Shell installer is deprecated. The recommended installation method is `pipx install ufw-audit` followed by `sudo ufw-audit --install-completion`. The script is kept for systems without pip/pipx.
+
+### Removed
+
+- **`ufw-audit.bash-completion` (repo root)** — Removed duplicate. The completion script is now bundled inside the package at `ufw_audit/data/ufw-audit.bash-completion`.
+
+### Infrastructure
+
+- **`.github/workflows/tests.yml`** — CI now upgrades pip before installing, installs the package with `pip install -e .`, and verifies the entry point. Python 3.8 removed from the test matrix (EOL since October 2024; `setuptools>=77` requires Python 3.9+). Matrix: Python 3.9, 3.10, 3.12.
+
+- **`pyproject.toml` — minimum Python raised to 3.9** — `setuptools>=77` (required for PEP 639 `license-files = []`) does not support Python 3.8. `requires-python` updated to `>=3.9`.
+
+---
+
 ## [v0.22.1] — 2026-03-29
 
 ### TL;DR
