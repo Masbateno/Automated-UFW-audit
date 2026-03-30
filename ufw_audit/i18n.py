@@ -97,7 +97,7 @@ def init(lang: str = DEFAULT_LANG) -> None:
             f"Locale file {locale_path} is not valid JSON: {exc}"
         ) from exc
 
-    _lang = lang
+    _lang = locale_path.stem  # reflects actual loaded locale, not the requested one
     _initialized = True
     logger.debug("Loaded locale %r from %s", lang, locale_path)
 
