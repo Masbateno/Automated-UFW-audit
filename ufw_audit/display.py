@@ -7,14 +7,38 @@ log analysis, and the final audit summary.
 
 from __future__ import annotations
 
-# Maximum display width for summary box entries
-_SUMMARY_MSG_LEN    = 48   # finding messages (action / improvement / structural)
-_SUMMARY_REASON_LEN = 44   # score deduction reasons
+def _wrap_for_box(prefix: str, text: str, inner: int) -> list[tuple[str, str]]:
+    """Wrap text to fit inside a summary box of given inner width.
 
+    The prefix is placed on the first line; continuation lines are indented
+    to align with the text start. Returns a list of (content, "") tuples
+    ready for print_summary_box.
+    """
+    avail = inner - len(prefix)
+    if avail <= 0:
+        return [(prefix, "")]
+    if len(text) <= avail:
+        return [(f"{prefix}{text}", "")]
 
-def _truncate(text: str, max_len: int) -> str:
-    """Truncate text to max_len characters, appending ellipsis if needed."""
-    return text[:max_len] + "…" if len(text) > max_len else text
+    indent = " " * len(prefix)
+    words = text.split()
+    chunks: list[str] = []
+    current = ""
+    for word in words:
+        if not current:
+            current = word
+        elif len(current) + 1 + len(word) <= avail:
+            current += " " + word
+        else:
+            chunks.append(current)
+            current = word
+    if current:
+        chunks.append(current)
+
+    return [
+        (f"{prefix}{line}" if i == 0 else f"{indent}{line}", "")
+        for i, line in enumerate(chunks)
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -210,8 +234,10 @@ def display_log_results(logs_result, snapshot, config, t, report) -> None:
 def print_audit_summary(engine, network_context, public_ip, config, t,
                          report, snapshots) -> None:
     """Print the audit summary box and write to report."""
-    from ufw_audit.output import print_summary_box
+    from ufw_audit.output import print_summary_box, _TERM_WIDTH
     from ufw_audit.scoring import RiskLevel
+
+    inner = _TERM_WIDTH - 2
 
     score = engine.score
     level = engine.level
@@ -231,25 +257,28 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
     improvement_items = [f for f in engine.findings if f.nature == "improvement"]
     structural_items  = [f for f in engine.findings if f.nature == "structural"]
 
+    def _add_finding_lines(icon_prefix: str, item) -> None:
+        lines.extend(_wrap_for_box(icon_prefix, item.message, inner))
+        if item.cmd:
+            cmd_prefix = " " * len(icon_prefix) + "→ "
+            lines.extend(_wrap_for_box(cmd_prefix, item.cmd, inner))
+
     if action_items or improvement_items or structural_items:
         if action_items:
             lines.append(("---", ""))
             lines.append((f"✖ {t('summary.block_action')}", ""))
             for item in action_items:
-                msg = _truncate(item.message, _SUMMARY_MSG_LEN)
-                lines.append((f"  ✖  {msg}", ""))
+                _add_finding_lines("  ✖  ", item)
         if improvement_items:
             lines.append(("---", ""))
             lines.append((f"⚠ {t('summary.block_improve')}", ""))
             for item in improvement_items:
-                msg = _truncate(item.message, _SUMMARY_MSG_LEN)
-                lines.append((f"  ⚠  {msg}", ""))
+                _add_finding_lines("  ⚠  ", item)
         if structural_items:
             lines.append(("---", ""))
             lines.append((f"ℹ {t('summary.block_normal')}", ""))
             for item in structural_items:
-                msg = _truncate(item.message, _SUMMARY_MSG_LEN)
-                lines.append((f"  ℹ  {msg}", ""))
+                _add_finding_lines("  ℹ  ", item)
 
     if engine.breakdown or engine.cap_info:
         lines.append(("---", ""))
@@ -257,11 +286,11 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
         for ded in engine.breakdown:
             if ded.points == 0:
                 continue
-            reason = _truncate(ded.reason, _SUMMARY_REASON_LEN)
-            lines.append((f"  -{ded.points}  {reason}", ""))
+            prefix = f"  -{ded.points}  "
+            lines.extend(_wrap_for_box(prefix, ded.reason, inner))
         if engine.cap_info:
             cap_note = t("scoring.cap_note", max=engine.cap_info.maximum)
-            lines.append((f"  ⚠  {cap_note}", ""))
+            lines.extend(_wrap_for_box("  ⚠  ", cap_note, inner))
 
     print_summary_box(lines)
     print()
