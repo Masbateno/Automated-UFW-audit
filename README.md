@@ -48,6 +48,12 @@ source /etc/bash_completion.d/ufw-audit
 
 After this step, `sudo ufw-audit` works normally.
 
+### Update
+
+```bash
+pipx upgrade ufw-audit
+```
+
 ### Uninstall
 
 ```bash

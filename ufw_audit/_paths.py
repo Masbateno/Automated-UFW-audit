@@ -29,7 +29,11 @@ def resolve_share_dir() -> Path | None:
     share = os.environ.get("UFW_AUDIT_SHARE", "")
     if not share:
         return None
-    resolved = Path(share).resolve()
+    try:
+        resolved = Path(share).resolve()
+    except OSError as exc:
+        logger.warning("UFW_AUDIT_SHARE could not be resolved, ignoring: %r (%s)", share, exc)
+        return None
     if resolved.is_absolute() and resolved.is_dir():
         return resolved
     logger.warning("UFW_AUDIT_SHARE is invalid or unsafe, ignoring: %r", share)
