@@ -67,9 +67,12 @@ def collect_system_info(version: str, lang: str):
     return SystemInfo(
         os_name=os_name,
         hostname=_sanitize(run("hostname"), max_len=64),
-        kernel=run("uname", "-r"),
+        kernel=_sanitize(run("uname", "-r"), max_len=64),
         ufw_version=ufw_version,
-        user=os.environ.get("SUDO_USER") or os.environ.get("USER", "unknown"),
+        user=_sanitize(
+            os.environ.get("SUDO_USER") or os.environ.get("USER", "unknown"),
+            max_len=32,
+        ),
         config_path=str(get_user_home() / ".config" / "ufw-audit" / "config.conf"),
         language=lang,
         version=version,
@@ -79,6 +82,12 @@ def collect_system_info(version: str, lang: str):
 # ---------------------------------------------------------------------------
 # Network context
 # ---------------------------------------------------------------------------
+
+# Private IPv4 ranges (RFC 1918 + loopback + CGNAT)
+_PRIVATE_IPV4_RE = re.compile(
+    r"^(10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|127\.|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)"
+)
+
 
 def get_public_ip() -> str:
     """Attempt to determine public IP via a lightweight HTTP request."""
@@ -106,7 +115,7 @@ def detect_network_context() -> tuple[str, str]:
             ["ip", "route", "show", "default"],
             capture_output=True, text=True, timeout=5,
         )
-        if re.search(r"via\s+(10\.|192\.168\.|172\.)", result.stdout):
+        if re.search(r"via\s+" + _PRIVATE_IPV4_RE.pattern.lstrip("^"), result.stdout):
             public_ip = get_public_ip()
             return "local", public_ip
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
@@ -119,10 +128,7 @@ def detect_network_context() -> tuple[str, str]:
         )
         for match in re.finditer(r"inet\s+([\d.]+)/", result.stdout):
             ip = match.group(1)
-            if not re.match(
-                r"^(10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|127\.|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)",
-                ip,
-            ):
+            if not _PRIVATE_IPV4_RE.match(ip):
                 return "public", ip
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         pass
