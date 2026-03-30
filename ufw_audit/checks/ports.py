@@ -44,14 +44,6 @@ _SYSTEM_PORTS: list[tuple[int, str, str]] = [
     (6666,"udp", "clipboard sync (qlipper/KDE)"),
 ]
 
-# Private/loopback address patterns — ports on these are not internet-exposed
-_PRIVATE_ADDR = re.compile(
-    r"^(127\.|::1$|localhost|0\.0\.0\.0$|::$|"
-    r"192\.168\.|10\.|172\.(?:1[6-9]|2\d|3[01])\.|"
-    r"100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.|"  # CGNAT 100.64.0.0/10
-    r"fe80:|fc|fd)"
-)
-
 _LOOPBACK = re.compile(r"^(127\.|::1$)")
 _ALL_INTERFACES = re.compile(r"^(0\.0\.0\.0|::|\*)$")
 
