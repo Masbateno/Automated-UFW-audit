@@ -140,18 +140,21 @@ class LogsSnapshot:
             return cls(entries=[], days_available=0,
                        log_days=log_days, log_found=False)
 
-        _MAX_LOG_SIZE = 10 * 1024 * 1024  # 10 MB — sufficient for weeks of UFW logs
+        _MAX_LOG_SIZE = 10 * 1024 * 1024  # 10 MB — read from end to capture recent entries
         try:
             with log_path.open(encoding="utf-8", errors="ignore") as fh:
-                content = fh.read(_MAX_LOG_SIZE)
+                fh.seek(0, 2)
+                file_size = fh.tell()
+                fh.seek(max(file_size - _MAX_LOG_SIZE, 0))
+                content = fh.read()
         except OSError as exc:
             logger.warning("Cannot read %s: %s", log_path, exc)
             return cls(entries=[], days_available=0,
                        log_days=log_days, log_found=False)
 
-        cutoff_date = (datetime.now() - timedelta(days=log_days)).strftime("%Y-%m-%d")
+        cutoff_dt = datetime.now() - timedelta(days=log_days)
         days_available = _count_available_days(content)
-        entries = _parse_log(content, cutoff_date)
+        entries = _parse_log(content, cutoff_dt)
 
         return cls(
             entries=entries,
@@ -434,18 +437,17 @@ def _count_available_days(content: str) -> int:
     return len(dates)
 
 
-def _parse_log(content: str, cutoff_date: str) -> list[LogEntry]:
+def _parse_log(content: str, cutoff_dt: datetime) -> list[LogEntry]:
     """
-    Parse UFW BLOCK lines from log content, filtering by cutoff_date.
+    Parse UFW BLOCK lines from log content, filtering by cutoff_dt.
 
     Supports:
       - ISO 8601: 2026-03-19T18:20:08.898446+01:00
       - Syslog:   Mar 19 10:23:14
 
     Args:
-        content:     Full log file content.
-        cutoff_date: ISO date string "YYYY-MM-DD" — only entries on or
-                     after this date are included.
+        content:   Full log file content.
+        cutoff_dt: Datetime — only entries on or after this datetime are included.
 
     Returns:
         List of parsed LogEntry objects.
@@ -462,7 +464,7 @@ def _parse_log(content: str, cutoff_date: str) -> list[LogEntry]:
             continue
 
         # Filter by cutoff
-        if ts.strftime("%Y-%m-%d") < cutoff_date:
+        if ts < cutoff_dt:
             continue
 
         src_ip   = _extract_field(line, "SRC")

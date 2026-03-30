@@ -216,7 +216,7 @@ def check_rules(
     return result
 
 
-def _check_duplicates(lines: list, t, result: CheckResult) -> None:
+def _check_duplicates(lines: list[str], t, result: CheckResult) -> None:
     """Detect duplicate and proto-redundant UFW rules."""
 
     def _strip_comment(text: str) -> str:
@@ -271,7 +271,7 @@ def _check_duplicates(lines: list, t, result: CheckResult) -> None:
         result.ok(message=t("rules.no_duplicates"))
 
 
-def _check_open_any(lines: list, t, result: CheckResult) -> None:
+def _check_open_any(lines: list[str], t, result: CheckResult) -> None:
     """Detect 'Anywhere ALLOW IN Anywhere' wildcard rules."""
     open_any_pattern = re.compile(
         r"Anywhere(?:/\w+)?(?:\s+\(v6\))?\s+ALLOW\s+IN\s+Anywhere(?:/\w+)?(?:\s+\(v6\))?\s*$",
@@ -295,7 +295,7 @@ def _check_open_any(lines: list, t, result: CheckResult) -> None:
 
 
 def _check_ipv6_coverage(
-    lines: list,
+    lines: list[str],
     t,
     result: CheckResult,
     ipv6_enabled: bool,

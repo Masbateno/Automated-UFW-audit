@@ -11,7 +11,6 @@ import re
 import shlex
 import subprocess
 
-from ufw_audit.display import _SUMMARY_MSG_LEN, _truncate
 
 
 def run_fixes(engine, config, t) -> None:
@@ -65,8 +64,7 @@ def run_fixes(engine, config, t) -> None:
 
     print()
     for msg, cmd in sorted_items:
-        short = _truncate(msg, _SUMMARY_MSG_LEN)
-        print(f"  ✖  {short}")
+        print(f"  ✖  {msg}")
         print(f"  → {cmd}")
         if config.yes:
             answer = "y"

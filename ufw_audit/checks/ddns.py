@@ -167,8 +167,8 @@ def check_ddns(
     snapshot: DdnsSnapshot,
     ufw_rules: str = "",
     t=None,
-    loopback_ports: Optional[set] = None,
-    active_ports: Optional[set] = None,
+    loopback_ports: Optional[set[str]] = None,
+    active_ports: Optional[set[str]] = None,
 ) -> CheckResult:
     """
     Evaluate DDNS snapshot and return findings.
@@ -334,7 +334,7 @@ def _extract_ddclient_domain(content: str) -> Optional[str]:
             continue
         # Strip http:// or https://
         domain = re.sub(r"^https?://", "", line)
-        if domain and re.match(r"[\w.-]+\.[a-z]{2,}", domain):
+        if domain and re.match(r"^(?!-)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$", domain):
             return domain
 
     return None
@@ -345,7 +345,7 @@ def _extract_inadyn_domain(content: str) -> Optional[str]:
     match = re.search(r"hostname\s*=\s*(.+)", content, re.MULTILINE)
     if match:
         value = match.group(1).strip().strip('"')
-        if re.match(r"^[\w.-]+\.[a-z]{2,}$", value):
+        if re.match(r"^(?!-)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$", value):
             return value
     return None
 
@@ -377,8 +377,8 @@ def _extract_duckdns_domain(content: str) -> Optional[str]:
 
 def _find_open_ports(
     ufw_rules: str,
-    loopback_ports: Optional[set] = None,
-    active_ports: Optional[set] = None,
+    loopback_ports: Optional[set[str]] = None,
+    active_ports: Optional[set[str]] = None,
 ) -> list[str]:
     """
     Find ports with unrestricted ALLOW rules (no source IP restriction).

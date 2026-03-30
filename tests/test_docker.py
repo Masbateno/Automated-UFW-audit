@@ -66,8 +66,9 @@ class TestExposedPort:
     def test_not_public_loopback(self):
         assert make_port(host_ip="127.0.0.1").is_public is False
 
-    def test_not_public_private(self):
-        assert make_port(host_ip="192.168.1.10").is_public is False
+    def test_public_specific_interface(self):
+        """A port bound to a specific LAN IP is accessible from the network — is_public=True."""
+        assert make_port(host_ip="192.168.1.10").is_public is True
 
 
 # ---------------------------------------------------------------------------
