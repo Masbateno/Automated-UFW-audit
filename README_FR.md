@@ -48,6 +48,12 @@ source /etc/bash_completion.d/ufw-audit
 
 Après cette étape, `sudo ufw-audit` fonctionne normalement.
 
+### Mettre à jour
+
+```bash
+pipx upgrade ufw-audit
+```
+
 ### Désinstaller
 
 ```bash
@@ -132,19 +138,21 @@ sudo ufw-audit --french  # interface française
 
 ## 🧪 Qualité & fiabilité
 
-- ✅ 619 tests unitaires
+- ✅ 639 tests unitaires
 - 🧱 Architecture modulaire (snapshot / check séparés)
 - 🧪 Testé sur Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.0
+## 🆕 v1.2.0
 
-- 📦 Packaging PyPI — `pipx install ufw-audit`
-- 🔌 Entry point CLI propre (`ufw-audit`)
-- 🧩 Bash completion intégrée (`--install-completion`)
-- 🗂 Données embarquées (registry services + locales)
-- ⚙️ Python ≥ 3.9
+- 🔒 Passage qualité : 12 corrections défensives sur 8 modules (aucun changement de comportement)
+- 🐛 Plage IPv4 privée `172.x` corrigée à la RFC 1918 uniquement (`172.16–31`) dans `sysinfo.py`
+- 🐛 `i18n.current_lang()` retourne désormais la locale réellement chargée (et non celle demandée)
+- 🐛 `send_html_email()` vérifie désormais la présence de `sendmail` (vérifiait `mail`)
+- 🛡 `Deduction.context` validé ; raison du cap désormais visible dans le breakdown du score
+- 🛡 `registry.py` valide le format de `config_key` et des chaînes de port (`nombre/tcp|udp`)
+- ✅ 639/639 tests unitaires
 
 ---
 
@@ -178,7 +186,7 @@ Automated-UFW-audit/
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 619 tests unitaires
+└── tests/                          # 639 tests unitaires
 ```
 
 ---

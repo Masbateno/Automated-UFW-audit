@@ -6,6 +6,104 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.2.0] — 2026-03-30
+
+### TL;DR
+- Code quality pass based on senior review: 12 defensive fixes across 8 modules
+- No behaviour changes, no new features
+- 639/639 unit tests
+
+### Bug fixes
+
+- **`i18n.current_lang()` returns requested locale instead of loaded locale** (`i18n.py`) — When a language falls back to `DEFAULT_LANG` (e.g. requesting `"de"` loads `en.json`), `_lang` was still set to `"de"`. Fixed by assigning `locale_path.stem` after loading, so `current_lang()` reflects what was actually loaded.
+
+- **`manage_logs.py` — unguarded `unlink()` calls** (`manage_logs.py`) — All three deletion paths (single, multi, all) now wrap `f.unlink()` in `try/except OSError`, printing an error message per file instead of raising.
+
+- **`i18n.init()` — bare `JSONDecodeError` on malformed locale** (`i18n.py`) — Malformed locale JSON raised a raw `json.JSONDecodeError`. Now caught and re-raised as `ValueError` with a clear diagnostic message.
+
+- **`resolve_share_dir()` — unguarded `Path.resolve()`** (`_paths.py`) — `Path.resolve()` can raise `OSError` on dangling symlinks. Wrapped in `try/except OSError`; returns `None` on failure with a warning log.
+
+- **`registry.py` — weak `config_key` and port format validation** (`registry.py`) — `VALID_CONFIG_KEYS` was defined but never enforced. `config_key` is now validated: must be one of `{"fixed", "auto", "ask"}` or a valid Python identifier. Port strings are validated against `^\d{1,5}/(tcp|udp)$`. Services with `config_key="fixed"` and an empty ports list now raise `ValueError`.
+
+- **`report_markdown.py` — table detection breaks on indented lines** (`report_markdown.py`) — Table detection used `line.startswith("|")` which failed if the line had leading whitespace. Changed to `line.strip().startswith("|")`.
+
+- **`report_markdown.py` — ASCII box filter causes false positives** (`report_markdown.py`) — `_audit_log_to_html()` used `any(c in line for c in "╔╗...")` which triggered on any line containing a box character (e.g. paths). Replaced with `re.match(r"^[╔╗╚╝║═┌┐└┘─┼ ]+$", line.strip())` — only matches lines composed entirely of box characters.
+
+- **`report_markdown.py` — `send_html_email()` checks for `mail` but calls `sendmail`** (`report_markdown.py`) — `shutil.which("mail")` was used as the availability check, but the actual subprocess call uses `sendmail`. Changed to `shutil.which("sendmail")`.
+
+- **`output.py` — panorama column overflow on long labels/ports** (`output.py`) — Label and port strings were formatted with `f"{label:<{COL_SVC}}"` without truncation. Strings longer than the column width break the table layout. Both are now truncated to `COL_SVC` / `COL_PORT` characters before formatting.
+
+- **`scoring.py` — cap not visible in score breakdown** (`scoring.py`) — When a cap reduced the score (e.g. firewall inactive → max 3), the cap reason never appeared in the breakdown list. `finalize()` now injects a synthetic `Deduction(context="structural")` for the capped delta so the reason is visible in the score breakdown.
+
+- **`scoring.py` — `Deduction.context` not validated** (`scoring.py`) — `context` accepted any string. Added `VALID_CONTEXTS = {"local", "public", "structural"}` and a `__post_init__` check that raises `ValueError` on invalid values.
+
+- **`sysinfo.py` — `172.` private IP regex too broad** (`sysinfo.py`) — `re.search(r"via\s+(10\.|192\.168\.|172\.)", ...)` matched all `172.x.x.x` addresses, including public ranges (RFC 1918 only covers `172.16–31`). Centralised a single `_PRIVATE_IPV4_RE` pattern (reused from the `ip addr` branch) and applied it in both network detection paths. `kernel` and `user` strings now pass through `_sanitize()` for consistency.
+
+### Tests
+
+- `tests/test_i18n.py` — `test_init_unknown_lang_falls_back_to_english`: assertion updated from `current_lang() == "de"` to `current_lang() == "en"`
+- `tests/test_registry.py` — `test_main_port_empty`: uses `config_key="auto"` (ports=[] now rejected for `config_key="fixed"`)
+
+---
+
+## [v1.1.1] — 2026-03-30
+
+### Bug fix
+
+- **Panorama UFW column — false ✖ for `NO_RULE` exposures** (`panorama.py`) — Services whose port has no explicit UFW rule (e.g. Avahi 5353/udp classified as `Exposure.NO_RULE`) were shown with ✖ in the panorama. This is incorrect: when UFW is active with a default deny policy (checked in the firewall section), a port with no rule is blocked by that policy and should show ✔. Removed the `has_no_rule → "none"` branch; `NO_RULE` now falls through to `"ok"` like other covered exposures.
+
+### Tests
+
+- `test_no_rule_shows_none` renamed to `test_no_rule_shows_ok` — assertion updated to `"ok"`
+
+---
+
+## [v1.1.0] — 2026-03-30
+
+### TL;DR
+- Summary box redesigned: word-wrap, inline fix commands, red disclaimer
+- vsftpd `listen_port` and Transmission `rpc-port` (JSON) now detected
+- Internal code quality pass across 7 modules (no behaviour changes)
+- 639/639 unit tests (+5)
+
+### New features
+
+- **Summary box — word-wrap** (`display.py`) — Replaced `_truncate()` (hard cutoff at 48 chars) with `_wrap_for_box()`, which distributes long messages across multiple lines within the box border. No finding text is ever truncated.
+
+- **Summary box — inline fix commands** (`display.py`) — Each finding in the "Possible improvements" and "Action required" blocks now shows its associated `→ cmd` on the line immediately below the message, when a command is available.
+
+- **Summary box — red disclaimer** (`display.py`) — A red disclaimer line is shown after the "Possible improvements" block: *"Commands shown are suggestions — verify and adapt to your network before running"*. Applied every time the block is displayed. Locale key: `summary.block_improve_disclaimer`.
+
+### Bug fixes
+
+- **vsftpd `listen_port` not detected** (`checks/services.py`) — `_auto_detect_port()` regex only matched `port`, `listen`, and `Port` directives. Added `listen_port` to the alternation so `listen_port=2121` in `/etc/vsftpd.conf` is correctly picked up.
+
+- **Transmission `rpc-port` not detected** (`checks/services.py`) — Transmission stores its configuration in JSON (`/etc/transmission-daemon/settings.json`). The generic `_auto_detect_port()` parser only handled key=value and key: value text formats. Added a JSON branch: files with a `.json` suffix are parsed with `json.loads()` and the `rpc-port` key is extracted directly.
+
+### Internal improvements
+
+- **`checks/_run.py`** — `_run()` gains an optional `timeout: int = _CMD_TIMEOUT` parameter, allowing per-call overrides. Debug log now includes the full `stderr` of the failed subprocess.
+
+- **`checks/ddns.py`** — Domain validation regex replaced with an RFC-compliant pattern (`^(?!-)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$`) that rejects leading hyphens and single-label names. `Optional[set[str]]` typing applied (4 occurrences).
+
+- **`checks/docker.py`** — `ContainerPort.is_public` now uses `ipaddress.ip_address().is_loopback` instead of a hardcoded `("0.0.0.0", "::")` check — correctly identifies specific-interface bindings (e.g. `192.168.1.10`) as public. `_get_exposed_ports()` deduplicates by `(container_name, host_port, proto)` to avoid double-counting IPv4+IPv6 pairs. Distinct locale key `docker.no_public_ports` for the "no exposed ports" case.
+
+- **`checks/firewall.py`** — `lines: list[str]` annotation added to all three helper functions (`_check_duplicates`, `_check_open_any`, `_check_ipv6_coverage`).
+
+- **`checks/logs.py`** — Large log files are now read from the end (seek to `file_size - 10 MB`) to capture recent entries instead of oldest. Date cutoff changed from string comparison to `datetime` object (`ts < cutoff_dt`).
+
+- **`checks/ports.py`** — Removed unused `_PRIVATE_ADDR` regex (dead code since `_LOOPBACK` and `_ALL_INTERFACES` were introduced).
+
+- **`checks/services.py`** — `Optional[set[str]]` typing applied in `_build_snapshot`, `collect`, `collect_all` (4 occurrences).
+
+### Tests
+
+- 639/639 (+5 new): `test_vsftpd_listen_port`, `test_vsftpd_commented_listen_port_ignored`, `test_transmission_json_rpc_port`, `test_transmission_json_default_port`, `test_transmission_json_invalid_falls_back`
+- `test_docker.py`: `test_not_public_private` renamed to `test_public_specific_interface` — assertion updated to `is_public is True` for `192.168.1.10` (correct behaviour after `ipaddress` fix)
+- `test_logs.py`: all `_parse_log(content, "YYYY-MM-DD")` calls updated to `_parse_log(content, datetime(Y, M, D))` after signature change
+
+---
+
 ## [v1.0.4] — 2026-03-29
 
 ### Bug fixes

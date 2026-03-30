@@ -34,11 +34,8 @@ def build_panorama_rows(all_snapshots) -> list[dict]:
             ufw = "na"
         else:
             has_open_world = any(e == Exposure.OPEN_WORLD for e in snap.exposures.values())
-            has_no_rule    = any(e == Exposure.NO_RULE    for e in snap.exposures.values())
             if has_open_world:
                 ufw = "warn"
-            elif has_no_rule:
-                ufw = "none"
             else:
                 ufw = "ok"
 

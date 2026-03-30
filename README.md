@@ -48,6 +48,12 @@ source /etc/bash_completion.d/ufw-audit
 
 After this step, `sudo ufw-audit` works normally.
 
+### Update
+
+```bash
+pipx upgrade ufw-audit
+```
+
 ### Uninstall
 
 ```bash
@@ -132,19 +138,21 @@ sudo ufw-audit --french  # French interface
 
 ## 🧪 Quality & reliability
 
-- ✅ 619 unit tests
+- ✅ 639 unit tests
 - 🧱 Modular architecture (snapshot / check separated)
 - 🧪 Tested on Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.0
+## 🆕 v1.2.0
 
-- 📦 PyPI packaging — `pipx install ufw-audit`
-- 🔌 Clean CLI entry point (`ufw-audit`)
-- 🧩 Built-in bash completion (`--install-completion`)
-- 🗂 Bundled data (service registry + locales)
-- ⚙️ Python ≥ 3.9
+- 🔒 Code quality pass: 12 defensive fixes across 8 modules (no behaviour changes)
+- 🐛 Private IPv4 `172.x` range corrected to RFC 1918 only (`172.16–31`) in `sysinfo.py`
+- 🐛 `i18n.current_lang()` now returns the actually loaded locale (not the requested one)
+- 🐛 `send_html_email()` now checks for `sendmail` (was checking `mail`)
+- 🛡 `Deduction.context` validated; cap reason now visible in score breakdown
+- 🛡 Registry validates `config_key` format and port strings (`number/tcp|udp`)
+- ✅ 639/639 unit tests
 
 ---
 
@@ -178,7 +186,7 @@ Automated-UFW-audit/
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 619 unit tests
+└── tests/                          # 639 unit tests
 ```
 
 ---

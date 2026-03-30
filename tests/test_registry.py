@@ -116,7 +116,7 @@ class TestService:
         assert s.main_port == "22/tcp"
 
     def test_main_port_empty(self):
-        s = Service.from_dict(make_service_dict(ports=[]))
+        s = Service.from_dict(make_service_dict(ports=[], config_key="auto"))
         assert s.main_port == ""
 
     def test_immutable(self):

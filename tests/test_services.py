@@ -553,8 +553,9 @@ class TestPanoramaNewVariants:
     def test_open_world_shows_warn(self):
         assert self._row_for(Exposure.OPEN_WORLD)["ufw"] == "warn"
 
-    def test_no_rule_shows_none(self):
-        assert self._row_for(Exposure.NO_RULE)["ufw"] == "none"
+    def test_no_rule_shows_ok(self):
+        """NO_RULE is covered by the default deny policy — panorama shows ✔."""
+        assert self._row_for(Exposure.NO_RULE)["ufw"] == "ok"
 
     def test_mixed_loopback_no_rule_and_not_listening_shows_ok(self):
         """Service with both LOOPBACK_NO_RULE and NOT_LISTENING → ok."""

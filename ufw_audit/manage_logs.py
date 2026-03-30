@@ -182,9 +182,14 @@ def run_manage_logs(user_config, config, t) -> int:
         print(f"  ✔ {t('manage_logs.location_updated', path=str(chosen))}")
 
     elif answer == "all":
+        deleted = 0
         for f in logs:
-            f.unlink()
-        print(f"  ✔ {t('manage_logs.deleted_all', count=len(logs))}")
+            try:
+                f.unlink()
+                deleted += 1
+            except OSError as exc:
+                print(f"  ✖ Cannot delete {f.name}: {exc}")
+        print(f"  ✔ {t('manage_logs.deleted_all', count=deleted)}")
 
     else:
         selected = parse_log_selection(answer, len(logs))
@@ -192,11 +197,20 @@ def run_manage_logs(user_config, config, t) -> int:
             print(f"  ✖ {t('manage_logs.invalid')}")
         elif len(selected) == 1:
             f = logs[selected[0] - 1]
-            f.unlink()
-            print(f"  ✔ {t('manage_logs.deleted_one', name=f.name)}")
+            try:
+                f.unlink()
+                print(f"  ✔ {t('manage_logs.deleted_one', name=f.name)}")
+            except OSError as exc:
+                print(f"  ✖ Cannot delete {f.name}: {exc}")
         else:
+            deleted = 0
             for idx in selected:
-                logs[idx - 1].unlink()
-            print(f"  ✔ {t('manage_logs.deleted_multi', count=len(selected))}")
+                f = logs[idx - 1]
+                try:
+                    f.unlink()
+                    deleted += 1
+                except OSError as exc:
+                    print(f"  ✖ Cannot delete {f.name}: {exc}")
+            print(f"  ✔ {t('manage_logs.deleted_multi', count=deleted)}")
 
     return 0

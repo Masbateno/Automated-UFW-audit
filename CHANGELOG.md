@@ -4,6 +4,9 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.2.0](#v120) | 2026-03-30 | Code quality pass (ChatGPT senior review): 12 defensive fixes across 8 modules — no behaviour changes |
+| [v1.1.1](#v111) | 2026-03-30 | Hotfix: Avahi (mDNS) shows ✖ in panorama despite being covered by default deny policy |
+| [v1.1.0](#v110) | 2026-03-30 | Summary box redesigned (word-wrap + fix commands + disclaimer); vsftpd/Transmission port detection fixed; internal code quality pass |
 | [v1.0.4](#v104) | 2026-03-29 | Hotfix: ephemeral ports still shown in LISTENING PORTS OVERVIEW (display layer) |
 | [v1.0.3](#v103) | 2026-03-29 | Hotfix: hundreds of ephemeral UDP port messages flooding output (Samba/busy desktop) |
 | [v1.0.1](#v101) | 2026-03-29 | Hotfix: SSH on non-standard port not detected; TCP high ports wrongly classified as ephemeral |
@@ -29,6 +32,46 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.2.0
+
+**2026-03-30**
+
+- Fix: `i18n.current_lang()` now returns the actually loaded locale, not the requested one (relevant when falling back from an unsupported language)
+- Fix: `manage_logs.py` — all three deletion paths (`single`, `multi`, `all`) guard `unlink()` with `try/except OSError`
+- Fix: `i18n.init()` now raises `ValueError` with a clear message on malformed JSON locale files (was a bare `JSONDecodeError`)
+- Fix: `_paths.resolve_share_dir()` guards `Path.resolve()` with `try/except OSError`
+- Fix: `registry.py` — `config_key` validated against `VALID_CONFIG_KEYS` or `isidentifier()`; port format validated (`number/tcp|udp`); `config_key="fixed"` requires at least one port
+- Fix: `report_markdown.py` — table detection uses `line.strip().startswith("|")` (handles indented tables); ASCII box lines in `_audit_log_to_html` matched by full-line regex instead of per-character scan
+- Fix: `report_markdown.py` — `send_html_email()` checks for `sendmail` (not `mail`) since `sendmail` is what's actually called
+- Fix: `output.py` — panorama label and port strings truncated to column width to prevent layout overflow
+- Fix: `scoring.py` — `Deduction.context` validated against `{"local", "public", "structural"}`; cap now injects a synthetic `Deduction` into the breakdown during `finalize()` so the cap reason appears in the score breakdown
+- Fix: `sysinfo.py` — private IPv4 regex centralised (`_PRIVATE_IPV4_RE`) and applied consistently; `172.x` detection corrected to RFC 1918 range only (`172.16–31`); `kernel` and `user` strings sanitized
+- 639/639 unit tests
+
+---
+
+## v1.1.1
+
+**2026-03-30**
+
+- Hotfix: services with `Exposure.NO_RULE` (e.g. Avahi/mDNS 5353/udp) incorrectly showed ✖ in the panorama UFW column — a port with no explicit rule is covered by UFW's default deny policy and should show ✔
+
+---
+
+## v1.1.0
+
+**2026-03-30**
+
+- Feature: summary box messages now word-wrapped — long findings never truncated
+- Feature: fix commands (`→ cmd`) displayed inline under each finding in the summary box
+- Feature: red disclaimer shown under the "Possible improvements" block
+- Bug fix: vsftpd `listen_port=X` directive not detected by port auto-detection
+- Bug fix: Transmission `rpc-port` in `settings.json` not detected (JSON config)
+- Internal: `_run()` timeout parameter; domain validation regex hardened; `ipaddress` used for Docker public-IP detection; log file read from end; dead code removed; typing improved
+- 639/639 unit tests (+5)
 
 ---
 

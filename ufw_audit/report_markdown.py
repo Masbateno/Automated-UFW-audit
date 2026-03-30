@@ -368,10 +368,10 @@ def markdown_to_html(markdown_text: str) -> str:
             continue
 
         # Tables (lines starting with |)
-        if line.startswith("|"):
+        if line.strip().startswith("|"):
             # Collect all consecutive table lines
             table_lines = []
-            while i < len(lines) and lines[i].startswith("|"):
+            while i < len(lines) and lines[i].strip().startswith("|"):
                 table_lines.append(lines[i])
                 i += 1
 
@@ -515,9 +515,9 @@ def send_html_email(
     from email.mime.text import MIMEText
     import shutil
 
-    # Check if mail command exists
-    if not shutil.which("mail"):
-        logger.error("mail command not found")
+    # Check if sendmail command exists (used for actual delivery below)
+    if not shutil.which("sendmail"):
+        logger.error("sendmail command not found")
         return False
 
     # Use recipient as From if not specified (SMTP workaround)
@@ -636,7 +636,7 @@ def _audit_log_to_html(log_text: str) -> str:
         line = lines[i]
 
         # Skip ASCII box borders (╔, ║, ═, ╚, etc.)
-        if any(c in line for c in "╔╗╚╝║═┌┐└┘─┼"):
+        if re.match(r"^[╔╗╚╝║═┌┐└┘─┼ ]+$", line.strip()) and line.strip():
             i += 1
             continue
 

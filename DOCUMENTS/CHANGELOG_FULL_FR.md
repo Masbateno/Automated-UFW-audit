@@ -6,6 +6,104 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.2.0] — 2026-03-30
+
+### TL;DR
+- Passage qualité basé sur une revue senior : 12 corrections défensives sur 8 modules
+- Aucun changement de comportement, aucune nouvelle fonctionnalité
+- 639/639 tests unitaires
+
+### Corrections
+
+- **`i18n.current_lang()` retournait la locale demandée au lieu de la locale chargée** (`i18n.py`) — Lors d'un fallback (ex. demande `"de"` → charge `en.json`), `_lang` était tout de même mis à `"de"`. Corrigé en assignant `locale_path.stem` après chargement.
+
+- **`manage_logs.py` — appels `unlink()` non protégés** (`manage_logs.py`) — Les trois chemins de suppression (single, multi, all) encapsulent désormais `f.unlink()` dans `try/except OSError`, affichant un message d'erreur par fichier.
+
+- **`i18n.init()` — `JSONDecodeError` brut sur locale malformée** (`i18n.py`) — Un JSON de locale malformé levait un `json.JSONDecodeError` brut. Intercepté et re-levé en `ValueError` avec un message diagnostique clair.
+
+- **`resolve_share_dir()` — `Path.resolve()` non protégé** (`_paths.py`) — `Path.resolve()` peut lever `OSError` sur des liens symboliques cassés. Encapsulé dans `try/except OSError` ; retourne `None` en cas d'échec avec un log d'avertissement.
+
+- **`registry.py` — validation faible de `config_key` et format des ports** (`registry.py`) — `VALID_CONFIG_KEYS` était défini mais jamais appliqué. `config_key` est maintenant validé : doit être l'un de `{"fixed", "auto", "ask"}` ou un identifiant Python valide. Les chaînes de port sont validées contre `^\d{1,5}/(tcp|udp)$`. Les services avec `config_key="fixed"` et une liste de ports vide lèvent désormais `ValueError`.
+
+- **`report_markdown.py` — détection des tables échoue sur les lignes indentées** (`report_markdown.py`) — La détection utilisait `line.startswith("|")` qui échouait en cas d'espaces en début de ligne. Changé en `line.strip().startswith("|")`.
+
+- **`report_markdown.py` — filtre cadres ASCII provoque des faux positifs** (`report_markdown.py`) — `_audit_log_to_html()` utilisait `any(c in line for c in "╔╗...")` qui se déclenchait sur toute ligne contenant un caractère de cadre (ex. chemins). Remplacé par `re.match(r"^[╔╗╚╝║═┌┐└┘─┼ ]+$", line.strip())` — ne matche que les lignes entièrement composées de caractères de cadre.
+
+- **`report_markdown.py` — `send_html_email()` vérifie `mail` mais appelle `sendmail`** (`report_markdown.py`) — `shutil.which("mail")` était utilisé comme vérification de disponibilité, mais l'appel subprocess utilise `sendmail`. Changé en `shutil.which("sendmail")`.
+
+- **`output.py` — débordement de colonne du panorama sur labels/ports longs** (`output.py`) — Les chaînes label et port étaient formatées avec `f"{label:<{COL_SVC}}"` sans troncature. Des chaînes plus longues que la largeur de colonne cassent la mise en page. Les deux sont désormais tronquées à `COL_SVC` / `COL_PORT` caractères avant formatage.
+
+- **`scoring.py` — cap invisible dans le breakdown du score** (`scoring.py`) — Lorsqu'un cap réduisait le score (ex. pare-feu inactif → max 3), la raison du cap n'apparaissait jamais dans la liste du breakdown. `finalize()` injecte désormais une `Deduction(context="structural")` synthétique pour le delta cappé, rendant la raison visible dans la synthèse du score.
+
+- **`scoring.py` — `Deduction.context` non validé** (`scoring.py`) — `context` acceptait n'importe quelle chaîne. Ajout de `VALID_CONTEXTS = {"local", "public", "structural"}` et d'une vérification `__post_init__` qui lève `ValueError` sur les valeurs invalides.
+
+- **`sysinfo.py` — regex IP privée `172.` trop large** (`sysinfo.py`) — `re.search(r"via\s+(10\.|192\.168\.|172\.)", ...)` matchait toutes les adresses `172.x.x.x`, y compris les plages publiques (la RFC 1918 ne couvre que `172.16–31`). Un unique `_PRIVATE_IPV4_RE` centralisé est désormais appliqué dans les deux chemins de détection réseau. Les chaînes `kernel` et `user` passent maintenant par `_sanitize()` pour cohérence.
+
+### Tests
+
+- `tests/test_i18n.py` — `test_init_unknown_lang_falls_back_to_english` : assertion mise à jour de `current_lang() == "de"` vers `current_lang() == "en"`
+- `tests/test_registry.py` — `test_main_port_empty` : utilise `config_key="auto"` (`ports=[]` est désormais rejeté pour `config_key="fixed"`)
+
+---
+
+## [v1.1.1] — 2026-03-30
+
+### Correction
+
+- **Colonne UFW du panorama — faux ✖ pour les expositions `NO_RULE`** (`panorama.py`) — Les services dont le port n'a pas de règle UFW explicite (ex. Avahi 5353/udp classifié `Exposure.NO_RULE`) s'affichaient avec ✖ dans le panorama. C'est incorrect : lorsqu'UFW est actif avec une politique deny par défaut (vérifiée dans la section pare-feu), un port sans règle est bloqué par cette politique et doit afficher ✔. La branche `has_no_rule → "none"` a été supprimée ; `NO_RULE` tombe désormais dans `"ok"` comme les autres expositions couvertes.
+
+### Tests
+
+- `test_no_rule_shows_none` renommé en `test_no_rule_shows_ok` — assertion mise à jour à `"ok"`
+
+---
+
+## [v1.1.0] — 2026-03-30
+
+### TL;DR
+- Boîte de synthèse repensée : retour à la ligne, commandes de correction inline, disclaimer rouge
+- `listen_port` vsftpd et `rpc-port` Transmission (JSON) maintenant détectés
+- Passage qualité interne sur 7 modules (aucun changement de comportement)
+- 639/639 tests unitaires (+5)
+
+### Nouvelles fonctionnalités
+
+- **Boîte de synthèse — retour à la ligne** (`display.py`) — `_truncate()` (coupure à 48 caractères) remplacé par `_wrap_for_box()`, qui distribue les messages longs sur plusieurs lignes dans le cadre de la boîte. Aucun texte de finding n'est jamais tronqué.
+
+- **Boîte de synthèse — commandes de correction inline** (`display.py`) — Chaque finding dans les blocs « Possible improvements » et « Action required » affiche désormais sa commande associée (`→ cmd`) sur la ligne immédiatement en dessous, lorsqu'une commande est disponible.
+
+- **Boîte de synthèse — disclaimer rouge** (`display.py`) — Une ligne de disclaimer rouge est affichée après le bloc « Possible improvements » : *« Les commandes affichées sont des suggestions — vérifiez et adaptez à votre réseau avant de les exécuter »*. Affiché à chaque fois que le bloc est présent. Clé locale : `summary.block_improve_disclaimer`.
+
+### Corrections
+
+- **vsftpd `listen_port` non détecté** (`checks/services.py`) — Le regex de `_auto_detect_port()` ne correspondait qu'aux directives `port`, `listen` et `Port`. Ajout de `listen_port` dans l'alternance pour que `listen_port=2121` dans `/etc/vsftpd.conf` soit correctement capturé.
+
+- **`rpc-port` Transmission non détecté** (`checks/services.py`) — Transmission stocke sa configuration en JSON (`/etc/transmission-daemon/settings.json`). Le parseur générique `_auto_detect_port()` ne gérait que les formats texte clé=valeur et clé: valeur. Ajout d'une branche JSON : les fichiers à extension `.json` sont analysés avec `json.loads()` et la clé `rpc-port` est extraite directement.
+
+### Améliorations internes
+
+- **`checks/_run.py`** — `_run()` reçoit un paramètre optionnel `timeout: int = _CMD_TIMEOUT`, permettant des surcharges par appel. Le log de debug inclut désormais le `stderr` complet du subprocess en échec.
+
+- **`checks/ddns.py`** — Regex de validation de domaine remplacé par un pattern conforme RFC (`^(?!-)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$`) qui rejette les tirets en début et les noms sans point. Typage `Optional[set[str]]` appliqué (4 occurrences).
+
+- **`checks/docker.py`** — `ContainerPort.is_public` utilise désormais `ipaddress.ip_address().is_loopback` au lieu d'une vérification codée en dur `("0.0.0.0", "::")` — identifie correctement les liaisons sur interface spécifique (ex. `192.168.1.10`) comme publiques. `_get_exposed_ports()` déduplique par `(container_name, host_port, proto)` pour éviter le double comptage des paires IPv4+IPv6. Clé locale distincte `docker.no_public_ports` pour le cas « aucun port exposé ».
+
+- **`checks/firewall.py`** — Annotation `lines: list[str]` ajoutée dans les trois fonctions d'aide (`_check_duplicates`, `_check_open_any`, `_check_ipv6_coverage`).
+
+- **`checks/logs.py`** — Les fichiers de logs volumineux sont désormais lus depuis la fin (seek vers `file_size - 10 Mo`) pour capturer les entrées récentes plutôt que les plus anciennes. Le seuil de date passe d'une comparaison de chaînes à un objet `datetime` (`ts < cutoff_dt`).
+
+- **`checks/ports.py`** — Suppression du regex `_PRIVATE_ADDR` inutilisé (code mort depuis l'introduction de `_LOOPBACK` et `_ALL_INTERFACES`).
+
+- **`checks/services.py`** — Typage `Optional[set[str]]` appliqué dans `_build_snapshot`, `collect`, `collect_all` (4 occurrences).
+
+### Tests
+
+- 639/639 (+5 nouveaux) : `test_vsftpd_listen_port`, `test_vsftpd_commented_listen_port_ignored`, `test_transmission_json_rpc_port`, `test_transmission_json_default_port`, `test_transmission_json_invalid_falls_back`
+- `test_docker.py` : `test_not_public_private` renommé en `test_public_specific_interface` — assertion mise à jour à `is_public is True` pour `192.168.1.10` (comportement correct après le fix `ipaddress`)
+- `test_logs.py` : tous les appels `_parse_log(content, "YYYY-MM-DD")` mis à jour vers `_parse_log(content, datetime(Y, M, D))` suite au changement de signature
+
+---
+
 ## [v1.0.4] — 2026-03-29
 
 ### Corrections
