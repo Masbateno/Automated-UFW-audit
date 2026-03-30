@@ -90,7 +90,12 @@ def init(lang: str = DEFAULT_LANG) -> None:
         content = fh.read(_MAX_LOCALE_SIZE + 1)
     if len(content) > _MAX_LOCALE_SIZE:
         raise ValueError(f"Locale file {locale_path} exceeds maximum allowed size (512 KB)")
-    _translations = json.loads(content)
+    try:
+        _translations = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"Locale file {locale_path} is not valid JSON: {exc}"
+        ) from exc
 
     _lang = lang
     _initialized = True
