@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -43,6 +44,9 @@ VALID_RISKS = frozenset({"low", "medium", "high", "critical"})
 
 # Valid values for the config_key field
 VALID_CONFIG_KEYS = frozenset({"fixed", "auto", "ask"})
+
+# Port format: "number/proto" e.g. "22/tcp", "5353/udp"
+_PORT_RE = re.compile(r"^\d{1,5}/(tcp|udp)$")
 
 
 # ---------------------------------------------------------------------------
@@ -140,16 +144,32 @@ class Service:
             )
 
         config_key = data["config_key"]
-        # config_key is either one of the reserved words or a named key string
-        if not config_key:
-            raise ValueError(f"Service {data['id']!r}: config_key must not be empty")
+        # config_key is either a reserved keyword or a valid identifier (e.g. "ssh_port")
+        if config_key not in VALID_CONFIG_KEYS and not config_key.isidentifier():
+            raise ValueError(
+                f"Service {data['id']!r}: invalid config_key {config_key!r}. "
+                f"Must be one of {sorted(VALID_CONFIG_KEYS)} or a valid identifier."
+            )
+
+        ports = tuple(data["ports"])
+        for p in ports:
+            if not _PORT_RE.match(p):
+                raise ValueError(
+                    f"Service {data['id']!r}: invalid port format {p!r}. "
+                    f"Expected 'number/tcp' or 'number/udp'."
+                )
+
+        if config_key == "fixed" and not ports:
+            raise ValueError(
+                f"Service {data['id']!r}: config_key 'fixed' requires at least one port."
+            )
 
         return cls(
             id=data["id"],
             label=data["label"],
             packages=tuple(data["packages"]),
             services=tuple(data["services"]),
-            ports=tuple(data["ports"]),
+            ports=ports,
             risk=risk,
             config_key=config_key,
             detection=Detection.from_dict(data.get("detection", {})),
