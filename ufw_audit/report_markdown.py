@@ -515,9 +515,9 @@ def send_html_email(
     from email.mime.text import MIMEText
     import shutil
 
-    # Check if mail command exists
-    if not shutil.which("mail"):
-        logger.error("mail command not found")
+    # Check if sendmail command exists (used for actual delivery below)
+    if not shutil.which("sendmail"):
+        logger.error("sendmail command not found")
         return False
 
     # Use recipient as From if not specified (SMTP workaround)

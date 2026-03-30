@@ -352,6 +352,10 @@ def print_services_panorama(rows: list[dict], labels: dict) -> None:
         else:
             ufw_str = f"{_c.dim}—{_c.reset}"
 
+        # Truncate to column width to prevent layout overflow
+        label = label[:COL_SVC]
+        ports = ports[:COL_PORT]
+
         # Dim everything for not-installed rows
         if status == "not_installed":
             label_str = f"{_c.dim}{label:<{COL_SVC}}{_c.reset}"
