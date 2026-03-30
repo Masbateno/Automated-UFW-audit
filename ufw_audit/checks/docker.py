@@ -21,6 +21,7 @@ Usage:
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import logging
 import re
@@ -55,8 +56,11 @@ class ExposedPort:
 
     @property
     def is_public(self) -> bool:
-        """True if the port is bound to all interfaces."""
-        return self.host_ip in ("0.0.0.0", "::")
+        """True if the port is accessible from the network (not loopback-only)."""
+        try:
+            return not ipaddress.ip_address(self.host_ip).is_loopback
+        except ValueError:
+            return True  # unrecognised format — assume public to be safe
 
 
 @dataclass
@@ -186,7 +190,7 @@ def check_docker(
     if not snapshot.exposed_ports:
         result.ok(message=_t("docker.no_containers"))
     elif not public_ports:
-        result.ok(message=_t("docker.no_containers"))
+        result.ok(message=_t("docker.no_public_ports"))
     else:
         for port in public_ports:
             if not snapshot.iptables_disabled:
@@ -260,6 +264,7 @@ def _get_exposed_ports() -> list[ExposedPort]:
         return []
 
     ports: list[ExposedPort] = []
+    seen: set[tuple[str, int, str]] = set()  # (container_name, host_port, proto)
 
     for line in output.strip().splitlines():
         parts = line.split("\t", 1)
@@ -274,7 +279,10 @@ def _get_exposed_ports() -> list[ExposedPort]:
         for port_entry in ports_str.split(", "):
             parsed = _parse_port_entry(container_name, port_entry)
             if parsed:
-                ports.append(parsed)
+                key = (parsed.container_name, parsed.host_port, parsed.proto)
+                if key not in seen:
+                    seen.add(key)
+                    ports.append(parsed)
 
     return ports
 
