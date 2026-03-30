@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.1.1](#v111) | 2026-03-30 | Hotfix : Avahi (mDNS) affiche ✖ dans le panorama alors qu'il est couvert par la politique deny par défaut |
 | [v1.1.0](#v110) | 2026-03-30 | Boîte de synthèse repensée (retour à la ligne + commandes de correction + disclaimer) ; détection vsftpd/Transmission corrigée ; passage qualité interne |
 | [v1.0.4](#v104) | 2026-03-29 | Hotfix : ports éphémères encore affichés dans LISTENING PORTS OVERVIEW (couche affichage) |
 | [v1.0.3](#v103) | 2026-03-29 | Hotfix : des centaines de messages de ports UDP éphémères inondaient la sortie (Samba/bureau actif) |
@@ -30,6 +31,14 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.1.1
+
+**2026-03-30**
+
+- Hotfix : les services avec `Exposure.NO_RULE` (ex. Avahi/mDNS 5353/udp) affichaient ✖ dans la colonne UFW du panorama — un port sans règle explicite est couvert par la politique deny par défaut d'UFW et doit afficher ✔
 
 ---
 

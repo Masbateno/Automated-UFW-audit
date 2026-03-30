@@ -6,6 +6,18 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.1.1] — 2026-03-30
+
+### Bug fix
+
+- **Panorama UFW column — false ✖ for `NO_RULE` exposures** (`panorama.py`) — Services whose port has no explicit UFW rule (e.g. Avahi 5353/udp classified as `Exposure.NO_RULE`) were shown with ✖ in the panorama. This is incorrect: when UFW is active with a default deny policy (checked in the firewall section), a port with no rule is blocked by that policy and should show ✔. Removed the `has_no_rule → "none"` branch; `NO_RULE` now falls through to `"ok"` like other covered exposures.
+
+### Tests
+
+- `test_no_rule_shows_none` renamed to `test_no_rule_shows_ok` — assertion updated to `"ok"`
+
+---
+
 ## [v1.1.0] — 2026-03-30
 
 ### TL;DR
