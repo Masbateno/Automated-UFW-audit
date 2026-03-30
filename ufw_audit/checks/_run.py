@@ -23,16 +23,17 @@ logger = logging.getLogger(__name__)
 _C_LOCALE_ENV = {**os.environ, "LC_ALL": "C", "LANG": "C", "LANGUAGE": ""}
 
 
-def _run(*args: str) -> str:
+def _run(*args: str, timeout: int = _CMD_TIMEOUT) -> str:
     """Run a command and return stdout. Returns empty string on error."""
     try:
         proc = subprocess.run(
-            list(args), capture_output=True, text=True, timeout=_CMD_TIMEOUT,
+            list(args), capture_output=True, text=True, timeout=timeout,
             env=_C_LOCALE_ENV,
         )
         return proc.stdout
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
-        logger.debug("Command %r failed: %s", args, exc)
+        logger.debug("Command %r failed: %s (stderr=%r)", args, exc,
+                     getattr(exc, "stderr", None))
         return ""
 
 
