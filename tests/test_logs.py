@@ -121,36 +121,36 @@ class TestParseLog:
     NOT_BLOCK = "Mar 19 10:23:14 host kernel: [UFW ALLOW] IN=eth0 SRC=1.2.3.4\n"
 
     def test_parses_iso_line(self):
-        entries = _parse_log(self.ISO_LINE, "2026-03-01")
+        entries = _parse_log(self.ISO_LINE, datetime(2026, 3, 1))
         assert len(entries) == 1
         assert entries[0].src_ip == "1.2.3.4"
         assert entries[0].dst_port == 22
         assert entries[0].proto == "TCP"
 
     def test_parses_syslog_line(self):
-        entries = _parse_log(self.SYSLOG_LINE, "2026-03-01")
+        entries = _parse_log(self.SYSLOG_LINE, datetime(2026, 3, 1))
         assert len(entries) == 1
         assert entries[0].src_ip == "5.6.7.8"
         assert entries[0].dst_port == 5353
 
     def test_skips_non_block_lines(self):
-        entries = _parse_log(self.NOT_BLOCK, "2026-01-01")
+        entries = _parse_log(self.NOT_BLOCK, datetime(2026, 1, 1))
         assert entries == []
 
     def test_filters_by_cutoff(self):
-        entries = _parse_log(self.ISO_LINE, "2026-03-20")
+        entries = _parse_log(self.ISO_LINE, datetime(2026, 3, 20))
         assert entries == []
 
     def test_includes_on_cutoff_day(self):
-        entries = _parse_log(self.ISO_LINE, "2026-03-19")
+        entries = _parse_log(self.ISO_LINE, datetime(2026, 3, 19))
         assert len(entries) == 1
 
     def test_empty_content(self):
-        assert _parse_log("", "2026-01-01") == []
+        assert _parse_log("", datetime(2026, 1, 1)) == []
 
     def test_multiple_lines(self):
         content = self.ISO_LINE + self.SYSLOG_LINE
-        entries = _parse_log(content, "2026-03-01")
+        entries = _parse_log(content, datetime(2026, 3, 1))
         assert len(entries) == 2
 
 
