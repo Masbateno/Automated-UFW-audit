@@ -671,3 +671,38 @@ class TestAutoDetectPort:
         cfg.write_text("# Port 49732\n")
         svc = self._make_service_with_config(str(cfg))
         assert _auto_detect_port(svc) is None
+
+    def test_vsftpd_listen_port(self, tmp_path):
+        """vsftpd uses 'listen_port=2121' — must be detected."""
+        cfg = tmp_path / "vsftpd.conf"
+        cfg.write_text("anonymous_enable=NO\nlisten_port=2121\nlocal_enable=YES\n")
+        svc = self._make_service_with_config(str(cfg))
+        assert _auto_detect_port(svc) == "2121/tcp"
+
+    def test_vsftpd_commented_listen_port_ignored(self, tmp_path):
+        """'# listen_port=2121' (commented) must not be detected."""
+        cfg = tmp_path / "vsftpd.conf"
+        cfg.write_text("# listen_port=2121\nlisten_port=21\n")
+        svc = self._make_service_with_config(str(cfg))
+        assert _auto_detect_port(svc) == "21/tcp"
+
+    def test_transmission_json_rpc_port(self, tmp_path):
+        """Transmission settings.json uses 'rpc-port' — must be parsed as JSON."""
+        cfg = tmp_path / "settings.json"
+        cfg.write_text('{\n  "rpc-port": 9191,\n  "rpc-enabled": true\n}\n')
+        svc = self._make_service_with_config(str(cfg))
+        assert _auto_detect_port(svc) == "9191/tcp"
+
+    def test_transmission_json_default_port(self, tmp_path):
+        """Transmission settings.json with default rpc-port=9091."""
+        cfg = tmp_path / "settings.json"
+        cfg.write_text('{"rpc-port": 9091}\n')
+        svc = self._make_service_with_config(str(cfg))
+        assert _auto_detect_port(svc) == "9091/tcp"
+
+    def test_transmission_json_invalid_falls_back(self, tmp_path):
+        """Malformed JSON → returns None (no crash)."""
+        cfg = tmp_path / "settings.json"
+        cfg.write_text("not valid json {\n")
+        svc = self._make_service_with_config(str(cfg))
+        assert _auto_detect_port(svc) is None

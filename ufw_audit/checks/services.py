@@ -19,6 +19,7 @@ Usage:
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from dataclasses import dataclass, field
@@ -502,14 +503,29 @@ def _auto_detect_port(service: Service) -> Optional[str]:
         except OSError:
             continue
 
+        # JSON config files (e.g. Transmission settings.json uses "rpc-port")
+        if path.suffix == ".json":
+            try:
+                data = json.loads(content)
+                for key in ("rpc-port", "port"):
+                    if key in data and isinstance(data[key], int):
+                        proto = "tcp"
+                        if service.ports:
+                            proto = service.ports[0].split("/")[-1]
+                        return f"{data[key]}/{proto}"
+            except (ValueError, KeyError):
+                pass
+            continue  # Don't fall through to regex on JSON files
+
         # Strip comment lines before searching to avoid matching
         # commented-out directives like "# port = 2121"
         content_clean = re.sub(r"^\s*#.*$", "", content, flags=re.MULTILINE)
 
         # Generic patterns — specific services may need custom parsing
         # Port = 8080 / port=8080 / listen 8080 / HTTP_PORT = 3000
+        # listen_port=21 (vsftpd)
         match = re.search(
-            r"(?:^|\s)(?:port|listen|HTTP_PORT|http_port)(?:\s*[=:]\s*|\s+)(\d+)",
+            r"(?:^|\s)(?:listen_port|port|listen|HTTP_PORT|http_port)(?:\s*[=:]\s*|\s+)(\d+)",
             content_clean,
             re.IGNORECASE | re.MULTILINE,
         )
