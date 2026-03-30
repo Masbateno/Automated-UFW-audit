@@ -237,7 +237,9 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
     from ufw_audit.output import print_summary_box, _TERM_WIDTH
     from ufw_audit.scoring import RiskLevel
 
-    inner = _TERM_WIDTH - 2
+    # _TERM_WIDTH - 2 = box inner width; - 2 again for the leading indent
+    # that print_summary_box prepends to every label ("  " + label)
+    inner = _TERM_WIDTH - 4
 
     score = engine.score
     level = engine.level
