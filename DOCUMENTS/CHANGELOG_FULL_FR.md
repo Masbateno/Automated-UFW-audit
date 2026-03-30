@@ -6,6 +6,52 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.1.0] — 2026-03-30
+
+### TL;DR
+- Boîte de synthèse repensée : retour à la ligne, commandes de correction inline, disclaimer rouge
+- `listen_port` vsftpd et `rpc-port` Transmission (JSON) maintenant détectés
+- Passage qualité interne sur 7 modules (aucun changement de comportement)
+- 639/639 tests unitaires (+5)
+
+### Nouvelles fonctionnalités
+
+- **Boîte de synthèse — retour à la ligne** (`display.py`) — `_truncate()` (coupure à 48 caractères) remplacé par `_wrap_for_box()`, qui distribue les messages longs sur plusieurs lignes dans le cadre de la boîte. Aucun texte de finding n'est jamais tronqué.
+
+- **Boîte de synthèse — commandes de correction inline** (`display.py`) — Chaque finding dans les blocs « Possible improvements » et « Action required » affiche désormais sa commande associée (`→ cmd`) sur la ligne immédiatement en dessous, lorsqu'une commande est disponible.
+
+- **Boîte de synthèse — disclaimer rouge** (`display.py`) — Une ligne de disclaimer rouge est affichée après le bloc « Possible improvements » : *« Les commandes affichées sont des suggestions — vérifiez et adaptez à votre réseau avant de les exécuter »*. Affiché à chaque fois que le bloc est présent. Clé locale : `summary.block_improve_disclaimer`.
+
+### Corrections
+
+- **vsftpd `listen_port` non détecté** (`checks/services.py`) — Le regex de `_auto_detect_port()` ne correspondait qu'aux directives `port`, `listen` et `Port`. Ajout de `listen_port` dans l'alternance pour que `listen_port=2121` dans `/etc/vsftpd.conf` soit correctement capturé.
+
+- **`rpc-port` Transmission non détecté** (`checks/services.py`) — Transmission stocke sa configuration en JSON (`/etc/transmission-daemon/settings.json`). Le parseur générique `_auto_detect_port()` ne gérait que les formats texte clé=valeur et clé: valeur. Ajout d'une branche JSON : les fichiers à extension `.json` sont analysés avec `json.loads()` et la clé `rpc-port` est extraite directement.
+
+### Améliorations internes
+
+- **`checks/_run.py`** — `_run()` reçoit un paramètre optionnel `timeout: int = _CMD_TIMEOUT`, permettant des surcharges par appel. Le log de debug inclut désormais le `stderr` complet du subprocess en échec.
+
+- **`checks/ddns.py`** — Regex de validation de domaine remplacé par un pattern conforme RFC (`^(?!-)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$`) qui rejette les tirets en début et les noms sans point. Typage `Optional[set[str]]` appliqué (4 occurrences).
+
+- **`checks/docker.py`** — `ContainerPort.is_public` utilise désormais `ipaddress.ip_address().is_loopback` au lieu d'une vérification codée en dur `("0.0.0.0", "::")` — identifie correctement les liaisons sur interface spécifique (ex. `192.168.1.10`) comme publiques. `_get_exposed_ports()` déduplique par `(container_name, host_port, proto)` pour éviter le double comptage des paires IPv4+IPv6. Clé locale distincte `docker.no_public_ports` pour le cas « aucun port exposé ».
+
+- **`checks/firewall.py`** — Annotation `lines: list[str]` ajoutée dans les trois fonctions d'aide (`_check_duplicates`, `_check_open_any`, `_check_ipv6_coverage`).
+
+- **`checks/logs.py`** — Les fichiers de logs volumineux sont désormais lus depuis la fin (seek vers `file_size - 10 Mo`) pour capturer les entrées récentes plutôt que les plus anciennes. Le seuil de date passe d'une comparaison de chaînes à un objet `datetime` (`ts < cutoff_dt`).
+
+- **`checks/ports.py`** — Suppression du regex `_PRIVATE_ADDR` inutilisé (code mort depuis l'introduction de `_LOOPBACK` et `_ALL_INTERFACES`).
+
+- **`checks/services.py`** — Typage `Optional[set[str]]` appliqué dans `_build_snapshot`, `collect`, `collect_all` (4 occurrences).
+
+### Tests
+
+- 639/639 (+5 nouveaux) : `test_vsftpd_listen_port`, `test_vsftpd_commented_listen_port_ignored`, `test_transmission_json_rpc_port`, `test_transmission_json_default_port`, `test_transmission_json_invalid_falls_back`
+- `test_docker.py` : `test_not_public_private` renommé en `test_public_specific_interface` — assertion mise à jour à `is_public is True` pour `192.168.1.10` (comportement correct après le fix `ipaddress`)
+- `test_logs.py` : tous les appels `_parse_log(content, "YYYY-MM-DD")` mis à jour vers `_parse_log(content, datetime(Y, M, D))` suite au changement de signature
+
+---
+
 ## [v1.0.4] — 2026-03-29
 
 ### Corrections

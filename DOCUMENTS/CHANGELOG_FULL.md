@@ -6,6 +6,52 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.1.0] — 2026-03-30
+
+### TL;DR
+- Summary box redesigned: word-wrap, inline fix commands, red disclaimer
+- vsftpd `listen_port` and Transmission `rpc-port` (JSON) now detected
+- Internal code quality pass across 7 modules (no behaviour changes)
+- 639/639 unit tests (+5)
+
+### New features
+
+- **Summary box — word-wrap** (`display.py`) — Replaced `_truncate()` (hard cutoff at 48 chars) with `_wrap_for_box()`, which distributes long messages across multiple lines within the box border. No finding text is ever truncated.
+
+- **Summary box — inline fix commands** (`display.py`) — Each finding in the "Possible improvements" and "Action required" blocks now shows its associated `→ cmd` on the line immediately below the message, when a command is available.
+
+- **Summary box — red disclaimer** (`display.py`) — A red disclaimer line is shown after the "Possible improvements" block: *"Commands shown are suggestions — verify and adapt to your network before running"*. Applied every time the block is displayed. Locale key: `summary.block_improve_disclaimer`.
+
+### Bug fixes
+
+- **vsftpd `listen_port` not detected** (`checks/services.py`) — `_auto_detect_port()` regex only matched `port`, `listen`, and `Port` directives. Added `listen_port` to the alternation so `listen_port=2121` in `/etc/vsftpd.conf` is correctly picked up.
+
+- **Transmission `rpc-port` not detected** (`checks/services.py`) — Transmission stores its configuration in JSON (`/etc/transmission-daemon/settings.json`). The generic `_auto_detect_port()` parser only handled key=value and key: value text formats. Added a JSON branch: files with a `.json` suffix are parsed with `json.loads()` and the `rpc-port` key is extracted directly.
+
+### Internal improvements
+
+- **`checks/_run.py`** — `_run()` gains an optional `timeout: int = _CMD_TIMEOUT` parameter, allowing per-call overrides. Debug log now includes the full `stderr` of the failed subprocess.
+
+- **`checks/ddns.py`** — Domain validation regex replaced with an RFC-compliant pattern (`^(?!-)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$`) that rejects leading hyphens and single-label names. `Optional[set[str]]` typing applied (4 occurrences).
+
+- **`checks/docker.py`** — `ContainerPort.is_public` now uses `ipaddress.ip_address().is_loopback` instead of a hardcoded `("0.0.0.0", "::")` check — correctly identifies specific-interface bindings (e.g. `192.168.1.10`) as public. `_get_exposed_ports()` deduplicates by `(container_name, host_port, proto)` to avoid double-counting IPv4+IPv6 pairs. Distinct locale key `docker.no_public_ports` for the "no exposed ports" case.
+
+- **`checks/firewall.py`** — `lines: list[str]` annotation added to all three helper functions (`_check_duplicates`, `_check_open_any`, `_check_ipv6_coverage`).
+
+- **`checks/logs.py`** — Large log files are now read from the end (seek to `file_size - 10 MB`) to capture recent entries instead of oldest. Date cutoff changed from string comparison to `datetime` object (`ts < cutoff_dt`).
+
+- **`checks/ports.py`** — Removed unused `_PRIVATE_ADDR` regex (dead code since `_LOOPBACK` and `_ALL_INTERFACES` were introduced).
+
+- **`checks/services.py`** — `Optional[set[str]]` typing applied in `_build_snapshot`, `collect`, `collect_all` (4 occurrences).
+
+### Tests
+
+- 639/639 (+5 new): `test_vsftpd_listen_port`, `test_vsftpd_commented_listen_port_ignored`, `test_transmission_json_rpc_port`, `test_transmission_json_default_port`, `test_transmission_json_invalid_falls_back`
+- `test_docker.py`: `test_not_public_private` renamed to `test_public_specific_interface` — assertion updated to `is_public is True` for `192.168.1.10` (correct behaviour after `ipaddress` fix)
+- `test_logs.py`: all `_parse_log(content, "YYYY-MM-DD")` calls updated to `_parse_log(content, datetime(Y, M, D))` after signature change
+
+---
+
 ## [v1.0.4] — 2026-03-29
 
 ### Bug fixes

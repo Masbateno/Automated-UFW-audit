@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.1.0](#v110) | 2026-03-30 | Boîte de synthèse repensée (retour à la ligne + commandes de correction + disclaimer) ; détection vsftpd/Transmission corrigée ; passage qualité interne |
 | [v1.0.4](#v104) | 2026-03-29 | Hotfix : ports éphémères encore affichés dans LISTENING PORTS OVERVIEW (couche affichage) |
 | [v1.0.3](#v103) | 2026-03-29 | Hotfix : des centaines de messages de ports UDP éphémères inondaient la sortie (Samba/bureau actif) |
 | [v1.0.1](#v101) | 2026-03-29 | Hotfix : SSH sur port non-standard non détecté ; ports TCP élevés classés à tort comme éphémères |
@@ -29,6 +30,20 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.1.0
+
+**2026-03-30**
+
+- Fonctionnalité : messages de la boîte de synthèse avec retour à la ligne — les longs findings ne sont plus tronqués
+- Fonctionnalité : commandes de correction (`→ cmd`) affichées sous chaque finding dans la boîte de synthèse
+- Fonctionnalité : disclaimer rouge affiché sous le bloc « Possible improvements »
+- Correction : directive vsftpd `listen_port=X` non détectée par l'auto-détection de port
+- Correction : `rpc-port` de Transmission dans `settings.json` non détecté (config JSON)
+- Interne : paramètre timeout dans `_run()` ; regex validation domaine durcie ; `ipaddress` pour la détection IP publique Docker ; lecture log depuis la fin du fichier ; code mort supprimé ; typage amélioré
+- 639/639 tests unitaires (+5)
 
 ---
 

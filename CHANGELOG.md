@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.1.0](#v110) | 2026-03-30 | Summary box redesigned (word-wrap + fix commands + disclaimer); vsftpd/Transmission port detection fixed; internal code quality pass |
 | [v1.0.4](#v104) | 2026-03-29 | Hotfix: ephemeral ports still shown in LISTENING PORTS OVERVIEW (display layer) |
 | [v1.0.3](#v103) | 2026-03-29 | Hotfix: hundreds of ephemeral UDP port messages flooding output (Samba/busy desktop) |
 | [v1.0.1](#v101) | 2026-03-29 | Hotfix: SSH on non-standard port not detected; TCP high ports wrongly classified as ephemeral |
@@ -29,6 +30,20 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.1.0
+
+**2026-03-30**
+
+- Feature: summary box messages now word-wrapped — long findings never truncated
+- Feature: fix commands (`→ cmd`) displayed inline under each finding in the summary box
+- Feature: red disclaimer shown under the "Possible improvements" block
+- Bug fix: vsftpd `listen_port=X` directive not detected by port auto-detection
+- Bug fix: Transmission `rpc-port` in `settings.json` not detected (JSON config)
+- Internal: `_run()` timeout parameter; domain validation regex hardened; `ipaddress` used for Docker public-IP detection; log file read from end; dead code removed; typing improved
+- 639/639 unit tests (+5)
 
 ---
 

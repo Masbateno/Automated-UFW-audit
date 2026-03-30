@@ -132,19 +132,20 @@ sudo ufw-audit --french  # French interface
 
 ## 🧪 Quality & reliability
 
-- ✅ 619 unit tests
+- ✅ 639 unit tests
 - 🧱 Modular architecture (snapshot / check separated)
 - 🧪 Tested on Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.0
+## 🆕 v1.1.0
 
-- 📦 PyPI packaging — `pipx install ufw-audit`
-- 🔌 Clean CLI entry point (`ufw-audit`)
-- 🧩 Built-in bash completion (`--install-completion`)
-- 🗂 Bundled data (service registry + locales)
-- ⚙️ Python ≥ 3.9
+- 📋 Summary box redesigned — long messages word-wrapped, never truncated
+- 🔧 Fix commands shown inline in summary box (`→ cmd` under each finding)
+- 🔴 Red disclaimer under "Possible improvements" block
+- 🐛 vsftpd `listen_port` and Transmission `rpc-port` (JSON) now detected
+- 🔒 Domain validation regex hardened; Docker public-IP detection improved
+- ✅ 639/639 unit tests
 
 ---
 
@@ -178,7 +179,7 @@ Automated-UFW-audit/
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 619 unit tests
+└── tests/                          # 639 unit tests
 ```
 
 ---
