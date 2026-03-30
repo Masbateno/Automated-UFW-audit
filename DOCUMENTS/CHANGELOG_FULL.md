@@ -6,6 +6,46 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.2.0] — 2026-03-30
+
+### TL;DR
+- Code quality pass based on senior review: 12 defensive fixes across 8 modules
+- No behaviour changes, no new features
+- 639/639 unit tests
+
+### Bug fixes
+
+- **`i18n.current_lang()` returns requested locale instead of loaded locale** (`i18n.py`) — When a language falls back to `DEFAULT_LANG` (e.g. requesting `"de"` loads `en.json`), `_lang` was still set to `"de"`. Fixed by assigning `locale_path.stem` after loading, so `current_lang()` reflects what was actually loaded.
+
+- **`manage_logs.py` — unguarded `unlink()` calls** (`manage_logs.py`) — All three deletion paths (single, multi, all) now wrap `f.unlink()` in `try/except OSError`, printing an error message per file instead of raising.
+
+- **`i18n.init()` — bare `JSONDecodeError` on malformed locale** (`i18n.py`) — Malformed locale JSON raised a raw `json.JSONDecodeError`. Now caught and re-raised as `ValueError` with a clear diagnostic message.
+
+- **`resolve_share_dir()` — unguarded `Path.resolve()`** (`_paths.py`) — `Path.resolve()` can raise `OSError` on dangling symlinks. Wrapped in `try/except OSError`; returns `None` on failure with a warning log.
+
+- **`registry.py` — weak `config_key` and port format validation** (`registry.py`) — `VALID_CONFIG_KEYS` was defined but never enforced. `config_key` is now validated: must be one of `{"fixed", "auto", "ask"}` or a valid Python identifier. Port strings are validated against `^\d{1,5}/(tcp|udp)$`. Services with `config_key="fixed"` and an empty ports list now raise `ValueError`.
+
+- **`report_markdown.py` — table detection breaks on indented lines** (`report_markdown.py`) — Table detection used `line.startswith("|")` which failed if the line had leading whitespace. Changed to `line.strip().startswith("|")`.
+
+- **`report_markdown.py` — ASCII box filter causes false positives** (`report_markdown.py`) — `_audit_log_to_html()` used `any(c in line for c in "╔╗...")` which triggered on any line containing a box character (e.g. paths). Replaced with `re.match(r"^[╔╗╚╝║═┌┐└┘─┼ ]+$", line.strip())` — only matches lines composed entirely of box characters.
+
+- **`report_markdown.py` — `send_html_email()` checks for `mail` but calls `sendmail`** (`report_markdown.py`) — `shutil.which("mail")` was used as the availability check, but the actual subprocess call uses `sendmail`. Changed to `shutil.which("sendmail")`.
+
+- **`output.py` — panorama column overflow on long labels/ports** (`output.py`) — Label and port strings were formatted with `f"{label:<{COL_SVC}}"` without truncation. Strings longer than the column width break the table layout. Both are now truncated to `COL_SVC` / `COL_PORT` characters before formatting.
+
+- **`scoring.py` — cap not visible in score breakdown** (`scoring.py`) — When a cap reduced the score (e.g. firewall inactive → max 3), the cap reason never appeared in the breakdown list. `finalize()` now injects a synthetic `Deduction(context="structural")` for the capped delta so the reason is visible in the score breakdown.
+
+- **`scoring.py` — `Deduction.context` not validated** (`scoring.py`) — `context` accepted any string. Added `VALID_CONTEXTS = {"local", "public", "structural"}` and a `__post_init__` check that raises `ValueError` on invalid values.
+
+- **`sysinfo.py` — `172.` private IP regex too broad** (`sysinfo.py`) — `re.search(r"via\s+(10\.|192\.168\.|172\.)", ...)` matched all `172.x.x.x` addresses, including public ranges (RFC 1918 only covers `172.16–31`). Centralised a single `_PRIVATE_IPV4_RE` pattern (reused from the `ip addr` branch) and applied it in both network detection paths. `kernel` and `user` strings now pass through `_sanitize()` for consistency.
+
+### Tests
+
+- `tests/test_i18n.py` — `test_init_unknown_lang_falls_back_to_english`: assertion updated from `current_lang() == "de"` to `current_lang() == "en"`
+- `tests/test_registry.py` — `test_main_port_empty`: uses `config_key="auto"` (ports=[] now rejected for `config_key="fixed"`)
+
+---
+
 ## [v1.1.1] — 2026-03-30
 
 ### Bug fix

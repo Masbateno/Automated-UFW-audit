@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.2.0](#v120) | 2026-03-30 | Passage qualité (revue senior ChatGPT) : 12 corrections défensives sur 8 modules — aucun changement de comportement |
 | [v1.1.1](#v111) | 2026-03-30 | Hotfix : Avahi (mDNS) affiche ✖ dans le panorama alors qu'il est couvert par la politique deny par défaut |
 | [v1.1.0](#v110) | 2026-03-30 | Boîte de synthèse repensée (retour à la ligne + commandes de correction + disclaimer) ; détection vsftpd/Transmission corrigée ; passage qualité interne |
 | [v1.0.4](#v104) | 2026-03-29 | Hotfix : ports éphémères encore affichés dans LISTENING PORTS OVERVIEW (couche affichage) |
@@ -31,6 +32,24 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.2.0
+
+**2026-03-30**
+
+- Correction : `i18n.current_lang()` retourne désormais la locale réellement chargée, et non celle demandée (utile lors du fallback depuis une langue non supportée)
+- Correction : `manage_logs.py` — les trois chemins de suppression (`single`, `multi`, `all`) protègent `unlink()` avec `try/except OSError`
+- Correction : `i18n.init()` lève un `ValueError` explicite sur les fichiers JSON de locale malformés (était un `JSONDecodeError` brut)
+- Correction : `_paths.resolve_share_dir()` protège `Path.resolve()` avec `try/except OSError`
+- Correction : `registry.py` — `config_key` validé contre `VALID_CONFIG_KEYS` ou `isidentifier()` ; format des ports validé (`nombre/tcp|udp`) ; `config_key="fixed"` requiert au moins un port
+- Correction : `report_markdown.py` — détection des tables avec `line.strip().startswith("|")` (gère les tables indentées) ; lignes de cadres ASCII dans `_audit_log_to_html` matchées par regex ligne entière
+- Correction : `report_markdown.py` — `send_html_email()` vérifie la présence de `sendmail` (et non `mail`) puisque c'est bien `sendmail` qui est appelé
+- Correction : `output.py` — label et port du panorama tronqués à la largeur de colonne pour éviter les débordements de mise en page
+- Correction : `scoring.py` — `Deduction.context` validé contre `{"local", "public", "structural"}` ; le cap injecte une `Deduction` synthétique dans le breakdown lors du `finalize()` pour que la raison du cap apparaisse dans la synthèse du score
+- Correction : `sysinfo.py` — regex IPv4 privée centralisée (`_PRIVATE_IPV4_RE`) et appliquée uniformément ; détection `172.x` corrigée à la plage RFC 1918 uniquement (`172.16–31`) ; strings `kernel` et `user` sanitizés
+- 639/639 tests unitaires
 
 ---
 

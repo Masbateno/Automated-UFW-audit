@@ -144,13 +144,14 @@ sudo ufw-audit --french  # interface française
 
 ---
 
-## 🆕 v1.1.0
+## 🆕 v1.2.0
 
-- 📋 Boîte de synthèse repensée — messages avec retour à la ligne, jamais tronqués
-- 🔧 Commandes de correction affichées inline dans la boîte de synthèse (`→ cmd` sous chaque finding)
-- 🔴 Disclaimer rouge sous le bloc « Possible improvements »
-- 🐛 `listen_port` vsftpd et `rpc-port` Transmission (JSON) maintenant détectés
-- 🔒 Regex validation domaine durcie ; détection IP publique Docker améliorée
+- 🔒 Passage qualité : 12 corrections défensives sur 8 modules (aucun changement de comportement)
+- 🐛 Plage IPv4 privée `172.x` corrigée à la RFC 1918 uniquement (`172.16–31`) dans `sysinfo.py`
+- 🐛 `i18n.current_lang()` retourne désormais la locale réellement chargée (et non celle demandée)
+- 🐛 `send_html_email()` vérifie désormais la présence de `sendmail` (vérifiait `mail`)
+- 🛡 `Deduction.context` validé ; raison du cap désormais visible dans le breakdown du score
+- 🛡 `registry.py` valide le format de `config_key` et des chaînes de port (`nombre/tcp|udp`)
 - ✅ 639/639 tests unitaires
 
 ---

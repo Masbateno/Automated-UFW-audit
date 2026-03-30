@@ -6,6 +6,46 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.2.0] — 2026-03-30
+
+### TL;DR
+- Passage qualité basé sur une revue senior : 12 corrections défensives sur 8 modules
+- Aucun changement de comportement, aucune nouvelle fonctionnalité
+- 639/639 tests unitaires
+
+### Corrections
+
+- **`i18n.current_lang()` retournait la locale demandée au lieu de la locale chargée** (`i18n.py`) — Lors d'un fallback (ex. demande `"de"` → charge `en.json`), `_lang` était tout de même mis à `"de"`. Corrigé en assignant `locale_path.stem` après chargement.
+
+- **`manage_logs.py` — appels `unlink()` non protégés** (`manage_logs.py`) — Les trois chemins de suppression (single, multi, all) encapsulent désormais `f.unlink()` dans `try/except OSError`, affichant un message d'erreur par fichier.
+
+- **`i18n.init()` — `JSONDecodeError` brut sur locale malformée** (`i18n.py`) — Un JSON de locale malformé levait un `json.JSONDecodeError` brut. Intercepté et re-levé en `ValueError` avec un message diagnostique clair.
+
+- **`resolve_share_dir()` — `Path.resolve()` non protégé** (`_paths.py`) — `Path.resolve()` peut lever `OSError` sur des liens symboliques cassés. Encapsulé dans `try/except OSError` ; retourne `None` en cas d'échec avec un log d'avertissement.
+
+- **`registry.py` — validation faible de `config_key` et format des ports** (`registry.py`) — `VALID_CONFIG_KEYS` était défini mais jamais appliqué. `config_key` est maintenant validé : doit être l'un de `{"fixed", "auto", "ask"}` ou un identifiant Python valide. Les chaînes de port sont validées contre `^\d{1,5}/(tcp|udp)$`. Les services avec `config_key="fixed"` et une liste de ports vide lèvent désormais `ValueError`.
+
+- **`report_markdown.py` — détection des tables échoue sur les lignes indentées** (`report_markdown.py`) — La détection utilisait `line.startswith("|")` qui échouait en cas d'espaces en début de ligne. Changé en `line.strip().startswith("|")`.
+
+- **`report_markdown.py` — filtre cadres ASCII provoque des faux positifs** (`report_markdown.py`) — `_audit_log_to_html()` utilisait `any(c in line for c in "╔╗...")` qui se déclenchait sur toute ligne contenant un caractère de cadre (ex. chemins). Remplacé par `re.match(r"^[╔╗╚╝║═┌┐└┘─┼ ]+$", line.strip())` — ne matche que les lignes entièrement composées de caractères de cadre.
+
+- **`report_markdown.py` — `send_html_email()` vérifie `mail` mais appelle `sendmail`** (`report_markdown.py`) — `shutil.which("mail")` était utilisé comme vérification de disponibilité, mais l'appel subprocess utilise `sendmail`. Changé en `shutil.which("sendmail")`.
+
+- **`output.py` — débordement de colonne du panorama sur labels/ports longs** (`output.py`) — Les chaînes label et port étaient formatées avec `f"{label:<{COL_SVC}}"` sans troncature. Des chaînes plus longues que la largeur de colonne cassent la mise en page. Les deux sont désormais tronquées à `COL_SVC` / `COL_PORT` caractères avant formatage.
+
+- **`scoring.py` — cap invisible dans le breakdown du score** (`scoring.py`) — Lorsqu'un cap réduisait le score (ex. pare-feu inactif → max 3), la raison du cap n'apparaissait jamais dans la liste du breakdown. `finalize()` injecte désormais une `Deduction(context="structural")` synthétique pour le delta cappé, rendant la raison visible dans la synthèse du score.
+
+- **`scoring.py` — `Deduction.context` non validé** (`scoring.py`) — `context` acceptait n'importe quelle chaîne. Ajout de `VALID_CONTEXTS = {"local", "public", "structural"}` et d'une vérification `__post_init__` qui lève `ValueError` sur les valeurs invalides.
+
+- **`sysinfo.py` — regex IP privée `172.` trop large** (`sysinfo.py`) — `re.search(r"via\s+(10\.|192\.168\.|172\.)", ...)` matchait toutes les adresses `172.x.x.x`, y compris les plages publiques (la RFC 1918 ne couvre que `172.16–31`). Un unique `_PRIVATE_IPV4_RE` centralisé est désormais appliqué dans les deux chemins de détection réseau. Les chaînes `kernel` et `user` passent maintenant par `_sanitize()` pour cohérence.
+
+### Tests
+
+- `tests/test_i18n.py` — `test_init_unknown_lang_falls_back_to_english` : assertion mise à jour de `current_lang() == "de"` vers `current_lang() == "en"`
+- `tests/test_registry.py` — `test_main_port_empty` : utilise `config_key="auto"` (`ports=[]` est désormais rejeté pour `config_key="fixed"`)
+
+---
+
 ## [v1.1.1] — 2026-03-30
 
 ### Correction

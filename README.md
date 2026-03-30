@@ -144,13 +144,14 @@ sudo ufw-audit --french  # French interface
 
 ---
 
-## 🆕 v1.1.0
+## 🆕 v1.2.0
 
-- 📋 Summary box redesigned — long messages word-wrapped, never truncated
-- 🔧 Fix commands shown inline in summary box (`→ cmd` under each finding)
-- 🔴 Red disclaimer under "Possible improvements" block
-- 🐛 vsftpd `listen_port` and Transmission `rpc-port` (JSON) now detected
-- 🔒 Domain validation regex hardened; Docker public-IP detection improved
+- 🔒 Code quality pass: 12 defensive fixes across 8 modules (no behaviour changes)
+- 🐛 Private IPv4 `172.x` range corrected to RFC 1918 only (`172.16–31`) in `sysinfo.py`
+- 🐛 `i18n.current_lang()` now returns the actually loaded locale (not the requested one)
+- 🐛 `send_html_email()` now checks for `sendmail` (was checking `mail`)
+- 🛡 `Deduction.context` validated; cap reason now visible in score breakdown
+- 🛡 Registry validates `config_key` format and port strings (`number/tcp|udp`)
 - ✅ 639/639 unit tests
 
 ---
