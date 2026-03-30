@@ -133,8 +133,8 @@ class ServiceSnapshot:
         cls,
         service: Service,
         ufw_rules: str,
-        loopback_ports: Optional[set],
-        all_listening_ports: Optional[set],
+        loopback_ports: Optional[set[str]],
+        all_listening_ports: Optional[set[str]],
     ) -> "ServiceSnapshot":
         """
         Build a ServiceSnapshot for a single service, installed or not.
