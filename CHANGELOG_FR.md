@@ -4,7 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
-| [v1.2.0](#v120) | 2026-03-30 | Passage qualité (revue senior ChatGPT) : 12 corrections défensives sur 8 modules — aucun changement de comportement |
+| [v1.2.0](#v120) | 2026-03-30 | Passage qualité : 12 corrections défensives sur 8 modules — aucun changement de comportement |
 | [v1.1.1](#v111) | 2026-03-30 | Hotfix : Avahi (mDNS) affiche ✖ dans le panorama alors qu'il est couvert par la politique deny par défaut |
 | [v1.1.0](#v110) | 2026-03-30 | Boîte de synthèse repensée (retour à la ligne + commandes de correction + disclaimer) ; détection vsftpd/Transmission corrigée ; passage qualité interne |
 | [v1.0.4](#v104) | 2026-03-29 | Hotfix : ports éphémères encore affichés dans LISTENING PORTS OVERVIEW (couche affichage) |

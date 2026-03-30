@@ -4,7 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
-| [v1.2.0](#v120) | 2026-03-30 | Code quality pass (ChatGPT senior review): 12 defensive fixes across 8 modules — no behaviour changes |
+| [v1.2.0](#v120) | 2026-03-30 | Code quality pass: 12 defensive fixes across 8 modules — no behaviour changes |
 | [v1.1.1](#v111) | 2026-03-30 | Hotfix: Avahi (mDNS) shows ✖ in panorama despite being covered by default deny policy |
 | [v1.1.0](#v110) | 2026-03-30 | Summary box redesigned (word-wrap + fix commands + disclaimer); vsftpd/Transmission port detection fixed; internal code quality pass |
 | [v1.0.4](#v104) | 2026-03-29 | Hotfix: ephemeral ports still shown in LISTENING PORTS OVERVIEW (display layer) |
