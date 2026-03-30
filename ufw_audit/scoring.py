@@ -66,6 +66,9 @@ MAX_SCORE: int = 10
 # Data structures
 # ---------------------------------------------------------------------------
 
+VALID_CONTEXTS: frozenset[str] = frozenset({"local", "public", "structural"})
+
+
 @dataclass
 class Deduction:
     """
@@ -74,7 +77,8 @@ class Deduction:
     Args:
         reason:  Human-readable explanation (already translated by caller).
         points:  Number of points deducted (positive integer).
-        context: Network context at time of deduction — "local" or "public".
+        context: Network context at time of deduction — "local", "public",
+                 or "structural" (for synthetic cap deductions).
                  Used for display in the score breakdown.
     """
     reason:  str
@@ -84,6 +88,11 @@ class Deduction:
     def __post_init__(self) -> None:
         if self.points < 0:
             raise ValueError(f"Deduction points must be non-negative, got {self.points}")
+        if self.context not in VALID_CONTEXTS:
+            raise ValueError(
+                f"Deduction context {self.context!r} is invalid. "
+                f"Must be one of: {sorted(VALID_CONTEXTS)}"
+            )
 
 
 @dataclass
@@ -255,12 +264,19 @@ class ScoreEngine:
         """
         Apply the registered cap (if any) and clamp the score to [0, MAX_SCORE].
 
+        If a cap reduces the score, a synthetic Deduction is added to the
+        breakdown so the cap reason appears in the score breakdown.
+
         Should be called once, after all checks have run.
         Safe to call multiple times — subsequent calls are no-ops.
         """
         if self._finalized:
             return
         if self._cap is not None and self._raw_score > self._cap.maximum:
+            delta = self._raw_score - self._cap.maximum
+            self.breakdown.append(
+                Deduction(reason=self._cap.reason, points=delta, context="structural")
+            )
             self._raw_score = self._cap.maximum
         self._raw_score = max(0, min(MAX_SCORE, self._raw_score))
         self._finalized = True
