@@ -166,6 +166,7 @@
     "alerts": "Des corrections sont nécessaires. Traitez en priorité les points marqués 'À corriger'.",
     "block_action": "À corriger",
     "block_improve": "Améliorations possibles",
+    "block_improve_disclaimer": "Les commandes affichées sont des suggestions — vérifiez et adaptez à votre réseau avant d'exécuter",
     "block_normal": "Configuration normale",
     "implicit_policy": "Service(s) à risque élevé s'appuient sur la politique par défaut UFW plutôt que des règles explicites. C'est correct si la politique est deny, mais une règle explicite est plus robuste.",
     "implicit_svcs": "Service(s) concerné(s)",

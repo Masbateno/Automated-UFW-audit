@@ -276,6 +276,9 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
             lines.append((f"⚠ {t('summary.block_improve')}", ""))
             for item in improvement_items:
                 _add_finding_lines("  ⚠  ", item)
+            from ufw_audit.output import _c
+            for content, val in _wrap_for_box("  ℹ  ", t("summary.block_improve_disclaimer"), inner):
+                lines.append((f"{_c.red}{content}{_c.reset}", val))
         if structural_items:
             lines.append(("---", ""))
             lines.append((f"ℹ {t('summary.block_normal')}", ""))

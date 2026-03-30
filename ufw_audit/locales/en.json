@@ -166,6 +166,7 @@
     "alerts": "Corrections are needed. Address items marked 'Action required' first.",
     "block_action": "Action required",
     "block_improve": "Possible improvements",
+    "block_improve_disclaimer": "Commands shown are suggestions — verify and adapt to your network before running",
     "block_normal": "Normal configuration",
     "implicit_policy": "Service(s) relying on default UFW policy rather than explicit rules. Correct if policy is deny, but an explicit rule is more robust.",
     "implicit_svcs": "Affected service(s)",
