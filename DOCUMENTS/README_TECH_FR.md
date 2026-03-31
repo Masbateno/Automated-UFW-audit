@@ -155,6 +155,10 @@ sudo ufw-audit -r
 # Mode silencieux — aucune sortie, utilisez le code de retour
 sudo ufw-audit -q; echo $?   # 0=propre, 1=avertissements, 2=alertes, 3=erreur
 
+# Désactiver la résolution d'IP publique (machine isolée ou sans accès HTTP sortant)
+sudo ufw-audit --offline
+sudo ufw-audit -o
+
 # Afficher la version (sans sudo)
 ufw-audit -V
 

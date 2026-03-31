@@ -155,6 +155,10 @@ sudo ufw-audit -r
 # Quiet mode — no output, use exit code to detect issues
 sudo ufw-audit -q; echo $?   # 0=clean, 1=warnings, 2=alerts, 3=error
 
+# Skip external IP lookup (air-gapped or restricted machines)
+sudo ufw-audit --offline
+sudo ufw-audit -o
+
 # Show version (no sudo required)
 ufw-audit -V
 
