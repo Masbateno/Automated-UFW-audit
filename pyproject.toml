@@ -8,7 +8,7 @@ version = "1.2.0"
 description = "UFW firewall audit tool — cross-checks rules against listening services"
 readme = "README.md"
 license = "MIT"
-license-files = []
+license-files = ["LICENSE"]
 requires-python = ">=3.9"
 keywords = ["ufw", "firewall", "security", "audit", "linux"]
 classifiers = [
@@ -17,6 +17,7 @@ classifiers = [
     "Intended Audience :: System Administrators",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.12",
@@ -30,7 +31,7 @@ ufw-audit = "ufw_audit.__main__:main"
 
 [project.urls]
 Homepage = "https://github.com/Masbateno/Automated-UFW-audit"
-Repository = "https://github.com/Masbateno/Automated-UFW-audit"
+Issues = "https://github.com/Masbateno/Automated-UFW-audit/issues"
 Changelog = "https://github.com/Masbateno/Automated-UFW-audit/blob/main/DOCUMENTS/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
