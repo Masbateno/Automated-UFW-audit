@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.2.1](#v121) | 2026-03-31 | Packaging cleanup: `install.sh` removed; `pyproject.toml` fixes (LICENSE, classifier, URLs) |
 | [v1.2.0](#v120) | 2026-03-30 | Code quality pass: 12 defensive fixes across 8 modules — no behaviour changes |
 | [v1.1.1](#v111) | 2026-03-30 | Hotfix: Avahi (mDNS) shows ✖ in panorama despite being covered by default deny policy |
 | [v1.1.0](#v110) | 2026-03-30 | Summary box redesigned (word-wrap + fix commands + disclaimer); vsftpd/Transmission port detection fixed; internal code quality pass |
@@ -32,6 +33,15 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.2.1
+
+**2026-03-31**
+
+- Remove: `install.sh` definitively removed — deprecated since v1.0, `pipx install ufw-audit` is the canonical method
+- Fix: `pyproject.toml` — `license-files = ["LICENSE"]` (was `[]`); added `Python :: 3 :: Only` classifier; replaced duplicate `Repository` URL with `Issues`
 
 ---
 

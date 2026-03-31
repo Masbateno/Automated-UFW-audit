@@ -6,6 +6,20 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.2.1] — 2026-03-31
+
+### Suppression
+
+- **`install.sh` définitivement supprimé** — Déprécié depuis v1.0 lors de l'introduction du packaging PyPI. La méthode d'installation canonique est `pipx install ufw-audit` + `sudo ufw-audit --install-completion`. Le fichier était marqué déprécié depuis deux cycles de release et n'était plus maintenu.
+
+### Packaging
+
+- **`pyproject.toml` — `license-files = ["LICENSE"]`** — Était explicitement à `[]`, ce qui excluait le fichier `LICENSE` des métadonnées du package. Corrigé pour inclure le fichier ; présence vérifiée dans le sdist et le wheel (`dist-info/licenses/LICENSE`).
+- **`pyproject.toml` — Classifier `Python :: 3 :: Only` ajouté** — Rend explicite que le package ne supporte pas Python 2. Cohérent avec `requires-python = ">=3.9"`.
+- **`pyproject.toml` — URL `Repository` remplacée par `Issues`** — `Homepage` et `Repository` pointaient vers le même dépôt GitHub. `Repository` remplacé par l'URL des issues GitHub pour des métadonnées PyPI plus utiles.
+
+---
+
 ## [v1.2.0] — 2026-03-30
 
 ### TL;DR
