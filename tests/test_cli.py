@@ -23,6 +23,7 @@ class TestDefaults:
         assert config.log_days == 7
         assert config.show_version is False
         assert config.show_help is False
+        assert config.offline is False
 
 
 class TestFlags:
@@ -74,6 +75,12 @@ class TestFlags:
 
     def test_help_long(self):
         assert parse_args(["--help"]).show_help is True
+
+    def test_offline_long(self):
+        assert parse_args(["--offline"]).offline is True
+
+    def test_offline_short(self):
+        assert parse_args(["-o"]).offline is True
 
 
 class TestLogDays:

@@ -19,7 +19,7 @@ _ufw_audit() {
     fi
 
     # All short options
-    local short_opts="-v -d -q -f -y -r -n -j -l -m -c -V -h"
+    local short_opts="-v -d -q -f -y -r -n -j -l -m -c -o -V -h"
 
     # All long options
     local long_opts="
@@ -37,6 +37,7 @@ _ufw_audit() {
         --install-cron
         --manage-cron
         --french
+        --offline
         --version
         --help
     "

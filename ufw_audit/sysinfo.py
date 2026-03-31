@@ -89,23 +89,57 @@ _PRIVATE_IPV4_RE = re.compile(
 )
 
 
-def get_public_ip() -> str:
-    """Attempt to determine public IP via a lightweight HTTP request."""
+_PUBLIC_IP_PROVIDERS = [
+    "https://api.ipify.org",
+    "https://ifconfig.me/ip",
+    "https://icanhazip.com",
+]
+
+# Private/loopback IPv6 prefixes
+_PRIVATE_IPV6_RE = re.compile(
+    r"^(::1$|fe80:|fc[0-9a-f]{2}:|fd[0-9a-f]{2}:)",
+    re.IGNORECASE,
+)
+
+
+def get_public_ip(offline: bool = False) -> str:
+    """
+    Attempt to determine public IP via lightweight HTTP requests.
+
+    Tries multiple providers in order; returns the first valid IPv4 response.
+    Returns "" immediately when offline=True or all providers fail.
+
+    Args:
+        offline: If True, skip all HTTP calls and return "" immediately.
+    """
+    if offline:
+        return ""
+
     import urllib.error
     import urllib.request
-    try:
-        with urllib.request.urlopen("https://api.ipify.org", timeout=3) as resp:
-            ip = resp.read(64).decode().strip()
-        if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip):
-            return ip
-        return ""
-    except (OSError, urllib.error.URLError, ValueError):
-        return ""
+
+    ipv4_re = re.compile(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
+    for url in _PUBLIC_IP_PROVIDERS:
+        try:
+            with urllib.request.urlopen(url, timeout=3) as resp:
+                ip = resp.read(64).decode().strip()
+            if ipv4_re.match(ip):
+                return ip
+        except (OSError, urllib.error.URLError, ValueError):
+            continue
+    return ""
 
 
-def detect_network_context() -> tuple[str, str]:
+def detect_network_context(offline: bool = False) -> tuple[str, str]:
     """
     Detect whether the machine has a direct public IP.
+
+    Checks IPv4 routes and addresses first, then IPv6 addresses.
+    Falls back to querying a public IP service when no local public
+    address is found.
+
+    Args:
+        offline: If True, skip the external IP lookup (get_public_ip).
 
     Returns:
         Tuple of (context: "local"|"public", public_ip: str).
@@ -116,7 +150,7 @@ def detect_network_context() -> tuple[str, str]:
             capture_output=True, text=True, timeout=5,
         )
         if re.search(r"via\s+" + _PRIVATE_IPV4_RE.pattern.lstrip("^"), result.stdout):
-            public_ip = get_public_ip()
+            public_ip = get_public_ip(offline=offline)
             return "local", public_ip
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         pass
@@ -126,12 +160,18 @@ def detect_network_context() -> tuple[str, str]:
             ["ip", "addr", "show"],
             capture_output=True, text=True, timeout=5,
         )
+        # IPv4 public address
         for match in re.finditer(r"inet\s+([\d.]+)/", result.stdout):
             ip = match.group(1)
             if not _PRIVATE_IPV4_RE.match(ip):
                 return "public", ip
+        # IPv6 public address (non-loopback, non-link-local, non-ULA)
+        for match in re.finditer(r"inet6\s+([0-9a-fA-F:]+)/", result.stdout):
+            ip = match.group(1)
+            if not _PRIVATE_IPV6_RE.match(ip):
+                return "public", ip
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         pass
 
-    public_ip = get_public_ip()
+    public_ip = get_public_ip(offline=offline)
     return "local", public_ip

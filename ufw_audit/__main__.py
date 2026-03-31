@@ -213,7 +213,7 @@ def _run(argv=None) -> int:
     report.write_finding("INFO", "Starting audit")
 
     # --- Detect network context ---
-    network_context, public_ip = detect_network_context()
+    network_context, public_ip = detect_network_context(offline=config.offline)
 
     # ======================================================================
     # CHECK 1 — Firewall status

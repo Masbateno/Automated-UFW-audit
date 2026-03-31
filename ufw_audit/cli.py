@@ -79,6 +79,9 @@ class AuditConfig:
     install_completion: bool = False
     """--install-completion: install bash completion script to /etc/bash_completion.d/."""
 
+    offline: bool = False
+    """--offline: skip all external HTTP calls (no public IP lookup)."""
+
 
 # ---------------------------------------------------------------------------
 # Parser
@@ -176,6 +179,9 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         elif arg == "--install-completion":
             config.install_completion = True
 
+        elif arg in ("-o", "--offline"):
+            config.offline = True
+
         else:
             raise CLIError(f"Unknown option: {arg!r}")
 
@@ -224,6 +230,7 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
         ("--manage-cron",      "List, edit or delete installed cron jobs"),
         ("--french",           "Switch interface to French"),
         ("--install-completion", "Install bash completion to /etc/bash_completion.d/"),
+        ("-o, --offline",      "Skip external IP lookup (no HTTP calls)"),
         ("-V, --version",      "Show version and exit (no sudo required)"),
         ("-h, --help",         "Show this help message (no sudo required)"),
     ]
