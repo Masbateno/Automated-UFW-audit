@@ -6,6 +6,32 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.3.0] — 2026-03-31
+
+### TL;DR
+- i18n complète : toutes les chaînes `Deduction.reason` traduites via `t()` — zéro chaîne codée en dur dans le breakdown du score
+- Robustesse réseau : mode `--offline`, chaîne de fallback 3 providers, détection d'adresse IPv6 publique
+- 652/652 tests unitaires (+13)
+
+### Nouvelles fonctionnalités
+
+- **i18n — raisons de déduction entièrement traduites** (`checks/docker.py`, `checks/ports.py`, `checks/logs.py`, `checks/services.py`, `locales/en.json`, `locales/fr.json`) — Les cinq chaînes `Deduction.reason` codées en dur en anglais passent désormais par `_t()`. Espace de noms `"deduction"` ajouté dans les deux fichiers de locale avec les clés : `docker_bypass`, `netbios_no_rule`, `port_no_rule`, `brute_force`, `service_open_world`. Le breakdown du score s'affiche désormais dans la langue active.
+
+- **Flag `--offline` / `-o`** (`cli.py`, `sysinfo.py`, `__main__.py`) — Nouveau flag CLI qui désactive tous les appels HTTP externes. `get_public_ip(offline=True)` retourne `""` immédiatement sans toucher le réseau. Utile pour les machines isolées, les tâches cron dans des environnements avec pare-feu sortant strict, ou pour un audit rapide sans latence réseau. Câblé via `AuditConfig.offline` → `detect_network_context(offline=)` → `get_public_ip(offline=)`.
+
+- **`get_public_ip()` — chaîne de fallback 3 providers** (`sysinfo.py`) — Utilisait précédemment uniquement `api.ipify.org`. Essaie maintenant `api.ipify.org` → `ifconfig.me/ip` → `icanhazip.com` dans l'ordre, retournant la première réponse IPv4 valide. Retourne `""` si les trois échouent ou si `offline=True`.
+
+- **`detect_network_context()` — détection d'adresse IPv6 publique** (`sysinfo.py`) — Après vérification des adresses IPv4 via `ip addr show`, la fonction scanne désormais les entrées `inet6` pour les adresses IPv6 publiques. Les adresses correspondant à `::1` (loopback), `fe80:` (link-local) ou aux préfixes `fc`/`fd` (ULA) sont exclues. Une machine avec une adresse publique `2001:db8::1` est désormais correctement reportée comme `"public"`.
+
+- **Autocomplétion bash mise à jour** (`ufw_audit/data/ufw-audit.bash-completion`) — `--offline` ajouté aux options longues et `-o` aux options courtes.
+
+### Tests
+
+- `tests/test_sysinfo.py` — 11 nouveaux tests : `TestGetPublicIp` (5 tests : garde offline, succès premier provider, fallback vers second provider, échec tous providers, réponse invalide ignorée) + `TestDetectNetworkContext` (6 tests : passerelle privée, transmission offline, IPv4 public, IPv6 public, IPv6 link-local ignoré, fallback sur erreur subprocess)
+- `tests/test_cli.py` — `test_offline_long`, `test_offline_short` ajoutés ; `offline: False` ajouté à l'assertion des valeurs par défaut
+
+---
+
 ## [v1.2.1] — 2026-03-31
 
 ### Suppression

@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.3.0](#v130) | 2026-03-31 | i18n completeness (all deduction reasons translated); `--offline` mode; IPv6 network detection; 3-provider IP fallback chain |
 | [v1.2.1](#v121) | 2026-03-31 | Packaging cleanup: `install.sh` removed; `pyproject.toml` fixes (LICENSE, classifier, URLs) |
 | [v1.2.0](#v120) | 2026-03-30 | Code quality pass: 12 defensive fixes across 8 modules — no behaviour changes |
 | [v1.1.1](#v111) | 2026-03-30 | Hotfix: Avahi (mDNS) shows ✖ in panorama despite being covered by default deny policy |
@@ -33,6 +34,18 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.3.0
+
+**2026-03-31**
+
+- Feature: all `Deduction.reason` strings now pass through `t()` — score breakdown fully translated in EN and FR (zero hardcoded strings)
+- Feature: `--offline` / `-o` flag — skips all external HTTP calls (no public IP lookup); useful for air-gapped or firewalled machines
+- Feature: `get_public_ip()` now tries 3 providers in order (`api.ipify.org` → `ifconfig.me/ip` → `icanhazip.com`) before returning `""`
+- Feature: `detect_network_context()` now detects public IPv6 addresses (`inet6` on interfaces, excluding `::1`, `fe80::`, ULA `fc`/`fd`)
+- 652/652 unit tests (11 new in `tests/test_sysinfo.py`)
 
 ---
 

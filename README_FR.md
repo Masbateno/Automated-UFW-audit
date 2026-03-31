@@ -138,21 +138,19 @@ sudo ufw-audit --french  # interface française
 
 ## 🧪 Qualité & fiabilité
 
-- ✅ 639 tests unitaires
+- ✅ 652 tests unitaires
 - 🧱 Architecture modulaire (snapshot / check séparés)
 - 🧪 Testé sur Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.2.0
+## 🆕 v1.3.0
 
-- 🔒 Passage qualité : 12 corrections défensives sur 8 modules (aucun changement de comportement)
-- 🐛 Plage IPv4 privée `172.x` corrigée à la RFC 1918 uniquement (`172.16–31`) dans `sysinfo.py`
-- 🐛 `i18n.current_lang()` retourne désormais la locale réellement chargée (et non celle demandée)
-- 🐛 `send_html_email()` vérifie désormais la présence de `sendmail` (vérifiait `mail`)
-- 🛡 `Deduction.context` validé ; raison du cap désormais visible dans le breakdown du score
-- 🛡 `registry.py` valide le format de `config_key` et des chaînes de port (`nombre/tcp|udp`)
-- ✅ 639/639 tests unitaires
+- 🌍 Breakdown du score entièrement traduit — toutes les raisons de déduction passent par `t()` (EN + FR)
+- 🔌 Flag `--offline` / `-o` — désactive la résolution d'IP publique (machines isolées, cron restreint)
+- 🌐 Détection d'adresse IPv6 publique dans `detect_network_context()`
+- 🔄 Chaîne de fallback 3 providers pour la résolution d'IP publique (`ipify` → `ifconfig.me` → `icanhazip`)
+- ✅ 652/652 tests unitaires
 
 ---
 
@@ -171,7 +169,6 @@ Automated-UFW-audit/
 ├── README.md / README_FR.md        # présentation du projet (EN/FR)
 ├── LICENSE
 ├── pyproject.toml                  # config de build (installation pip/pipx)
-├── install.sh                      # installeur shell [DÉPRÉCIÉ]
 ├── DOCUMENTS/
 │   ├── README_TECH.md / _FR.md     # référence technique complète
 │   ├── README_DEV.md / _FR.md      # documentation développeur
@@ -186,7 +183,7 @@ Automated-UFW-audit/
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 639 tests unitaires
+└── tests/                          # 652 tests unitaires
 ```
 
 ---

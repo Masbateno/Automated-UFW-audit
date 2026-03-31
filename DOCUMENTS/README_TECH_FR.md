@@ -112,16 +112,6 @@ source /etc/bash_completion.d/ufw-audit
 
 Après cette étape, `sudo ufw-audit` fonctionne normalement et `ufw-audit --<TAB>` complète les options.
 
-### Alternative — install.sh (déprécié)
-
-> ⚠️ **Déprécié** — conservé pour les systèmes sans accès pip/pipx.
-
-```bash
-git clone https://github.com/Masbateno/Automated-UFW-audit.git
-cd Automated-UFW-audit
-sudo ./install.sh
-```
-
 ---
 
 ## Désinstallation
@@ -129,8 +119,6 @@ sudo ./install.sh
 ```bash
 pipx uninstall ufw-audit
 ```
-
-> Si installé via install.sh : `sudo ./install.sh --uninstall`
 
 ---
 
@@ -433,7 +421,13 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v0.22.1** — Hotfix : pare-feu détecté comme inactif sur les locales non-anglaises ; variable `LANGUAGE` maintenant vidée avec `LC_ALL=C`
 
-**v1.0** *(actuel)* — Version stable ; `pipx install ufw-audit` comme méthode d'installation principale ; `--install-completion` crée l'autocomplétion bash et le lien symbolique sudo PATH ; Python 3.9 minimum ; matrice CI mise à jour (3.9 / 3.10 / 3.12) ; clé locale `not_listening` ajoutée ; install.sh déprécié
+**v1.0** — Version stable ; `pipx install ufw-audit` comme méthode d'installation principale ; `--install-completion` crée l'autocomplétion bash et le lien symbolique sudo PATH ; Python 3.9 minimum ; matrice CI mise à jour (3.9 / 3.10 / 3.12) ; clé locale `not_listening` ajoutée ; install.sh déprécié
+
+**v1.2.0** — Passe qualité : 12 corrections défensives sur 8 modules ; regex IPv4 privée `172.x` corrigée ; `Deduction.context` validé ; cap visible dans le breakdown du score ; 639/639
+
+**v1.2.1** — Nettoyage packaging : `install.sh` supprimé ; corrections `pyproject.toml` (LICENSE, classifier, URL Issues)
+
+**v1.3.0** *(actuel)* — i18n complète : toutes les raisons de déduction traduites via `t()` ; flag `--offline`/`-o` ; détection d'adresse IPv6 publique ; chaîne de fallback 3 providers ; 652/652
 
 **Post v1.0**
 - Interface Web (`--gui`) — interface graphique pour utilisateurs non-techniques, approche pédagogique, périmètre simplifié

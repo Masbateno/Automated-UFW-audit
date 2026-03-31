@@ -6,6 +6,32 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.3.0] — 2026-03-31
+
+### TL;DR
+- i18n completeness: all `Deduction.reason` strings translated via `t()` — zero hardcoded strings in score breakdown
+- Network robustness: `--offline` mode, 3-provider IP fallback chain, IPv6 public address detection
+- 652/652 unit tests (+13)
+
+### New features
+
+- **i18n — deduction reasons fully translated** (`checks/docker.py`, `checks/ports.py`, `checks/logs.py`, `checks/services.py`, `locales/en.json`, `locales/fr.json`) — All five `Deduction.reason` strings that were hardcoded in English are now passed through `_t()`. New `"deduction"` namespace added to both locale files with keys: `docker_bypass`, `netbios_no_rule`, `port_no_rule`, `brute_force`, `service_open_world`. Score breakdown now renders in the active language.
+
+- **`--offline` / `-o` flag** (`cli.py`, `sysinfo.py`, `__main__.py`) — New CLI flag that skips all external HTTP calls. `get_public_ip(offline=True)` returns `""` immediately without touching the network. Useful for air-gapped machines, cron jobs in restricted environments, or when a fast audit without network latency is preferred. Wired through `AuditConfig.offline` → `detect_network_context(offline=)` → `get_public_ip(offline=)`.
+
+- **`get_public_ip()` — 3-provider fallback chain** (`sysinfo.py`) — Previously used only `api.ipify.org`. Now tries `api.ipify.org` → `ifconfig.me/ip` → `icanhazip.com` in order, returning the first valid IPv4 response. Returns `""` if all three fail or if `offline=True`.
+
+- **`detect_network_context()` — IPv6 public address detection** (`sysinfo.py`) — After checking IPv4 addresses from `ip addr show`, the function now scans `inet6` entries for public IPv6 addresses. Addresses matching `::1` (loopback), `fe80:` (link-local), or `fc`/`fd` prefixes (ULA) are excluded. A machine with a public `2001:db8::1` address is now correctly reported as `"public"`.
+
+- **Bash completion updated** (`ufw_audit/data/ufw-audit.bash-completion`) — Added `--offline` to long options and `-o` to short options.
+
+### Tests
+
+- `tests/test_sysinfo.py` — 11 new tests: `TestGetPublicIp` (5 tests: offline guard, first-provider success, fallback to second provider, all-providers-fail, invalid-response skip) + `TestDetectNetworkContext` (6 tests: private gateway, offline forwarding, public IPv4, public IPv6, link-local IPv6 ignored, subprocess failure fallback)
+- `tests/test_cli.py` — `test_offline_long`, `test_offline_short` added; `offline: False` added to defaults assertion
+
+---
+
 ## [v1.2.1] — 2026-03-31
 
 ### Removed

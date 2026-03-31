@@ -138,21 +138,19 @@ sudo ufw-audit --french  # French interface
 
 ## 🧪 Quality & reliability
 
-- ✅ 639 unit tests
+- ✅ 652 unit tests
 - 🧱 Modular architecture (snapshot / check separated)
 - 🧪 Tested on Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.2.0
+## 🆕 v1.3.0
 
-- 🔒 Code quality pass: 12 defensive fixes across 8 modules (no behaviour changes)
-- 🐛 Private IPv4 `172.x` range corrected to RFC 1918 only (`172.16–31`) in `sysinfo.py`
-- 🐛 `i18n.current_lang()` now returns the actually loaded locale (not the requested one)
-- 🐛 `send_html_email()` now checks for `sendmail` (was checking `mail`)
-- 🛡 `Deduction.context` validated; cap reason now visible in score breakdown
-- 🛡 Registry validates `config_key` format and port strings (`number/tcp|udp`)
-- ✅ 639/639 unit tests
+- 🌍 Score breakdown fully translated — all deduction reasons now pass through `t()` (EN + FR)
+- 🔌 `--offline` / `-o` flag — skip external IP lookup (air-gapped machines, restricted cron)
+- 🌐 IPv6 public address detection in `detect_network_context()`
+- 🔄 3-provider fallback chain for public IP resolution (`ipify` → `ifconfig.me` → `icanhazip`)
+- ✅ 652/652 unit tests
 
 ---
 
@@ -171,7 +169,6 @@ Automated-UFW-audit/
 ├── README.md / README_FR.md        # project overview (EN/FR)
 ├── LICENSE
 ├── pyproject.toml                  # build config (pip/pipx install)
-├── install.sh                      # shell installer [DEPRECATED]
 ├── DOCUMENTS/
 │   ├── README_TECH.md / _FR.md     # complete technical reference
 │   ├── README_DEV.md / _FR.md      # developer documentation
@@ -186,7 +183,7 @@ Automated-UFW-audit/
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 639 unit tests
+└── tests/                          # 652 unit tests
 ```
 
 ---

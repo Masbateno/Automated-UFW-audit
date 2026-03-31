@@ -79,7 +79,7 @@ Cette séparation permet de tester toute la logique métier en instanciant direc
 ufw_audit/
 ├── __init__.py
 ├── __main__.py          # Orchestrateur (~481 lignes — coordination pure)
-├── _paths.py            # Résolution des chemins de données (compat install.sh)
+├── _paths.py            # Résolution des chemins de données
 ├── cli.py               # AuditConfig + parse_args()
 ├── config.py            # UserConfig, EmailStore
 ├── cron.py              # CronEntry, wizard planification, TUI --manage-cron
@@ -130,10 +130,10 @@ tests/
 ├── test_report.py
 ├── test_scoring.py
 ├── test_services.py
+├── test_sysinfo.py
 └── test_virtualization.py
 
 pyproject.toml           # Config de build (setuptools, installation pip/pipx)
-install.sh               # Installateur shell [DÉPRÉCIÉ — utiliser pipx install ufw-audit]
 README.md / README_FR.md           # Documentation utilisateur (EN/FR)
 README_DEV.md / README_DEV_FR.md   # Ce fichier (EN/FR)
 CHANGELOG_FULL.md / CHANGELOG_FULL_FR.md  # Historique complet des versions (EN/FR)

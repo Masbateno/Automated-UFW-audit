@@ -112,16 +112,6 @@ source /etc/bash_completion.d/ufw-audit
 
 After this step, `sudo ufw-audit` works normally and `ufw-audit --<TAB>` completes options.
 
-### Alternative — install.sh (deprecated)
-
-> ⚠️ **Deprecated** — kept for systems without pip/pipx access.
-
-```bash
-git clone https://github.com/Masbateno/Automated-UFW-audit.git
-cd Automated-UFW-audit
-sudo ./install.sh
-```
-
 ---
 
 ## Uninstall
@@ -129,8 +119,6 @@ sudo ./install.sh
 ```bash
 pipx uninstall ufw-audit
 ```
-
-> If installed via install.sh: `sudo ./install.sh --uninstall`
 
 ---
 
@@ -433,7 +421,13 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v0.22.1** — Hotfix: UFW detected as inactive on non-English locales; `LANGUAGE` env var now cleared alongside `LC_ALL=C`
 
-**v1.0** *(current)* — Stable release; `pipx install ufw-audit` as primary install method; `--install-completion` creates bash completion and sudo PATH symlink; Python 3.9 minimum; CI matrix updated (3.9 / 3.10 / 3.12); `not_listening` locale key added; install.sh deprecated
+**v1.0** — Stable release; `pipx install ufw-audit` as primary install method; `--install-completion` creates bash completion and sudo PATH symlink; Python 3.9 minimum; CI matrix updated (3.9 / 3.10 / 3.12); `not_listening` locale key added; install.sh deprecated
+
+**v1.2.0** — Code quality pass: 12 defensive fixes across 8 modules; private IPv4 `172.x` regex corrected; `Deduction.context` validated; cap visible in score breakdown; 639/639
+
+**v1.2.1** — Packaging cleanup: `install.sh` removed; `pyproject.toml` fixes (LICENSE, classifier, Issues URL)
+
+**v1.3.0** *(current)* — i18n completeness: all deduction reasons translated via `t()`; `--offline`/`-o` flag; IPv6 public address detection; 3-provider IP fallback chain; 652/652
 
 **Post v1.0**
 - Web UI (`--gui`) — graphical interface for non-technical users, pedagogical approach, simplified scope
