@@ -1,9 +1,9 @@
 *[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
-# ufw-audit v1.0.0
+# ufw-audit v1.3.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.0.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.3.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -203,7 +203,7 @@ sudo ufw-audit --reconfigure
 ║ ╚██████╔╝ ██║      ╚███╔███╔╝     ██║  ██║ ╚██████╔╝ ██████╔╝ ██║    ██║     ║
 ║  ╚═════╝  ╚═╝       ╚══╝╚══╝      ╚═╝  ╚═╝  ╚═════╝  ╚═════╝  ╚═╝    ╚═╝     ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
-║  UFW-AUDIT v1.0  │  UFW firewall audit                                       ║
+║  UFW-AUDIT v1.3.0  │  UFW firewall audit                                     ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║  System        : Ubuntu 24.04 LTS                                            ║
 ║  Host          : my-machine                                                  ║
@@ -292,9 +292,9 @@ sudo ufw-audit --reconfigure
 ║    ⚠  Port 80/tcp — open to internet — no source restricti…                  ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║  Score breakdown                                                             ║
-║    -2  SSH Server 22/tcp open_world                                          ║
-║    -1  Nginx Web Server 80/tcp open_world                                    ║
-║    -1  SSH Server 22/tcp open_world                                          ║
+║    -2  SSH Server 22/tcp exposed to internet                                 ║
+║    -1  Nginx Web Server 80/tcp exposed to internet                           ║
+║    -1  SSH Server 22/tcp exposed to internet                                 ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
   Corrections are needed. Address items marked 'Action required' first.
@@ -329,6 +329,7 @@ The report opens with a 62-char ASCII art header and contains: system informatio
 | `--json`                | Export summary as JSON                                             |
 | `--json-full`           | Export full audit details as JSON                                  |
 | `--log-days=N`          | Analyse logs over N days (default: 7)                              |
+| `-o`, `--offline`       | Skip external IP lookup (no HTTP calls)                            |
 | `--manage-logs`         | Interactive UI to list and delete saved report files               |
 | `--install-cron`        | Set up an automated nightly audit (cron)                           |
 | `--install-completion`  | Install bash completion and create sudo PATH symlink               |

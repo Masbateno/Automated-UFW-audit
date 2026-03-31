@@ -1,9 +1,9 @@
 *[Read in English](README_TECH.md)* · *[Vue d'ensemble](../README_FR.md)*
 
-# ufw-audit v1.0.0
+# ufw-audit v1.3.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.0.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.3.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -203,7 +203,7 @@ sudo ufw-audit -r
 ║ ╚██████╔╝ ██║      ╚███╔███╔╝     ██║  ██║ ╚██████╔╝ ██████╔╝ ██║    ██║     ║
 ║  ╚═════╝  ╚═╝       ╚══╝╚══╝      ╚═╝  ╚═╝  ╚═════╝  ╚═════╝  ╚═╝    ╚═╝     ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
-║  UFW-AUDIT v1.0  │  UFW firewall audit                                       ║
+║  UFW-AUDIT v1.3.0  │  Audit pare-feu UFW                                     ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║  System        : Ubuntu 24.04 LTS                                            ║
 ║  Host          : my-machine                                                  ║
@@ -292,9 +292,9 @@ sudo ufw-audit -r
 ║    ⚠  Port 80/tcp — ouvert sur internet — aucune restriction…                ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║  Décomposition du score                                                      ║
-║    -2  SSH Server 22/tcp open_world                                          ║
-║    -1  Nginx Web Server 80/tcp open_world                                    ║
-║    -1  SSH Server 22/tcp open_world                                          ║
+║    -2  SSH Server 22/tcp exposé sur internet                                 ║
+║    -1  Nginx Web Server 80/tcp exposé sur internet                           ║
+║    -1  SSH Server 22/tcp exposé sur internet                                 ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
   Corrections nécessaires. Traitez en priorité les éléments marqués "Action requise".
@@ -329,6 +329,7 @@ Le rapport s'ouvre avec un en-tête ASCII art sur 62 caractères et contient : i
 | `--json`                | Exporter le résumé en JSON                                         |
 | `--json-full`           | Exporter l'audit complet en JSON                                   |
 | `--log-days=N`          | Analyser les logs sur N jours (défaut : 7)                         |
+| `-o`, `--offline`       | Désactiver la résolution d'IP publique (aucun appel HTTP)          |
 | `--manage-logs`         | Interface interactive pour gérer les rapports sauvegardés          |
 | `--install-cron`        | Configurer un audit nocturne automatique (cron)                    |
 | `--install-completion`  | Installer l'autocomplétion bash et créer le lien symbolique sudo PATH |
