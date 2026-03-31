@@ -206,7 +206,7 @@ def check_ports(
                 cmd=f"sudo ufw allow from 192.168.1.0/24 to any port {lport.port} proto {lport.proto}",
             )
             result.add_deduction(
-                reason=f"NetBIOS port {pp} without UFW rule",
+                reason=_t("deduction.netbios_no_rule", port=pp),
                 points=1,
                 context=network_context,
             )
@@ -227,7 +227,7 @@ def check_ports(
                 cmd=f"sudo ufw deny {pp}",
             )
             result.add_deduction(
-                reason=f"Port {pp} on 0.0.0.0 without UFW rule",
+                reason=_t("deduction.port_no_rule", port=pp),
                 points=2 if network_context == "public" else 1,
                 context=network_context,
             )

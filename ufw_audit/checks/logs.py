@@ -230,7 +230,7 @@ def check_logs(
             nature="improvement",
         )
         result.add_deduction(
-            reason=f"Bruteforce {hit.src_ip} on {hit.port_proto}",
+            reason=_t("deduction.brute_force", ip=hit.src_ip, port=hit.port_proto),
             points=1,
             context="local",
         )

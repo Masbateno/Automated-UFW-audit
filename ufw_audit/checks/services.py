@@ -342,7 +342,7 @@ def _check_port_exposure(
                 nature="improvement",
             )
         result.add_deduction(
-            reason=f"{snap.label} {port} open_world",
+            reason=_t("deduction.service_open_world", label=snap.label, port=port),
             points=base_points,
             context=network_context,
         )

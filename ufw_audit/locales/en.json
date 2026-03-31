@@ -382,5 +382,12 @@
   "audit": {
     "starting": "Starting audit",
     "report_saved": "Detailed report: {path}"
+  },
+  "deduction": {
+    "docker_bypass": "Docker bypass: {container} {port}",
+    "netbios_no_rule": "NetBIOS port {port} without UFW rule",
+    "port_no_rule": "Port {port} on 0.0.0.0 without UFW rule",
+    "brute_force": "Bruteforce {ip} on {port}",
+    "service_open_world": "{label} {port} open world"
   }
 }

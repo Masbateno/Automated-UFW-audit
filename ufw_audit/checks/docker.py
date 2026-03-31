@@ -213,7 +213,9 @@ def check_docker(
                 )
             if not snapshot.iptables_disabled:
                 result.add_deduction(
-                    reason=f"Docker bypass: {port.container_name} {port.port_proto}",
+                    reason=_t("deduction.docker_bypass",
+                              container=port.container_name,
+                              port=port.port_proto),
                     points=2 if network_context == "public" else 1,
                     context=network_context,
                 )
