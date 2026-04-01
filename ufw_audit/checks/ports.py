@@ -77,6 +77,7 @@ class ListeningPort:
     proto:    str
     address:  str
     raw_line: str
+    process:  str = ""
 
     @property
     def port_proto(self) -> str:
@@ -116,7 +117,7 @@ class PortsSnapshot:
         Returns:
             Populated PortsSnapshot. Never raises.
         """
-        ss_output  = _run("ss", "-tuln")
+        ss_output  = _run("ss", "-tulnp")
         ufw_rules  = _run("ufw", "status", "numbered")
         ports      = _parse_ss_output(ss_output)
 
@@ -221,10 +222,13 @@ def check_ports(
                 continue
             reported_alert_ports.add(pp)
             has_uncovered_public = True
+            pp_display = f"{pp} ({lport.process})" if lport.process else pp
+            note = _t("ports.process_disclaimer", process=lport.process) if lport.process else ""
             result.alert(
-                message=_t("ports.uncovered", port=pp),
+                message=_t("ports.uncovered", port=pp_display),
                 nature="action",
                 cmd=f"sudo ufw deny {pp}",
+                note=note,
             )
             result.add_deduction(
                 reason=_t("deduction.port_no_rule", port=pp),
@@ -346,11 +350,19 @@ def _parse_ss_output(output: str) -> list[ListeningPort]:
             continue
         seen.add(key)
 
+        # Extract process name from users:(("name",...)) column if present
+        process = ""
+        if len(parts) >= 7:
+            m = re.search(r'users:\(\("([^"]+)"', parts[6])
+            if m:
+                process = m.group(1)
+
         ports.append(ListeningPort(
             port=port_num,
             proto=proto_raw,
             address=addr,
             raw_line=line,
+            process=process,
         ))
 
     return ports

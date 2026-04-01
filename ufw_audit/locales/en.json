@@ -94,7 +94,8 @@
     "system_port": "Internal system port — no risk (legitimate OS service, no UFW rule needed): {port} ({service})",
     "listening_count": "{count} listening port(s) detected on this system",
     "listening_detail": "Listening ports detail:",
-    "listening_verbose_hint": "Use -v to display the full port table"
+    "listening_verbose_hint": "Use -v to display the full port table",
+    "process_disclaimer": "This port belongs to {process} — blocking it may interrupt the application. Only run the command above if you know exactly what you are doing."
   },
   "logs": {
     "no_logfile": "UFW log file not found (/var/log/ufw.log) — logging disabled?",

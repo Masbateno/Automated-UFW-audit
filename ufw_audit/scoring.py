@@ -106,12 +106,14 @@ class Finding:
         detail:  Optional secondary detail or recommendation text.
         nature:  Category used by --fix mode: "action" | "improvement" | "structural" | "".
         cmd:     Shell command for --fix mode. Empty string if not automatable.
+        note:    Optional disclaimer or contextual warning shown after the cmd.
     """
     level:   FindingLevel
     message: str
     detail:  str = ""
     nature:  str = ""
     cmd:     str = ""
+    note:    str = ""
 
 
 @dataclass
@@ -165,10 +167,11 @@ class CheckResult:
         detail: str = "",
         nature: str = "",
         cmd: str = "",
+        note: str = "",
     ) -> None:
         """Convenience method to append a finding."""
         self.findings.append(
-            Finding(level=level, message=message, detail=detail, nature=nature, cmd=cmd)
+            Finding(level=level, message=message, detail=detail, nature=nature, cmd=cmd, note=note)
         )
 
     def ok(self, message: str, detail: str = "") -> None:
@@ -179,13 +182,13 @@ class CheckResult:
         """Shorthand for adding an INFO finding."""
         self.add_finding(FindingLevel.INFO, message, detail)
 
-    def warn(self, message: str, detail: str = "", nature: str = "improvement", cmd: str = "") -> None:
+    def warn(self, message: str, detail: str = "", nature: str = "improvement", cmd: str = "", note: str = "") -> None:
         """Shorthand for adding a WARN finding."""
-        self.add_finding(FindingLevel.WARN, message, detail, nature, cmd)
+        self.add_finding(FindingLevel.WARN, message, detail, nature, cmd, note)
 
-    def alert(self, message: str, detail: str = "", nature: str = "action", cmd: str = "") -> None:
+    def alert(self, message: str, detail: str = "", nature: str = "action", cmd: str = "", note: str = "") -> None:
         """Shorthand for adding an ALERT finding."""
-        self.add_finding(FindingLevel.ALERT, message, detail, nature, cmd)
+        self.add_finding(FindingLevel.ALERT, message, detail, nature, cmd, note)
 
 
 # ---------------------------------------------------------------------------
