@@ -394,7 +394,8 @@ def _geo_via_geoip2(ip: str) -> str:
                 if country:
                     return country
                 return ""
-        except (OSError, ValueError, KeyError, AttributeError):
+        except (OSError, ValueError, KeyError, AttributeError,
+                geoip2.errors.GeoIP2Error):
             continue
 
     return ""

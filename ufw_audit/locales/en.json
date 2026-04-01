@@ -116,8 +116,10 @@
     "attempts": "attempt(s)",
     "geo_unavailable": "whois not available — install it for IP geolocation (sudo apt install whois)",
     "local_network": "local network",
-    "geoip2_unavailable": "GeoIP2 not available — install python3-geoip2 for IP geolocation",
-    "geoip2_no_db": "GeoIP2 installed but no GeoLite2 database found — install it with: sudo apt install geoip-database"
+    "geoip2_unavailable": "GeoIP2 library not found in the ufw-audit environment — IP geolocation disabled",
+    "geoip2_unavailable_cmd": "pipx inject ufw-audit geoip2",
+    "geoip2_no_db": "GeoIP2 installed but no GeoLite2-Country database found — IP geolocation disabled",
+    "geoip2_no_db_cmd": "sudo wget -O /usr/share/GeoIP/GeoLite2-Country.mmdb https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb"
   },
   "ddns": {
     "none": "No DDNS client detected — no DDNS-based external exposure identified",

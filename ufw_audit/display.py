@@ -377,14 +377,22 @@ def display_geoip_notice(geo_status: str, t, output) -> None:
     """Print a one-time notice if GeoIP2 is unavailable or has no database."""
     if geo_status == "unavailable":
         msg = t("logs.geoip2_unavailable")
+        cmd = t("logs.geoip2_unavailable_cmd")
         if msg.startswith("["):
-            msg = "GeoIP2 not available — install python3-geoip2 for IP geolocation"
+            msg = "GeoIP2 library not found in the ufw-audit environment — IP geolocation disabled"
+        if cmd.startswith("["):
+            cmd = "pipx inject ufw-audit geoip2"
         output.print_info(msg)
+        output.print_info(f"\u2192 {cmd}")
     elif geo_status == "no_database":
         msg = t("logs.geoip2_no_db")
+        cmd = t("logs.geoip2_no_db_cmd")
         if msg.startswith("["):
-            msg = "GeoIP2 installed but no GeoLite2 database found"
+            msg = "GeoIP2 installed but no GeoLite2-Country database found — IP geolocation disabled"
+        if cmd.startswith("["):
+            cmd = "sudo wget -O /usr/share/GeoIP/GeoLite2-Country.mmdb https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb"
         output.print_info(msg)
+        output.print_info(f"\u2192 {cmd}")
 
 
 # ---------------------------------------------------------------------------

@@ -116,8 +116,10 @@
     "attempts": "tentative(s)",
     "geo_unavailable": "whois non disponible — installez-le pour la géolocalisation des IPs (sudo apt install whois)",
     "local_network": "réseau local",
-    "geoip2_unavailable": "GeoIP2 non disponible — installez python3-geoip2 pour la géolocalisation IP",
-    "geoip2_no_db": "GeoIP2 installé mais aucune base GeoLite2 trouvée — installez-la avec : sudo apt install geoip-database"
+    "geoip2_unavailable": "Bibliothèque GeoIP2 introuvable dans l'environnement ufw-audit — géolocalisation IP désactivée",
+    "geoip2_unavailable_cmd": "pipx inject ufw-audit geoip2",
+    "geoip2_no_db": "GeoIP2 installé mais aucune base GeoLite2-Country trouvée — géolocalisation IP désactivée",
+    "geoip2_no_db_cmd": "sudo wget -O /usr/share/GeoIP/GeoLite2-Country.mmdb https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb"
   },
   "ddns": {
     "none": "Aucun client DDNS détecté — pas d'exposition externe via DDNS identifiée",
