@@ -148,6 +148,12 @@ def _run(argv=None) -> int:
     i18n.init(lang=config.lang)
     t = i18n.t
 
+    # JSON mode suppresses all terminal output — only JSON is printed
+    if config.json_mode:
+        config.quiet = True
+        _devnull = open(os.devnull, "w")
+        sys.stdout = _devnull
+
     # --- Initialise output ---
     output.init(no_color=config.no_color, quiet=config.quiet)
 
@@ -401,6 +407,61 @@ def _run(argv=None) -> int:
     if config.fix:
         from ufw_audit.fixes import run_fixes
         run_fixes(engine, config, t)
+
+    # JSON output — restore stdout before printing
+    if config.json_mode:
+        sys.stdout = sys.__stdout__
+    if config.json_mode:
+        import json as _json
+        data: dict = {
+            "version":         VERSION,
+            "host":            sys_info.hostname,
+            "timestamp":       datetime.now().isoformat(timespec="seconds"),
+            "score":           engine.score,
+            "score_max":       10,
+            "risk":            engine.level.value,
+            "network_context": network_context,
+            "public_ip":       public_ip,
+            "alerts":          engine.alert_count,
+            "warnings":        engine.warn_count,
+            "deductions": [
+                {"reason": d.reason, "points": d.points}
+                for d in engine.breakdown if d.points > 0
+            ],
+        }
+        if config.json_full:
+            data["findings"] = [
+                {
+                    "level":   f.level.value,
+                    "message": f.message,
+                    "nature":  f.nature,
+                    "cmd":     f.cmd,
+                    "note":    f.note,
+                }
+                for f in engine.findings
+            ]
+            data["services"] = [
+                {
+                    "name":      snap.service.label,
+                    "installed": snap.installed,
+                    "active":    snap.state.is_active,
+                    "risk":      snap.risk,
+                    "ports": {
+                        port: {"exposure": exp.value}
+                        for port, exp in snap.exposures.items()
+                    },
+                }
+                for snap in snapshots if snap.installed
+            ]
+            data["open_ports"] = [
+                {
+                    "port":    lp.port_proto,
+                    "address": lp.address,
+                    "process": lp.process,
+                }
+                for lp in ports_snapshot.ports if lp.is_all_interfaces
+            ]
+        print(_json.dumps(data, ensure_ascii=False, indent=2))
 
     # Exit code based on audit results
     if engine.alert_count > 0:
