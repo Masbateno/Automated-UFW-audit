@@ -39,6 +39,10 @@ _share_path = resolve_share_dir()
 _DATA_DIR = (_share_path / "data") if _share_path else (Path(__file__).parent / "data")
 _SERVICES_FILE = _DATA_DIR / "services.json"
 
+# User plugin directory — drop *.json files here to add custom services
+# Resolved at import time so it always reflects the current home directory
+_PLUGIN_DIR = Path.home() / ".config" / "ufw-audit" / "services.d"
+
 # Valid values for the risk field
 VALID_RISKS = frozenset({"low", "medium", "high", "critical"})
 
@@ -180,6 +184,55 @@ class Service:
 # Registry
 # ---------------------------------------------------------------------------
 
+def _load_plugins(services: list[Service], ids_seen: set[str]) -> None:
+    """
+    Scan _PLUGIN_DIR for *.json plugin files and merge valid entries into
+    the services list. Errors in individual files are logged and skipped —
+    they never abort the audit.
+
+    Args:
+        services:  Mutable list to append valid plugin services into.
+        ids_seen:  Set of already-registered IDs used for duplicate detection.
+    """
+    if not _PLUGIN_DIR.is_dir():
+        return
+
+    for plugin_file in sorted(_PLUGIN_DIR.glob("*.json")):
+        try:
+            _MAX_PLUGIN_SIZE = 256 * 1024  # 256 KB per plugin
+            with plugin_file.open(encoding="utf-8") as fh:
+                content = fh.read(_MAX_PLUGIN_SIZE + 1)
+            if len(content) > _MAX_PLUGIN_SIZE:
+                logger.warning("Plugin %s exceeds 256 KB — skipped", plugin_file.name)
+                continue
+            raw = json.loads(content)
+        except (OSError, ValueError) as exc:
+            logger.warning("Plugin %s could not be loaded: %s — skipped", plugin_file.name, exc)
+            continue
+
+        if not isinstance(raw, list):
+            logger.warning("Plugin %s must contain a JSON array — skipped", plugin_file.name)
+            continue
+
+        for i, entry in enumerate(raw):
+            try:
+                service = Service.from_dict(entry)
+            except (ValueError, KeyError) as exc:
+                logger.warning("Plugin %s entry #%d invalid: %s — skipped", plugin_file.name, i, exc)
+                continue
+
+            if service.id in ids_seen:
+                logger.warning(
+                    "Plugin %s entry #%d: duplicate id %r — skipped",
+                    plugin_file.name, i, service.id,
+                )
+                continue
+
+            ids_seen.add(service.id)
+            services.append(service)
+            logger.debug("Loaded plugin service %r from %s", service.id, plugin_file.name)
+
+
 class ServiceRegistry:
     """
     Loaded collection of Service objects.
@@ -247,6 +300,10 @@ class ServiceRegistry:
             services.append(service)
 
         logger.debug("Loaded %d services from %s", len(services), json_path)
+
+        # Merge user plugins from services.d/
+        _load_plugins(services, ids_seen)
+
         return cls(services)
 
     # ------------------------------------------------------------------
