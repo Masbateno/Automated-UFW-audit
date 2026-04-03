@@ -224,12 +224,19 @@ def check_ports(
             has_uncovered_public = True
             pp_display = f"{pp} ({lport.process})" if lport.process else pp
             note = _t("ports.process_disclaimer", process=lport.process) if lport.process else ""
-            result.alert(
-                message=_t("ports.uncovered", port=pp_display),
-                nature="action",
-                cmd=f"sudo ufw deny {pp}",
-                note=note,
-            )
+            if lport.process:
+                result.warn(
+                    message=_t("ports.uncovered", port=pp_display),
+                    nature="improvement",
+                    cmd=f"sudo ufw deny {pp}",
+                    note=note,
+                )
+            else:
+                result.alert(
+                    message=_t("ports.uncovered", port=pp_display),
+                    nature="action",
+                    cmd=f"sudo ufw deny {pp}",
+                )
             result.add_deduction(
                 reason=_t("deduction.port_no_rule", port=pp),
                 points=2 if network_context == "public" else 1,
