@@ -287,13 +287,13 @@ def _categorize_port(lport: ListeningPort, ufw_rules: str) -> PortCategory:
         if lport.port == sys_port and lport.proto == sys_proto:
             return PortCategory.SYSTEM_INTERNAL
 
-    # NetBIOS (Samba)
-    if lport.port in (137, 138) and lport.proto == "udp":
-        return PortCategory.NETBIOS
-
-    # Check UFW coverage
+    # Check UFW coverage first — applies to all ports including NetBIOS
     if _is_covered_by_ufw(lport.port, lport.proto, ufw_rules):
         return PortCategory.COVERED
+
+    # NetBIOS (Samba) — not covered by UFW, suggest LAN-scoped rule
+    if lport.port in (137, 138) and lport.proto == "udp":
+        return PortCategory.NETBIOS
 
     # Uncovered — distinguish public vs local
     if lport.is_all_interfaces:

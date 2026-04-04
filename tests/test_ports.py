@@ -318,6 +318,19 @@ class TestCheckPorts:
         result = check_ports(snapshot)
         assert has_level(result, "warn")
 
+    def test_netbios_covered_by_ufw_no_warn(self):
+        """137/udp with explicit UFW rule → COVERED, no warning, no deduction."""
+        ufw_rules = "[ 1] 137/udp                    ALLOW IN    192.168.1.0/24"
+        snapshot = make_snapshot(
+            ports=[make_port(port=137, proto="udp", address="0.0.0.0")],
+            ufw_rules=ufw_rules,
+        )
+        result = check_ports(snapshot)
+        assert not has_level(result, "warn")
+        assert not has_level(result, "alert")
+        total_deductions = sum(d.points for d in result.deductions)
+        assert total_deductions == 0
+
     # ------------------------------------------------------------------
     # Default incoming policy awareness
     # ------------------------------------------------------------------
