@@ -6,6 +6,14 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.4.1] — 2026-04-04
+
+### Fixed
+
+- **Bash completion — `--install-completion` missing** (`ufw_audit/data/ufw-audit.bash-completion`) — The flag was not listed in `long_opts`, so pressing Tab after `--install-c` produced no suggestion. Added to the long options list.
+
+---
+
 ## [v1.4.0] — 2026-04-04
 
 ### TL;DR
