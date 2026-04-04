@@ -36,6 +36,7 @@ _ufw_audit() {
         --manage-logs
         --install-cron
         --manage-cron
+        --install-completion
         --french
         --offline
         --version
