@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.4.0](#v140) | 2026-04-04 | Conscience de la politique deny par défaut ; `__main__.py` découpé en 4 modules ; passage hardening (11 correctifs) ; 676/676 tests |
 | [v1.3.0](#v130) | 2026-03-31 | i18n complète (toutes les raisons de déduction traduites) ; mode `--offline` ; détection réseau IPv6 ; chaîne de fallback 3 providers |
 | [v1.2.1](#v121) | 2026-03-31 | Nettoyage packaging : `install.sh` supprimé ; corrections `pyproject.toml` (LICENSE, classifier, URLs) |
 | [v1.2.0](#v120) | 2026-03-30 | Passage qualité : 12 corrections défensives sur 8 modules — aucun changement de comportement |
@@ -34,6 +35,24 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.4.0
+
+**2026-04-04**
+
+- Fonctionnalité : conscience de la politique deny par défaut — `check_ports()` accepte `default_incoming_policy` ; les ports publics non couverts sont rétrogradés en INFO si la politique UFW est `deny` ou `reject`
+- Refactorisation : `__main__.py` découpé en 4 modules — `completion.py` (`--install-completion`), `runner.py` (pipeline des 8 vérifications), `json_output.py` (sérialisation JSON) ; `__main__.py` est désormais un pur orchestrateur (~160 lignes)
+- Refactorisation : `run_checks()` retourne un `ChecksResult` NamedTuple typé au lieu d'un `tuple` nu
+- Correctif : `__main__.py` — `CLIError` retourne maintenant `EXIT_ERROR (3)` au lieu de `1` (conflit avec `EXIT_WARNINGS`) ; `try/finally` garantit la restauration de `sys.stdout` et la fermeture de `_devnull` même en cas d'exception
+- Correctif : `firewall.py` — booléen `found_duplicate` remplace l'heuristique fragile `startswith[:20]` pour la détection de règles dupliquées
+- Correctif : `logs.py` — correction de la borne d'année pour les timestamps syslog (un log de décembre analysé en janvier n'est plus daté dans le futur) ; suppression de l'exclusion `is_symlink()` pour les bases GeoIP2 `.mmdb` (liens symboliques valides sur Debian/Ubuntu via `update-alternatives`)
+- Correctif : `_run.py` — `_is_safe_config_path()` centralisée (était dupliquée dans `ddns.py` et `services.py`)
+- Correctif : `cron.py` — `read_text(encoding="utf-8")` ; borne de plage `min(end, start+999)` contre les abus mémoire ; regex NOTIFY_EMAIL accepte guillemets simples et doubles
+- Correctif : `json_output.py` — timestamp UTC (`timezone.utc`) ; paramètres typés (`SystemInfo`, `list[ServiceSnapshot]`) ; champ `schema_version: "1"` ajouté
+- Correctif : `completion.py` — garde contre l'absence de `/etc/bash_completion.d/` ; refus d'écraser un vrai binaire à la destination du lien symbolique
+- 676/676 tests unitaires (+24 depuis v1.3.0)
 
 ---
 

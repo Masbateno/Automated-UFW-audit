@@ -6,6 +6,60 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.4.0] — 2026-04-04
+
+### TL;DR
+- Conscience de la politique deny par défaut : ports publics non couverts rétrogradés en INFO si la politique UFW est `deny`/`reject`
+- `__main__.py` découpé en 4 modules ; désormais un pur orchestrateur (~160 lignes)
+- Passage hardening : 11 correctifs sur 7 modules
+- 676/676 tests unitaires (+24)
+
+### Nouvelles fonctionnalités
+
+- **Conscience de la politique deny par défaut** (`checks/ports.py`, `locales/en.json`, `locales/fr.json`) — `check_ports()` accepte maintenant un paramètre `default_incoming_policy` (transmis depuis `FirewallStatus.incoming_policy`, déjà parsé — zéro appel subprocess supplémentaire). Lorsque la politique UFW par défaut est `deny` ou `reject`, les ports sans règle explicite sont déjà bloqués au niveau du pare-feu ; le finding est rétrogradé d'ALERT/WARN en INFO avec un message dédié (`ports.uncovered_default_deny`). Une politique `unknown` déclenche toujours ALERT.
+
+### Refactorisations
+
+- **`__main__.py` découpé en 4 modules** — Le monolithe d'origine est désormais un pur orchestrateur (~160 lignes). Extraits :
+  - `ufw_audit/completion.py` — `install_completion() -> int` : gère `--install-completion` (script bash completion + lien symbolique sudo PATH)
+  - `ufw_audit/runner.py` — `init_report()` + `run_checks() -> ChecksResult` : exécute les 8 vérifications en séquence, possède tous les imports de checks et les appels d'affichage
+  - `ufw_audit/json_output.py` — `build_json_data() -> dict` : sérialisation JSON des résultats d'audit
+- **`run_checks()` → NamedTuple `ChecksResult`** (`runner.py`) — Le type de retour passe d'un `tuple` opaque à `ChecksResult(snapshots, ports_snapshot)`. `fw_status` supprimé du retour (était immédiatement ignoré côté appelant).
+
+### Correctifs
+
+- **`__main__.py` — code de retour `CLIError`** — Retournait `1`, soit `EXIT_WARNINGS`. Changé en `EXIT_ERROR (3)` pour correspondre à la constante et éliminer l'ambiguïté.
+- **`__main__.py` — stdout non restauré sur exception** — La redirection de `sys.stdout` vers `/dev/null` (mode JSON) n'était restaurée que sur le chemin nominal. Enveloppé dans un `try/finally` pour garantir la restauration et la fermeture de `_devnull` même en cas d'exception.
+- **`firewall.py` — détection de règles dupliquées** — L'heuristique `rule[:20] in seen` (20 premiers caractères) pouvait produire des faux positifs pour des règles avec des préfixes identiques mais des destinations différentes. Remplacé par un booléen `found_duplicate` avec correspondance exacte.
+- **`logs.py` — borne d'année pour les timestamps syslog** — Les timestamps syslog n'incluent pas l'année. Un log de décembre parsé en janvier se retrouvait daté dans le futur. Correctif : si le timestamp parsé est supérieur à `datetime.now()`, l'année est décrémentée de 1.
+- **`logs.py` — exclusion des liens symboliques GeoIP2 `.mmdb`** — Le garde `is_symlink()` rejetait les fichiers `.mmdb` valides sur Debian/Ubuntu, où les bases MaxMind sont gérées via `update-alternatives` et sont toujours des liens symboliques. Garde supprimé.
+- **`_run.py` — `_is_safe_config_path()` centralisée** — La vérification de sécurité des chemins était copiée-collée entre `ddns.py` et `services.py`. Déplacée dans `checks/_run.py` comme implémentation unique de référence.
+- **`cron.py` — plusieurs correctifs** :
+  - `read_text()` appelé sans `encoding=` (la valeur par défaut Python dépend de la locale) ; désormais `encoding="utf-8"` sur toutes les occurrences
+  - Borne de plage : `min(int(end_s), int(start_s) + 999)` prévient les allocations mémoire non bornées tout en conservant la validation « hors plage » en aval
+  - Regex NOTIFY_EMAIL : accepte désormais guillemets simples et doubles (ne correspondait qu'aux guillemets doubles)
+- **`json_output.py` — timestamp UTC** — `datetime.now()` dépend du fuseau horaire système, rendant les timestamps non comparables entre machines. Changé en `datetime.now(timezone.utc)`.
+- **`completion.py` — garde pour bash_completion.d absent** — Sur les distros sans `bash-completion` installé, `/etc/bash_completion.d/` peut ne pas exister. Ajout d'une vérification explicite avec message d'erreur descriptif avant la copie.
+- **`completion.py` — sécurité écrasement lien symbolique** — L'ancien code faisait `unlink()` sur n'importe quel fichier en `/usr/local/bin/ufw-audit`, y compris un vrai binaire installé par un autre outil. Changé pour : unlink uniquement si c'est un lien symbolique ; refus avec message d'erreur si c'est un fichier régulier.
+
+### Améliorations
+
+- **`json_output.py` — paramètres typés** (`SystemInfo`, `list[ServiceSnapshot]`) — Précédemment typés comme `sys_info` nu et `list`, masquant la structure attendue aux IDE et aux outils d'analyse statique.
+- **`json_output.py` — champ `schema_version: "1"`** — Les consommateurs (SIEM, scripts, outils CI) peuvent détecter les changements de format sans parser la chaîne `version`.
+- **`display.py`** — Alias mort `print_info` supprimé (inutilisé après une refactorisation précédente).
+- **`manage_logs.py`** — Variable inutilisée `home = get_user_home()` et son import supprimés dans la branche `change`.
+- **`sysinfo.py`** — `open("/etc/os-release")` utilise désormais `encoding="utf-8", errors="replace"`.
+
+### Tests
+
+- **`TestFinding`** (`tests/test_scoring.py`) — 5 nouveaux tests : valeur par défaut du champ `note` ; `note` propagé via `warn()`, `alert()`, `add_finding()` ; `note` absent quand non fourni
+- **Tests de ports avec processus connu** (`tests/test_ports.py`) — 4 nouveaux tests : le nom du processus apparaît dans le message du finding ; le nom du processus déclenche WARN (pas ALERT) ; le finding contient la note de disclaimer ; la note est vide si le processus est inconnu
+- **Tests de conscience deny par défaut** (`tests/test_ports.py`) — 7 nouveaux tests : politique deny rétrograde en INFO ; aucune déduction appliquée ; message INFO affiché ; politique reject rétrograde aussi ; politique allow conserve ALERT ; politique unknown conserve ALERT ; plusieurs ports tous rétrogradés
+- **Isolation plugins + chargement** (`tests/test_registry.py`) — Fixture `no_plugins` qui patche `_PLUGIN_DIR` vers un chemin inexistant ; 9 tests `TestPluginLoading` : plugin valide chargé ; JSON malformé ignoré ; champ requis manquant ignoré ; ID dupliqué ignoré ; format de port validé ; traversée de répertoire rejetée ; plugin fusionné avec le built-in ; plugin remplace le risque built-in ; plusieurs plugins chargés
+- **Flags CLI paramétrés** (`tests/test_cli.py`) — 5 paires de flags converties en `@pytest.mark.parametrize` : `--verbose`/`-v`, `--detailed`/`-d`, `--yes`/`-y`, `--help`/`-h`, `--offline`/`-o`
+
+---
+
 ## [v1.3.0] — 2026-03-31
 
 ### TL;DR

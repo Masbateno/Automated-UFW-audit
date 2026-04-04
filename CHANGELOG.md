@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.4.0](#v140) | 2026-04-04 | UFW default deny awareness; `__main__.py` split into 4 modules; hardening pass (11 fixes); 676/676 tests |
 | [v1.3.0](#v130) | 2026-03-31 | i18n completeness (all deduction reasons translated); `--offline` mode; IPv6 network detection; 3-provider IP fallback chain |
 | [v1.2.1](#v121) | 2026-03-31 | Packaging cleanup: `install.sh` removed; `pyproject.toml` fixes (LICENSE, classifier, URLs) |
 | [v1.2.0](#v120) | 2026-03-30 | Code quality pass: 12 defensive fixes across 8 modules — no behaviour changes |
@@ -34,6 +35,24 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.4.0
+
+**2026-04-04**
+
+- Feature: UFW default deny awareness — `check_ports()` accepts `default_incoming_policy`; uncovered public ports downgraded to INFO when UFW policy is `deny` or `reject`
+- Refactor: `__main__.py` split into 4 modules — `completion.py` (`--install-completion`), `runner.py` (8 checks pipeline), `json_output.py` (JSON serialization); `__main__.py` is now a pure orchestrator (~160 lines)
+- Refactor: `run_checks()` returns typed `ChecksResult` NamedTuple instead of bare `tuple`
+- Fix: `__main__.py` — `CLIError` now returns `EXIT_ERROR (3)` instead of `1` (was conflicting with `EXIT_WARNINGS`); `try/finally` ensures `sys.stdout` and `_devnull` are always restored on exception
+- Fix: `firewall.py` — `found_duplicate` boolean replaces fragile `startswith[:20]` heuristic in duplicate rule detection
+- Fix: `logs.py` — year-boundary fix for syslog timestamps (log from Dec parsed in Jan no longer set to future date); removed `is_symlink()` exclusion for GeoIP2 `.mmdb` (valid symlinks on Debian/Ubuntu via `update-alternatives`)
+- Fix: `_run.py` — `_is_safe_config_path()` centralized (was duplicated in `ddns.py` and `services.py`)
+- Fix: `cron.py` — `read_text(encoding="utf-8")`; range cap `min(end, start+999)` prevents memory abuse; NOTIFY_EMAIL regex accepts both single- and double-quoted values
+- Fix: `json_output.py` — UTC timestamp (`timezone.utc`); typed parameters (`SystemInfo`, `list[ServiceSnapshot]`); `schema_version: "1"` field added
+- Fix: `completion.py` — guard for missing `/etc/bash_completion.d/`; refuses to overwrite existing real binary at symlink target
+- 676/676 unit tests (+24 from v1.3.0)
 
 ---
 

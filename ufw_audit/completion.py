@@ -1,0 +1,57 @@
+"""Bash completion install helper."""
+
+from __future__ import annotations
+
+import os
+import shutil
+import sys
+from pathlib import Path
+
+
+def install_completion() -> int:
+    """Install bash completion script and sudo PATH symlink. Returns exit code."""
+    ok = True
+
+    src      = Path(__file__).parent / "data" / "ufw-audit.bash-completion"
+    dst_comp = Path("/etc/bash_completion.d/ufw-audit")
+    if not dst_comp.parent.exists():
+        print("✖ /etc/bash_completion.d not found — is bash-completion installed?",
+              file=sys.stderr)
+        ok = False
+    else:
+        try:
+            shutil.copy2(src, dst_comp)
+            print(f"✔ Bash completion installed: {dst_comp}")
+        except OSError as exc:
+            print(f"✖ Failed to install completion script: {exc}", file=sys.stderr)
+            ok = False
+
+    dst_bin   = Path("/usr/local/bin/ufw-audit")
+    sudo_user = os.environ.get("SUDO_USER")
+    bin_src   = None
+    if sudo_user:
+        import pwd
+        home      = Path(pwd.getpwnam(sudo_user).pw_dir)
+        candidate = home / ".local" / "bin" / "ufw-audit"
+        if candidate.exists():
+            bin_src = candidate
+    if bin_src:
+        try:
+            if dst_bin.is_symlink():
+                dst_bin.unlink()
+            elif dst_bin.exists():
+                print(f"✖ Refusing to overwrite existing binary at {dst_bin}",
+                      file=sys.stderr)
+                ok = False
+            if ok:
+                dst_bin.symlink_to(bin_src)
+                print(f"✔ Symlink created: {dst_bin} → {bin_src}")
+        except OSError as exc:
+            print(f"✖ Failed to create symlink: {exc}", file=sys.stderr)
+            ok = False
+    else:
+        print("ℹ  Symlink skipped — binary not found in ~/.local/bin")
+
+    if ok:
+        print("  Open a new shell or run: source /etc/bash_completion.d/ufw-audit")
+    return 0 if ok else 3

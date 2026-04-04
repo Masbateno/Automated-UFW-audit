@@ -6,6 +6,60 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.4.0] — 2026-04-04
+
+### TL;DR
+- UFW default deny awareness: uncovered public ports downgraded to INFO when UFW default policy is `deny`/`reject`
+- `__main__.py` split into 4 focused modules; now a pure orchestrator (~160 lines)
+- 11-fix hardening pass across 7 modules
+- 676/676 unit tests (+24)
+
+### New features
+
+- **UFW default deny awareness** (`checks/ports.py`, `locales/en.json`, `locales/fr.json`) — `check_ports()` now accepts a `default_incoming_policy` parameter (forwarded from `FirewallStatus.incoming_policy`, already parsed — zero extra subprocess calls). When the UFW default incoming policy is `deny` or `reject`, ports that have no explicit rule are already blocked at the firewall level; the finding is downgraded from ALERT/WARN to INFO with a dedicated locale message (`ports.uncovered_default_deny`). An `unknown` policy still triggers ALERT.
+
+### Refactoring
+
+- **`__main__.py` split into 4 modules** — The original monolith is now a pure orchestrator (~160 lines). Extracted:
+  - `ufw_audit/completion.py` — `install_completion() -> int`: handles `--install-completion` (bash completion script + sudo PATH symlink)
+  - `ufw_audit/runner.py` — `init_report()` + `run_checks() -> ChecksResult`: sequentially executes all 8 audit checks, owns all check imports and display calls
+  - `ufw_audit/json_output.py` — `build_json_data() -> dict`: JSON serialization of audit results
+- **`run_checks()` → `ChecksResult` NamedTuple** (`runner.py`) — Return type changed from opaque `tuple` to `ChecksResult(snapshots, ports_snapshot)`. `fw_status` removed from the return (was discarded at the call site).
+
+### Bug fixes
+
+- **`__main__.py` — `CLIError` exit code** — Was returning `1`, which is `EXIT_WARNINGS`. Changed to `EXIT_ERROR (3)` to match the constant and eliminate the ambiguity.
+- **`__main__.py` — stdout not restored on exception** — The `sys.stdout` redirect to `/dev/null` (JSON mode) was only restored in the happy path. Wrapped in `try/finally` to guarantee restoration and `_devnull.close()` even when an exception propagates.
+- **`firewall.py` — duplicate rule detection** — The heuristic `rule[:20] in seen` (first 20 chars) could produce false positives for rules with identical prefixes but different destinations. Replaced with a `found_duplicate` boolean and exact match.
+- **`logs.py` — year-boundary syslog timestamps** — Syslog timestamps lack a year. A log entry from December parsed in January was assigned the current year, placing it in the future. Fixed: if parsed timestamp > `datetime.now()`, the year is decremented by 1.
+- **`logs.py` — GeoIP2 `.mmdb` symlink exclusion** — The `is_symlink()` guard was rejecting valid `.mmdb` files on Debian/Ubuntu, where MaxMind databases are managed via `update-alternatives` and are always symlinks. Guard removed.
+- **`_run.py` — centralized `_is_safe_config_path()`** — The path safety check was copy-pasted between `ddns.py` and `services.py`. Moved to `checks/_run.py` as a single authoritative implementation; both modules now import it.
+- **`cron.py` — multiple fixes**:
+  - `read_text()` called without `encoding=` (Python default is locale-dependent); now `encoding="utf-8"` on all occurrences
+  - Range cap: `min(int(end_s), int(start_s) + 999)` prevents unbounded memory allocation while preserving downstream "out of range" validation
+  - NOTIFY_EMAIL regex: now matches both single- and double-quoted email values (was matching only double-quoted)
+- **`json_output.py` — UTC timestamp** — `datetime.now()` depends on the system timezone, making timestamps non-comparable across machines. Changed to `datetime.now(timezone.utc)`.
+- **`completion.py` — guard for missing bash_completion.d** — On distros without `bash-completion` installed, `/etc/bash_completion.d/` may not exist. Added an explicit check with a descriptive error message before attempting the copy.
+- **`completion.py` — symlink overwrite safety** — The previous code would `unlink()` any file at `/usr/local/bin/ufw-audit`, including a real binary installed by another tool. Changed to: unlink only if the path is a symlink; refuse with an error message if it is a regular file.
+
+### Improvements
+
+- **`json_output.py` — typed parameters** (`SystemInfo`, `list[ServiceSnapshot]`) — Previously typed as bare `sys_info` and `list`, hiding the expected structure from IDEs and static analysis tools.
+- **`json_output.py` — `schema_version: "1"` field** — Consumers (SIEM, scripts, CI tools) can detect format changes without parsing the `version` string.
+- **`display.py`** — Removed dead `print_info` alias (was unused after a prior refactor).
+- **`manage_logs.py`** — Removed unused `home = get_user_home()` variable and its import in the `change` branch.
+- **`sysinfo.py`** — `open("/etc/os-release")` now uses `encoding="utf-8", errors="replace"`.
+
+### Tests
+
+- **`TestFinding`** (`tests/test_scoring.py`) — 5 new tests: `note` field default value; `note` propagated via `warn()`, `alert()`, `add_finding()`; `note` absent when not provided
+- **Process-aware port tests** (`tests/test_ports.py`) — 4 new tests: process name appears in finding message; process name triggers WARN (not ALERT); finding includes disclaimer note; note is empty when process unknown
+- **Default deny awareness tests** (`tests/test_ports.py`) — 7 new tests: deny policy downgrades to INFO; no deduction applied; INFO message shown; reject policy also downgrades; allow policy keeps ALERT; unknown policy keeps ALERT; multiple ports all downgraded
+- **Plugin isolation + loading** (`tests/test_registry.py`) — `no_plugins` fixture patches `_PLUGIN_DIR` to a non-existent path; 9 `TestPluginLoading` tests: valid plugin loaded; malformed JSON skipped; missing required field skipped; duplicate ID skipped; port format validated; path traversal rejected; plugin merged with built-in; plugin overrides built-in risk; multiple plugins loaded
+- **Parametrized CLI flags** (`tests/test_cli.py`) — 5 flag pairs converted to `@pytest.mark.parametrize`: `--verbose`/`-v`, `--detailed`/`-d`, `--yes`/`-y`, `--help`/`-h`, `--offline`/`-o`
+
+---
+
 ## [v1.3.0] — 2026-03-31
 
 ### TL;DR
