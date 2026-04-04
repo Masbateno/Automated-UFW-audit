@@ -154,13 +154,31 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Qualité & fiabilité
 
-- ✅ 766 tests unitaires
+- ✅ 966 tests unitaires
 - 🧱 Architecture modulaire (snapshot / check séparés)
 - 🧪 Testé sur Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.5.0
+## 🆕 v1.7.0
+
+- 🎛️ **Profils d'audit** — profils nommés (`server`, `workstation`, `container`) livrés en `.conf` ; option `--profile=NAME`, persistante entre les exécutions
+- 🔑 **`Deduction.key`** — correspondance d'override déterministe ; plus d'heuristique sur les chaînes traduites
+- 📧 **Multi-email cron** — `--install-cron` supporte plusieurs destinataires de notification
+- 🗑️ **Suppression multiple de crons** — `--manage-cron` : `d:1,3` / `d:1-3` / `d:all`
+- 📉 **Filtre des ports éphémères** — le rapport comparatif ne se noie plus dans les ports UDP transitoires (Avahi, VPN…)
+- 🔄 **`--reset-baseline`** — supprime la baseline stockée et quitte proprement
+- ✅ 966/966 tests unitaires
+
+## v1.6.0
+
+- 🛡️ **Durcissement système** — unattended-upgrades, rp_filter, redirections ICMP, fail2ban, AppArmor, log_martians, broadcast ICMP
+- 🔗 **Cohérence IPv6** — croise la configuration noyau IPv6 / UFW IPv6 / listeners IPv6 actifs
+- 📊 **Rapport comparatif** — delta de score, changements de ports et de services depuis le dernier audit
+- 🔌 **API plugin** — fonctions de vérification tierces via le groupe d'entry-points `ufw_audit.checks`
+- ✅ 928/928 tests unitaires
+
+## v1.5.0
 
 - 🖥️ **Bannière enrichie** — version du noyau, version iptables et backend, version nftables affichées au démarrage
 - 🔥 **Analyse de la pile pare-feu** — nouvelle section détectant les règles iptables ACCEPT brutes contournant UFW, les rulesets nftables parallèles, et le forwarding IP inattendu
@@ -170,11 +188,9 @@ mkdir -p ~/.config/ufw-audit/services.d/
 ## v1.4.0
 
 - 🔌 **Système de plugins** — déposez des fichiers `.json` dans `~/.config/ufw-audit/services.d/` pour ajouter des définitions de services personnalisés
-- ⚙️ **Ports avec processus identifié** — un port non couvert avec un processus connu génère un WARN (amélioration) au lieu d'une ALERT (action), avec une note de mise en garde
+- ⚙️ **Ports avec processus identifié** — un port non couvert avec un processus connu génère un WARN (amélioration) au lieu d'une ALERT (action)
 - 📊 **`--json` / `--json-full`** — modes de sortie JSON pour intégration SIEM
-- 🛡️ **Correction crash GeoIP2** — `AddressNotFoundError` ne plante plus l'audit ; instructions d'installation affichées si la bibliothèque ou la base est absente
-- 📬 **Sujet email cron enrichi** — `[UFW-AUDIT] hostname - Score X/10`
-- 🛡️ **Prise en compte de la politique de refus par défaut** — les ports non couverts sont rétrogradés en INFO si la politique UFW par défaut est deny/reject (pas de fausses alertes sur les systèmes bien configurés)
+- 🛡️ **Prise en compte de la politique de refus par défaut** — les ports non couverts sont rétrogradés en INFO si la politique UFW par défaut est deny/reject
 - ✅ 676/676 tests unitaires
 
 
@@ -206,12 +222,14 @@ Automated-UFW-audit/
 │   ├── checks/                     # firewall, services, ports, logs, ddns, docker, virt
 │   ├── data/
 │   │   ├── services.json           # définitions des 22 services intégrés
+│   │   ├── profiles/               # profils d'audit intégrés (server, workstation, container)
 │   │   └── ufw-audit.bash-completion
 │   │   # ~/.config/ufw-audit/services.d/  ← plugins utilisateur (sudo : /root/...)
+│   │   # ~/.config/ufw-audit/profiles/    ← profils d'audit personnalisés
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 766 tests unitaires
+└── tests/                          # 966 tests unitaires
 ```
 
 ---

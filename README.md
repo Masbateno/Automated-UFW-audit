@@ -154,13 +154,31 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Quality & reliability
 
-- ✅ 766 unit tests
+- ✅ 966 unit tests
 - 🧱 Modular architecture (snapshot / check separated)
 - 🧪 Tested on Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.5.0
+## 🆕 v1.7.0
+
+- 🎛️ **Audit profiles** — named profiles (`server`, `workstation`, `container`) shipped as `.conf` files; `--profile=NAME` CLI flag, persisted across runs
+- 🔑 **`Deduction.key`** — deterministic profile override matching; no heuristics on translated strings
+- 📧 **Multi-email cron** — `--install-cron` now supports multiple notification recipients
+- 🗑️ **Bulk cron delete** — `--manage-cron` supports `d:1,3` / `d:1-3` / `d:all`
+- 📉 **Ephemeral port filter** — comparative report no longer floods with transient UDP ports (Avahi, VPN…)
+- 🔄 **`--reset-baseline`** — clears the stored audit baseline and exits
+- ✅ 966/966 unit tests
+
+## v1.6.0
+
+- 🛡️ **Hardening check** — unattended-upgrades, rp_filter, ICMP redirects, fail2ban, AppArmor, log_martians, ICMP broadcast
+- 🔗 **IPv6 consistency** — cross-checks kernel IPv6 / UFW IPv6 / active IPv6 listeners
+- 📊 **Comparative report** — score delta, port changes, service changes since last audit
+- 🔌 **Plugin API** — third-party check functions via `ufw_audit.checks` entry-point group
+- ✅ 928/928 unit tests
+
+## v1.5.0
 
 - 🖥️ **Banner enriched** — kernel version, iptables version and build, nftables version displayed at startup
 - 🔥 **Firewall Stack Analysis** — new section detecting raw iptables ACCEPT rules bypassing UFW, nftables rulesets running in parallel, and unexpected IP forwarding
@@ -172,8 +190,6 @@ mkdir -p ~/.config/ufw-audit/services.d/
 - 🔌 **Plugin system** — drop `.json` files into `~/.config/ufw-audit/services.d/` to add custom service definitions
 - ⚙️ **Process-aware port findings** — uncovered ports with an identified process produce a WARN (improvement) instead of ALERT (action), with a disclaimer note
 - 📊 **`--json` / `--json-full`** — SIEM-ready JSON output modes
-- 🛡️ **GeoIP2 crash fix** — `AddressNotFoundError` no longer crashes the audit; install instructions shown when library or database is missing
-- 📬 **Enriched cron email subject** — `[UFW-AUDIT] hostname - Score X/10`
 - 🛡️ **Default deny awareness** — uncovered ports downgraded to INFO when UFW default policy is deny/reject (no false alerts on hardened systems)
 - ✅ 676/676 unit tests
 
@@ -204,12 +220,14 @@ Automated-UFW-audit/
 │   ├── checks/                     # firewall, services, ports, logs, ddns, docker, virt
 │   ├── data/
 │   │   ├── services.json           # 22 built-in service definitions
+│   │   ├── profiles/               # built-in audit profiles (server, workstation, container)
 │   │   └── ufw-audit.bash-completion
 │   │   # ~/.config/ufw-audit/services.d/  ← user plugin directory (sudo: /root/...)
+│   │   # ~/.config/ufw-audit/profiles/    ← user-defined audit profiles
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 766 unit tests
+└── tests/                          # 966 unit tests
 ```
 
 ---
