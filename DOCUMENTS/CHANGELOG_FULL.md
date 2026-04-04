@@ -6,6 +6,14 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.4.2] — 2026-04-04
+
+### Fixed
+
+- **NetBIOS 137/138 warned despite UFW rule** (`checks/ports.py`) — In `_categorize_port()`, the `NETBIOS` branch was evaluated before the UFW coverage check. Any port in `(137, 138)` always returned `PortCategory.NETBIOS` regardless of whether a UFW rule existed. Moved the `_is_covered_by_ufw()` check before the NetBIOS branch so that a covered port returns `COVERED` and produces no warning or deduction.
+
+---
+
 ## [v1.4.1] — 2026-04-04
 
 ### Fixed

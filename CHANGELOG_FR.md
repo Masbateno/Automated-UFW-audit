@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.4.2](#v142) | 2026-04-04 | Hotfix : ports NetBIOS 137/138 encore signalés non couverts malgré une règle UFW existante |
 | [v1.4.1](#v141) | 2026-04-04 | Hotfix : `--install-completion` absent des suggestions de complétion bash |
 | [v1.4.0](#v140) | 2026-04-04 | Conscience de la politique deny par défaut ; `__main__.py` découpé en 4 modules ; passage hardening (11 correctifs) ; 676/676 tests |
 | [v1.3.0](#v130) | 2026-03-31 | i18n complète (toutes les raisons de déduction traduites) ; mode `--offline` ; détection réseau IPv6 ; chaîne de fallback 3 providers |
@@ -36,6 +37,14 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.4.2
+
+**2026-04-04**
+
+- Correctif : ports NetBIOS 137/138 encore signalés comme non couverts même lorsqu'une règle UFW explicite existe — la vérification de couverture UFW était évaluée après la branche NetBIOS au lieu d'avant
 
 ---
 

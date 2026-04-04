@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.4.2](#v142) | 2026-04-04 | Hotfix: NetBIOS 137/138 still warned when UFW rule exists |
 | [v1.4.1](#v141) | 2026-04-04 | Hotfix: `--install-completion` missing from bash completion suggestions |
 | [v1.4.0](#v140) | 2026-04-04 | UFW default deny awareness; `__main__.py` split into 4 modules; hardening pass (11 fixes); 676/676 tests |
 | [v1.3.0](#v130) | 2026-03-31 | i18n completeness (all deduction reasons translated); `--offline` mode; IPv6 network detection; 3-provider IP fallback chain |
@@ -36,6 +37,14 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.4.2
+
+**2026-04-04**
+
+- Fix: NetBIOS ports 137/138 still reported as uncovered even when an explicit UFW rule exists — UFW coverage check was evaluated after the NetBIOS branch instead of before
 
 ---
 
