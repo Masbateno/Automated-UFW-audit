@@ -42,6 +42,7 @@
 
 **2026-04-04**
 
+- Feature: `services.d` plugin system — drop JSON files in `~/.config/ufw-audit/services.d/` to define custom service definitions loaded alongside built-ins
 - Feature: UFW default deny awareness — `check_ports()` accepts `default_incoming_policy`; uncovered public ports downgraded to INFO when UFW policy is `deny` or `reject`
 - Refactor: `__main__.py` split into 4 modules — `completion.py` (`--install-completion`), `runner.py` (8 checks pipeline), `json_output.py` (JSON serialization); `__main__.py` is now a pure orchestrator (~160 lines)
 - Refactor: `run_checks()` returns typed `ChecksResult` NamedTuple instead of bare `tuple`

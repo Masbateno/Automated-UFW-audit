@@ -9,12 +9,15 @@ Toutes les modifications notables du projet sont documentées ici.
 ## [v1.4.0] — 2026-04-04
 
 ### TL;DR
+- Système de plugins `services.d` : déposer des fichiers JSON dans `~/.config/ufw-audit/services.d/` pour ajouter des définitions de services personnalisées
 - Conscience de la politique deny par défaut : ports publics non couverts rétrogradés en INFO si la politique UFW est `deny`/`reject`
 - `__main__.py` découpé en 4 modules ; désormais un pur orchestrateur (~160 lignes)
 - Passage hardening : 11 correctifs sur 7 modules
 - 676/676 tests unitaires (+24)
 
 ### Nouvelles fonctionnalités
+
+- **Système de plugins `services.d`** (`registry.py`, `_paths.py`) — Les utilisateurs peuvent déposer des fichiers JSON dans `~/.config/ufw-audit/services.d/` (ou `/root/.config/ufw-audit/services.d/` lors d'une exécution via `sudo`) pour définir des services personnalisés chargés aux côtés de `services.json` intégré. Chaque fichier plugin suit le même schéma qu'une entrée de service built-in. Si un plugin définit un `id` déjà présent dans le registre, il remplace le built-in. Les fichiers invalides (JSON malformé, champ requis manquant, format de port invalide, tentative de traversée de répertoire) sont ignorés silencieusement. Le futur packaging `.deb` migrera le répertoire vers `/etc/ufw-audit/services.d/` pour les définitions système.
 
 - **Conscience de la politique deny par défaut** (`checks/ports.py`, `locales/en.json`, `locales/fr.json`) — `check_ports()` accepte maintenant un paramètre `default_incoming_policy` (transmis depuis `FirewallStatus.incoming_policy`, déjà parsé — zéro appel subprocess supplémentaire). Lorsque la politique UFW par défaut est `deny` ou `reject`, les ports sans règle explicite sont déjà bloqués au niveau du pare-feu ; le finding est rétrogradé d'ALERT/WARN en INFO avec un message dédié (`ports.uncovered_default_deny`). Une politique `unknown` déclenche toujours ALERT.
 

@@ -42,6 +42,7 @@
 
 **2026-04-04**
 
+- Fonctionnalité : système de plugins `services.d` — déposer des fichiers JSON dans `~/.config/ufw-audit/services.d/` pour définir des services personnalisés chargés aux côtés des définitions intégrées
 - Fonctionnalité : conscience de la politique deny par défaut — `check_ports()` accepte `default_incoming_policy` ; les ports publics non couverts sont rétrogradés en INFO si la politique UFW est `deny` ou `reject`
 - Refactorisation : `__main__.py` découpé en 4 modules — `completion.py` (`--install-completion`), `runner.py` (pipeline des 8 vérifications), `json_output.py` (sérialisation JSON) ; `__main__.py` est désormais un pur orchestrateur (~160 lignes)
 - Refactorisation : `run_checks()` retourne un `ChecksResult` NamedTuple typé au lieu d'un `tuple` nu
