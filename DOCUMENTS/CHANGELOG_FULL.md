@@ -6,6 +6,67 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.7.0] — 2026-04-04
+
+### TL;DR
+- **Audit profiles** — named profiles (`server`, `workstation`, `container`) in INI format; `--profile=NAME` flag, persisted in `~/.config/ufw-audit/config.conf`
+- **`Deduction.key`** — deterministic deduction removal by key; replaces heuristic string matching on translated messages
+- **Multi-email cron** — `--install-cron` now supports multiple notification recipients with loop + ✔ marker UI
+- **Bulk cron delete** — `--manage-cron`: `d:1,3` (comma list), `d:1-3` (range), `d:all` (all jobs)
+- **Ephemeral port filter** — `build_baseline()` excludes ports ≥ 32768; eliminates false-positive "new port" noise
+- **`--reset-baseline`** — deletes `~/.config/ufw-audit/last_baseline.json` and exits
+- 966/966 unit tests (+38)
+
+### Audit profiles (`profiles.py`)
+
+- `AuditProfile` dataclass: `name`, `description`, `overrides: dict[str, str]`, `skip_sections: set[str]`
+- INI profile format: `[profile]` name/extends/description; `[overrides]` key=level; `[skip_sections]` section names
+- `extends` chain resolved recursively, depth guard `_MAX_EXTENDS_DEPTH = 8`
+- Override levels: `info | warn | alert | skip`
+- Built-in profiles: `server.conf` (default), `workstation.conf`, `container.conf`
+- User profiles in `~/.config/ufw-audit/profiles/` override built-ins
+- `apply_profile(result, profile)` — post-check, mutates `CheckResult` in-place; section skipping applied upstream in `runner.py`
+- `_find_profile_file()` cached with `@lru_cache(maxsize=32)`
+- Override keys normalized with `strip().lower()`
+
+### `Deduction.key`
+
+- `key: str = ""` added to `Deduction` dataclass
+- `add_deduction(key=)` added to `CheckResult`
+- All scored deductions in `checks/hardening.py` and `checks/ipv6.py` carry matching `key=`
+- `_remove_deductions_for_key()` simplified: `result.deductions = [d for d in result.deductions if d.key != key]`
+
+### `--install-cron` multi-email
+
+- `prompt_emails(t) -> list[str]` replaces `prompt_email(t) -> str`
+- Loop: after each selection, "Add another email? [y/N]"; already-selected addresses shown with ✔
+- `prompt_email(t)` kept as backward-compatible wrapper
+- Bash script uses `NOTIFY_EMAILS` (CSV); `IFS="," read -ra _ADDRS` sends to each recipient individually
+
+### `--manage-cron` bulk delete
+
+- Delete expression extended: `d:N` | `d:N,M,...` | `d:N-M` | `d:all`
+- Confirmation message adapts: single name / list of names / "ALL N cron jobs"
+
+### Comparative report
+
+- `_is_stable_port()` helper: excludes ports `>= 32768` from baseline
+- `--reset-baseline` flag: `require_root()`, unlinks `_BASELINE_PATH`, returns `EXIT_OK`
+- `_BASELINE_PATH` exported from `compare.py` as a public name
+
+### Tests
+
+- `tests/test_profiles.py` — 36 tests (new file)
+- `tests/test_compare.py` — +2 (`test_ephemeral_ports_excluded`, `test_stable_ports_included`)
+- `tests/test_ipv6.py` — +2 (`test_malformed_ss_output_returns_empty`, `test_malformed_ufw_lines_returns_empty`)
+- `autouse` fixture `_clear_profile_cache` — clears `lru_cache` between tests
+
+### Migration note
+
+Run `sudo ufw-audit --reset-baseline` once after upgrading from v1.6.0 to discard any baseline that may contain ephemeral ports.
+
+---
+
 ## [v1.6.0] — 2026-04-04
 
 ### TL;DR

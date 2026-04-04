@@ -48,7 +48,7 @@ Liste tous les crons installés avec leur planning et leur email de notification
      → email: vous@exemple.com
   2. weekly-monday        tous les lundi à 02:00
 
-  Numéro pour modifier, 'e:N' pour l'email, 'd:N' pour supprimer, 'm' pour le carnet d'adresses, Entrée pour quitter
+  Numéro pour modifier, 'e:N' pour l'email, 'd:N' / 'd:1,3' / 'd:1-3' / 'd:all' pour supprimer, 'm' pour le carnet, Entrée pour quitter
   >
 ```
 
@@ -57,6 +57,9 @@ Liste tous les crons installés avec leur planning et leur email de notification
 | `N` | Modifier le cron N — choisir entre planning ou email de notification |
 | `e:N` | Modifier directement l'email de notification du cron N |
 | `d:N` | Supprimer le cron N et son script associé |
+| `d:1,3` | Supprimer les crons 1 et 3 (liste) |
+| `d:1-3` | Supprimer les crons 1 à 3 (plage) |
+| `d:all` | Supprimer tous les crons installés |
 | `m` | Ouvrir le carnet d'adresses email (voir ci-dessous) |
 | Entrée / `q` | Quitter |
 
@@ -66,15 +69,24 @@ Après chaque action, le menu se réaffiche pour enchaîner plusieurs opération
 
 ## Supprimer un cron
 
-Entrez `d:N` pour supprimer le cron numéro N :
+Entrez `d:N` pour supprimer un cron, ou utilisez liste, plage ou `all` pour une suppression en lot :
 
 ```
   1. nightly              tous les jours à 03:00
+  2. weekly               tous les lundi à 02:00
 
-  Numéro pour modifier, 'e:N' pour l'email, 'd:N' pour supprimer, 'm' pour le carnet d'adresses, Entrée pour quitter
+  Numéro pour modifier, 'e:N' pour l'email, 'd:N' / 'd:1,3' / 'd:1-3' / 'd:all' pour supprimer, 'm' pour le carnet, Entrée pour quitter
   > d:1
   Supprimer le cron 'nightly' ? [y/N] y
   ✔ Cron 'nightly' supprimé
+
+  > d:1,2
+  Supprimer 2 crons (nightly, weekly) ? [y/N] y
+  ✔ 2 crons supprimés
+
+  > d:all
+  Supprimer TOUS les 2 crons ? [y/N] y
+  ✔ 2 crons supprimés
 ```
 
 ---
@@ -108,6 +120,25 @@ Les adresses enregistrées ici sont proposées comme suggestions à chaque fois 
 
 ---
 
+## Plusieurs emails de notification (v1.7.0+)
+
+`--install-cron` supporte plusieurs destinataires. Après chaque sélection, il vous est demandé si vous souhaitez en ajouter un autre :
+
+```
+  Email(s) de notification :
+    → Sélectionnés jusqu'ici : admin@exemple.com
+    0. (aucun / terminer)
+    1. admin@exemple.com ✔
+    2. securite@exemple.com
+    3. Saisir une nouvelle adresse...
+  > 2
+  Ajouter une autre adresse email ? [o/N] n
+```
+
+Toutes les adresses sélectionnées sont stockées séparées par des virgules et chacune reçoit un email individuel lorsque l'audit détecte des problèmes.
+
+---
+
 ## Prérequis pour l'email
 
 La notification utilise la commande `mail` (paquet `mailutils`) :
@@ -122,12 +153,12 @@ La notification est envoyée **uniquement si l'audit détecte des alertes ou des
 
 ## Format des fichiers cron (v0.13+)
 
-Chaque fichier cron inclut des métadonnées en commentaires pour l'identification :
+Chaque fichier cron inclut des métadonnées en commentaires pour l'identification. Les emails multiples sont stockés séparés par des virgules :
 
 ```
 # UFW-AUDIT cron — generated 2026-03-24 by ufw-audit --install-cron
 # name: nightly
-# email: vous@exemple.com
+# email: admin@exemple.com,securite@exemple.com
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 

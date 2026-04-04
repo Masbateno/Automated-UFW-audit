@@ -1,9 +1,9 @@
 *[Read in English](README_TECH.md)* · *[Vue d'ensemble](../README_FR.md)*
 
-# ufw-audit v1.6.0
+# ufw-audit v1.7.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.6.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.7.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -452,9 +452,11 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v1.4.2** — Hotfix : ports NetBIOS 137/138 encore signalés malgré une règle UFW explicite ; `_is_covered_by_ufw()` déplacé avant la branche NetBIOS dans `_categorize_port()` ; 677/677
 
-**v1.5.0** *(actuel)* — Bannière enrichie (noyau, version iptables + backend, version nftables) ; nouvelle section ANALYSE DE LA PILE PARE-FEU (contournement iptables brut, nftables parallèle, ip_forward) ; nouvelle section CONTEXTE RÉSEAU (tableau interfaces, connexions établies) ; 766/766
+**v1.5.0** — Bannière enrichie (noyau, version iptables + backend, version nftables) ; nouvelle section ANALYSE DE LA PILE PARE-FEU (contournement iptables brut, nftables parallèle, ip_forward) ; nouvelle section CONTEXTE RÉSEAU (tableau interfaces, connexions établies) ; 766/766
 
-**v1.6.0** *(prévu)*
+**v1.6.0** — Nouvelle section DURCISSEMENT (fail2ban, mises à jour auto, AppArmor, rp_filter, redirections ICMP, log_martians, broadcast ICMP) ; nouvelle section COHÉRENCE IPv6 ; rapport comparatif (delta de baseline) ; API plugin de vérification ; 928/928
+
+**v1.7.0** *(actuel)* — Profils d'audit (`server`/`workstation`/`container`, format INI, héritage `extends`, `--profile=NAME`) ; `Deduction.key` pour correspondance d'override déterministe ; notifications cron multi-email ; suppression cron en lot (`d:1,3` / `d:1-3` / `d:all`) ; filtre des ports éphémères dans le rapport comparatif ; `--reset-baseline` ; 966/966
 - `--diff` — comparer l'audit courant avec un précédent export `--json` pour détecter les nouveaux ports/services (dérive d'audit)
 - `--fix --safe` — mode auto-fix restreint aux findings LOW/MEDIUM uniquement ; les findings CRITICAL/HIGH ne sont jamais appliqués sans confirmation explicite
 

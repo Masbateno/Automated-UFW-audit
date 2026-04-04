@@ -26,6 +26,40 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v1.4.2  | 677   | +1 test — NetBIOS 137/138 désormais COUVERT si règle UFW existante |
 | v1.5.0  | 766   | +89 tests — `test_firewall_stack.py` (38), `test_network_context.py` (51) ; banner kernel/iptables/nftables |
 | v1.6.0  | 928   | +162 tests — `test_hardening.py` (49), `test_ipv6.py` (33), `test_compare.py` (49), `test_plugin_checks.py` (31) |
+| v1.7.0  | 966   | +38 tests — `test_profiles.py` (36), `test_compare.py` (+2 filtre ports éphémères), `test_ipv6.py` (+2 entrées malformées) |
+
+### v1.7.0 — 966/966 (2026-04-04)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -v
+966 passed in Xs
+```
+
+#### Nouveaux tests (+38)
+
+| Fichier | Nouveaux | Couverture |
+|---------|----------|------------|
+| `tests/test_profiles.py` | 36 | `load_profile()` : défaut/server/nom vide, repli nom inconnu, chargement depuis fichier ; `_load_from_path()` : nom/description/chaîne extends ; `[overrides]` : niveaux valides, niveau inconnu ignoré, valeur None ignorée ; `[skip_sections]` : liste de sections ; `apply_profile()` : skip supprime constat+déduction, downgrade info supprime déduction, remappage warn/alert, pas d'override passthrough, constats sans clé non modifiés ; `AuditProfile.should_skip_section()`, `override_for()` ; `_remove_deductions_for_key()` : correspondance/non-correspondance |
+| `tests/test_compare.py` | 2 | `test_ephemeral_ports_excluded` (ports ≥ 32768 filtrés), `test_stable_ports_included` (32767 conservé) |
+| `tests/test_ipv6.py` | 2 | `test_malformed_ss_output_returns_empty`, `test_malformed_ufw_lines_returns_empty` |
+
+#### Nouveaux modules
+
+- **`profiles.py`** — profils d'audit nommés, format INI, héritage `extends`, filtrage post-vérification `apply_profile()`
+- **`data/profiles/`** — profils intégrés : `server.conf`, `workstation.conf`, `container.conf`
+
+#### Corrections qualité (pas de nouveaux tests — suite existante valide)
+
+- `Deduction.key: str = ""` — suppression déterministe de déduction par clé (remplace correspondance heuristique sur les chaînes traduites)
+- `add_deduction(key=)` — toutes les déductions scorées dans `hardening.py` / `ipv6.py` portent des clés correspondantes
+- `_find_profile_file()` décoré avec `@lru_cache(maxsize=32)` ; fixture de test vide le cache entre les tests
+- Clés d'override normalisées `strip().lower()` dans `_load_from_path()`
+- `--install-cron` : `prompt_emails()` — boucle de sélection multi-destinataires avec marqueurs ✔
+- `--manage-cron` : suppression en lot `d:1,3` / `d:1-3` / `d:all` avec messages de confirmation adaptés
+
+---
 
 ### v1.6.0 — 928/928 (2026-04-04)
 

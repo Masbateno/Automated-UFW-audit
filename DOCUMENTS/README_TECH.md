@@ -1,9 +1,9 @@
 *[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
-# ufw-audit v1.6.0
+# ufw-audit v1.7.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.6.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.7.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -452,11 +452,11 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v1.4.2** — Hotfix: NetBIOS ports 137/138 still warned despite explicit UFW rule; `_is_covered_by_ufw()` moved before NetBIOS branch in `_categorize_port()`; 677/677
 
-**v1.5.0** *(current)* — Enriched banner (kernel, iptables version + backend, nftables version); new FIREWALL STACK ANALYSIS section (raw iptables bypass, nftables parallel, ip_forward); new NETWORK CONTEXT section (interfaces table, established connections); 766/766
+**v1.5.0** — Enriched banner (kernel, iptables version + backend, nftables version); new FIREWALL STACK ANALYSIS section (raw iptables bypass, nftables parallel, ip_forward); new NETWORK CONTEXT section (interfaces table, established connections); 766/766
 
-**v1.6.0** *(planned)*
-- `--diff` — compare current audit against a previous `--json` output to detect new ports/services (audit drift)
-- `--fix --safe` — auto-fix mode restricted to LOW/MEDIUM severity findings only; CRITICAL/HIGH never applied without explicit confirmation
+**v1.6.0** — New HARDENING section (fail2ban, auto-updates, AppArmor, rp_filter, ICMP redirects, log_martians, ICMP broadcast); new IPv6 CONSISTENCY section; comparative report (baseline delta); plugin check API; 928/928
+
+**v1.7.0** *(current)* — Audit profiles (`server`/`workstation`/`container`, INI format, `extends` inheritance, `--profile=NAME`); `Deduction.key` for deterministic profile override matching; multi-email cron notifications; bulk cron delete (`d:1,3` / `d:1-3` / `d:all`); ephemeral port filter in comparative report; `--reset-baseline`; 966/966
 
 **Post v1.0**
 - Web UI (`--gui`) — graphical interface for non-technical users, pedagogical approach, simplified scope

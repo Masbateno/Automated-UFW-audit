@@ -48,7 +48,7 @@ Lists all installed cron jobs with their schedule and notification email. The me
      → email: you@example.com
   2. weekly-monday        every Monday at 02:00
 
-  Number to edit, 'e:N' to edit email, 'd:N' to delete, 'm' for email book, Enter to quit
+  Number to edit, 'e:N' to edit email, 'd:N' / 'd:1,3' / 'd:1-3' / 'd:all' to delete, 'm' for email book, Enter to quit
   >
 ```
 
@@ -57,6 +57,9 @@ Lists all installed cron jobs with their schedule and notification email. The me
 | `N` | Edit cron N — choose between schedule or notification email |
 | `e:N` | Edit the notification email of cron N directly |
 | `d:N` | Delete cron N and its associated script |
+| `d:1,3` | Delete cron jobs 1 and 3 (comma list) |
+| `d:1-3` | Delete cron jobs 1 through 3 (range) |
+| `d:all` | Delete all installed cron jobs |
 | `m` | Open the email address book (see below) |
 | Enter / `q` | Quit |
 
@@ -66,15 +69,24 @@ After each action the menu redisplays so you can chain multiple operations.
 
 ## Removing a cron job
 
-Enter `d:N` to delete job number N:
+Enter `d:N` to delete a single job, or use a comma list, range, or `all` for bulk deletion:
 
 ```
   1. nightly              every day at 03:00
+  2. weekly               every Monday at 02:00
 
-  Number to edit, 'e:N' to edit email, 'd:N' to delete, 'm' for email book, Enter to quit
+  Number to edit, 'e:N' to edit email, 'd:N' / 'd:1,3' / 'd:1-3' / 'd:all' to delete, 'm' for email book, Enter to quit
   > d:1
   Delete cron 'nightly'? [y/N] y
   ✔ Cron 'nightly' deleted
+
+  > d:1,2
+  Delete 2 cron jobs (nightly, weekly)? [y/N] y
+  ✔ 2 cron jobs deleted
+
+  > d:all
+  Delete ALL 2 cron jobs? [y/N] y
+  ✔ 2 cron jobs deleted
 ```
 
 ---
@@ -108,6 +120,25 @@ Addresses saved here are offered as suggestions whenever `--install-cron` or `--
 
 ---
 
+## Multiple notification emails (v1.7.0+)
+
+`--install-cron` supports multiple recipients. After each selection, you are asked whether to add another:
+
+```
+  Notification email(s):
+    → Selected so far: admin@example.com
+    0. (none / done)
+    1. admin@example.com ✔
+    2. security@example.com
+    3. Enter a new address...
+  > 2
+  Add another email address? [y/N] n
+```
+
+All selected addresses are stored comma-separated and each receives an individual email when the audit detects issues.
+
+---
+
 ## Email requirements
 
 Notifications use the `mail` command (from `mailutils` package):
@@ -122,12 +153,12 @@ Email is sent **only if the audit detects alerts or warnings** (exit code > 0). 
 
 ## Cron file format (v0.13+)
 
-Each cron file includes metadata comments for identification:
+Each cron file includes metadata comments for identification. Multiple emails are stored comma-separated:
 
 ```
 # UFW-AUDIT cron — generated 2026-03-24 by ufw-audit --install-cron
 # name: nightly
-# email: you@example.com
+# email: admin@example.com,security@example.com
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
