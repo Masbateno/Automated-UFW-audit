@@ -44,6 +44,32 @@ class TestDeduction:
 # CheckResult
 # ---------------------------------------------------------------------------
 
+class TestFinding:
+    def test_note_default_empty(self):
+        f = Finding(level=FindingLevel.ALERT, message="test")
+        assert f.note == ""
+
+    def test_note_propagated_via_warn(self):
+        r = CheckResult()
+        r.warn("Warning", cmd="sudo ufw deny 9999", note="disclaimer text")
+        assert r.findings[0].note == "disclaimer text"
+
+    def test_note_propagated_via_alert(self):
+        r = CheckResult()
+        r.alert("Alert", cmd="sudo ufw deny 22", note="use with caution")
+        assert r.findings[0].note == "use with caution"
+
+    def test_note_not_set_when_omitted(self):
+        r = CheckResult()
+        r.alert("Alert")
+        assert r.findings[0].note == ""
+
+    def test_note_propagated_via_add_finding(self):
+        r = CheckResult()
+        r.add_finding(FindingLevel.WARN, "msg", note="my note")
+        assert r.findings[0].note == "my note"
+
+
 class TestCheckResult:
     def test_empty_result(self):
         r = CheckResult()

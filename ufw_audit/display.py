@@ -50,7 +50,6 @@ def display_result(result, report, verbose: bool, quiet: bool = False) -> None:
     from ufw_audit.scoring import FindingLevel
     from ufw_audit.output import (
         print_ok, print_warn, print_alert, print_info, print_recommendation,
-        print_info as _print_info,
     )
 
     for finding in result.findings:
@@ -74,7 +73,7 @@ def display_result(result, report, verbose: bool, quiet: bool = False) -> None:
             elif finding.cmd and verbose:
                 print_recommendation(finding.cmd)
             if finding.note and verbose:
-                _print_info(finding.note)
+                print_info(finding.note)
         elif finding.level == FindingLevel.INFO:
             print_info(finding.message)
             report.write_finding("INFO", finding.message)

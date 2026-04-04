@@ -375,7 +375,7 @@ def _geo_via_geoip2(ip: str) -> str:
     """
     for db_path in _GEOIP2_DB_PATHS:
         path = Path(db_path)
-        if not path.exists() or path.is_symlink():
+        if not path.exists():
             continue
         try:
             with geoip2.database.Reader(str(path)) as reader:
@@ -511,10 +511,15 @@ def _parse_timestamp(line: str, current_year: int) -> Optional[datetime]:
     )
     if syslog_match:
         try:
-            return datetime.strptime(
+            ts = datetime.strptime(
                 f"{syslog_match.group(1)} {current_year}",
                 "%b %d %H:%M:%S %Y",
             )
+            # Year-boundary fix: if the parsed timestamp is in the future
+            # (e.g. a December entry parsed in January), roll back one year.
+            if ts > datetime.now():
+                ts = ts.replace(year=ts.year - 1)
+            return ts
         except ValueError:
             return None
 

@@ -169,8 +169,6 @@ def run_manage_logs(user_config, config, t) -> int:
         return 0
 
     elif answer in ("c", "change"):
-        from ufw_audit.sysinfo import get_user_home
-        home = get_user_home()
         default_dir = Path(log_dir_str)
         chosen = prompt_path(t("manage_logs.change_prompt"), default_dir)
         try:

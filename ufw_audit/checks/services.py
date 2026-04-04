@@ -27,7 +27,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
-from ufw_audit.checks._run import _identity_t, _run
+from ufw_audit.checks._run import _identity_t, _is_safe_config_path, _run
 from ufw_audit.registry import Service, ServiceRegistry
 from ufw_audit.scoring import CheckResult
 
@@ -482,9 +482,7 @@ def _resolve_ports(service: Service) -> list[str]:
     return list(service.ports)
 
 
-def _is_safe_config_path(path: Path) -> bool:
-    """Return True only for safe, non-symlink absolute paths."""
-    return path.is_absolute() and not path.is_symlink()
+
 
 
 def _auto_detect_port(service: Service) -> Optional[str]:

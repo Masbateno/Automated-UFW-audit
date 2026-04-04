@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from ufw_audit.checks._run import _identity_t, _run
+from ufw_audit.checks._run import _identity_t, _is_safe_config_path, _run
 from ufw_audit.scoring import CheckResult
 
 
@@ -279,9 +279,6 @@ def _is_active(client_def: DdnsClientDef) -> bool:
     return False
 
 
-def _is_safe_config_path(path: Path) -> bool:
-    """Return True only for safe, non-symlink absolute paths."""
-    return path.is_absolute() and not path.is_symlink()
 
 
 def _extract_domain(client_def: DdnsClientDef) -> Optional[str]:

@@ -95,7 +95,8 @@
     "listening_count": "{count} listening port(s) detected on this system",
     "listening_detail": "Listening ports detail:",
     "listening_verbose_hint": "Use -v to display the full port table",
-    "process_disclaimer": "This port belongs to {process} — blocking it may interrupt the application. Only run the command above if you know exactly what you are doing."
+    "process_disclaimer": "This port belongs to {process} — blocking it may interrupt the application. Only run the command above if you know exactly what you are doing.",
+    "uncovered_default_deny": "Port {port} listening on all interfaces — no explicit UFW rule, but covered by default deny policy"
   },
   "logs": {
     "no_logfile": "UFW log file not found (/var/log/ufw.log) — logging disabled?",

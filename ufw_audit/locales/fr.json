@@ -95,7 +95,8 @@
     "listening_count": "{count} port(s) en écoute détecté(s) sur ce système",
     "listening_detail": "Détail des ports en écoute :",
     "listening_verbose_hint": "Utilisez -v pour afficher le tableau complet des ports",
-    "process_disclaimer": "Ce port appartient à {process} — le bloquer peut interrompre l'application. N'exécutez la commande ci-dessus que si vous savez précisément ce que vous faites."
+    "process_disclaimer": "Ce port appartient à {process} — le bloquer peut interrompre l'application. N'exécutez la commande ci-dessus que si vous savez précisément ce que vous faites.",
+    "uncovered_default_deny": "Port {port} en écoute sur toutes les interfaces — aucune règle UFW explicite, mais couvert par la politique de refus par défaut"
   },
   "logs": {
     "no_logfile": "Fichier de log UFW introuvable (/var/log/ufw.log) — journalisation désactivée ?",

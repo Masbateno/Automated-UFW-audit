@@ -48,7 +48,7 @@ def collect_system_info(version: str, lang: str):
     # OS name
     os_name = "N/A"
     try:
-        with open("/etc/os-release") as f:
+        with open("/etc/os-release", encoding="utf-8", errors="replace") as f:
             for line in f:
                 line = line[:512]
                 if line.startswith("PRETTY_NAME="):

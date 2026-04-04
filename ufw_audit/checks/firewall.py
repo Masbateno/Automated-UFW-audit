@@ -95,8 +95,8 @@ class FirewallStatus:
             line for line in numbered_output.splitlines()
             if re.match(r"\s*\[\s*\d+\]", line)
         ]
-        ipv4_rules_count = sum(1 for l in rule_lines if "(v6)" not in l)
-        ipv6_rules_count = sum(1 for l in rule_lines if "(v6)" in l)
+        ipv4_rules_count = sum(1 for ln in rule_lines if "(v6)" not in ln)
+        ipv6_rules_count = sum(1 for ln in rule_lines if "(v6)" in ln)
 
         # Read IPv6 config from /etc/default/ufw (default: enabled)
         ipv6_ufw_enabled = _read_ipv6_config()
@@ -207,8 +207,8 @@ def check_rules(
     """
     result = CheckResult()
     lines = [
-        l for l in ufw_numbered.splitlines()
-        if re.match(r"\s*\[\s*\d+\]", l)
+        ln for ln in ufw_numbered.splitlines()
+        if re.match(r"\s*\[\s*\d+\]", ln)
     ]
     _check_duplicates(lines, t, result)
     _check_open_any(lines, t, result)
@@ -232,6 +232,7 @@ def _check_duplicates(lines: list[str], t, result: CheckResult) -> None:
             proto_less_rules.add(" ".join(tokens))
 
     seen_clean: dict[str, int] = {}
+    found_duplicate = False
     for line in lines:
         idx_match  = re.match(r"\[\s*(\d+)\]", line)
         real_index = int(idx_match.group(1)) if idx_match else None
@@ -247,6 +248,7 @@ def _check_duplicates(lines: list[str], t, result: CheckResult) -> None:
             )
             result.add_deduction(reason=t("rules.duplicate_found", rule=clean), points=1)
             is_dup = True
+            found_duplicate = True
         else:
             tokens = clean.split()
             if tokens:
@@ -262,12 +264,12 @@ def _check_duplicates(lines: list[str], t, result: CheckResult) -> None:
                         result.add_deduction(
                             reason=t("rules.duplicate_found", rule=clean), points=1)
                         is_dup = True
+                        found_duplicate = True
 
         if not is_dup and real_index is not None:
             seen_clean[clean] = real_index
 
-    if not any(f.message.startswith(t("rules.duplicate_found")[:20])
-               for f in result.findings):
+    if not found_duplicate:
         result.ok(message=t("rules.no_duplicates"))
 
 
@@ -306,8 +308,8 @@ def _check_ipv6_coverage(
     Suppressed when IPv6 is disabled in /etc/default/ufw to avoid
     false positives on systems that intentionally run IPv4-only.
     """
-    ipv4_count = sum(1 for l in lines if "(v6)" not in l)
-    ipv6_count = sum(1 for l in lines if "(v6)" in l)
+    ipv4_count = sum(1 for ln in lines if "(v6)" not in ln)
+    ipv6_count = sum(1 for ln in lines if "(v6)" in ln)
 
     if ipv4_count > 0 and ipv6_count == 0:
         if ipv6_enabled:

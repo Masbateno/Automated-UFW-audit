@@ -27,26 +27,20 @@ class TestDefaults:
 
 
 class TestFlags:
-    def test_verbose_short(self):
-        assert parse_args(["-v"]).verbose is True
+    @pytest.mark.parametrize("argv", [["-v"], ["--verbose"]])
+    def test_verbose(self, argv):
+        assert parse_args(argv).verbose is True
 
-    def test_verbose_long(self):
-        assert parse_args(["--verbose"]).verbose is True
-
-    def test_detailed_short(self):
-        assert parse_args(["-d"]).detailed is True
-
-    def test_detailed_long(self):
-        assert parse_args(["--detailed"]).detailed is True
+    @pytest.mark.parametrize("argv", [["-d"], ["--detailed"]])
+    def test_detailed(self, argv):
+        assert parse_args(argv).detailed is True
 
     def test_fix(self):
         assert parse_args(["--fix"]).fix is True
 
-    def test_yes_short(self):
-        assert parse_args(["-y", "--fix"]).yes is True
-
-    def test_yes_long(self):
-        assert parse_args(["--yes", "--fix"]).yes is True
+    @pytest.mark.parametrize("argv", [["-y", "--fix"], ["--yes", "--fix"]])
+    def test_yes(self, argv):
+        assert parse_args(argv).yes is True
 
     def test_reconfigure(self):
         assert parse_args(["--reconfigure"]).reconfigure is True
@@ -70,17 +64,13 @@ class TestFlags:
     def test_version(self):
         assert parse_args(["--version"]).show_version is True
 
-    def test_help_short(self):
-        assert parse_args(["-h"]).show_help is True
+    @pytest.mark.parametrize("argv", [["-h"], ["--help"]])
+    def test_help(self, argv):
+        assert parse_args(argv).show_help is True
 
-    def test_help_long(self):
-        assert parse_args(["--help"]).show_help is True
-
-    def test_offline_long(self):
-        assert parse_args(["--offline"]).offline is True
-
-    def test_offline_short(self):
-        assert parse_args(["-o"]).offline is True
+    @pytest.mark.parametrize("argv", [["-o"], ["--offline"]])
+    def test_offline(self, argv):
+        assert parse_args(argv).offline is True
 
 
 class TestLogDays:

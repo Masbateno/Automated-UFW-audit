@@ -244,7 +244,7 @@ class TestCheckPorts:
             ports=[make_port(port=9999, proto="tcp", address="0.0.0.0")],
             ufw_rules="",
         )
-        result = check_ports(snapshot)
+        result = check_ports(snapshot, default_incoming_policy="allow")
         assert has_level(result, "alert")
 
     def test_uncovered_public_deduction(self):
@@ -252,7 +252,7 @@ class TestCheckPorts:
             ports=[make_port(port=9999, proto="tcp", address="0.0.0.0")],
             ufw_rules="",
         )
-        result = check_ports(snapshot)
+        result = check_ports(snapshot, default_incoming_policy="allow")
         assert total_deductions(result) > 0
 
     def test_uncovered_local_info(self):
@@ -300,8 +300,8 @@ class TestCheckPorts:
             ports=[make_port(port=9999, proto="tcp", address="0.0.0.0")],
             ufw_rules="",
         )
-        r_local  = check_ports(snapshot, network_context="local")
-        r_public = check_ports(snapshot, network_context="public")
+        r_local  = check_ports(snapshot, network_context="local",  default_incoming_policy="allow")
+        r_public = check_ports(snapshot, network_context="public", default_incoming_policy="allow")
         assert total_deductions(r_public) >= total_deductions(r_local)
 
     def test_translation_function_used(self):
@@ -317,3 +317,106 @@ class TestCheckPorts:
         )
         result = check_ports(snapshot)
         assert has_level(result, "warn")
+
+    # ------------------------------------------------------------------
+    # Default incoming policy awareness
+    # ------------------------------------------------------------------
+
+    def test_default_deny_downgrades_uncovered_public_to_info(self):
+        """UNCOVERED_PUBLIC + default deny → INFO, not WARN/ALERT."""
+        snapshot = make_snapshot(
+            ports=[make_port(port=9999, proto="tcp", address="0.0.0.0")],
+            ufw_rules="",
+        )
+        result = check_ports(snapshot, default_incoming_policy="deny")
+        assert has_level(result, "info")
+        assert not has_level(result, "alert")
+        assert not has_level(result, "warn")
+
+    def test_default_reject_downgrades_uncovered_public_to_info(self):
+        """UNCOVERED_PUBLIC + default reject → same as deny."""
+        snapshot = make_snapshot(
+            ports=[make_port(port=9999, proto="tcp", address="0.0.0.0")],
+            ufw_rules="",
+        )
+        result = check_ports(snapshot, default_incoming_policy="reject")
+        assert has_level(result, "info")
+        assert not has_level(result, "alert")
+
+    def test_default_allow_keeps_alert(self):
+        """UNCOVERED_PUBLIC + default allow → ALERT as usual."""
+        snapshot = make_snapshot(
+            ports=[make_port(port=9999, proto="tcp", address="0.0.0.0")],
+            ufw_rules="",
+        )
+        result = check_ports(snapshot, default_incoming_policy="allow")
+        assert has_level(result, "alert")
+
+    def test_default_deny_no_deduction(self):
+        """No score deduction when port is covered by default deny policy."""
+        snapshot = make_snapshot(
+            ports=[make_port(port=9999, proto="tcp", address="0.0.0.0")],
+            ufw_rules="",
+        )
+        result = check_ports(snapshot, default_incoming_policy="deny")
+        assert total_deductions(result) == 0
+
+    def test_default_deny_ok_message_shown(self):
+        """With default deny all uncovered ports are safe → OK message shown."""
+        snapshot = make_snapshot(
+            ports=[make_port(port=9999, proto="tcp", address="0.0.0.0")],
+            ufw_rules="",
+        )
+        result = check_ports(snapshot, default_incoming_policy="deny")
+        assert has_level(result, "ok")
+
+    def test_default_deny_unknown_keeps_alert(self):
+        """Unknown policy is treated as non-deny → ALERT preserved."""
+        snapshot = make_snapshot(
+            ports=[make_port(port=9999, proto="tcp", address="0.0.0.0")],
+            ufw_rules="",
+        )
+        result = check_ports(snapshot, default_incoming_policy="unknown")
+        assert has_level(result, "alert")
+
+    def test_uncovered_public_with_process_is_warn_not_alert(self):
+        """Port with known process + default allow → WARN (improvement), not ALERT (action)."""
+        port = ListeningPort(port=9999, proto="tcp", address="0.0.0.0",
+                             raw_line="", process="myapp")
+        snapshot = make_snapshot(ports=[port], ufw_rules="")
+        result = check_ports(snapshot, default_incoming_policy="allow")
+        assert has_level(result, "warn")
+        assert not has_level(result, "alert")
+
+    def test_uncovered_public_with_process_note_populated(self):
+        """Finding note must mention the process name when process is known."""
+        port = ListeningPort(port=9999, proto="tcp", address="0.0.0.0",
+                             raw_line="", process="myapp")
+        snapshot = make_snapshot(ports=[port], ufw_rules="")
+        result = check_ports(snapshot, default_incoming_policy="allow")
+        warn_findings = [f for f in result.findings if f.level.value == "warn"
+                         and f.cmd]
+        assert warn_findings, "Expected a warn finding with a command"
+        assert warn_findings[0].note != "", "Expected a non-empty disclaimer note"
+
+    def test_uncovered_public_without_process_is_alert(self):
+        """Port with no process + default allow → ALERT (action), not WARN."""
+        snapshot = make_snapshot(
+            ports=[make_port(port=9999, proto="tcp", address="0.0.0.0")],
+            ufw_rules="",
+        )
+        result = check_ports(snapshot, default_incoming_policy="allow")
+        assert has_level(result, "alert")
+        assert not has_level(result, "warn")
+
+    def test_process_name_appears_in_message(self):
+        """Process name must appear in the finding message for context."""
+        def my_t(key, **kw):
+            return " ".join(str(v) for v in kw.values()) if kw else key
+
+        port = ListeningPort(port=9999, proto="tcp", address="0.0.0.0",
+                             raw_line="", process="spotify")
+        snapshot = make_snapshot(ports=[port], ufw_rules="")
+        result = check_ports(snapshot, default_incoming_policy="allow", t=my_t)
+        messages = [f.message for f in result.findings]
+        assert any("spotify" in m for m in messages)

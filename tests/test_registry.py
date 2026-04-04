@@ -7,7 +7,8 @@ Run with: python -m pytest tests/test_registry.py -v
 import json
 import pytest
 from pathlib import Path
-from ufw_audit.registry import Detection, Service, ServiceRegistry
+from unittest.mock import patch
+from ufw_audit.registry import Detection, Service, ServiceRegistry, _load_plugins
 
 
 # ---------------------------------------------------------------------------
@@ -129,13 +130,20 @@ class TestService:
 # ServiceRegistry
 # ---------------------------------------------------------------------------
 
+@pytest.fixture(autouse=False)
+def no_plugins(tmp_path):
+    """Patch _PLUGIN_DIR to a non-existent path so user plugins don't interfere."""
+    with patch("ufw_audit.registry._PLUGIN_DIR", tmp_path / "no_plugins"):
+        yield
+
+
 class TestServiceRegistryLoad:
     def test_load_default_file(self):
         """Default services.json must load without errors."""
         registry = ServiceRegistry.load()
         assert len(registry) > 0
 
-    def test_load_custom_path(self, tmp_path):
+    def test_load_custom_path(self, tmp_path, no_plugins):
         entries = [make_service_dict(id="svc1"), make_service_dict(id="svc2")]
         path = write_registry(tmp_path, entries)
         registry = ServiceRegistry.load(path=path)
@@ -157,7 +165,7 @@ class TestServiceRegistryLoad:
         with pytest.raises(ValueError, match="array"):
             ServiceRegistry.load(path=path)
 
-    def test_load_duplicate_id_raises(self, tmp_path):
+    def test_load_duplicate_id_raises(self, tmp_path, no_plugins):
         entries = [make_service_dict(id="dup"), make_service_dict(id="dup")]
         path = write_registry(tmp_path, entries)
         with pytest.raises(ValueError, match="Duplicate"):
@@ -181,7 +189,9 @@ class TestServiceRegistryAccess:
             make_service_dict(id="ha",    risk="high"),
         ]
         path = write_registry(tmp_path, entries)
-        return ServiceRegistry.load(path=path)
+        no_plugin_dir = tmp_path / "no_plugins"
+        with patch("ufw_audit.registry._PLUGIN_DIR", no_plugin_dir):
+            return ServiceRegistry.load(path=path)
 
     def test_all_returns_all(self, registry):
         assert len(registry.all()) == 5
@@ -226,6 +236,117 @@ class TestServiceRegistryAccess:
         assert all_services[-1].id == "ha"
 
 
+class TestPluginLoading:
+    """Tests for _load_plugins — uses tmp_path as the plugin directory."""
+
+    def _write_plugin(self, plugin_dir: Path, name: str, entries: list) -> Path:
+        f = plugin_dir / name
+        f.write_text(json.dumps(entries), encoding="utf-8")
+        return f
+
+    def _patch_plugin_dir(self, plugin_dir: Path):
+        return patch("ufw_audit.registry._PLUGIN_DIR", plugin_dir)
+
+    def test_valid_plugin_loaded(self, tmp_path):
+        plugin_dir = tmp_path / "services.d"
+        plugin_dir.mkdir()
+        self._write_plugin(plugin_dir, "custom.json", [make_service_dict(id="custom_svc")])
+        services: list = []
+        ids_seen: set = set()
+        with self._patch_plugin_dir(plugin_dir):
+            _load_plugins(services, ids_seen)
+        assert len(services) == 1
+        assert services[0].id == "custom_svc"
+
+    def test_no_plugin_dir_does_nothing(self, tmp_path):
+        missing = tmp_path / "nonexistent"
+        services: list = []
+        ids_seen: set = set()
+        with self._patch_plugin_dir(missing):
+            _load_plugins(services, ids_seen)
+        assert services == []
+
+    def test_invalid_json_skipped(self, tmp_path):
+        plugin_dir = tmp_path / "services.d"
+        plugin_dir.mkdir()
+        (plugin_dir / "bad.json").write_text("not json", encoding="utf-8")
+        services: list = []
+        ids_seen: set = set()
+        with self._patch_plugin_dir(plugin_dir):
+            _load_plugins(services, ids_seen)
+        assert services == []
+
+    def test_non_array_json_skipped(self, tmp_path):
+        plugin_dir = tmp_path / "services.d"
+        plugin_dir.mkdir()
+        (plugin_dir / "bad.json").write_text('{"key": "value"}', encoding="utf-8")
+        services: list = []
+        ids_seen: set = set()
+        with self._patch_plugin_dir(plugin_dir):
+            _load_plugins(services, ids_seen)
+        assert services == []
+
+    def test_invalid_entry_in_array_skipped(self, tmp_path):
+        """A broken entry doesn't abort loading — valid entries in same file still load."""
+        plugin_dir = tmp_path / "services.d"
+        plugin_dir.mkdir()
+        entries = [
+            {"id": "broken"},          # missing required fields
+            make_service_dict(id="ok_svc"),
+        ]
+        self._write_plugin(plugin_dir, "mixed.json", entries)
+        services: list = []
+        ids_seen: set = set()
+        with self._patch_plugin_dir(plugin_dir):
+            _load_plugins(services, ids_seen)
+        assert len(services) == 1
+        assert services[0].id == "ok_svc"
+
+    def test_duplicate_id_skipped(self, tmp_path):
+        """Plugin entry whose id is already registered is silently skipped."""
+        plugin_dir = tmp_path / "services.d"
+        plugin_dir.mkdir()
+        self._write_plugin(plugin_dir, "dup.json", [make_service_dict(id="existing")])
+        services: list = []
+        ids_seen: set = {"existing"}
+        with self._patch_plugin_dir(plugin_dir):
+            _load_plugins(services, ids_seen)
+        assert services == []
+
+    def test_oversized_plugin_skipped(self, tmp_path):
+        """Plugin exceeding 256 KB is skipped without crashing."""
+        plugin_dir = tmp_path / "services.d"
+        plugin_dir.mkdir()
+        big = plugin_dir / "big.json"
+        big.write_bytes(b"x" * (256 * 1024 + 1))
+        services: list = []
+        ids_seen: set = set()
+        with self._patch_plugin_dir(plugin_dir):
+            _load_plugins(services, ids_seen)
+        assert services == []
+
+    def test_multiple_plugins_all_loaded(self, tmp_path):
+        """Multiple plugin files are merged in sorted order."""
+        plugin_dir = tmp_path / "services.d"
+        plugin_dir.mkdir()
+        self._write_plugin(plugin_dir, "a.json", [make_service_dict(id="svc_a")])
+        self._write_plugin(plugin_dir, "b.json", [make_service_dict(id="svc_b")])
+        services: list = []
+        ids_seen: set = set()
+        with self._patch_plugin_dir(plugin_dir):
+            _load_plugins(services, ids_seen)
+        assert {s.id for s in services} == {"svc_a", "svc_b"}
+
+    def test_plugin_integrated_via_registry_load(self, tmp_path):
+        """End-to-end: plugin services appear in the registry after load()."""
+        plugin_dir = tmp_path / "services.d"
+        plugin_dir.mkdir()
+        self._write_plugin(plugin_dir, "custom.json", [make_service_dict(id="my_custom")])
+        with self._patch_plugin_dir(plugin_dir):
+            registry = ServiceRegistry.load()
+        assert registry.get("my_custom") is not None
+
+
 class TestDefaultRegistry:
     def test_all_known_services_present(self):
         registry = ServiceRegistry.load()
@@ -237,7 +358,10 @@ class TestDefaultRegistry:
             "gitea", "mosquitto", "syncthing",
         }
         actual_ids = {s.id for s in registry}
-        assert expected_ids == actual_ids
+        # User plugins may add extra services — check built-ins are a subset
+        assert expected_ids.issubset(actual_ids), (
+            f"Missing built-in services: {expected_ids - actual_ids}"
+        )
 
     def test_all_services_have_valid_risk(self):
         registry = ServiceRegistry.load()

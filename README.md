@@ -127,6 +127,22 @@ sudo ufw-audit --french  # French interface
 
 ---
 
+## 🔌 Custom services (plugin system)
+
+Drop a `.json` file into `~/.config/ufw-audit/services.d/` to add services that are not in the built-in registry.
+
+```bash
+mkdir -p ~/.config/ufw-audit/services.d/
+# create my-services.json — same format as ufw_audit/data/services.json
+```
+
+> **Note (pipx / sudo):** ufw-audit requires `sudo`. Under `sudo`, `~` resolves to `/root`.  
+> Place your plugin files in `/root/.config/ufw-audit/services.d/` for them to be active at runtime.
+>
+> This will change in a future `.deb` release, where the system-wide directory `/etc/ufw-audit/services.d/` will be used instead.
+
+---
+
 ## 🤖 Automation
 
 - 🕒 Built-in cron (`--install-cron`)
@@ -138,19 +154,21 @@ sudo ufw-audit --french  # French interface
 
 ## 🧪 Quality & reliability
 
-- ✅ 652 unit tests
+- ✅ 676 unit tests
 - 🧱 Modular architecture (snapshot / check separated)
 - 🧪 Tested on Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.3.0
+## 🆕 v1.4.0
 
-- 🌍 Score breakdown fully translated — all deduction reasons now pass through `t()` (EN + FR)
-- 🔌 `--offline` / `-o` flag — skip external IP lookup (air-gapped machines, restricted cron)
-- 🌐 IPv6 public address detection in `detect_network_context()`
-- 🔄 3-provider fallback chain for public IP resolution (`ipify` → `ifconfig.me` → `icanhazip`)
-- ✅ 652/652 unit tests
+- 🔌 **Plugin system** — drop `.json` files into `~/.config/ufw-audit/services.d/` to add custom service definitions
+- ⚙️ **Process-aware port findings** — uncovered ports with an identified process produce a WARN (improvement) instead of ALERT (action), with a disclaimer note
+- 📊 **`--json` / `--json-full`** — SIEM-ready JSON output modes
+- 🛡️ **GeoIP2 crash fix** — `AddressNotFoundError` no longer crashes the audit; install instructions shown when library or database is missing
+- 📬 **Enriched cron email subject** — `[UFW-AUDIT] hostname - Score X/10`
+- 🛡️ **Default deny awareness** — uncovered ports downgraded to INFO when UFW default policy is deny/reject (no false alerts on hardened systems)
+- ✅ 676/676 unit tests
 
 ---
 
@@ -178,12 +196,13 @@ Automated-UFW-audit/
 ├── ufw_audit/                      # Python package
 │   ├── checks/                     # firewall, services, ports, logs, ddns, docker, virt
 │   ├── data/
-│   │   ├── services.json           # 22 service definitions
+│   │   ├── services.json           # 22 built-in service definitions
 │   │   └── ufw-audit.bash-completion
+│   │   # ~/.config/ufw-audit/services.d/  ← user plugin directory (sudo: /root/...)
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 652 unit tests
+└── tests/                          # 676 unit tests
 ```
 
 ---

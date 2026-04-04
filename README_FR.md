@@ -127,6 +127,22 @@ sudo ufw-audit --french  # interface française
 
 ---
 
+## 🔌 Services personnalisés (système de plugins)
+
+Déposez un fichier `.json` dans `~/.config/ufw-audit/services.d/` pour ajouter des services absents du registre intégré.
+
+```bash
+mkdir -p ~/.config/ufw-audit/services.d/
+# créer mon-service.json — même format que ufw_audit/data/services.json
+```
+
+> **Note (pipx / sudo) :** ufw-audit nécessite `sudo`. Sous `sudo`, `~` correspond à `/root`.  
+> Placez vos fichiers de plugins dans `/root/.config/ufw-audit/services.d/` pour qu'ils soient actifs à l'exécution.
+>
+> Ce comportement changera lors du passage en `.deb`, où le répertoire système `/etc/ufw-audit/services.d/` sera utilisé à la place.
+
+---
+
 ## 🤖 Automatisation
 
 - 🕒 Cron intégré (`--install-cron`)
@@ -138,19 +154,21 @@ sudo ufw-audit --french  # interface française
 
 ## 🧪 Qualité & fiabilité
 
-- ✅ 652 tests unitaires
+- ✅ 676 tests unitaires
 - 🧱 Architecture modulaire (snapshot / check séparés)
 - 🧪 Testé sur Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.3.0
+## 🆕 v1.4.0
 
-- 🌍 Breakdown du score entièrement traduit — toutes les raisons de déduction passent par `t()` (EN + FR)
-- 🔌 Flag `--offline` / `-o` — désactive la résolution d'IP publique (machines isolées, cron restreint)
-- 🌐 Détection d'adresse IPv6 publique dans `detect_network_context()`
-- 🔄 Chaîne de fallback 3 providers pour la résolution d'IP publique (`ipify` → `ifconfig.me` → `icanhazip`)
-- ✅ 652/652 tests unitaires
+- 🔌 **Système de plugins** — déposez des fichiers `.json` dans `~/.config/ufw-audit/services.d/` pour ajouter des définitions de services personnalisés
+- ⚙️ **Ports avec processus identifié** — un port non couvert avec un processus connu génère un WARN (amélioration) au lieu d'une ALERT (action), avec une note de mise en garde
+- 📊 **`--json` / `--json-full`** — modes de sortie JSON pour intégration SIEM
+- 🛡️ **Correction crash GeoIP2** — `AddressNotFoundError` ne plante plus l'audit ; instructions d'installation affichées si la bibliothèque ou la base est absente
+- 📬 **Sujet email cron enrichi** — `[UFW-AUDIT] hostname - Score X/10`
+- 🛡️ **Prise en compte de la politique de refus par défaut** — les ports non couverts sont rétrogradés en INFO si la politique UFW par défaut est deny/reject (pas de fausses alertes sur les systèmes bien configurés)
+- ✅ 676/676 tests unitaires
 
 ---
 
@@ -178,12 +196,13 @@ Automated-UFW-audit/
 ├── ufw_audit/                      # package Python
 │   ├── checks/                     # firewall, services, ports, logs, ddns, docker, virt
 │   ├── data/
-│   │   ├── services.json           # définitions des 22 services
+│   │   ├── services.json           # définitions des 22 services intégrés
 │   │   └── ufw-audit.bash-completion
+│   │   # ~/.config/ufw-audit/services.d/  ← plugins utilisateur (sudo : /root/...)
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 652 tests unitaires
+└── tests/                          # 676 tests unitaires
 ```
 
 ---

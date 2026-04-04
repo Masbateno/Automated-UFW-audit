@@ -66,7 +66,7 @@ def list_installed_crons() -> list[CronEntry]:
 def parse_cron_file(path: Path, legacy: bool = False) -> Optional[CronEntry]:
     """Parse a ufw-audit cron file and return a CronEntry, or None if unrecognised."""
     try:
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
     except OSError:
         return None
 
@@ -455,7 +455,7 @@ def run_install_cron(user_config, config, t) -> int:
         "score = 'N/A'\n"
         "if log_file:\n"
         "    try:\n"
-        "        content = open(log_file).read()\n"
+        "        content = open(log_file, encoding='utf-8', errors='replace').read()\n"
         "        m = re.search(r'Score\\s*:\\s*(\\d+/10)', content)\n"
         "        if m:\n"
         "            score = m.group(1)\n"
@@ -577,7 +577,9 @@ def _manage_email_store(t) -> None:
                     indices.add(int(part))
             elif re.match(r"^\d+-\d+$", answer):
                 start_s, end_s = answer.split("-")
-                for n in range(int(start_s), int(end_s) + 1):
+                # Cap the range to prevent memory exhaustion on absurd input
+                end_n = min(int(end_s), int(start_s) + 999)
+                for n in range(int(start_s), end_n + 1):
                     indices.add(n)
             else:
                 print(f"  ✖ {t('manage_cron.invalid')}")
@@ -732,7 +734,7 @@ def edit_cron_email(entry, t) -> None:
     if entry.script_path.exists():
         try:
             text = entry.script_path.read_text(encoding="utf-8")
-            text = re.sub(r'^NOTIFY_EMAIL=".*"', lambda _: f'NOTIFY_EMAIL="{new_email}"', text, flags=re.MULTILINE)
+            text = re.sub(r"^NOTIFY_EMAIL=(['\"]).*\1", lambda _: f'NOTIFY_EMAIL={shlex.quote(new_email)}', text, flags=re.MULTILINE)
             entry.script_path.write_text(text, encoding="utf-8")
         except OSError as exc:
             print(f"  ✖ Cannot update script: {exc}")
@@ -823,7 +825,7 @@ def edit_cron_schedule(entry, config, t) -> None:
         return
 
     try:
-        text = entry.cron_path.read_text()
+        text = entry.cron_path.read_text(encoding="utf-8")
     except OSError as exc:
         print(f"  ✖ Cannot read {entry.cron_path}: {exc}")
         return

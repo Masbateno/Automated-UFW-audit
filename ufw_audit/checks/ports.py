@@ -145,17 +145,22 @@ def check_ports(
     snapshot: PortsSnapshot,
     audited_ports: set[str] | None = None,
     network_context: str = "local",
+    default_incoming_policy: str = "deny",
     t=None,
 ) -> CheckResult:
     """
     Evaluate listening ports and return findings.
 
     Args:
-        snapshot:      PortsSnapshot from the system.
-        audited_ports: Set of "port/proto" strings already handled by
-                       the services check. These are skipped here.
-        network_context: "local" or "public".
-        t:             Translation function.
+        snapshot:                PortsSnapshot from the system.
+        audited_ports:           Set of "port/proto" strings already handled by
+                                 the services check. These are skipped here.
+        network_context:         "local" or "public".
+        default_incoming_policy: UFW default incoming policy ("deny", "allow",
+                                 "reject", "unknown"). When "deny" or "reject",
+                                 ports without an explicit rule are already
+                                 blocked — findings are downgraded to INFO.
+        t:                       Translation function.
 
     Returns:
         CheckResult with port findings.
@@ -221,6 +226,15 @@ def check_ports(
             if pp in reported_alert_ports:
                 continue
             reported_alert_ports.add(pp)
+
+            # When UFW default policy is deny/reject, the port is already
+            # blocked — no explicit rule needed, no deduction, downgrade to INFO.
+            if default_incoming_policy in ("deny", "reject"):
+                result.info(
+                    message=_t("ports.uncovered_default_deny", port=pp),
+                )
+                continue
+
             has_uncovered_public = True
             pp_display = f"{pp} ({lport.process})" if lport.process else pp
             note = _t("ports.process_disclaimer", process=lport.process) if lport.process else ""

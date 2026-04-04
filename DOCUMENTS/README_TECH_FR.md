@@ -353,7 +353,15 @@ Le rapport s'ouvre avec un en-tête ASCII art sur 62 caractères et contient : i
 | `/usr/local/bin/ufw-audit-nightly`       | Script wrapper nocturne (créé par `--install-cron`)                      |
 | `/etc/cron.d/ufw-audit-{nom}`            | Entrée cron nommée (créée par `--install-cron`)                          |
 | `~/.config/ufw-audit/config.conf`        | Configuration utilisateur (ports personnalisés, répertoire logs ; 600)   |
+| `~/.config/ufw-audit/services.d/*.json`  | Répertoire de plugins — définitions de services personnalisés (voir note) |
 | `ufw_audit_YYYYMMDD_HHMMSS.log`          | Rapport détaillé (créé avec `-d`, dans le répertoire configuré)          |
+
+> **Répertoire de plugins et `sudo` :** ufw-audit s'exécute en root. Sous `sudo`, `Path.home()` retourne `/root`,
+> donc le répertoire de plugins actif est `/root/.config/ufw-audit/services.d/`, et non le home de l'utilisateur appelant.
+> Placez vos fichiers de plugins à cet emplacement pour qu'ils soient chargés à l'exécution.
+>
+> **Futur paquet `.deb` :** ce comportement changera au profit du répertoire système `/etc/ufw-audit/services.d/`,
+> conformément à la convention Debian et pour éliminer l'ambiguïté liée à `sudo`/home.
 
 ---
 
@@ -432,11 +440,17 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v1.2.1** — Nettoyage packaging : `install.sh` supprimé ; corrections `pyproject.toml` (LICENSE, classifier, URL Issues)
 
-**v1.3.0** *(actuel)* — i18n complète : toutes les raisons de déduction traduites via `t()` ; flag `--offline`/`-o` ; détection d'adresse IPv6 publique ; chaîne de fallback 3 providers ; 652/652
+**v1.3.0** — i18n complète : toutes les raisons de déduction traduites via `t()` ; flag `--offline`/`-o` ; détection d'adresse IPv6 publique ; chaîne de fallback 3 providers ; 652/652
+
+**v1.4.0** *(actuel)* — Système de plugins (`services.d/*.json`) ; findings ports avec processus identifié (WARN + note au lieu d'ALERT) ; sortie JSON SIEM (`--json` / `--json-full`) ; correction crash GeoIP2 (`AddressNotFoundError`) ; sujet email cron enrichi hostname + score ; prise en compte de la politique de refus par défaut UFW (ports non couverts rétrogradés en INFO si policy = deny/reject) ; 676/676
+
+**v1.5.0** *(prévu)*
+- `--diff` — comparer l'audit courant avec un précédent export `--json` pour détecter les nouveaux ports/services (dérive d'audit)
+- `--fix --safe` — mode auto-fix restreint aux findings LOW/MEDIUM uniquement ; les findings CRITICAL/HIGH ne sont jamais appliqués sans confirmation explicite
 
 **Post v1.0**
 - Interface Web (`--gui`) — interface graphique pour utilisateurs non-techniques, approche pédagogique, périmètre simplifié
-- PPA Launchpad / paquet `.deb` si adoption suffisante
+- PPA Launchpad / paquet `.deb` — le répertoire de plugins migrera vers `/etc/ufw-audit/services.d/`
 
 ---
 

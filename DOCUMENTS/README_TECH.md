@@ -353,7 +353,15 @@ The report opens with a 62-char ASCII art header and contains: system informatio
 | `/usr/local/bin/ufw-audit-nightly`       | Nightly wrapper script (created by `--install-cron`)                 |
 | `/etc/cron.d/ufw-audit-{name}`           | Named system cron entry (created by `--install-cron`)                |
 | `~/.config/ufw-audit/config.conf`        | User configuration (custom ports, log directory; permissions 600)    |
+| `~/.config/ufw-audit/services.d/*.json`  | User plugin directory — custom service definitions (see note below)  |
 | `ufw_audit_YYYYMMDD_HHMMSS.log`          | Detailed report (created with `-d`, in the configured directory)     |
+
+> **Plugin directory and `sudo`:** ufw-audit runs as root. Under `sudo`, `Path.home()` resolves to `/root`,
+> so the active plugin directory is `/root/.config/ufw-audit/services.d/`, not the calling user's home.
+> Place plugin files there to have them loaded at runtime.
+>
+> **Future `.deb` packaging:** this will change to the system-wide `/etc/ufw-audit/services.d/`,
+> which is the standard Debian convention for system-level configuration and removes the `sudo`/home ambiguity.
 
 ---
 
@@ -432,11 +440,17 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v1.2.1** — Packaging cleanup: `install.sh` removed; `pyproject.toml` fixes (LICENSE, classifier, Issues URL)
 
-**v1.3.0** *(current)* — i18n completeness: all deduction reasons translated via `t()`; `--offline`/`-o` flag; IPv6 public address detection; 3-provider IP fallback chain; 652/652
+**v1.3.0** — i18n completeness: all deduction reasons translated via `t()`; `--offline`/`-o` flag; IPv6 public address detection; 3-provider IP fallback chain; 652/652
+
+**v1.4.0** *(current)* — Plugin system (`services.d/*.json`); process-aware port findings (WARN + note instead of ALERT for identified processes); `--json` / `--json-full` SIEM output; GeoIP2 crash fix (`AddressNotFoundError`); enriched cron email subject with hostname + score; UFW default deny awareness (uncovered ports downgraded to INFO when default policy = deny/reject); 676/676
+
+**v1.5.0** *(planned)*
+- `--diff` — compare current audit against a previous `--json` output to detect new ports/services (audit drift)
+- `--fix --safe` — auto-fix mode restricted to LOW/MEDIUM severity findings only; CRITICAL/HIGH never applied without explicit confirmation
 
 **Post v1.0**
 - Web UI (`--gui`) — graphical interface for non-technical users, pedagogical approach, simplified scope
-- Launchpad PPA / `.deb` package if adoption warrants it
+- Launchpad PPA / `.deb` package — plugin directory will move to `/etc/ufw-audit/services.d/`
 
 ---
 

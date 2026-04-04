@@ -45,3 +45,10 @@ def _command_exists(name: str) -> bool:
 def _identity_t(key: str, **kwargs) -> str:
     """Fallback translation function — returns the key itself."""
     return key
+
+
+def _is_safe_config_path(path) -> bool:
+    """Return True if path is absolute and not a symlink (safe to read)."""
+    from pathlib import Path
+    p = Path(path)
+    return p.is_absolute() and not p.is_symlink()
