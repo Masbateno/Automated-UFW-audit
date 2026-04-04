@@ -1,9 +1,9 @@
 *[Read in English](README_TECH.md)* · *[Vue d'ensemble](../README_FR.md)*
 
-# ufw-audit v1.3.0
+# ufw-audit v1.6.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.3.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.6.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -39,6 +39,10 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 - **`--manage-logs`** — interface interactive pour lister les rapports sauvegardés (nom, taille, date) et les supprimer par index ou en totalité
 - **`--install-cron`** — wizard de planification : nommer le cron, choisir le type de schedule (tous les jours / certains jours de la semaine / certains jours du mois / expression cron personnalisée), définir l'heure et un email de notification optionnel ; aperçu en langage naturel avant confirmation ; crons nommés (`/etc/cron.d/ufw-audit-{nom}`)
 - **`--manage-cron`** — TUI en boucle : lister les crons installés, modifier le planning ou l'email de notification, supprimer ; la commande `m` ouvre le carnet d'adresses email (ajout / suppression d'adresses enregistrées), accessible même sans cron installé
+- **Vérification durcissement** — audit du durcissement système : fail2ban, unattended-upgrades, mode AppArmor, rp_filter, redirections ICMP, log_martians, broadcast ICMP ; déductions scorées pour les paramètres les plus impactants
+- **Cohérence IPv6** — détecte les ports IPv6 actifs sans règle UFW v6 correspondante ; détection de conflit quand IPv6 est désactivé globalement mais des ports en écoute sont présents
+- **Rapport comparatif** — baseline enregistrée après chaque audit (`~/.config/ufw-audit/last_baseline.json`) ; au prochain lancement, affiche le delta de score, les variations d'alertes/avertissements, les ports apparus/fermés, les services démarrés/arrêtés
+- **API Plugin** — déposer un fichier Python dans `~/.config/ufw-audit/checks.d/` pour ajouter une vérification personnalisée ; les plugins sont fail-safe (les exceptions n'interrompent jamais l'audit) et les séquences ANSI sont nettoyées
 
 ---
 

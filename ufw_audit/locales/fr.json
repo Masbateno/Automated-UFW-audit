@@ -32,7 +32,10 @@
     "risk_context": "CONTEXTE DE RISQUE — SERVICES DÉTECTÉS",
     "virtualization": "ANALYSE DE VIRTUALISATION",
     "firewall_stack": "ANALYSE DE LA PILE PARE-FEU",
-    "network_context": "CONTEXTE RÉSEAU"
+    "network_context": "CONTEXTE RÉSEAU",
+    "hardening": "ANALYSE DU DURCISSEMENT SYSTÈME",
+    "ipv6": "VÉRIFICATION DE COHÉRENCE IPv6",
+    "compare": "CHANGEMENTS DEPUIS LE DERNIER AUDIT"
   },
   "status": {
     "ok": "OK",
@@ -416,6 +419,50 @@
     "none_detected": "Aucune technologie de virtualisation détectée",
     "bypass_risk": "{name} détecté — l'interface bridge {iface} peut insérer des règles iptables, contournant la politique FORWARD d'UFW",
     "snap_network": "Le paquet Snap '{pkg}' a des connexions réseau actives — vérifiez qu'il ne contourne pas UFW"
+  },
+  "hardening": {
+    "no_issues": "Les paramètres de durcissement système sont corrects",
+    "auto_updates_ok": "Les mises à jour de sécurité automatiques (unattended-upgrades) sont activées",
+    "auto_updates_missing": "Mises à jour automatiques non activées — envisagez d'installer unattended-upgrades",
+    "fail2ban_ok": "fail2ban est actif et protège contre les attaques par force brute",
+    "fail2ban_missing": "fail2ban non détecté — envisagez de l'installer pour bloquer les tentatives de connexion",
+    "apparmor_not_installed": "AppArmor non détecté — envisagez de l'activer pour le contrôle d'accès obligatoire",
+    "apparmor_enforce": "AppArmor actif — {enforced} profil(s) en mode enforce, {complain} en mode complain",
+    "apparmor_not_enforce": "AppArmor chargé mais en mode {mode} — envisagez de passer en mode enforce",
+    "rp_filter_ok": "Filtrage par chemin inverse activé en mode strict (rp_filter=1)",
+    "rp_filter_loose": "Filtrage par chemin inverse en mode permissif (rp_filter=2) — envisagez le mode strict (=1)",
+    "rp_filter_disabled": "Filtrage par chemin inverse désactivé — risque d'usurpation d'adresse IP",
+    "redirects_ok": "L'acceptation des redirections ICMP est désactivée",
+    "redirects_enabled": "Redirections ICMP acceptées — risque de manipulation de la table de routage",
+    "log_martians_ok": "La journalisation des paquets martiens est activée",
+    "log_martians_disabled": "Journalisation des paquets martiens désactivée — les paquets usurpés ne seront pas tracés",
+    "icmp_broadcast_ok": "L'écho de diffusion ICMP est ignoré",
+    "icmp_broadcast_enabled": "Écho de diffusion ICMP non ignoré — risque d'amplification smurf"
+  },
+  "compare": {
+    "section_title": "CHANGEMENTS DEPUIS LE DERNIER AUDIT",
+    "previous_run": "Audit précédent : {timestamp}",
+    "score_improved": "Score amélioré de {delta} point(s)",
+    "score_degraded": "Score dégradé de {delta} point(s)",
+    "score_unchanged": "Score inchangé",
+    "alerts_increased": "{delta} nouvelle(s) alerte(s) depuis le dernier audit",
+    "alerts_decreased": "{delta} alerte(s) résolue(s) depuis le dernier audit",
+    "warns_increased": "{delta} nouvel(s) avertissement(s) depuis le dernier audit",
+    "warns_decreased": "{delta} avertissement(s) résolu(s) depuis le dernier audit",
+    "port_appeared": "Nouveau port ouvert détecté : {port}",
+    "port_closed": "Port fermé depuis le dernier audit : {port}",
+    "service_appeared": "Service devenu actif : {service}",
+    "service_stopped": "Service devenu inactif : {service}",
+    "no_changes": "Aucun changement détecté depuis le dernier audit"
+  },
+  "ipv6": {
+    "config_ok": "La configuration IPv6 d'UFW correspond à l'état IPv6 du noyau",
+    "both_disabled": "IPv6 désactivé dans le noyau et dans UFW — cohérent",
+    "ufw_enabled_kernel_disabled": "UFW a IPv6 activé mais le noyau a IPv6 désactivé — les règles (v6) d'UFW n'ont aucun effet",
+    "ufw_disabled_no_listeners": "UFW IPv6 désactivé et aucun service IPv6 détecté — pas de risque immédiat",
+    "ufw_disabled_listeners_present": "{count} service(s) à l'écoute en IPv6 (::) mais UFW ne gère pas les règles IPv6",
+    "port_no_v6_rule": "Port {port} à l'écoute en IPv6 (::) sans règle UFW (v6) correspondante",
+    "all_ports_covered": "Les {count} service(s) IPv6 sont couverts par des règles UFW (v6)"
   },
   "audit": {
     "starting": "Démarrage de l'audit",

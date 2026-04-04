@@ -1,9 +1,9 @@
 *[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
-# ufw-audit v1.3.0
+# ufw-audit v1.6.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.3.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.6.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -39,6 +39,10 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **`--manage-logs`** — interactive UI to list saved reports (name, size, date) and delete them by index or all at once
 - **`--install-cron`** — schedule wizard: name the job, choose schedule type (daily / specific week days / specific month days / custom cron expression), set time, set optional notification email; preview in natural language before confirmation; named cron jobs (`/etc/cron.d/ufw-audit-{name}`)
 - **`--manage-cron`** — looping TUI: list installed cron jobs, edit schedule or notification email, delete; `m` command opens the email address book (add / delete saved addresses) accessible even without any cron installed
+- **Hardening check** — system hardening audit: fail2ban, unattended-upgrades, AppArmor mode, rp_filter, ICMP redirects, log_martians, ICMP broadcast echo; scored deductions for the most impactful settings
+- **IPv6 consistency check** — detects IPv6 listeners not covered by a matching UFW v6 rule; conflict detection when IPv6 is disabled globally but listeners are present
+- **Comparative report** — baseline saved after each audit (`~/.config/ufw-audit/last_baseline.json`); next run displays score delta, alert/warn changes, new/closed ports, started/stopped services
+- **Plugin check API** — drop a Python file in `~/.config/ufw-audit/checks.d/` to add a custom audit check; plugins are fail-safe (exceptions never abort the audit) and ANSI-sanitized
 
 ---
 

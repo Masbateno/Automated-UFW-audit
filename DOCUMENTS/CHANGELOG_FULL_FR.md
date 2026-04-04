@@ -6,6 +6,54 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.6.0] — 2026-04-04
+
+### Résumé
+- Nouvelle section **DURCISSEMENT** : fail2ban, mises à jour automatiques, AppArmor, rp_filter, redirections ICMP, log_martians, broadcast ICMP
+- Nouvelle section **COHÉRENCE IPv6** : détecte les ports IPv6 actifs non couverts par les règles UFW v6
+- Nouveau **RAPPORT COMPARATIF** : baseline enregistrée après chaque audit — delta de score, changements de ports et de services affichés au prochain lancement
+- Nouvelle **API Plugin** : déposer des fichiers Python dans `~/.config/ufw-audit/plugins/` pour ajouter des vérifications personnalisées
+- Sortie JSON (`--json-full`) étendue avec les objets `hardening` et `ipv6`
+- 926/926 tests unitaires (+160)
+
+### Nouvelles sections
+
+- **DURCISSEMENT** (`checks/hardening.py`) — nouvelle vérification :
+  - `fail2ban` actif → OK ; absent → INFO (aucune déduction — couche optionnelle)
+  - `unattended-upgrades` installé et configuré → OK ; absent → WARN (−1 point)
+  - AppArmor en mode enforce → OK ; permissive/inactive/non installé → INFO (aucune déduction)
+  - `rp_filter=1` (strict) → OK ; `=2` (loose) → INFO ; `=0` (désactivé) → WARN (−1 point)
+  - Redirections ICMP acceptées → WARN (−1 point) ; désactivées → OK
+  - `log_martians` désactivé → INFO (aucune déduction)
+  - Echo ICMP broadcast non ignoré → INFO (aucune déduction)
+
+- **COHÉRENCE IPv6** (`checks/ipv6.py`) — nouvelle vérification :
+  - Détecte un conflit entre `net.ipv6.conf.all.disable_ipv6=1` ou `IPV6=no` dans UFW et des ports IPv6 actifs
+  - Chaque port IPv6 sans règle UFW v6 correspondante → WARN (−1 point, plafonné à 3)
+
+### Rapport comparatif
+
+- `compare.py` — `AuditBaseline` + `AuditDelta` :
+  - Baseline enregistrée dans `~/.config/ufw-audit/last_baseline.json` après chaque audit (écriture atomique, mode 0o600)
+  - Au prochain lancement : delta de score, delta alertes/avertissements, ports apparus/fermés, services démarrés/arrêtés
+  - `AuditDelta.is_empty()` — aucune sortie si rien n'a changé
+
+### API Plugin
+
+- `plugin_checks.py` — protocole `PluginCheck` + `load_plugin_checks()` :
+  - Plugins : fichiers Python dans `~/.config/ufw-audit/plugins/` exportant `CHECK_NAME` (str) et `run(t) -> CheckResult`
+  - Caractères ANSI/contrôle supprimés de `CHECK_NAME` ; erreurs de plugin loguées avec traceback complet, sans jamais planter l'audit
+  - Noms de modules préfixés avec le hash du fichier pour éviter les collisions
+
+### Tests
+
+- `tests/test_hardening.py` — 49 tests (nouveau fichier)
+- `tests/test_ipv6.py` — 33 tests (nouveau fichier)
+- `tests/test_compare.py` — 49 tests (nouveau fichier)
+- `tests/test_plugin_checks.py` — 29 tests (nouveau fichier)
+
+---
+
 ## [v1.5.0] — 2026-04-04
 
 ### Résumé

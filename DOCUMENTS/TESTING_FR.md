@@ -25,6 +25,34 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v1.4.1  | 676   | Pas de nouveaux tests — correctif bash completion `--install-completion` |
 | v1.4.2  | 677   | +1 test — NetBIOS 137/138 désormais COUVERT si règle UFW existante |
 | v1.5.0  | 766   | +89 tests — `test_firewall_stack.py` (38), `test_network_context.py` (51) ; banner kernel/iptables/nftables |
+| v1.6.0  | 928   | +162 tests — `test_hardening.py` (49), `test_ipv6.py` (33), `test_compare.py` (49), `test_plugin_checks.py` (31) |
+
+### v1.6.0 — 928/928 (2026-04-04)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -v
+928 passed in Xs
+```
+
+#### Nouveaux tests (+162)
+
+| Fichier | Nouveaux | Couverture |
+|---------|----------|------------|
+| `tests/test_hardening.py` | 49 | `HardeningSnapshot`, `check_hardening()` : système sain (entièrement durci), mises à jour automatiques (ok/warn/déductions), fail2ban (ok/info/pas de déduction), AppArmor (enforce/permissive/inactive/non installé/cas limites), rp_filter (1/2/0 + déductions), redirections ICMP, log_martians, broadcast ICMP ; déductions cumulatives ; `_parse_aa_count` (enforce/complain/singulier/espaces/casse) ; `_parse_apparmor_mode` (enforce/permissive/non_installé/inactive) |
+| `tests/test_ipv6.py` | 33 | `IPv6Snapshot`, `check_ipv6()` : système sain, IPv6 désactivé (global/UFW/conflit), ports non couverts (warn/déduction/plafond 3), aucun non couvert ; `_extract_ipv6_listeners` (wildcard tcp/udp, pas de loopback, vide, malformé) ; `_extract_ufw_v6_covered` (règles v6, IPv4-only exclu, vide, désactivé, proto par défaut, malformé) |
+| `tests/test_compare.py` | 49 | `build_baseline()` (score/alertes/warn, extraction ports/services, déduplication, timestamp) ; round-trip `save_baseline`/`load_baseline`, permissions (masque 0o077), écriture atomique (pas de .tmp), manquant/corrompu/type invalide/racine JSON incorrecte ; `compute_delta()` (deltas score/alertes/warn, ports apparus/fermés, services démarrés/arrêtés, timestamp précédent, aucun changement) ; `AuditDelta.is_empty()` (8 cas) ; `display_delta()` (12 tests de routage) |
+| `tests/test_plugin_checks.py` | 31 | `load_plugin_checks()` : répertoire manquant, sans .py, valide, triés, skip invalide/syntaxe/non-.py/raise à l'import/import partiel ; `_load_one()` : valide, CHECK_NAME, repli nom fichier, pas de run_check, erreur syntaxe, surdimensionné, exactement 64 Ko, chemin stocké ; `PluginCheck.run()` : type CheckResult, findings ok/warn, exception → warn, mauvais retour → warn, propagation t, sans t, nom fichier dans le message d'erreur ; dérivation du nom (vide/espaces/non-string/ANSI/contrôle uniquement) |
+
+#### Nouveaux modules
+
+- **`checks/hardening.py`** — snapshot + vérification durcissement système (7 paramètres)
+- **`checks/ipv6.py`** — cohérence ports IPv6 actifs / règles UFW v6
+- **`compare.py`** — persistance baseline d'audit + calcul de delta + affichage
+- **`plugin_checks.py`** — chargeur de plugins avec sanitisation ANSI et exécution fail-safe
+
+---
 
 ### v1.5.0 — 766/766 (2026-04-04)
 

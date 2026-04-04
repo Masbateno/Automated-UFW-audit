@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from ufw_audit.checks.firewall_stack import FirewallStackSnapshot
+from ufw_audit.checks.hardening import HardeningSnapshot
+from ufw_audit.checks.ipv6 import IPv6Snapshot
 from ufw_audit.checks.network_context import NetworkContextSnapshot, top_remote_ips
 from ufw_audit.checks.ports import PortsSnapshot
 from ufw_audit.checks.services import ServiceSnapshot
@@ -25,6 +27,8 @@ def build_json_data(
     net_snapshot: NetworkContextSnapshot,
     full: bool,
     version: str,
+    hardening_snapshot: HardeningSnapshot | None = None,
+    ipv6_snapshot: IPv6Snapshot | None = None,
 ) -> dict:
     """Serialize audit results to a JSON-ready dict."""
     data: dict = {
@@ -101,4 +105,23 @@ def build_json_data(
                 for ip, n in top_remote_ips(net_snapshot.connections, n=5)
             ],
         }
+        if hardening_snapshot is not None:
+            data["hardening"] = {
+                "fail2ban_active":             hardening_snapshot.fail2ban_active,
+                "auto_updates_enabled":        hardening_snapshot.auto_updates_enabled,
+                "apparmor_mode":               hardening_snapshot.apparmor_mode,
+                "apparmor_enforced":           hardening_snapshot.apparmor_enforced,
+                "apparmor_complain":           hardening_snapshot.apparmor_complain,
+                "rp_filter":                   hardening_snapshot.rp_filter,
+                "accept_redirects":            hardening_snapshot.accept_redirects,
+                "log_martians":                hardening_snapshot.log_martians,
+                "icmp_echo_ignore_broadcasts": hardening_snapshot.icmp_echo_ignore_broadcasts,
+            }
+        if ipv6_snapshot is not None:
+            data["ipv6"] = {
+                "kernel_ipv6_enabled": ipv6_snapshot.kernel_ipv6_enabled,
+                "ufw_ipv6_enabled":    ipv6_snapshot.ufw_ipv6_enabled,
+                "ipv6_listeners":      ipv6_snapshot.ipv6_listeners,
+                "ufw_v6_covered":      ipv6_snapshot.ufw_v6_covered,
+            }
     return data

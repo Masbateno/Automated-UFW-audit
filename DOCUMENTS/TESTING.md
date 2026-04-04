@@ -25,6 +25,34 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v1.4.1  | 676   | No new tests — `--install-completion` bash completion fix |
 | v1.4.2  | 677   | +1 test — NetBIOS 137/138 now correctly COVERED when UFW rule exists |
 | v1.5.0  | 766   | +89 tests — `test_firewall_stack.py` (38), `test_network_context.py` (51); banner kernel/iptables/nftables |
+| v1.6.0  | 928   | +162 tests — `test_hardening.py` (49), `test_ipv6.py` (33), `test_compare.py` (49), `test_plugin_checks.py` (31) |
+
+### v1.6.0 — 928/928 (2026-04-04)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -v
+928 passed in Xs
+```
+
+#### New tests added (+162)
+
+| File | New | Coverage |
+|------|-----|----------|
+| `tests/test_hardening.py` | 49 | `HardeningSnapshot`, `check_hardening()`: clean system (fully hardened), auto-updates (ok/warn/deductions), fail2ban (ok/info/no deduction), AppArmor (enforce/permissive/inactive/not_installed/edge cases), rp_filter (1/2/0 + deductions), ICMP redirects, log_martians, ICMP broadcast; cumulative deductions; `_parse_aa_count` (enforce/complain/singular/whitespace/case); `_parse_apparmor_mode` (enforce/permissive/not_installed/inactive) |
+| `tests/test_ipv6.py` | 33 | `IPv6Snapshot`, `check_ipv6()`: clean system, IPv6 disabled (global/UFW/conflict), uncovered ports (warn/deduction/cap at 3), no uncovered; `_extract_ipv6_listeners` (wildcard tcp/udp, no loopback, empty, malformed); `_extract_ufw_v6_covered` (v6 rules, ipv4-only excluded, empty, disabled, default proto, malformed) |
+| `tests/test_compare.py` | 49 | `build_baseline()` (score/alerts/warns, ports/services extracted, deduplication, timestamp); `save_baseline`/`load_baseline` round-trip, permissions (0o077 mask), atomic write (no .tmp left), missing/corrupt/invalid type/wrong root type; `compute_delta()` (score/alert/warn deltas, new/closed ports, new/stopped services, prev timestamp, no changes); `AuditDelta.is_empty()` (8 cases); `display_delta()` (12 routing tests) |
+| `tests/test_plugin_checks.py` | 31 | `load_plugin_checks()`: missing dir, no .py, valid, multiple sorted, skip invalid/syntax/non-.py/import-time raise/partial import; `_load_one()`: valid, CHECK_NAME, fallback filename, no run_check, syntax error, oversized, exact 64 KB, path stored; `PluginCheck.run()`: CheckResult type, ok/warn findings, exception → warn, wrong return → warn, t propagation, no t, error message filename; name derivation (empty/whitespace/non-string/ANSI/control-only) |
+
+#### New modules
+
+- **`checks/hardening.py`** — system hardening snapshot + check (7 parameters)
+- **`checks/ipv6.py`** — IPv6 listener / UFW v6 rule consistency
+- **`compare.py`** — audit baseline persistence + delta computation + display
+- **`plugin_checks.py`** — plugin check loader with ANSI sanitization and fail-safe execution
+
+---
 
 ### v1.5.0 — 766/766 (2026-04-04)
 

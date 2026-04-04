@@ -19,6 +19,7 @@ from ufw_audit.cli import AuditConfig, CLIError, parse_args, print_help  # noqa:
 from ufw_audit.completion import install_completion
 from ufw_audit.config import UserConfig
 from ufw_audit.display import build_risk_context_entries, print_audit_summary
+from ufw_audit.compare import build_baseline, compute_delta, display_delta, load_baseline, save_baseline
 from ufw_audit.json_output import build_json_data
 from ufw_audit.output import print_banner
 from ufw_audit.registry import ServiceRegistry
@@ -91,6 +92,8 @@ def _run(argv=None) -> int:
         if not config.quiet:
             print()
 
+        prev_baseline = load_baseline()
+
         report   = init_report(config, user_config, t, VERSION)
         engine   = ScoreEngine()
         sys_info = collect_system_info(VERSION, config.lang)
@@ -118,15 +121,24 @@ def _run(argv=None) -> int:
         report.write_finding("INFO", "Starting audit")
         network_context, public_ip = detect_network_context(offline=config.offline)
 
-        result        = run_checks(config, t, engine, report, registry, network_context)
-        snapshots     = result.snapshots
-        ports_snapshot = result.ports_snapshot
-        stack_snapshot = result.stack_snapshot
-        net_snapshot   = result.net_snapshot
+        result             = run_checks(config, t, engine, report, registry, network_context)
+        snapshots          = result.snapshots
+        ports_snapshot     = result.ports_snapshot
+        stack_snapshot     = result.stack_snapshot
+        net_snapshot       = result.net_snapshot
+        hardening_snapshot = result.hardening_snapshot
+        ipv6_snapshot      = result.ipv6_snapshot
 
         engine.finalize()
+
+        curr_baseline = build_baseline(engine, ports_snapshot, snapshots)
+        save_baseline(curr_baseline)
+
         if not config.quiet:
             print_audit_summary(engine, network_context, public_ip, config, t, report, snapshots)
+            if prev_baseline:
+                print()
+                display_delta(compute_delta(prev_baseline, curr_baseline), t, output)
 
         report.write_risk_context_section(
             section_title=t("sections.risk_context"),
@@ -148,6 +160,8 @@ def _run(argv=None) -> int:
                 snapshots, ports_snapshot,
                 stack_snapshot, net_snapshot,
                 full=config.json_full, version=VERSION,
+                hardening_snapshot=hardening_snapshot,
+                ipv6_snapshot=ipv6_snapshot,
             )
             print(_json.dumps(data, ensure_ascii=False, indent=2))
 

@@ -30,13 +30,18 @@ from ufw_audit.checks.logs import LogsSnapshot, check_logs, geoip2_status
 from ufw_audit.checks.ports import PortsSnapshot, check_ports
 from ufw_audit.checks.services import ServiceSnapshot
 from ufw_audit.checks.virtualization import VirtSnapshot, check_virtualization
+from ufw_audit.checks.hardening import HardeningSnapshot, check_hardening
+from ufw_audit.checks.ipv6 import IPv6Snapshot, check_ipv6
+from ufw_audit.plugin_checks import load_plugin_checks
 
 
 class ChecksResult(NamedTuple):
-    snapshots:      list
-    ports_snapshot: PortsSnapshot
-    stack_snapshot: FirewallStackSnapshot
-    net_snapshot:   NetworkContextSnapshot
+    snapshots:          list
+    ports_snapshot:     PortsSnapshot
+    stack_snapshot:     FirewallStackSnapshot
+    net_snapshot:       NetworkContextSnapshot
+    hardening_snapshot: HardeningSnapshot
+    ipv6_snapshot:      IPv6Snapshot
 
 
 def init_report(config: AuditConfig, user_config: UserConfig, t, version: str) -> AuditReport:
@@ -219,9 +224,46 @@ def run_checks(
     if not config.quiet:
         print()
 
+    # ---- CHECK 9 — System hardening ----
+    if not config.quiet:
+        print_section(t("sections.hardening"))
+    report.write_section(t("sections.hardening"))
+
+    hardening_snapshot = HardeningSnapshot.from_system()
+    hardening_result   = check_hardening(hardening_snapshot, t=t)
+    engine.apply(hardening_result)
+    display_result(hardening_result, report, config.verbose, quiet=config.quiet)
+    if not config.quiet:
+        print()
+
+    # ---- CHECK 10 — IPv6 consistency ----
+    if not config.quiet:
+        print_section(t("sections.ipv6"))
+    report.write_section(t("sections.ipv6"))
+
+    ipv6_snapshot = IPv6Snapshot.from_system()
+    ipv6_result   = check_ipv6(ipv6_snapshot, t=t)
+    engine.apply(ipv6_result)
+    display_result(ipv6_result, report, config.verbose, quiet=config.quiet)
+    if not config.quiet:
+        print()
+
+    # ---- Plugin checks (user-defined, checks.d/) ----
+    for plugin in load_plugin_checks():
+        if not config.quiet:
+            print_section(plugin.name)
+        report.write_section(plugin.name)
+        plugin_result = plugin.run(t)
+        engine.apply(plugin_result)
+        display_result(plugin_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
     return ChecksResult(
         snapshots=snapshots,
         ports_snapshot=ports_snapshot,
         stack_snapshot=stack_snapshot,
         net_snapshot=net_snapshot,
+        hardening_snapshot=hardening_snapshot,
+        ipv6_snapshot=ipv6_snapshot,
     )

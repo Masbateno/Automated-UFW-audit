@@ -51,6 +51,8 @@ Cette séparation permet de tester toute la logique métier en instanciant direc
 | `report_markdown.py` | Rapport markdown/HTML pour email — `MarkdownReport`, `send_html_email()` |
 | `scoring.py` | Moteur de score — `ScoreEngine`, `CheckResult`, `Finding`, `Deduction` |
 | `sysinfo.py` | Info système — `collect_system_info()`, `detect_network_context()`, `get_user_home()` |
+| `compare.py` | Rapport comparatif — `AuditBaseline`, `AuditDelta`, `build_baseline()`, `save_baseline()`, `load_baseline()`, `compute_delta()`, `display_delta()` |
+| `plugin_checks.py` | Chargeur de plugins — `PluginCheck`, `load_plugin_checks()`, sanitisation ANSI |
 
 ### Module cron
 
@@ -69,6 +71,10 @@ Cette séparation permet de tester toute la logique métier en instanciant direc
 | `ddns.py` | Clients DDNS actifs, domaine configuré, ports ouverts croisés |
 | `docker.py` | Contournement iptables, ports exposés par les containers |
 | `virtualization.py` | Hyperviseurs actifs (libvirt/KVM, VirtualBox, VMware, LXD/LXC) et paquets Snap réseau |
+| `firewall_stack.py` | Contournement iptables brut, règles nftables parallèles, détection ip_forward |
+| `network_context.py` | Tableau d'interfaces réseau, connexions TCP établies, ports sensibles distants |
+| `hardening.py` | Durcissement : fail2ban, mises à jour auto, AppArmor, rp_filter, redirections ICMP, log_martians, broadcast |
+| `ipv6.py` | Cohérence ports IPv6 actifs / règles UFW v6 |
 
 ---
 
@@ -103,17 +109,24 @@ ufw_audit/
 │   ├── logs.py          # LogsSnapshot + check_logs()
 │   ├── ddns.py          # DdnsSnapshot + check_ddns()
 │   ├── docker.py        # DockerSnapshot + check_docker()
-│   └── virtualization.py # VirtSnapshot + check_virtualization()
+│   ├── virtualization.py # VirtSnapshot + check_virtualization()
+│   ├── firewall_stack.py # FirewallStackSnapshot + check_firewall_stack()
+│   ├── network_context.py # NetworkContextSnapshot + check_network_context()
+│   ├── hardening.py     # HardeningSnapshot + check_hardening()
+│   └── ipv6.py          # IPv6Snapshot + check_ipv6()
+├── compare.py           # AuditBaseline + AuditDelta + rapport comparatif
+├── plugin_checks.py     # PluginCheck + load_plugin_checks()
 ├── data/
 │   ├── services.json            # Registre déclaratif des 22 services
 │   └── ufw-audit.bash-completion  # Script d'autocomplétion bash
 └── locales/
-    ├── en.json          # Clés de traduction anglais (290 clés)
-    └── fr.json          # Clés de traduction français (290 clés)
+    ├── en.json          # Clés de traduction anglais
+    └── fr.json          # Clés de traduction français
 
 tests/
 ├── test_check_rules.py
 ├── test_cli.py
+├── test_compare.py
 ├── test_config.py
 ├── test_cron.py
 ├── test_ddns.py
@@ -121,10 +134,15 @@ tests/
 ├── test_docker.py
 ├── test_email_store_mgmt.py
 ├── test_firewall.py
+├── test_firewall_stack.py
 ├── test_fixes.py
+├── test_hardening.py
 ├── test_i18n.py
+├── test_ipv6.py
 ├── test_logs.py
+├── test_network_context.py
 ├── test_output.py
+├── test_plugin_checks.py
 ├── test_ports.py
 ├── test_registry.py
 ├── test_report.py
@@ -178,7 +196,7 @@ python3 -m unittest tests/test_firewall.py
 ### Résultats attendus
 
 ```
-619 passed in X.XXs
+928 passed in X.XXs
 ```
 
 Les tests n'effectuent aucun appel système — tous les snapshots sont construits directement dans les tests. Ils peuvent être lancés sans `sudo` et sans UFW installé.

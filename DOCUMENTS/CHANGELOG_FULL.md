@@ -6,6 +6,54 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.6.0] — 2026-04-04
+
+### TL;DR
+- New **HARDENING** section: fail2ban, auto-updates, AppArmor, rp_filter, ICMP redirects, log_martians, ICMP broadcasts
+- New **IPv6 CONSISTENCY** section: detects IPv6 listeners not covered by UFW v6 rules
+- New **COMPARATIVE REPORT**: baseline saved after each audit — score delta, port changes, service changes displayed on next run
+- New **Plugin check API**: drop Python files in `~/.config/ufw-audit/plugins/` to add custom checks
+- JSON output (`--json-full`) extended with `hardening` and `ipv6` objects
+- 926/926 unit tests (+160)
+
+### New sections
+
+- **HARDENING** (`checks/hardening.py`) — new check:
+  - `fail2ban` active → OK, missing → INFO (no deduction — optional layer)
+  - `unattended-upgrades` installed and configured → OK; missing → WARN (−1 point)
+  - AppArmor enforce mode → OK; permissive/inactive/not installed → INFO (no deduction)
+  - `rp_filter=1` (strict) → OK; `=2` (loose) → INFO; `=0` (disabled) → WARN (−1 point)
+  - ICMP redirects accepted → WARN (−1 point); disabled → OK
+  - `log_martians` disabled → INFO (no deduction)
+  - ICMP broadcast echo not ignored → INFO (no deduction)
+
+- **IPv6 CONSISTENCY** (`checks/ipv6.py`) — new check:
+  - Detects when `net.ipv6.conf.all.disable_ipv6=1` or UFW `IPV6=no` conflicts with active IPv6 listeners
+  - Each IPv6 listener without a matching UFW v6 rule → WARN (−1 point, capped at 3)
+
+### Comparative report
+
+- `compare.py` — `AuditBaseline` + `AuditDelta`:
+  - Baseline saved to `~/.config/ufw-audit/last_baseline.json` after every audit (atomic write, mode 0o600)
+  - On next run: score delta, alert/warn delta, new/closed ports, started/stopped services
+  - `AuditDelta.is_empty()` — no output when nothing changed
+
+### Plugin check API
+
+- `plugin_checks.py` — `PluginCheck` protocol + `load_plugin_checks()`:
+  - Plugins: Python files in `~/.config/ufw-audit/plugins/` exporting `CHECK_NAME` (str) and `run(t) -> CheckResult`
+  - ANSI/control characters stripped from `CHECK_NAME`; plugin errors logged with full traceback, never crash the audit
+  - Module names namespaced with file hash to prevent collisions
+
+### Tests
+
+- `tests/test_hardening.py` — 49 tests (new file)
+- `tests/test_ipv6.py` — 33 tests (new file)
+- `tests/test_compare.py` — 49 tests (new file)
+- `tests/test_plugin_checks.py` — 29 tests (new file)
+
+---
+
 ## [v1.5.0] — 2026-04-04
 
 ### TL;DR

@@ -32,7 +32,10 @@
     "risk_context": "RISK CONTEXT — DETECTED SERVICES",
     "virtualization": "VIRTUALISATION ANALYSIS",
     "firewall_stack": "FIREWALL STACK ANALYSIS",
-    "network_context": "NETWORK CONTEXT"
+    "network_context": "NETWORK CONTEXT",
+    "hardening": "SYSTEM HARDENING ANALYSIS",
+    "ipv6": "IPv6 CONSISTENCY CHECK",
+    "compare": "CHANGES SINCE LAST AUDIT"
   },
   "status": {
     "ok": "OK",
@@ -416,6 +419,50 @@
     "none_detected": "No virtualisation technology detected",
     "bypass_risk": "{name} detected — {iface} bridge interface may insert iptables rules, bypassing UFW FORWARD policy",
     "snap_network": "Snap package '{pkg}' has active network connections — verify it does not bypass UFW"
+  },
+  "hardening": {
+    "no_issues": "System hardening parameters look good",
+    "auto_updates_ok": "Automatic security updates (unattended-upgrades) are enabled",
+    "auto_updates_missing": "Automatic security updates not enabled — consider installing unattended-upgrades",
+    "fail2ban_ok": "fail2ban is active and protecting against brute-force attacks",
+    "fail2ban_missing": "fail2ban not detected — consider installing it to block brute-force attacks",
+    "apparmor_not_installed": "AppArmor not detected — consider enabling it for mandatory access control",
+    "apparmor_enforce": "AppArmor active — {enforced} profile(s) in enforce mode, {complain} in complain mode",
+    "apparmor_not_enforce": "AppArmor loaded but in {mode} mode — consider switching to enforce",
+    "rp_filter_ok": "Reverse path filtering enabled in strict mode (rp_filter=1)",
+    "rp_filter_loose": "Reverse path filtering in loose mode (rp_filter=2) — consider switching to strict mode (=1)",
+    "rp_filter_disabled": "Reverse path filtering disabled — risk of IP spoofing attacks",
+    "redirects_ok": "ICMP redirect acceptance is disabled",
+    "redirects_enabled": "ICMP redirects accepted — risk of routing table manipulation",
+    "log_martians_ok": "Martian packet logging is enabled",
+    "log_martians_disabled": "Martian packet logging disabled — spoofed packets will not be logged",
+    "icmp_broadcast_ok": "ICMP broadcast echo is ignored",
+    "icmp_broadcast_enabled": "ICMP broadcast echo not ignored — smurf amplification risk"
+  },
+  "compare": {
+    "section_title": "CHANGES SINCE LAST AUDIT",
+    "previous_run": "Previous audit: {timestamp}",
+    "score_improved": "Score improved by {delta} point(s)",
+    "score_degraded": "Score degraded by {delta} point(s)",
+    "score_unchanged": "Score unchanged",
+    "alerts_increased": "{delta} new alert(s) since last audit",
+    "alerts_decreased": "{delta} alert(s) resolved since last audit",
+    "warns_increased": "{delta} new warning(s) since last audit",
+    "warns_decreased": "{delta} warning(s) resolved since last audit",
+    "port_appeared": "New open port detected: {port}",
+    "port_closed": "Port no longer open: {port}",
+    "service_appeared": "Service became active: {service}",
+    "service_stopped": "Service became inactive: {service}",
+    "no_changes": "No changes detected since last audit"
+  },
+  "ipv6": {
+    "config_ok": "UFW IPv6 configuration matches kernel IPv6 state",
+    "both_disabled": "IPv6 disabled both in kernel and UFW — consistent",
+    "ufw_enabled_kernel_disabled": "UFW has IPv6 enabled but kernel IPv6 is disabled — UFW (v6) rules have no effect",
+    "ufw_disabled_no_listeners": "UFW IPv6 disabled and no IPv6 listeners detected — no immediate risk",
+    "ufw_disabled_listeners_present": "{count} service(s) listening on IPv6 (::) but UFW does not manage IPv6 rules",
+    "port_no_v6_rule": "Port {port} listening on IPv6 (::) without a UFW (v6) rule",
+    "all_ports_covered": "All {count} IPv6 listener(s) are covered by UFW (v6) rules"
   },
   "audit": {
     "starting": "Starting audit",

@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.6.0](#v160) | 2026-04-04 | Hardening check; IPv6 consistency check; comparative report; plugin API; 926/926 tests |
 | [v1.5.0](#v150) | 2026-04-04 | Firewall Stack Analysis; Network Context; enriched banner; code quality pass (12 modules hardened); 766/766 tests |
 | [v1.4.2](#v142) | 2026-04-04 | Hotfix: NetBIOS 137/138 still warned when UFW rule exists |
 | [v1.4.1](#v141) | 2026-04-04 | Hotfix: `--install-completion` missing from bash completion suggestions |
