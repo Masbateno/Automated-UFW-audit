@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.7.0](#v170) | 2026-04-04 | Profils d'audit ; `Deduction.key` ; multi-email cron ; suppression multiple cron ; `--reset-baseline` ; filtre ports éphémères ; 966/966 tests |
 | [v1.6.0](#v160) | 2026-04-04 | Vérification durcissement ; cohérence IPv6 ; rapport comparatif ; API plugin ; 926/926 tests |
 | [v1.5.0](#v150) | 2026-04-04 | Analyse pile pare-feu ; Contexte réseau ; bannière enrichie ; passage qualité (12 modules renforcés) ; 766/766 tests |
 | [v1.4.2](#v142) | 2026-04-04 | Hotfix : ports NetBIOS 137/138 encore signalés non couverts malgré une règle UFW existante |
@@ -39,6 +40,81 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.7.0
+
+**2026-04-04**
+
+### Profils d'audit
+
+- Profils nommés (`server`, `workstation`, `container`) livrés sous forme de fichiers `.conf` dans `ufw_audit/data/profiles/`
+- Option `--profile=NAME` — sélectionne un profil ; persiste entre les exécutions dans `~/.config/ufw-audit/config.conf`
+- Format de fichier INI : `[profile]` nom/extends/description ; `[overrides]` clé=niveau ; `[skip_sections]` noms de section
+- Héritage via `extends` avec garde de profondeur (`_MAX_EXTENDS_DEPTH = 8`) — empêche les cycles
+- Niveaux d'override : `info | warn | alert | skip`
+- Profils personnalisés : déposer un fichier `.conf` dans `~/.config/ufw-audit/profiles/` — priorité sur les profils intégrés
+- `apply_profile()` est post-vérification — les fonctions de vérification existantes et futures n'ont pas besoin d'être modifiées
+
+### Clés de déduction (`Deduction.key`)
+
+- `Deduction.key: str = ""` ajouté au dataclass `Deduction` — clé i18n stable liant chaque déduction à son constat
+- Paramètre `add_deduction(key=)` ajouté dans `CheckResult`
+- Toutes les déductions scorées dans `hardening.py` et `ipv6.py` portent un `key=` correspondant
+- `_remove_deductions_for_key()` simplifié en `d.key != key` — déterministe, sans heuristique sur les chaînes traduites
+- `_find_profile_file()` mis en cache via `@lru_cache(maxsize=32)` — les chaînes `extends` profondes ne lisquent le disque qu'une fois
+- Les clés d'override dans les fichiers de profil sont normalisées (`strip().lower()`) — tolère les majuscules
+
+### `--install-cron` — emails de notification multiples
+
+- `prompt_emails()` remplace `prompt_email()` — demande "Ajouter une autre adresse ? [o/N]" après chaque sélection
+- Les adresses déjà sélectionnées sont marquées ✔ pour éviter les doublons
+- Toutes les adresses choisies sont stockées en CSV dans le fichier cron et le script
+- Le script bash boucle sur les destinataires : `IFS="," read -ra _ADDRS` — chaque adresse reçoit son propre email
+
+### `--manage-cron` — suppression multiple
+
+- `d:1,3` — supprime les crons 1 et 3 (liste)
+- `d:1-3` — supprime les crons 1 à 3 (plage)
+- `d:all` — supprime tous les crons installés (message de confirmation dédié)
+- La suppression unitaire (`d:N`) est inchangée ; le message de confirmation s'adapte à la sélection
+
+### Rapport comparatif — filtre des ports éphémères
+
+- `build_baseline()` exclut désormais les ports éphémères (≥ 32768) — supprime les faux positifs « nouveau port » d'Avahi, libvirt, VPN et autres sockets UDP transitoires
+- `--reset-baseline` — supprime `~/.config/ufw-audit/last_baseline.json` et quitte proprement (utile lors d'un changement de profil ou d'une modification majeure du système)
+
+### Note de migration
+
+Si vous mettez à jour depuis v1.6.0, exécutez `sudo ufw-audit --reset-baseline` une fois pour supprimer l'ancienne baseline (qui peut contenir des ports éphémères). Le prochain audit créera automatiquement une baseline propre.
+
+---
+
+## v1.6.0
+
+**2026-04-04** — 928/928 tests
+
+### Nouvelles sections
+
+- **DURCISSEMENT** (`checks/hardening.py`) — unattended-upgrades, rp_filter, acceptation des redirections ICMP, fail2ban, AppArmor, log_martians, broadcast ICMP
+- **COHÉRENCE IPv6** (`checks/ipv6.py`) — croise l'activation noyau IPv6 avec le paramètre UFW IPv6 et les listeners IPv6 actifs
+
+### Rapport comparatif
+
+- `compare.py` — dataclasses `AuditBaseline` + `AuditDelta` ; `build_baseline()`, `save_baseline()`, `load_baseline()`, `compute_delta()`, `display_delta()`
+- Baseline sauvegardée dans `~/.config/ufw-audit/last_baseline.json` après chaque audit
+- Affiche le delta de score, d'alertes/avertissements, les ports nouveaux/fermés, les services démarrés/arrêtés
+
+### API plugin
+
+- `plugin_checks.py` — fonctions de vérification tierces découvertes via le groupe d'entry-points `ufw_audit.checks`
+- Isolation des plugins : les erreurs d'import passent le plugin avec un avertissement au lieu de crasher l'audit
+- Désinfection ANSI des noms de check plugin (`_sanitize_check_name()`)
+
+### Sortie JSON
+
+- Objets `hardening_snapshot` et `ipv6_snapshot` ajoutés à la sortie `--json-full`
 
 ---
 

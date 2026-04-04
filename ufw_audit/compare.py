@@ -37,8 +37,9 @@ if TYPE_CHECKING:  # avoid circular imports at runtime
 
 logger = logging.getLogger(__name__)
 
-_CONFIG_DIR  = Path.home() / ".config" / "ufw-audit"
+_CONFIG_DIR    = Path.home() / ".config" / "ufw-audit"
 _BASELINE_FILENAME = "last_baseline.json"
+_BASELINE_PATH = _CONFIG_DIR / _BASELINE_FILENAME
 
 
 # ---------------------------------------------------------------------------
@@ -117,10 +118,12 @@ def build_baseline(
     Returns:
         AuditBaseline ready for serialization.
     """
+    # Exclude ephemeral ports (>= 32768) — they change between audits and
+    # produce noise in the comparative report (AVAHI, libvirt, VPN, etc.)
     open_ports = sorted({
         lp.port_proto
         for lp in ports_snapshot.ports
-        if lp.is_all_interfaces
+        if lp.is_all_interfaces and _is_stable_port(lp.port_proto)
     })
 
     active_services = sorted({
@@ -270,3 +273,20 @@ def display_delta(delta: AuditDelta, t, output_mod) -> None:
     # --- No changes ---
     if delta.is_empty():
         output_mod.print_ok(t("compare.no_changes"))
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+def _is_stable_port(port_proto: str) -> bool:
+    """Return True if the port number is below the Linux ephemeral range.
+
+    Ephemeral ports (>= 32768 by default on Linux) change between audits
+    and would flood the comparative report with false-positive "new port"
+    findings from AVAHI, libvirt, VPN, and other transient UDP sockets.
+    """
+    try:
+        return int(port_proto.split("/")[0]) < 32768
+    except (ValueError, IndexError):
+        return False

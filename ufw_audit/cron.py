@@ -280,55 +280,80 @@ def _validate_custom_cron(expr: str) -> str:
 # Interactive runners (--install-cron, --manage-cron, --remove-cron)
 # ---------------------------------------------------------------------------
 
-def prompt_email(t) -> str:
+def prompt_emails(t) -> list[str]:
     """
-    Interactive email selection prompt.
+    Interactive multi-email selection prompt.
 
     Shows saved addresses from EmailStore with numeric shortcuts.
-    The user can select a saved address by number, type a new one,
-    or press Enter to skip (no email).
+    After each selection the user is asked whether to add another address.
+    Press Enter or choose 0 to finish (or to skip on first prompt).
 
-    New valid addresses are offered for saving before being returned.
+    New valid addresses are offered for saving before being accepted.
 
     Returns:
-        Selected email string, or "" if user skipped.
+        List of selected email strings (may be empty).
     """
     from ufw_audit.config import EmailStore
 
-    store = EmailStore.load()
-    saved = store.all()
+    _EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
 
-    print()
-    print(f"  {t('email_prompt.title')}")
-    print(f"    0. {t('email_prompt.none')}")
-    for i, addr in enumerate(saved, 1):
-        print(f"    {i}. {addr}")
-    print(f"    {len(saved) + 1}. {t('email_prompt.new')}")
-    print()
+    store  = EmailStore.load()
+    selected: list[str] = []
 
-    answer = input("  > ").strip()
+    while True:
+        saved = store.all()
 
-    if not answer or answer == "0":
-        return ""
+        print()
+        print(f"  {t('email_prompt.title')}")
+        if selected:
+            print(f"    → {t('email_prompt.selected', emails=', '.join(selected))}")
+        print(f"    0. {t('email_prompt.none')}")
+        for i, addr in enumerate(saved, 1):
+            marker = " ✔" if addr in selected else ""
+            print(f"    {i}. {addr}{marker}")
+        print(f"    {len(saved) + 1}. {t('email_prompt.new')}")
+        print()
 
-    if answer.isdigit():
-        idx = int(answer)
-        if 1 <= idx <= len(saved):
-            return saved[idx - 1]
+        answer = input("  > ").strip()
 
-    if answer.isdigit() and int(answer) == len(saved) + 1:
-        answer = input(f"  {t('email_prompt.enter_new')} : ").strip()
+        if not answer or answer == "0":
+            break
 
-    if not re.match(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$", answer):
-        print(f"  ⚠ {t('email_prompt.invalid')}")
-        return ""
+        resolved = ""
+        if answer.isdigit():
+            idx = int(answer)
+            if 1 <= idx <= len(saved):
+                resolved = saved[idx - 1]
+            elif idx == len(saved) + 1:
+                resolved = input(f"  {t('email_prompt.enter_new')} : ").strip()
+        else:
+            resolved = answer
 
-    if answer not in saved:
-        save_ans = input(f"  {t('email_prompt.save', email=answer)} ").strip().lower()
-        if save_ans == "y":
-            store.add(answer)
+        if not _EMAIL_RE.match(resolved):
+            print(f"  ⚠ {t('email_prompt.invalid')}")
+            continue
 
-    return answer
+        if resolved in selected:
+            # already chosen — silently skip
+            pass
+        else:
+            selected.append(resolved)
+            if resolved not in saved:
+                save_ans = input(f"  {t('email_prompt.save', email=resolved)} ").strip().lower()
+                if save_ans == "y":
+                    store.add(resolved)
+
+        add_ans = input(f"  {t('email_prompt.add_another')} ").strip().lower()
+        if add_ans not in ("y", "o"):
+            break
+
+    return selected
+
+
+def prompt_email(t) -> str:
+    """Backward-compatible single-email wrapper around prompt_emails."""
+    emails = prompt_emails(t)
+    return emails[0] if emails else ""
 
 
 def run_install_cron(user_config, config, t) -> int:
@@ -440,9 +465,10 @@ def run_install_cron(user_config, config, t) -> int:
     print(f"  {t('install_cron.preview', schedule=human)}")
     print()
 
-    # --- Step 4: Notification email ---
-    notify_email = prompt_email(t)
-    if notify_email and not shutil.which("mail"):
+    # --- Step 4: Notification email(s) ---
+    notify_emails = prompt_emails(t)
+    notify_email  = ",".join(notify_emails)  # comma-separated for storage
+    if notify_emails and not shutil.which("mail"):
         print(f"  ⚠ {t('install_cron.mail_missing')}")
 
     cron_path   = CRON_DIR / f"ufw-audit-{slug}"
@@ -464,18 +490,20 @@ def run_install_cron(user_config, config, t) -> int:
         "#!/bin/bash\n"
         f"# UFW-AUDIT script — generated {now_str} by ufw-audit --install-cron\n"
         "# Re-generate: sudo ufw-audit --install-cron\n\n"
-        f'NOTIFY_EMAIL={shlex.quote(notify_email)}\n'
+        f'NOTIFY_EMAILS={shlex.quote(notify_email)}\n'
         f'LOG_DIR={shlex.quote(str(log_dir))}\n'
         f'export PYTHONPATH={shlex.quote(ufw_audit_path)}:"$PYTHONPATH"\n\n'
         f'{shlex.quote(str(audit_bin))} --quiet --detailed\n'
         "RC=$?\n\n"
-        'if [ "$RC" -gt 0 ] && [ -n "$NOTIFY_EMAIL" ]; then\n'
+        'if [ "$RC" -gt 0 ] && [ -n "$NOTIFY_EMAILS" ]; then\n'
         '    LOG=$(ls -t "$LOG_DIR"/ufw_audit_*.log 2>/dev/null | head -1)\n'
         '    if [ -n "$LOG" ]; then\n'
-        "        export AUDIT_LOG=\"$LOG\"\n"
-        "        export AUDIT_EMAIL=\"$NOTIFY_EMAIL\"\n"
-        "        export AUDIT_RC=\"$RC\"\n"
-        "        python3 << 'PYTHON_EOF'\n"
+        '        IFS="," read -ra _ADDRS <<< "$NOTIFY_EMAILS"\n'
+        '        for _ADDR in "${_ADDRS[@]}"; do\n'
+        "            export AUDIT_LOG=\"$LOG\"\n"
+        "            export AUDIT_EMAIL=\"$_ADDR\"\n"
+        "            export AUDIT_RC=\"$RC\"\n"
+        "            python3 << 'PYTHON_EOF'\n"
         "import os, re\n"
         "from ufw_audit.report_markdown import send_audit_log_as_html_email\n\n"
         "hostname = os.uname().nodename\n"
@@ -494,6 +522,7 @@ def run_install_cron(user_config, config, t) -> int:
         "if log_file and email:\n"
         "    send_audit_log_as_html_email(log_file, email, subject)\n"
         "PYTHON_EOF\n"
+        "        done\n"
         "    fi\n"
         "fi\n"
     )
@@ -688,28 +717,80 @@ def run_manage_cron(config, t) -> int:
             _manage_email_store(t)
             continue
 
-        delete_match = re.match(r"^d:?(\d+)$", answer)
+        delete_match = re.match(r"^d:?(.+)$", answer)
         email_match  = re.match(r"^e:(\d+)$", answer)
         edit_match   = re.match(r"^(\d+)$", answer)
 
         if delete_match:
-            idx = int(delete_match.group(1)) - 1
-            if not (0 <= idx < len(crons)):
-                print(f"  ✖ {t('manage_cron.invalid')}")
-                continue
-            entry = crons[idx]
-            ans = input(f"  {t('manage_cron.confirm_delete', name=entry.name)} ").strip().lower()
-            if ans == "y":
+            raw_del = delete_match.group(1).strip()
+
+            # Resolve indices: single / comma list / range / all
+            if raw_del == "all":
+                to_delete = list(crons)
+            else:
+                indices: set[int] = set()
+                valid = True
                 try:
-                    entry.cron_path.unlink()
-                except OSError:
-                    pass
-                if entry.script_path.exists():
+                    if re.match(r"^\d+$", raw_del):
+                        indices.add(int(raw_del))
+                    elif re.match(r"^\d+(?:,\d+)+$", raw_del):
+                        for part in raw_del.split(","):
+                            indices.add(int(part))
+                    elif re.match(r"^\d+-\d+$", raw_del):
+                        start_s, end_s = raw_del.split("-")
+                        end_n = min(int(end_s), int(start_s) + 999)
+                        for n in range(int(start_s), end_n + 1):
+                            indices.add(n)
+                    else:
+                        valid = False
+                except ValueError:
+                    valid = False
+
+                if not valid:
+                    print(f"  ✖ {t('manage_cron.invalid')}")
+                    continue
+
+                to_delete = []
+                for idx in sorted(indices):
+                    if not (1 <= idx <= len(crons)):
+                        print(f"  ✖ {t('manage_cron.invalid')}")
+                        to_delete = []
+                        break
+                    to_delete.append(crons[idx - 1])
+
+            if not to_delete:
+                continue
+
+            # Confirm
+            if len(to_delete) == 1:
+                ans = input(
+                    f"  {t('manage_cron.confirm_delete', name=to_delete[0].name)} "
+                ).strip().lower()
+            elif raw_del == "all":
+                ans = input(
+                    f"  {t('manage_cron.confirm_delete_all', count=len(to_delete))} "
+                ).strip().lower()
+            else:
+                names = ", ".join(e.name for e in to_delete)
+                ans = input(
+                    f"  {t('manage_cron.confirm_delete_multi', count=len(to_delete), names=names)} "
+                ).strip().lower()
+
+            if ans == "y":
+                for entry in to_delete:
                     try:
-                        entry.script_path.unlink()
+                        entry.cron_path.unlink()
                     except OSError:
                         pass
-                print(f"  ✔ {t('manage_cron.deleted', name=entry.name)}")
+                    if entry.script_path.exists():
+                        try:
+                            entry.script_path.unlink()
+                        except OSError:
+                            pass
+                if len(to_delete) == 1:
+                    print(f"  ✔ {t('manage_cron.deleted', name=to_delete[0].name)}")
+                else:
+                    print(f"  ✔ {t('manage_cron.deleted_count', count=len(to_delete))}")
 
         elif email_match:
             idx = int(email_match.group(1)) - 1

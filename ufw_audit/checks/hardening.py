@@ -144,92 +144,111 @@ def check_hardening(snapshot: HardeningSnapshot, t=None) -> CheckResult:
 
     # --- Automatic security updates ---
     if snapshot.auto_updates_enabled:
-        result.ok(message=_t("hardening.auto_updates_ok"))
+        result.ok(message=_t("hardening.auto_updates_ok"),
+                  key="hardening.auto_updates_ok")
     else:
         result.warn(
             message=_t("hardening.auto_updates_missing"),
             nature="improvement",
             cmd="sudo apt install unattended-upgrades && sudo dpkg-reconfigure -plow unattended-upgrades",
+            key="hardening.auto_updates_missing",
         )
         result.add_deduction(
             reason=_t("hardening.auto_updates_missing"),
             points=1,
             context="local",
+            key="hardening.auto_updates_missing",
         )
         found_issue = True
 
     # --- fail2ban ---
     if snapshot.fail2ban_active:
-        result.ok(message=_t("hardening.fail2ban_ok"))
+        result.ok(message=_t("hardening.fail2ban_ok"),
+                  key="hardening.fail2ban_ok")
     else:
-        result.info(message=_t("hardening.fail2ban_missing"))
+        result.info(message=_t("hardening.fail2ban_missing"),
+                    key="hardening.fail2ban_missing")
 
     # --- AppArmor ---
     mode = snapshot.apparmor_mode
     if mode == "not_installed":
-        result.info(message=_t("hardening.apparmor_not_installed"))
+        result.info(message=_t("hardening.apparmor_not_installed"),
+                    key="hardening.apparmor_not_installed")
     elif mode == "enforce":
         result.ok(
             message=_t(
                 "hardening.apparmor_enforce",
                 enforced=snapshot.apparmor_enforced,
                 complain=snapshot.apparmor_complain,
-            )
+            ),
+            key="hardening.apparmor_enforce",
         )
     else:
         result.info(
-            message=_t("hardening.apparmor_not_enforce", mode=mode)
+            message=_t("hardening.apparmor_not_enforce", mode=mode),
+            key="hardening.apparmor_not_enforce",
         )
 
     # --- rp_filter (reverse path filtering) ---
     # 0 = disabled (insecure), 1 = strict mode (best), 2 = loose mode (weaker)
     if snapshot.rp_filter == 1:
-        result.ok(message=_t("hardening.rp_filter_ok"))
+        result.ok(message=_t("hardening.rp_filter_ok"),
+                  key="hardening.rp_filter_ok")
     elif snapshot.rp_filter == 2:
-        result.info(message=_t("hardening.rp_filter_loose"))
+        result.info(message=_t("hardening.rp_filter_loose"),
+                    key="hardening.rp_filter_loose")
     else:
         result.warn(
             message=_t("hardening.rp_filter_disabled"),
             nature="improvement",
             cmd="sudo sysctl -w net.ipv4.conf.all.rp_filter=1",
+            key="hardening.rp_filter_disabled",
         )
         result.add_deduction(
             reason=_t("hardening.rp_filter_disabled"),
             points=1,
             context="local",
+            key="hardening.rp_filter_disabled",
         )
         found_issue = True
 
     # --- ICMP redirects ---
     if not snapshot.accept_redirects:
-        result.ok(message=_t("hardening.redirects_ok"))
+        result.ok(message=_t("hardening.redirects_ok"),
+                  key="hardening.redirects_ok")
     else:
         result.warn(
             message=_t("hardening.redirects_enabled"),
             nature="improvement",
             cmd="sudo sysctl -w net.ipv4.conf.all.accept_redirects=0",
+            key="hardening.redirects_enabled",
         )
         result.add_deduction(
             reason=_t("hardening.redirects_enabled"),
             points=1,
             context="local",
+            key="hardening.redirects_enabled",
         )
         found_issue = True
 
     # --- log_martians ---
     if snapshot.log_martians:
-        result.ok(message=_t("hardening.log_martians_ok"))
+        result.ok(message=_t("hardening.log_martians_ok"),
+                  key="hardening.log_martians_ok")
     else:
         result.info(
             message=_t("hardening.log_martians_disabled"),
+            key="hardening.log_martians_disabled",
         )
 
     # --- ICMP broadcast echo ---
     if snapshot.icmp_echo_ignore_broadcasts:
-        result.ok(message=_t("hardening.icmp_broadcast_ok"))
+        result.ok(message=_t("hardening.icmp_broadcast_ok"),
+                  key="hardening.icmp_broadcast_ok")
     else:
         result.info(
             message=_t("hardening.icmp_broadcast_enabled"),
+            key="hardening.icmp_broadcast_enabled",
         )
 
     return result

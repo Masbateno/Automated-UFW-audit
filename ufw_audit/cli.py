@@ -82,6 +82,12 @@ class AuditConfig:
     offline: bool = False
     """--offline: skip all external HTTP calls (no public IP lookup)."""
 
+    profile: str = ""
+    """--profile=NAME: audit profile to apply (server|workstation|container or custom)."""
+
+    reset_baseline: bool = False
+    """--reset-baseline: delete the stored audit baseline and exit."""
+
 
 # ---------------------------------------------------------------------------
 # Parser
@@ -185,6 +191,12 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         elif arg in ("-o", "--offline"):
             config.offline = True
 
+        elif arg.startswith("--profile="):
+            config.profile = arg.split("=", 1)[1].strip()
+
+        elif arg == "--reset-baseline":
+            config.reset_baseline = True
+
         else:
             raise CLIError(f"Unknown option: {arg!r}")
 
@@ -239,6 +251,8 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
         ("--lang=CODE",        "Set interface language (e.g. --lang=fr, --lang=en)"),
         ("--install-completion", "Install bash completion to /etc/bash_completion.d/"),
         ("-o, --offline",      "Skip external IP lookup (no HTTP calls)"),
+        ("--profile=NAME",     "Audit profile: server (default), workstation, container, or custom"),
+        ("--reset-baseline",   "Delete the stored audit baseline and exit"),
         ("-V, --version",      "Show version and exit (no sudo required)"),
         ("-h, --help",         "Show this help message (no sudo required)"),
     ]

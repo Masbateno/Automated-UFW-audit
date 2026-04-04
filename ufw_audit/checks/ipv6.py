@@ -101,7 +101,8 @@ def check_ipv6(snapshot: IPv6Snapshot, t=None) -> CheckResult:
     if not snapshot.kernel_ipv6_enabled and snapshot.ufw_ipv6_enabled:
         # UFW will generate (v6) rules that the kernel ignores — confusing but not a
         # security gap (there is no IPv6 stack to exploit).
-        result.info(message=_t("ipv6.ufw_enabled_kernel_disabled"))
+        result.info(message=_t("ipv6.ufw_enabled_kernel_disabled"),
+                    key="ipv6.ufw_enabled_kernel_disabled")
 
     elif snapshot.kernel_ipv6_enabled and not snapshot.ufw_ipv6_enabled:
         if snapshot.ipv6_listeners:
@@ -111,23 +112,26 @@ def check_ipv6(snapshot: IPv6Snapshot, t=None) -> CheckResult:
                            count=len(snapshot.ipv6_listeners)),
                 nature="improvement",
                 cmd="sudo nano /etc/default/ufw  # set IPV6=yes, then: sudo ufw reload",
+                key="ipv6.ufw_disabled_listeners_present",
             )
             result.add_deduction(
                 reason=_t("ipv6.ufw_disabled_listeners_present",
                           count=len(snapshot.ipv6_listeners)),
                 points=2,
                 context="local",
+                key="ipv6.ufw_disabled_listeners_present",
             )
             found_issue = True
         else:
-            result.info(message=_t("ipv6.ufw_disabled_no_listeners"))
+            result.info(message=_t("ipv6.ufw_disabled_no_listeners"),
+                        key="ipv6.ufw_disabled_no_listeners")
 
     else:
         # Both agree — kernel and UFW are in sync on IPv6.
         if snapshot.kernel_ipv6_enabled:
-            result.ok(message=_t("ipv6.config_ok"))
+            result.ok(message=_t("ipv6.config_ok"), key="ipv6.config_ok")
         else:
-            result.ok(message=_t("ipv6.both_disabled"))
+            result.ok(message=_t("ipv6.both_disabled"), key="ipv6.both_disabled")
 
         # --- Per-port gap check (only when IPv6 is active on both sides) ---
         if snapshot.kernel_ipv6_enabled and snapshot.ufw_ipv6_enabled:
@@ -139,12 +143,14 @@ def check_ipv6(snapshot: IPv6Snapshot, t=None) -> CheckResult:
                         message=_t("ipv6.port_no_v6_rule", port=port_proto),
                         nature="improvement",
                         cmd=f"sudo ufw allow {port_proto}",
+                        key="ipv6.port_no_v6_rule",
                     )
                     if port_deductions < _MAX_PORT_DEDUCTIONS:
                         result.add_deduction(
                             reason=_t("ipv6.port_no_v6_rule", port=port_proto),
                             points=1,
                             context="local",
+                            key="ipv6.port_no_v6_rule",
                         )
                         port_deductions += 1
                     found_issue = True
@@ -155,7 +161,8 @@ def check_ipv6(snapshot: IPv6Snapshot, t=None) -> CheckResult:
         if snapshot.ipv6_listeners:
             result.ok(
                 message=_t("ipv6.all_ports_covered",
-                           count=len(snapshot.ipv6_listeners))
+                           count=len(snapshot.ipv6_listeners)),
+                key="ipv6.all_ports_covered",
             )
 
     return result

@@ -19,9 +19,10 @@ from ufw_audit.cli import AuditConfig, CLIError, parse_args, print_help  # noqa:
 from ufw_audit.completion import install_completion
 from ufw_audit.config import UserConfig
 from ufw_audit.display import build_risk_context_entries, print_audit_summary
-from ufw_audit.compare import build_baseline, compute_delta, display_delta, load_baseline, save_baseline
+from ufw_audit.compare import build_baseline, compute_delta, display_delta, load_baseline, save_baseline, _BASELINE_PATH
 from ufw_audit.json_output import build_json_data
 from ufw_audit.output import print_banner
+from ufw_audit.profiles import load_profile
 from ufw_audit.registry import ServiceRegistry
 from ufw_audit.runner import init_report, run_checks
 from ufw_audit.scoring import ScoreEngine
@@ -59,6 +60,19 @@ def _run(argv=None) -> int:
         require_root()
         return install_completion()
 
+    if config.reset_baseline:
+        require_root()
+        if _BASELINE_PATH.exists():
+            try:
+                _BASELINE_PATH.unlink()
+                print(f"Baseline deleted: {_BASELINE_PATH}")
+            except OSError as exc:
+                print(f"Error: could not delete baseline: {exc}", file=sys.stderr)
+                return EXIT_ERROR
+        else:
+            print(f"No baseline found at {_BASELINE_PATH}")
+        return EXIT_OK
+
     require_root()
     i18n.init(lang=config.lang)
     t = i18n.t
@@ -92,6 +106,12 @@ def _run(argv=None) -> int:
         if not config.quiet:
             print()
 
+        # Resolve audit profile: CLI flag > saved config > default
+        profile_name = config.profile or user_config.get_profile() or "server"
+        if config.profile:
+            user_config.set_profile(config.profile)
+        active_profile = load_profile(profile_name)
+
         prev_baseline = load_baseline()
 
         report   = init_report(config, user_config, t, VERSION)
@@ -121,7 +141,8 @@ def _run(argv=None) -> int:
         report.write_finding("INFO", "Starting audit")
         network_context, public_ip = detect_network_context(offline=config.offline)
 
-        result             = run_checks(config, t, engine, report, registry, network_context)
+        result             = run_checks(config, t, engine, report, registry, network_context,
+                                       profile=active_profile)
         snapshots          = result.snapshots
         ports_snapshot     = result.ports_snapshot
         stack_snapshot     = result.stack_snapshot

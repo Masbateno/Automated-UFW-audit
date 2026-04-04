@@ -281,12 +281,15 @@
   "manage_cron": {
     "title": "GESTION DES CRONS UFW-AUDIT",
     "no_crons": "Aucun cron UFW-AUDIT installé. Lancez : sudo ufw-audit --install-cron",
-    "prompt": "Numéro pour modifier, 'e:N' pour l'email, 'd:N' pour supprimer, 'm' pour le carnet d'adresses, Entrée pour quitter",
+    "prompt": "Numéro pour modifier, 'e:N' pour l'email, 'd:N' / 'd:1,3' / 'd:1-3' / 'd:all' pour supprimer, 'm' pour le carnet, Entrée pour quitter",
     "prompt_email_only": "'m' pour gérer le carnet d'adresses, Entrée pour quitter",
     "email_label": "email",
     "legacy_tag": "legacy",
     "confirm_delete": "Supprimer le cron '{name}' ? [y/N]",
+    "confirm_delete_multi": "Supprimer {count} crons ({names}) ? [y/N]",
+    "confirm_delete_all": "Supprimer TOUS les {count} crons ? [y/N]",
     "deleted": "Cron '{name}' supprimé",
+    "deleted_count": "{count} crons supprimés",
     "edit_what": "Modifier '{name}' — que changer ?",
     "edit_schedule_option": "Planning",
     "edit_email_option": "Email de notification",
@@ -308,12 +311,14 @@
     "email_store_invalid_sel": "Sélection invalide"
   },
   "email_prompt": {
-    "title": "Email de notification :",
-    "none": "(aucun / ignorer)",
+    "title": "Email(s) de notification :",
+    "none": "(aucun / terminer)",
     "new": "Saisir une nouvelle adresse...",
     "enter_new": "Nouvelle adresse email",
-    "invalid": "Adresse email invalide — aucun email configuré",
-    "save": "Sauvegarder '{email}' pour les prochaines fois ? [y/N]"
+    "invalid": "Adresse email invalide — ignorée",
+    "save": "Sauvegarder '{email}' pour les prochaines fois ? [y/N]",
+    "selected": "Sélectionnés jusqu'ici : {emails}",
+    "add_another": "Ajouter une autre adresse email ? [o/N]"
   },
   "config": {
     "found": "Configuration trouvée : {path}",
@@ -474,5 +479,10 @@
     "port_no_rule": "Port {port} sur 0.0.0.0 sans règle UFW",
     "brute_force": "Bruteforce {ip} sur {port}",
     "service_open_world": "{label} {port} exposé sur internet"
+  },
+  "profile": {
+    "active": "Profil d'audit : {name}",
+    "not_found": "Profil {name!r} introuvable — profil par défaut (server) utilisé",
+    "section_skipped": "Section ignorée par le profil ({name})"
   }
 }

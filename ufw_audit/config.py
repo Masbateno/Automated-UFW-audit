@@ -230,6 +230,18 @@ class UserConfig:
         """Return True if the config file exists on disk."""
         return self._path.exists()
 
+    # ------------------------------------------------------------------
+    # Profile helpers
+    # ------------------------------------------------------------------
+
+    def get_profile(self) -> str:
+        """Return the saved audit profile name, or empty string if not set."""
+        return self._data.get("audit_profile", "")
+
+    def set_profile(self, name: str) -> None:
+        """Persist the active audit profile name."""
+        self.set("audit_profile", name)
+
     @property
     def path(self) -> Path:
         """Path to the config file."""

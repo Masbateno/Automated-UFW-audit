@@ -80,10 +80,15 @@ class Deduction:
         context: Network context at time of deduction — "local", "public",
                  or "structural" (for synthetic cap deductions).
                  Used for display in the score breakdown.
+        key:     Stable i18n key linking this deduction to its Finding, so
+                 that audit profiles can remove it deterministically when a
+                 finding is skipped or downgraded to INFO.
+                 Empty string means the deduction is not profile-controlled.
     """
     reason:  str
     points:  int
     context: str = "local"
+    key:     str = ""
 
     def __post_init__(self) -> None:
         if self.points < 0:
@@ -107,6 +112,9 @@ class Finding:
         nature:  Category used by --fix mode: "action" | "improvement" | "structural" | "".
         cmd:     Shell command for --fix mode. Empty string if not automatable.
         note:    Optional disclaimer or contextual warning shown after the cmd.
+        key:     Stable i18n key linking this finding to a Deduction.reason so
+                 audit profiles can override its severity.  Empty string means
+                 the finding is not individually overridable by profiles.
     """
     level:   FindingLevel
     message: str
@@ -114,6 +122,7 @@ class Finding:
     nature:  str = ""
     cmd:     str = ""
     note:    str = ""
+    key:     str = ""
 
 
 @dataclass
@@ -147,9 +156,9 @@ class CheckResult:
     open_ports:  List[str]       = field(default_factory=list)
     caps:        List[ScoreCap]  = field(default_factory=list)
 
-    def add_deduction(self, reason: str, points: int, context: str = "local") -> None:
+    def add_deduction(self, reason: str, points: int, context: str = "local", key: str = "") -> None:
         """Convenience method to append a deduction."""
-        self.deductions.append(Deduction(reason=reason, points=points, context=context))
+        self.deductions.append(Deduction(reason=reason, points=points, context=context, key=key))
 
     def set_cap(self, maximum: int, reason: str) -> None:
         """
@@ -168,27 +177,29 @@ class CheckResult:
         nature: str = "",
         cmd: str = "",
         note: str = "",
+        key: str = "",
     ) -> None:
         """Convenience method to append a finding."""
         self.findings.append(
-            Finding(level=level, message=message, detail=detail, nature=nature, cmd=cmd, note=note)
+            Finding(level=level, message=message, detail=detail,
+                    nature=nature, cmd=cmd, note=note, key=key)
         )
 
-    def ok(self, message: str, detail: str = "") -> None:
+    def ok(self, message: str, detail: str = "", key: str = "") -> None:
         """Shorthand for adding an OK finding."""
-        self.add_finding(FindingLevel.OK, message, detail)
+        self.add_finding(FindingLevel.OK, message, detail, key=key)
 
-    def info(self, message: str, detail: str = "") -> None:
+    def info(self, message: str, detail: str = "", key: str = "") -> None:
         """Shorthand for adding an INFO finding."""
-        self.add_finding(FindingLevel.INFO, message, detail)
+        self.add_finding(FindingLevel.INFO, message, detail, key=key)
 
-    def warn(self, message: str, detail: str = "", nature: str = "improvement", cmd: str = "", note: str = "") -> None:
+    def warn(self, message: str, detail: str = "", nature: str = "improvement", cmd: str = "", note: str = "", key: str = "") -> None:
         """Shorthand for adding a WARN finding."""
-        self.add_finding(FindingLevel.WARN, message, detail, nature, cmd, note)
+        self.add_finding(FindingLevel.WARN, message, detail, nature, cmd, note, key=key)
 
-    def alert(self, message: str, detail: str = "", nature: str = "action", cmd: str = "", note: str = "") -> None:
+    def alert(self, message: str, detail: str = "", nature: str = "action", cmd: str = "", note: str = "", key: str = "") -> None:
         """Shorthand for adding an ALERT finding."""
-        self.add_finding(FindingLevel.ALERT, message, detail, nature, cmd, note)
+        self.add_finding(FindingLevel.ALERT, message, detail, nature, cmd, note, key=key)
 
 
 # ---------------------------------------------------------------------------

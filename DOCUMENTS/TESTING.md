@@ -26,6 +26,40 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v1.4.2  | 677   | +1 test — NetBIOS 137/138 now correctly COVERED when UFW rule exists |
 | v1.5.0  | 766   | +89 tests — `test_firewall_stack.py` (38), `test_network_context.py` (51); banner kernel/iptables/nftables |
 | v1.6.0  | 928   | +162 tests — `test_hardening.py` (49), `test_ipv6.py` (33), `test_compare.py` (49), `test_plugin_checks.py` (31) |
+| v1.7.0  | 966   | +38 tests — `test_profiles.py` (36), `test_compare.py` (+2 ephemeral port filter), `test_ipv6.py` (+2 malformed input) |
+
+### v1.7.0 — 966/966 (2026-04-04)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -v
+966 passed in Xs
+```
+
+#### New tests added (+38)
+
+| File | New | Coverage |
+|------|-----|----------|
+| `tests/test_profiles.py` | 36 | `load_profile()`: default/server/empty name, unknown name fallback, file-based load; `_load_from_path()`: name/description/extends chain; `[overrides]`: valid levels, unknown level ignored, None value skipped; `[skip_sections]`: section list; `apply_profile()`: skip removes finding+deduction, info downgrade removes deduction, warn/alert remapping, no-override passthrough, keyless findings untouched; `AuditProfile.should_skip_section()`, `override_for()`; `_remove_deductions_for_key()`: matched/unmatched |
+| `tests/test_compare.py` | 2 | `test_ephemeral_ports_excluded` (ports ≥ 32768 filtered), `test_stable_ports_included` (32767 retained) |
+| `tests/test_ipv6.py` | 2 | `test_malformed_ss_output_returns_empty`, `test_malformed_ufw_lines_returns_empty` |
+
+#### New modules
+
+- **`profiles.py`** — named audit profiles, INI file format, `extends` inheritance, `apply_profile()` post-check filtering
+- **`data/profiles/`** — built-in profiles: `server.conf`, `workstation.conf`, `container.conf`
+
+#### Quality changes (no new tests — existing suite validates)
+
+- `Deduction.key: str = ""` — deterministic deduction removal by key (replaces heuristic string matching)
+- `add_deduction(key=)` — all scored deductions in `hardening.py` / `ipv6.py` carry matching keys
+- `_find_profile_file()` decorated with `@lru_cache(maxsize=32)`; test fixture clears cache between tests
+- Override keys normalized `strip().lower()` in `_load_from_path()`
+- `--install-cron`: `prompt_emails()` — multi-recipient selection loop with ✔ markers
+- `--manage-cron`: bulk delete `d:1,3` / `d:1-3` / `d:all` with adapted confirmation messages
+
+---
 
 ### v1.6.0 — 928/928 (2026-04-04)
 

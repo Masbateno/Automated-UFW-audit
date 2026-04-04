@@ -7,6 +7,7 @@ from typing import NamedTuple
 from ufw_audit import output
 from ufw_audit.cli import AuditConfig
 from ufw_audit.config import UserConfig
+from ufw_audit.profiles import AuditProfile, apply_profile
 from ufw_audit.display import (
     check_single_service_display,
     display_geoip_notice,
@@ -64,8 +65,9 @@ def run_checks(
     report: AuditReport,
     registry: ServiceRegistry,
     network_context: str,
+    profile: AuditProfile | None = None,
 ) -> ChecksResult:
-    """Run all 8 audit checks in sequence."""
+    """Run all audit checks in sequence."""
 
     # ---- CHECK 1 — Firewall status ----
     if not config.quiet:
@@ -225,35 +227,43 @@ def run_checks(
         print()
 
     # ---- CHECK 9 — System hardening ----
-    if not config.quiet:
-        print_section(t("sections.hardening"))
-    report.write_section(t("sections.hardening"))
-
     hardening_snapshot = HardeningSnapshot.from_system()
-    hardening_result   = check_hardening(hardening_snapshot, t=t)
-    engine.apply(hardening_result)
-    display_result(hardening_result, report, config.verbose, quiet=config.quiet)
-    if not config.quiet:
-        print()
+    if profile is None or not profile.should_skip_section("hardening"):
+        if not config.quiet:
+            print_section(t("sections.hardening"))
+        report.write_section(t("sections.hardening"))
+        hardening_result = check_hardening(hardening_snapshot, t=t)
+        if profile is not None:
+            apply_profile(hardening_result, profile)
+        engine.apply(hardening_result)
+        display_result(hardening_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
 
     # ---- CHECK 10 — IPv6 consistency ----
-    if not config.quiet:
-        print_section(t("sections.ipv6"))
-    report.write_section(t("sections.ipv6"))
-
     ipv6_snapshot = IPv6Snapshot.from_system()
-    ipv6_result   = check_ipv6(ipv6_snapshot, t=t)
-    engine.apply(ipv6_result)
-    display_result(ipv6_result, report, config.verbose, quiet=config.quiet)
-    if not config.quiet:
-        print()
+    if profile is None or not profile.should_skip_section("ipv6"):
+        if not config.quiet:
+            print_section(t("sections.ipv6"))
+        report.write_section(t("sections.ipv6"))
+        ipv6_result = check_ipv6(ipv6_snapshot, t=t)
+        if profile is not None:
+            apply_profile(ipv6_result, profile)
+        engine.apply(ipv6_result)
+        display_result(ipv6_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
 
     # ---- Plugin checks (user-defined, checks.d/) ----
     for plugin in load_plugin_checks():
+        if profile is not None and profile.should_skip_section(plugin.name.lower()):
+            continue
         if not config.quiet:
             print_section(plugin.name)
         report.write_section(plugin.name)
         plugin_result = plugin.run(t)
+        if profile is not None:
+            apply_profile(plugin_result, profile)
         engine.apply(plugin_result)
         display_result(plugin_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:

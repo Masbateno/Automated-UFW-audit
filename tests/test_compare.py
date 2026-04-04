@@ -123,6 +123,29 @@ class TestBuildBaseline:
         assert "sshd" in bl.active_services
         assert "nginx" in bl.active_services
 
+    def test_ephemeral_ports_excluded(self):
+        """Ports >= 32768 must not appear in the baseline (too noisy)."""
+        engine = make_engine()
+        bl = build_baseline(
+            engine,
+            make_ports_snapshot(["22/tcp", "32768/udp", "50000/udp", "443/tcp"]),
+            make_snapshots([]),
+        )
+        assert "22/tcp" in bl.open_ports
+        assert "443/tcp" in bl.open_ports
+        assert "32768/udp" not in bl.open_ports
+        assert "50000/udp" not in bl.open_ports
+
+    def test_stable_ports_included(self):
+        """Ports just below 32768 must be included."""
+        engine = make_engine()
+        bl = build_baseline(
+            engine,
+            make_ports_snapshot(["32767/udp"]),
+            make_snapshots([]),
+        )
+        assert "32767/udp" in bl.open_ports
+
     def test_timestamp_is_set(self):
         engine = make_engine()
         bl = build_baseline(engine, make_ports_snapshot([]), make_snapshots([]))

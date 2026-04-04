@@ -262,12 +262,15 @@
   "manage_cron": {
     "title": "UFW-AUDIT CRON MANAGEMENT",
     "no_crons": "No UFW-AUDIT cron jobs installed. Run: sudo ufw-audit --install-cron",
-    "prompt": "Number to edit, 'e:N' to edit email, 'd:N' to delete, 'm' for email book, Enter to quit",
+    "prompt": "Number to edit, 'e:N' to edit email, 'd:N' / 'd:1,3' / 'd:1-3' / 'd:all' to delete, 'm' for email book, Enter to quit",
     "prompt_email_only": "'m' to manage email book, Enter to quit",
     "email_label": "email",
     "legacy_tag": "legacy",
     "confirm_delete": "Delete cron '{name}'? [y/N]",
+    "confirm_delete_multi": "Delete {count} cron jobs ({names})? [y/N]",
+    "confirm_delete_all": "Delete ALL {count} cron jobs? [y/N]",
     "deleted": "Cron '{name}' deleted",
+    "deleted_count": "{count} cron jobs deleted",
     "edit_what": "Edit '{name}' — what to change?",
     "edit_schedule_option": "Schedule",
     "edit_email_option": "Notification email",
@@ -289,12 +292,14 @@
     "email_store_invalid_sel": "Invalid selection"
   },
   "email_prompt": {
-    "title": "Notification email:",
-    "none": "(none / skip)",
+    "title": "Notification email(s):",
+    "none": "(none / done)",
     "new": "Enter a new address...",
     "enter_new": "New email address",
-    "invalid": "Invalid email address — no email configured",
-    "save": "Save '{email}' for future use? [y/N]"
+    "invalid": "Invalid email address — skipped",
+    "save": "Save '{email}' for future use? [y/N]",
+    "selected": "Selected so far: {emails}",
+    "add_another": "Add another email address? [y/N]"
   },
   "fixes": {
     "title": "AVAILABLE FIXES",
@@ -474,5 +479,10 @@
     "port_no_rule": "Port {port} on 0.0.0.0 without UFW rule",
     "brute_force": "Bruteforce {ip} on {port}",
     "service_open_world": "{label} {port} open world"
+  },
+  "profile": {
+    "active": "Audit profile: {name}",
+    "not_found": "Profile {name!r} not found — using default (server)",
+    "section_skipped": "Section skipped by profile ({name})"
   }
 }
