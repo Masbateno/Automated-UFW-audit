@@ -97,15 +97,20 @@ def _run(argv=None) -> int:
         report.write_header(sys_info)
 
         if not config.quiet:
+            not_installed = t("banner.not_installed")
             print_banner(
                 version=f"v{VERSION}",
                 subtitle=t("banner.subtitle"),
                 system=sys_info.os_name,
                 host=sys_info.hostname,
+                kernel=sys_info.kernel,
                 ufw_version=sys_info.ufw_version,
+                iptables=sys_info.iptables_version or not_installed,
+                nftables=sys_info.nftables_version or not_installed,
                 user=sys_info.user,
                 date=datetime.now().strftime("%d/%m/%Y %H:%M"),
-                labels={k: t(f"banner.{k}") for k in ("system", "host", "ufw", "user", "date")},
+                labels={k: t(f"banner.{k}") for k in
+                        ("system", "host", "kernel", "ufw", "iptables", "nftables", "user", "date")},
             )
             output.print_info(t("audit.starting"))
             print()
@@ -113,8 +118,11 @@ def _run(argv=None) -> int:
         report.write_finding("INFO", "Starting audit")
         network_context, public_ip = detect_network_context(offline=config.offline)
 
-        result = run_checks(config, t, engine, report, registry, network_context)
-        snapshots, ports_snapshot = result.snapshots, result.ports_snapshot
+        result        = run_checks(config, t, engine, report, registry, network_context)
+        snapshots     = result.snapshots
+        ports_snapshot = result.ports_snapshot
+        stack_snapshot = result.stack_snapshot
+        net_snapshot   = result.net_snapshot
 
         engine.finalize()
         if not config.quiet:
@@ -137,7 +145,9 @@ def _run(argv=None) -> int:
             _devnull = None
             data = build_json_data(
                 engine, sys_info, network_context, public_ip,
-                snapshots, ports_snapshot, full=config.json_full, version=VERSION,
+                snapshots, ports_snapshot,
+                stack_snapshot, net_snapshot,
+                full=config.json_full, version=VERSION,
             )
             print(_json.dumps(data, ensure_ascii=False, indent=2))
 

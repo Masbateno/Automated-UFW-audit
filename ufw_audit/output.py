@@ -401,7 +401,10 @@ def print_banner(
     subtitle: str,
     system: str,
     host: str,
+    kernel: str,
     ufw_version: str,
+    iptables: str,
+    nftables: str,
     user: str,
     date: str,
     labels: dict[str, str],
@@ -413,11 +416,13 @@ def print_banner(
         subtitle:    Translated subtitle (e.g. "Audit pare-feu UFW").
         system:      OS/distro string.
         host:        Hostname.
+        kernel:      Kernel version string.
         ufw_version: UFW version string.
+        iptables:    iptables version string (or "non installé").
+        nftables:    nftables version string (or "non installé").
         user:        Current user.
         date:        Formatted date string.
-        labels:      Dict of translated field labels:
-                     {"system", "host", "ufw", "user", "date"}.
+        labels:      Dict of translated field labels.
     """
     inner = _TERM_WIDTH - 2
     bar_double = "═" * inner
@@ -438,11 +443,14 @@ def print_banner(
     print(f"{_c.blue_bold}╠{bar_double}╣{_c.reset}")
 
     info_rows = [
-        (labels.get("system", "System"), system),
-        (labels.get("host",   "Host"),   host),
-        (labels.get("ufw",    "UFW"),    f"v{ufw_version}"),
-        (labels.get("user",   "User"),   user),
-        (labels.get("date",   "Date"),   date),
+        (labels.get("system",   "System"),   system),
+        (labels.get("host",     "Host"),     host),
+        (labels.get("kernel",   "Kernel"),   kernel),
+        (labels.get("ufw",      "UFW"),      f"v{ufw_version}"),
+        (labels.get("iptables", "iptables"), iptables),
+        (labels.get("nftables", "nftables"), nftables),
+        (labels.get("user",     "User"),     user),
+        (labels.get("date",     "Date"),     date),
     ]
     for label, value in info_rows:
         content = f"  {label:<14}: {value}"

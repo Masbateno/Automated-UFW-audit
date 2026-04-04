@@ -17,6 +17,108 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v0.20   | 548   | 17 tests en mode dégradé ; scénarios `ss`/règles/log absents |
 | v0.21   | 619   | 78 nouveaux tests + 3 corrections + carnet email ; passe qualité pré-v1.0 |
 | v1.0    | 619   | Pas de nouveaux tests — packaging (`pipx`), correctif locale `not_listening`, Python 3.9 minimum |
+| v1.1.0  | 639   | +20 tests — boîte résumé redesignée, corrections détection vsftpd/Transmission |
+| v1.2.0  | 639   | Pas de nouveaux tests — 12 corrections défensives sur 8 modules |
+| v1.2.1  | 639   | Pas de nouveaux tests — nettoyage packaging |
+| v1.3.0  | 652   | +13 tests dans `test_sysinfo.py` — `--offline`, IP publique IPv6, repli 3 fournisseurs |
+| v1.4.0  | 676   | +24 tests — isolation plugins, ports process-aware, `TestFinding`, flags CLI paramétrés |
+| v1.4.1  | 676   | Pas de nouveaux tests — correctif bash completion `--install-completion` |
+| v1.4.2  | 677   | +1 test — NetBIOS 137/138 désormais COUVERT si règle UFW existante |
+| v1.5.0  | 766   | +89 tests — `test_firewall_stack.py` (38), `test_network_context.py` (51) ; banner kernel/iptables/nftables |
+
+### v1.5.0 — 766/766 (2026-04-04)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -v
+766 passed in Xs
+```
+
+#### Nouveaux tests (+89)
+
+| Fichier | Nouveaux | Couverture |
+|---------|---------|------------|
+| `tests/test_firewall_stack.py` | 38 | `FirewallStackSnapshot`, `check_firewall_stack()` : système propre, contournement INPUT, chaîne FORWARD avec Docker/WireGuard/libvirt, nftables (tables UFW, compat iptables, tables utilisateur), ip_forward avec tous les démons de routage ; `_parse_raw_accepts`, `_has_user_nft_rules` |
+| `tests/test_network_context.py` | 51 | `NetworkContextSnapshot`, `check_network_context()` : système propre, interface tunnel (actif/inactif), port distant sensible (DB externe), suppression IP privée ; `_interface_type` (toutes catégories dont br0), `_parse_interfaces` (loopback exclu, état UP/DOWN, adresse), `_parse_connections` (extraction processus, saut en-tête), `_split_addr_port`, `_is_private_or_loopback`, `top_remote_ips` |
+
+#### Nouveaux modules
+
+- **`checks/firewall_stack.py`** — détecte les règles iptables ACCEPT brutes contournant UFW dans les chaînes INPUT/FORWARD, nftables en parallèle d'UFW, ip_forward sans démon de routage
+- **`checks/network_context.py`** — tableau des interfaces réseau (E) + résumé des connexions TCP établies (C)
+
+#### Bannière enrichie
+
+- `SystemInfo` étendu avec `iptables_version` et `nftables_version`
+- `print_banner()` étendu avec les lignes `kernel`, `iptables`, `nftables`
+- Fixture `test_report.py` mise à jour (`iptables_version="1.8.9"`, `nftables_version=""`)
+
+---
+
+### v1.4.2 — 677/677 (2026-04-04)
+
+#### Nouveaux tests (+1)
+
+| Fichier | Test | Couverture |
+|---------|------|------------|
+| `tests/test_ports.py` | `test_netbios_covered_by_ufw_no_warn` | Ports NetBIOS 137/138 avec règle UFW explicite → COUVERT, aucune déduction |
+
+**Correction :** `_categorize_port()` vérifiait la branche NetBIOS avant `_is_covered_by_ufw()` — les ports 137/138 étaient toujours classés `NETBIOS` même si une règle UFW existait. Correction : la vérification UFW est désormais effectuée en premier.
+
+---
+
+### v1.4.1 — 676/676 (2026-04-04)
+
+Pas de nouveaux tests. Correctif : `--install-completion` absent de la liste `long_opts` de la complétion bash — la complétion TAB ne suggérait pas ce flag.
+
+---
+
+### v1.4.0 — 676/676 (2026-04-04)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+#### Nouveaux tests (+24)
+
+| Fichier | Nouveaux | Couverture |
+|---------|---------|------------|
+| `tests/test_scoring.py` | 6 | `TestFinding` : valeurs `FindingLevel`, champ `nature`, champs optionnels `cmd`/`note`/`detail` |
+| `tests/test_ports.py` | 9 | Findings process-aware : `WARN` (pas `ALERT`) pour processus identifiés ; champ `note` renseigné ; deny par défaut supprime `UNCOVERED_PUBLIC` |
+| `tests/test_registry.py` | 4 | Isolation plugins : `load_plugins()` avec répertoire temporaire ; JSON invalide ignoré ; validation format port |
+| `tests/test_cli.py` | 5 | Flags `--json`, `--json-full`, `--offline`, `--quiet`, `--verbose` paramétrés |
+
+---
+
+### v1.3.0 — 652/652 (2026-03-31)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+#### Nouveaux tests (+13)
+
+| Fichier | Nouveaux | Couverture |
+|---------|---------|------------|
+| `tests/test_sysinfo.py` | 11 | `get_public_ip()` : repli 3 fournisseurs (ipify → ifconfig.me → icanhazip) ; flag offline ; détection IP publique IPv6 ; ULA/link-local exclus |
+| `tests/test_cli.py`     | 2  | Parsing du flag `--offline`/`-o` |
+
+---
+
+### v1.2.0 — 639/639 (2026-03-30)
+
+Pas de nouveaux tests. Passe qualité : 12 corrections défensives sur 8 modules (i18n, chemins, logs, registre, scoring, sysinfo, rapport_markdown, sortie). Tous les tests existants restent verts.
+
+---
+
+### v1.1.0 — 639/639 (2026-03-30)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+#### Nouveaux tests (+20)
+
+| Fichier | Nouveaux | Couverture |
+|---------|---------|------------|
+| `tests/test_services.py` | 12 | `_wrap_for_box()` : cas limites de retour à la ligne ; regex `listen_port` vsftpd ; `rpc-port` JSON Transmission |
+| `tests/test_output.py`   | 8  | `_visual_width()` avec Unicode large (emoji) ; formule overhead padding des boîtes |
+
+---
 
 ### v0.21 — 619/619 (2026-03-28)
 

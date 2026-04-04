@@ -26,11 +26,13 @@ def resolve_share_dir() -> Path | None:
         Resolved Path if the variable is set and points to an absolute
         directory; None otherwise (fall back to package-local data).
     """
-    share = os.environ.get("UFW_AUDIT_SHARE", "")
+    share = os.environ.get("UFW_AUDIT_SHARE", "").strip()
     if not share:
         return None
     try:
-        resolved = Path(share).resolve()
+        # strict=True: raises OSError immediately if the path does not exist
+        # (catches broken symlinks and non-existent directories early)
+        resolved = Path(share).resolve(strict=True)
     except OSError as exc:
         logger.warning("UFW_AUDIT_SHARE could not be resolved, ignoring: %r (%s)", share, exc)
         return None

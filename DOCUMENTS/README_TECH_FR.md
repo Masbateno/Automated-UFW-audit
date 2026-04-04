@@ -442,9 +442,15 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v1.3.0** — i18n complète : toutes les raisons de déduction traduites via `t()` ; flag `--offline`/`-o` ; détection d'adresse IPv6 publique ; chaîne de fallback 3 providers ; 652/652
 
-**v1.4.0** *(actuel)* — Système de plugins (`services.d/*.json`) ; findings ports avec processus identifié (WARN + note au lieu d'ALERT) ; sortie JSON SIEM (`--json` / `--json-full`) ; correction crash GeoIP2 (`AddressNotFoundError`) ; sujet email cron enrichi hostname + score ; prise en compte de la politique de refus par défaut UFW (ports non couverts rétrogradés en INFO si policy = deny/reject) ; 676/676
+**v1.4.0** — Système de plugins (`services.d/*.json`) ; findings ports avec processus identifié (WARN + note au lieu d'ALERT) ; sortie JSON SIEM (`--json` / `--json-full`) ; correction crash GeoIP2 (`AddressNotFoundError`) ; sujet email cron enrichi hostname + score ; prise en compte de la politique de refus par défaut UFW (ports non couverts rétrogradés en INFO si policy = deny/reject) ; 676/676
 
-**v1.5.0** *(prévu)*
+**v1.4.1** — Hotfix : `--install-completion` absent des suggestions TAB de la complétion bash (liste `long_opts` mise à jour)
+
+**v1.4.2** — Hotfix : ports NetBIOS 137/138 encore signalés malgré une règle UFW explicite ; `_is_covered_by_ufw()` déplacé avant la branche NetBIOS dans `_categorize_port()` ; 677/677
+
+**v1.5.0** *(actuel)* — Bannière enrichie (noyau, version iptables + backend, version nftables) ; nouvelle section ANALYSE DE LA PILE PARE-FEU (contournement iptables brut, nftables parallèle, ip_forward) ; nouvelle section CONTEXTE RÉSEAU (tableau interfaces, connexions établies) ; 766/766
+
+**v1.6.0** *(prévu)*
 - `--diff` — comparer l'audit courant avec un précédent export `--json` pour détecter les nouveaux ports/services (dérive d'audit)
 - `--fix --safe` — mode auto-fix restreint aux findings LOW/MEDIUM uniquement ; les findings CRITICAL/HIGH ne sont jamais appliqués sans confirmation explicite
 

@@ -14,7 +14,10 @@ def install_completion() -> int:
 
     src      = Path(__file__).parent / "data" / "ufw-audit.bash-completion"
     dst_comp = Path("/etc/bash_completion.d/ufw-audit")
-    if not dst_comp.parent.exists():
+    if not src.exists():
+        print(f"✖ Completion data file not found: {src}", file=sys.stderr)
+        ok = False
+    elif not dst_comp.parent.exists():
         print("✖ /etc/bash_completion.d not found — is bash-completion installed?",
               file=sys.stderr)
         ok = False
@@ -49,8 +52,10 @@ def install_completion() -> int:
         except OSError as exc:
             print(f"✖ Failed to create symlink: {exc}", file=sys.stderr)
             ok = False
+    elif sudo_user:
+        print("ℹ  Symlink skipped — ufw-audit not found in ~/.local/bin (pipx install?)")
     else:
-        print("ℹ  Symlink skipped — binary not found in ~/.local/bin")
+        print("ℹ  Symlink skipped — run via sudo to detect user binary")
 
     if ok:
         print("  Open a new shell or run: source /etc/bash_completion.d/ufw-audit")

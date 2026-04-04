@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.5.0](#v150) | 2026-04-04 | Analyse pile pare-feu ; Contexte réseau ; bannière enrichie ; passage qualité (12 modules renforcés) ; 766/766 tests |
 | [v1.4.2](#v142) | 2026-04-04 | Hotfix : ports NetBIOS 137/138 encore signalés non couverts malgré une règle UFW existante |
 | [v1.4.1](#v141) | 2026-04-04 | Hotfix : `--install-completion` absent des suggestions de complétion bash |
 | [v1.4.0](#v140) | 2026-04-04 | Conscience de la politique deny par défaut ; `__main__.py` découpé en 4 modules ; passage hardening (11 correctifs) ; 676/676 tests |
@@ -37,6 +38,48 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.5.0
+
+**2026-04-04** — 766/766 tests
+
+### Nouvelles sections
+
+- **ANALYSE DE LA PILE PARE-FEU** (`checks/firewall_stack.py`) — détecte les règles iptables ACCEPT brutes contournant UFW dans la chaîne INPUT ; règles ACCEPT dans FORWARD (supprimées si Docker/WireGuard/libvirt sont détectés) ; tables nftables parallèles à UFW (tables de compatibilité iptables-nft exclues) ; ip_forward activé sans démon de routage (Docker, WireGuard ou libvirt/KVM)
+- **CONTEXTE RÉSEAU** (`checks/network_context.py`) — tableau des interfaces (nom, type, ACTIF/INACTIF, adresse IPv4) ; nombre de connexions TCP établies + top IP distantes ; WARN si connexion établie vers un hôte externe sur un port sensible (MySQL, PostgreSQL, Redis, MongoDB, CouchDB)
+
+### Bannière enrichie
+
+- Version du noyau, version iptables + backend (`nf_tables` / `legacy`), version nftables affichées au démarrage
+- `"non installé"` affiché si iptables ou nftables est absent
+
+### Sortie JSON (`--json-full`)
+
+- Objet `"firewall_stack"` : `input_bypasses`, `forward_bypasses`, `nftables_active`, `ip_forward`, flags démons de routage
+- Objet `"network_context"` : liste `interfaces`, `connections_count`, `top_remote_ips`
+
+### Tests
+
+- `tests/test_firewall_stack.py` — 38 tests (nouveau fichier)
+- `tests/test_network_context.py` — 51 tests (nouveau fichier)
+- `tests/test_report.py` — fixture mise à jour pour `iptables_version` / `nftables_version`
+
+### Passage qualité (12 modules — aucun changement de comportement sur un audit propre)
+
+- **`report_markdown.py`** — Correction XSS : `_safe_url()` rejette les URLs non-`http(s)` ; cohérence des horodatages via `created_at` ; normalisation des colonnes de tableau ; extension `.md`
+- **`registry.py`** — Validation de la plage de ports (1–65535) ; garde contre les mots-clés Python dans `config_key` ; typage de `__iter__`
+- **`cli.py`** — `--lang=CODE` généralise `--french` ; conflit `--quiet`+`--json` ; conflit `--json`+`--fix` ; `--log-days` plafonné à 3650 ; import `field` inutilisé supprimé
+- **`config.py`** — Écriture atomique (`.tmp` + `replace()`) pour `UserConfig` et `EmailStore` ; validation email (regex stricte) ; `set()` rejette les clés invalides
+- **`cron.py`** — Regex email renforcé ; chemin de script cron supporte les espaces ; `_validate_custom_cron()` vérifie les plages minute (0–59) et heure (0–23)
+- **`fixes.py`** — Les corrections manuelles sont désormais affichées après les auto-fixes ; regex de suppression UFW ancrée ; garde contre les opérateurs shell ; clé locale `done_summary`
+- **`i18n.py`** — Fallback par clé vers l'anglais si la clé FR est absente ; validation du type racine JSON ; garde de profondeur de clé (max 10) ; `_load_locale()` extrait ; log reflète la langue réellement chargée
+- **`manage_logs.py`** — La suppression `"all"` demande une confirmation `[y/N]`
+- **`panorama.py`** — `PanoramaRow TypedDict` ; gardes défensives `state`/`exposures` ; normalisation lowercase de `risk`
+- **`completion.py`** — Garde `src.exists()` avant la copie ; messages distincts selon la cause d'échec
+- **`_paths.py`** — `.strip()` sur la variable d'environnement ; `resolve(strict=True)`
+- **`pyproject.toml`** — README avec `content-type = "text/markdown"` explicite ; classifier Python 3.11 ajouté
 
 ---
 

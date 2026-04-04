@@ -11,6 +11,7 @@ from ufw_audit.display import (
     check_single_service_display,
     display_geoip_notice,
     display_log_results,
+    display_network_context,
     display_ports_overview,
     display_result,
     display_risk_context,
@@ -23,6 +24,8 @@ from ufw_audit.scoring import ScoreEngine
 from ufw_audit.checks.ddns import DdnsSnapshot, check_ddns
 from ufw_audit.checks.docker import DockerSnapshot, check_docker
 from ufw_audit.checks.firewall import FirewallStatus, check_firewall, check_rules
+from ufw_audit.checks.firewall_stack import FirewallStackSnapshot, check_firewall_stack
+from ufw_audit.checks.network_context import NetworkContextSnapshot, check_network_context
 from ufw_audit.checks.logs import LogsSnapshot, check_logs, geoip2_status
 from ufw_audit.checks.ports import PortsSnapshot, check_ports
 from ufw_audit.checks.services import ServiceSnapshot
@@ -30,8 +33,10 @@ from ufw_audit.checks.virtualization import VirtSnapshot, check_virtualization
 
 
 class ChecksResult(NamedTuple):
-    snapshots: list
+    snapshots:      list
     ports_snapshot: PortsSnapshot
+    stack_snapshot: FirewallStackSnapshot
+    net_snapshot:   NetworkContextSnapshot
 
 
 def init_report(config: AuditConfig, user_config: UserConfig, t, version: str) -> AuditReport:
@@ -82,6 +87,30 @@ def run_checks(
     rules_result = check_rules(ufw_verbose, ufw_numbered, t, fw_status.ipv6_ufw_enabled)
     engine.apply(rules_result)
     display_result(rules_result, report, config.verbose, quiet=config.quiet)
+
+    # ---- CHECK 2b — Firewall stack analysis ----
+    if not config.quiet:
+        print_section(t("sections.firewall_stack"))
+    report.write_section(t("sections.firewall_stack"))
+
+    stack_snapshot = FirewallStackSnapshot.from_system()
+    stack_result   = check_firewall_stack(stack_snapshot, t=t)
+    engine.apply(stack_result)
+    display_result(stack_result, report, config.verbose, quiet=config.quiet)
+    if not config.quiet:
+        print()
+
+    # ---- CHECK 2c — Network context (interfaces + connections) ----
+    if not config.quiet:
+        print_section(t("sections.network_context"))
+    report.write_section(t("sections.network_context"))
+
+    net_snapshot = NetworkContextSnapshot.from_system()
+    net_result   = check_network_context(net_snapshot, t=t)
+    engine.apply(net_result)
+    display_result(net_result, report, config.verbose, quiet=config.quiet)
+    if not config.quiet:
+        display_network_context(net_snapshot, t, output)
 
     # ---- CHECK 3 — Network services ----
     ports_snapshot        = PortsSnapshot.from_system()
@@ -190,4 +219,9 @@ def run_checks(
     if not config.quiet:
         print()
 
-    return ChecksResult(snapshots=snapshots, ports_snapshot=ports_snapshot)
+    return ChecksResult(
+        snapshots=snapshots,
+        ports_snapshot=ports_snapshot,
+        stack_snapshot=stack_snapshot,
+        net_snapshot=net_snapshot,
+    )

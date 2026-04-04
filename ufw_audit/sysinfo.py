@@ -64,11 +64,23 @@ def collect_system_info(version: str, lang: str):
     ufw_match = re.search(r"[\d.]+", ufw_ver_raw)
     ufw_version = ufw_match.group(0) if ufw_match else "N/A"
 
+    # iptables version — empty string if not installed
+    ipt_raw = run("iptables", "--version")
+    ipt_match = re.search(r"v([\d.]+(?:\s+\([^)]+\))?)", ipt_raw)
+    iptables_version = ipt_match.group(1) if ipt_match else ""
+
+    # nftables version — empty string if not installed
+    nft_raw = run("nft", "--version")
+    nft_match = re.search(r"v([\d.]+)", nft_raw)
+    nftables_version = nft_match.group(1) if nft_match else ""
+
     return SystemInfo(
         os_name=os_name,
         hostname=_sanitize(run("hostname"), max_len=64),
         kernel=_sanitize(run("uname", "-r"), max_len=64),
         ufw_version=ufw_version,
+        iptables_version=iptables_version,
+        nftables_version=nftables_version,
         user=_sanitize(
             os.environ.get("SUDO_USER") or os.environ.get("USER", "unknown"),
             max_len=32,

@@ -8,9 +8,13 @@
     "subtitle": "Audit pare-feu UFW",
     "system": "Système",
     "host": "Hôte",
+    "kernel": "Noyau",
     "ufw": "UFW",
+    "iptables": "iptables",
+    "nftables": "nftables",
     "user": "Utilisateur",
-    "date": "Date"
+    "date": "Date",
+    "not_installed": "non installé"
   },
   "sections": {
     "prerequisites": "VÉRIFICATION DES PRÉREQUIS",
@@ -26,7 +30,9 @@
     "summary": "RÉSUMÉ DE L'AUDIT",
     "fixes": "CORRECTIONS DISPONIBLES",
     "risk_context": "CONTEXTE DE RISQUE — SERVICES DÉTECTÉS",
-    "virtualization": "ANALYSE DE VIRTUALISATION"
+    "virtualization": "ANALYSE DE VIRTUALISATION",
+    "firewall_stack": "ANALYSE DE LA PILE PARE-FEU",
+    "network_context": "CONTEXTE RÉSEAU"
   },
   "status": {
     "ok": "OK",
@@ -54,6 +60,31 @@
     "open_any_found": "Règle autorisant toutes les connexions entrantes sans restriction de port : {rule}",
     "ipv6_ok": "Configuration IPv6 cohérente avec les règles UFW",
     "ipv6_missing": "Des règles UFW existent en IPv4 mais aucune règle IPv6 équivalente n'a été trouvée"
+  },
+  "firewall_stack": {
+    "no_issues": "Aucune règle de pare-feu supplémentaire interférant avec UFW détectée",
+    "iptables_bypass": "Règle iptables ACCEPT brute contourne UFW dans la chaîne INPUT : {rule}",
+    "iptables_forward_bypass": "Règle iptables ACCEPT brute contourne UFW dans la chaîne FORWARD : {rule}",
+    "forward_routing_ok": "La chaîne FORWARD contient des règles ACCEPT — cohérent avec le routage Docker/VPN",
+    "nftables_parallel": "Règles nftables actives détectées en parallèle d'UFW — conflits potentiels",
+    "ip_forward_ok": "Transfert IP activé — démon de routage détecté (Docker, VPN ou KVM)",
+    "ip_forward_enabled": "Transfert IP activé sans VPN/Docker détecté — vérifiez que c'est intentionnel"
+  },
+  "network_context": {
+    "no_interfaces": "Aucune interface réseau trouvée",
+    "interfaces_found": "{count} interface(s) réseau active(s)",
+    "tunnel_active": "Interface tunnel active : {name}",
+    "no_connections": "Aucune connexion TCP établie",
+    "connections_found": "{count} connexion(s) TCP établie(s)",
+    "sensitive_remote": "Connexion établie vers un hôte externe sur le port sensible {port} ({addr})",
+    "col_interface": "INTERFACE",
+    "col_type": "TYPE",
+    "col_status": "ÉTAT",
+    "col_address": "ADRESSE",
+    "up": "ACTIF",
+    "down": "INACTIF",
+    "connections_total": "{count} connexion(s) TCP établie(s)",
+    "top_remotes": "Top IP distantes"
   },
   "services": {
     "panorama": {
@@ -187,7 +218,9 @@
     "manual": "manuel — appliquez la commande manuellement",
     "done": "Corrections terminées. Relancez l'audit pour vérifier.",
     "auto_mode_banner": "MODE AUTO-FIX — {count} correction(s) seront appliquées automatiquement",
-    "auto_summary_title": "RÉCAPITULATIF AUTO-FIX"
+    "auto_summary_title": "RÉCAPITULATIF AUTO-FIX",
+    "manual_items_title": "Actions manuelles requises (aucune correction automatique disponible) :",
+    "done_summary": "{applied} correction(s) sur {total} appliquée(s)."
   },
   "risk_context": {
     "title": "Contexte de risque",
@@ -211,6 +244,7 @@
     "change_prompt": "Nouveau chemin de stockage des rapports",
     "location_updated": "Emplacement mis à jour : {path}",
     "deleted_one": "{name} supprimé",
+    "confirm_all": "Supprimer les {count} rapport(s) ?",
     "deleted_all": "{count} rapport(s) supprimé(s)",
     "deleted_multi": "{count} rapport(s) supprimé(s)",
     "invalid": "Choix non reconnu"

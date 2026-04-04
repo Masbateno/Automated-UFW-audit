@@ -154,13 +154,20 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Quality & reliability
 
-- ✅ 676 unit tests
+- ✅ 766 unit tests
 - 🧱 Modular architecture (snapshot / check separated)
 - 🧪 Tested on Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.4.0
+## 🆕 v1.5.0
+
+- 🖥️ **Banner enriched** — kernel version, iptables version and build, nftables version displayed at startup
+- 🔥 **Firewall Stack Analysis** — new section detecting raw iptables ACCEPT rules bypassing UFW, nftables rulesets running in parallel, and unexpected IP forwarding
+- 🌐 **Network Context** — new section showing active network interfaces (type, status, IP) and established TCP connections
+- ✅ 766/766 unit tests
+
+## v1.4.0
 
 - 🔌 **Plugin system** — drop `.json` files into `~/.config/ufw-audit/services.d/` to add custom service definitions
 - ⚙️ **Process-aware port findings** — uncovered ports with an identified process produce a WARN (improvement) instead of ALERT (action), with a disclaimer note
@@ -202,7 +209,7 @@ Automated-UFW-audit/
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 676 unit tests
+└── tests/                          # 766 unit tests
 ```
 
 ---

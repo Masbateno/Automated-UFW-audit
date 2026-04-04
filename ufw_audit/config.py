@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -36,6 +37,9 @@ logger = logging.getLogger(__name__)
 _DEFAULT_CONFIG_DIR = Path.home() / ".config" / "ufw-audit"
 _CONFIG_FILENAME = "config.conf"
 _EMAILS_FILENAME = "emails"
+
+# Minimal email sanity check — rejects obvious non-addresses before persisting
+_EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
 
 
 # ---------------------------------------------------------------------------
@@ -75,7 +79,11 @@ class EmailStore:
     def add(self, email: str) -> None:
         """Add email if not already present and persist to disk."""
         email = email.strip()
-        if email and email not in self._emails:
+        if not email:
+            return
+        if not _EMAIL_RE.match(email):
+            raise ValueError(f"Invalid email address: {email!r}")
+        if email not in self._emails:
             self._emails.append(email)
             self._save()
 
@@ -107,11 +115,13 @@ class EmailStore:
 
     def _save(self) -> None:
         self._ensure_dir()
+        tmp_path = self._path.with_suffix(".tmp")
         try:
-            fd = os.open(str(self._path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            fd = os.open(str(tmp_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
             with os.fdopen(fd, "w", encoding="utf-8") as fh:
                 for addr in self._emails:
                     fh.write(f"{addr}\n")
+            tmp_path.replace(self._path)
         except OSError as exc:
             logger.error("Could not write emails file %s: %s", self._path, exc)
             raise
@@ -177,12 +187,15 @@ class UserConfig:
         Store a key=value pair and persist to disk immediately.
 
         Args:
-            key:   Configuration key.
+            key:   Configuration key (must be a valid identifier, e.g. "ssh_port").
             value: String value to store.
 
         Raises:
-            OSError: If the config file cannot be written.
+            ValueError: If key is not a valid identifier.
+            OSError:    If the config file cannot be written.
         """
+        if not key.isidentifier():
+            raise ValueError(f"Invalid config key: {key!r}")
         self._data[key] = value
         self._save()
         logger.debug("Config set: %s=%s", key, value)
@@ -270,15 +283,20 @@ class UserConfig:
         """
         Write _data to disk as key=value lines, sorted by key.
 
+        Uses an atomic write (temp file + replace) to prevent corruption
+        if the process is interrupted mid-write.
+
         Raises:
             OSError: If the file cannot be written.
         """
         self._ensure_dir()
+        tmp_path = self._path.with_suffix(".tmp")
         try:
-            fd = os.open(str(self._path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            fd = os.open(str(tmp_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
             with os.fdopen(fd, "w", encoding="utf-8") as fh:
                 for key in sorted(self._data.keys()):
                     fh.write(f"{key}={self._data[key]}\n")
+            tmp_path.replace(self._path)
         except OSError as exc:
             logger.error("Could not write config file %s: %s", self._path, exc)
             raise

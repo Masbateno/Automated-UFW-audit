@@ -230,6 +230,71 @@ def display_log_results(logs_result, snapshot, config, t, report) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Network context display (sections C + E)
+# ---------------------------------------------------------------------------
+
+def display_network_context(snapshot, t, output_mod) -> None:
+    """
+    Print the interface table (E) and connection summary (C).
+
+    Args:
+        snapshot:   NetworkContextSnapshot collected from the system.
+        t:          Translation function.
+        output_mod: The ufw_audit.output module (passed to avoid circular import).
+    """
+    from ufw_audit.checks.network_context import top_remote_ips
+
+    # ── Interfaces table ──────────────────────────────────────────────────
+    w_name = 14
+    w_type = 10
+    w_stat = 8
+    header = (
+        f"  {t('network_context.col_interface'):<{w_name}}"
+        f"  {t('network_context.col_type'):<{w_type}}"
+        f"  {t('network_context.col_status'):<{w_stat}}"
+        f"  {t('network_context.col_address')}"
+    )
+    sep = (
+        f"  {'─' * w_name}"
+        f"  {'─' * w_type}"
+        f"  {'─' * w_stat}"
+        f"  {'─' * 20}"
+    )
+    output_mod.print_dim(header)
+    output_mod.print_dim(sep)
+
+    if not snapshot.interfaces:
+        output_mod.print_dim(f"  {t('network_context.no_interfaces')}")
+    else:
+        for iface in snapshot.interfaces:
+            status = t("network_context.up") if iface.is_up else t("network_context.down")
+            addr   = iface.address or "—"
+            row = (
+                f"  {iface.name:<{w_name}}"
+                f"  {iface.if_type:<{w_type}}"
+                f"  {status:<{w_stat}}"
+                f"  {addr}"
+            )
+            output_mod.print_dim(row)
+
+    print()
+
+    # ── Connections summary ───────────────────────────────────────────────
+    total = len(snapshot.connections)
+    output_mod.print_dim(
+        f"  {t('network_context.connections_total', count=total)}"
+    )
+
+    top = top_remote_ips(snapshot.connections, n=3)
+    if top:
+        top_str = ", ".join(f"{ip} ×{n}" for ip, n in top)
+        output_mod.print_dim(
+            f"  {t('network_context.top_remotes')} : {top_str}"
+        )
+    print()
+
+
+# ---------------------------------------------------------------------------
 # Audit summary
 # ---------------------------------------------------------------------------
 

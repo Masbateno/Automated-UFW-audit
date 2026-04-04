@@ -22,11 +22,12 @@ Usage:
 from __future__ import annotations
 
 import json
+import keyword
 import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Iterator, Optional
 
 from ufw_audit._paths import resolve_share_dir
 
@@ -136,9 +137,9 @@ class Service:
             ValueError: If required fields are missing or have invalid values.
         """
         required = ("id", "label", "packages", "services", "ports", "risk", "config_key")
-        for field_name in required:
-            if field_name not in data:
-                raise ValueError(f"Service entry missing required field: {field_name!r}")
+        for required_field in required:
+            if required_field not in data:
+                raise ValueError(f"Service entry missing required field: {required_field!r}")
 
         risk = data["risk"]
         if risk not in VALID_RISKS:
@@ -149,7 +150,10 @@ class Service:
 
         config_key = data["config_key"]
         # config_key is either a reserved keyword or a valid identifier (e.g. "ssh_port")
-        if config_key not in VALID_CONFIG_KEYS and not config_key.isidentifier():
+        # Python keywords (class, eval, …) are rejected to prevent misuse if key is ever eval'd
+        if config_key not in VALID_CONFIG_KEYS and (
+            not config_key.isidentifier() or keyword.iskeyword(config_key)
+        ):
             raise ValueError(
                 f"Service {data['id']!r}: invalid config_key {config_key!r}. "
                 f"Must be one of {sorted(VALID_CONFIG_KEYS)} or a valid identifier."
@@ -161,6 +165,11 @@ class Service:
                 raise ValueError(
                     f"Service {data['id']!r}: invalid port format {p!r}. "
                     f"Expected 'number/tcp' or 'number/udp'."
+                )
+            port_num = int(p.split("/")[0])
+            if not (1 <= port_num <= 65535):
+                raise ValueError(
+                    f"Service {data['id']!r}: port number {port_num} out of range (1–65535)."
                 )
 
         if config_key == "fixed" and not ports:
@@ -302,6 +311,7 @@ class ServiceRegistry:
         logger.debug("Loaded %d services from %s", len(services), json_path)
 
         # Merge user plugins from services.d/
+        # IMPORTANT: plugins must be loaded before cls() so _by_id includes plugin services.
         _load_plugins(services, ids_seen)
 
         return cls(services)
@@ -339,5 +349,5 @@ class ServiceRegistry:
     def __len__(self) -> int:
         return len(self._services)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Service]:
         return iter(self._services)

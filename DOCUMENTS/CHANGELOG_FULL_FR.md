@@ -6,6 +6,74 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.5.0] — 2026-04-04
+
+### Résumé
+- Bannière enrichie : version du noyau, version iptables + backend, version nftables
+- Nouvelle section **ANALYSE DE LA PILE PARE-FEU** : contournement iptables brut, règles nftables parallèles, ip_forward inattendu
+- Nouvelle section **CONTEXTE RÉSEAU** : tableau d'interfaces (type/état/IP) + connexions TCP établies
+- Sortie JSON (`--json-full`) étendue avec les objets `firewall_stack` et `network_context`
+- Passage qualité : 12 modules renforcés (correction XSS, écriture atomique, validation des entrées, gardes CLI, fallback i18n…)
+- 766/766 tests unitaires (+89)
+
+### Nouvelles sections
+
+- **ANALYSE DE LA PILE PARE-FEU** (`checks/firewall_stack.py`) — nouvelle vérification après l'analyse des règles UFW :
+  - Règles `ACCEPT` brutes dans la chaîne INPUT iptables ne sautant pas vers une chaîne `ufw-*` → WARN + 2 points de déduction par règle
+  - Règles `ACCEPT` brutes dans FORWARD : WARN si aucun Docker/WireGuard/libvirt détecté ; INFO si démon de routage présent
+  - Tables nftables en parallèle d'UFW : signalées uniquement si des tables non-UFW, non-compat-iptables existent (`filter`, `nat`, `mangle`, `raw`, `security` sont des traductions iptables-nft — exclues)
+  - `ip_forward=1` sans Docker, WireGuard ni libvirt/KVM → WARN + 1 point de déduction
+  - libvirt/KVM détecté via binaire `libvirtd`/`virtqemud` ou répertoire `/var/lib/libvirt`
+
+- **CONTEXTE RÉSEAU** (`checks/network_context.py`) — nouvelle vérification après Analyse de la pile pare-feu :
+  - Tableau d'interfaces : toutes les interfaces non-loopback, non-veth avec nom, type catégorisé (ethernet/wifi/bridge/tunnel/other), état opérationnel (ACTIF/INACTIF depuis le champ `state`), adresse IPv4 principale
+  - Connexions TCP établies : nombre + top 3 IP externes (depuis `ss -tnp state established`)
+  - Interface tunnel active (tun/tap ACTIF) → INFO
+  - Connexion établie vers IP externe sur port sensible (MySQL 3306, PostgreSQL 5432, Redis 6379, MongoDB 27017, CouchDB 5984) → WARN + 2 points de déduction
+
+### Bannière enrichie
+
+- `sysinfo.py` — `get_system_info()` collecte désormais :
+  - `iptables_version` : depuis `iptables --version`, capture la version + backend ex. `"1.8.10 (nf_tables)"`
+  - `nftables_version` : depuis `nft --version`, capture la version ex. `"1.0.9"`
+  - Chaîne vide retournée si l'outil n'est pas installé
+- `report.py` — dataclass `SystemInfo` étendue avec `iptables_version: str` et `nftables_version: str`
+- `output.py` — `print_banner()` étendu : colonne labels élargie à 14 caractères ; lignes `kernel`, `iptables`, `nftables` ajoutées ; `"non installé"` affiché si vide
+- `locales/en.json` + `fr.json` — nouvelles clés : `banner.kernel`, `banner.iptables`, `banner.nftables`, `banner.not_installed`, `sections.firewall_stack`, `sections.network_context`, `firewall_stack.*` (7 clés), `network_context.*` (14 clés)
+
+### Sortie JSON
+
+- `json_output.py` — `build_json_data()` étendu (mode full) :
+  - `"firewall_stack"` : `input_bypasses` (liste), `forward_bypasses` (liste), `nftables_active` (bool), `ip_forward` (bool), `docker_present`, `wireguard_present`, `libvirt_present`
+  - `"network_context"` : `interfaces` (liste de `{name, type, up, address}`), `connections_count` (int), `top_remote_ips` (liste de `[ip, count]`)
+
+### Tests
+
+- `tests/test_firewall_stack.py` — 38 tests (nouveau fichier) : `TestCleanSystem`, `TestInputChainBypass`, `TestForwardChain`, `TestNftables`, `TestIPForwarding`, `TestParseRawAccepts`, `TestHasUserNftRules`
+- `tests/test_network_context.py` — 51 tests (nouveau fichier) : `TestCheckNetworkContext`, `TestTunnelInterface`, `TestSensitiveRemotePort`, `TestInterfaceType`, `TestParseInterfaces`, `TestParseConnections`, `TestSplitAddrPort`, `TestIsPrivateOrLoopback`, `TestTopRemoteIps`
+- `tests/test_report.py` — fixture `SystemInfo` mise à jour avec `iptables_version="1.8.9"`, `nftables_version=""`
+
+### Passage qualité
+
+Douze modules renforcés sans changement de comportement sur un audit propre. Chaque correction répond à une cause de défaillance ou une préoccupation de sécurité identifiée :
+
+| Module | Corrections |
+|--------|-------------|
+| `report_markdown.py` | Correction XSS via URL de lien (`_safe_url()` n'autorise que `http://`/`https://`) ; cohérence des horodatages (`created_at` défini une fois dans `open()`, réutilisé dans l'en-tête) ; normalisation des colonnes de tableau ; extension `.log` → `.md` |
+| `registry.py` | Plage de ports 1–65535 appliquée (rejette `99999/tcp`) ; garde contre les mots-clés Python dans `config_key` (`keyword.iskeyword()`) ; `__iter__` typé `-> Iterator[Service]` ; ordre plugins-avant-init documenté |
+| `cli.py` | `--lang=CODE` accepte n'importe quel code (`--french` conservé comme alias) ; `--quiet`+`--json` lève `CLIError` ; `--json`+`--fix` lève `CLIError` ; `--log-days` plafonné à 3650 ; import `field` inutilisé supprimé ; placement de la docstring `no_color` corrigé |
+| `config.py` | Écriture atomique via `.tmp` + `Path.replace()` pour `UserConfig._save()` et `EmailStore._save()` (prévient la corruption en cas de crash) ; email validé avec regex stricte ; `set()` rejette les clés non-identifiants |
+| `cron.py` | Regex email renforcé (même motif que `config.py`) ; parseur de ligne cron capture le chemin du script avec `(.+)$` + `.strip()` (supporte les espaces) ; `_validate_custom_cron()` vérifie minute (0–59) et heure (0–23) |
+| `fixes.py` | La liste `manual_items` est désormais affichée après les auto-fixes (était collectée mais jamais montrée — bug UX) ; regex de suppression UFW ancrée : `^(?:sudo\s+)?ufw\s+.*--force\s+delete\s+\d+$` ; garde contre les opérateurs shell ; `cmd.replace("\n"," ")` avant affichage ; clé `done_summary` ajoutée (EN + FR) |
+| `i18n.py` | Fallback par clé vers l'anglais : si la locale FR est chargée, les clés manquantes tombent sur l'anglais plutôt que `[clé]` ; `_load_locale()` valide que la racine JSON est un `dict` ; garde de profondeur de clé (`_MAX_KEY_DEPTH = 10`) ; `_load_locale()` extrait pour éviter la duplication ; `logger.debug` utilise `_lang` (langue réellement chargée) |
+| `manage_logs.py` | La suppression `"all"` demande une confirmation explicite `[y/N]` ; clé `manage_logs.confirm_all` ajoutée (EN + FR) |
+| `panorama.py` | `PanoramaRow TypedDict` remplace `dict` opaque ; garde `getattr(snap, "state", None)` ; garde `snap.exposures or {}` ; `str(p)` pour les valeurs de ports ; `risk` normalisé en minuscules |
+| `completion.py` | `src.exists()` vérifié avant `shutil.copy2` (erreur claire si le fichier de données est absent après installation) ; messages distincts selon la cause d'échec du symlink |
+| `_paths.py` | `.strip()` sur la variable d'environnement `UFW_AUDIT_SHARE` ; `resolve(strict=True)` lève une erreur tôt sur les chemins inexistants |
+| `pyproject.toml` | `readme = { file = "README.md", content-type = "text/markdown" }` (type MIME explicite pour PyPI) ; classifier Python 3.11 ajouté |
+
+---
+
 ## [v1.4.2] — 2026-04-04
 
 ### Correctifs

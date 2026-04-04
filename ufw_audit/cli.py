@@ -12,7 +12,7 @@ Usage:
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 # ---------------------------------------------------------------------------
@@ -47,10 +47,10 @@ class AuditConfig:
     """--reconfigure: reset saved port configuration and re-ask."""
 
     no_color: bool = False
+    """--no-color: disable ANSI colour output."""
 
     quiet: bool = False
     """-q / --quiet: suppress all terminal output; use exit code to detect issues."""
-    """--no-color: disable ANSI colour output."""
 
     json_mode: bool = False
     """--json: export audit summary as JSON."""
@@ -144,20 +144,23 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         elif arg == "--french":
             config.lang = "fr"
 
+        elif arg.startswith("--lang="):
+            config.lang = arg.split("=", 1)[1]
+
         elif arg in ("-l", "--log-days") and i + 1 < len(argv):
             i += 1
             value = argv[i]
-            if not value.isdigit() or int(value) < 1:
+            if not value.isdigit() or not (1 <= int(value) <= 3650):
                 raise CLIError(
-                    f"--log-days requires a positive integer, got: {value!r}"
+                    f"--log-days requires a positive integer (1–3650), got: {value!r}"
                 )
             config.log_days = int(value)
 
         elif arg.startswith("--log-days="):
             value = arg.split("=", 1)[1]
-            if not value.isdigit() or int(value) < 1:
+            if not value.isdigit() or not (1 <= int(value) <= 3650):
                 raise CLIError(
-                    f"--log-days requires a positive integer, got: {value!r}"
+                    f"--log-days requires a positive integer (1–3650), got: {value!r}"
                 )
             config.log_days = int(value)
 
@@ -190,8 +193,12 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
     # Validate
     if config.yes and not config.fix:
         raise CLIError("--yes requires --fix")
+    if config.quiet and config.json_mode:
+        raise CLIError("--quiet is incompatible with --json (JSON output requires stdout)")
     if config.quiet and config.fix:
         raise CLIError("--quiet is incompatible with --fix (fix mode requires interactive prompts)")
+    if config.json_mode and config.fix:
+        raise CLIError("--json is incompatible with --fix (fix mode is interactive)")
 
     # Mutually exclusive operating modes
     exclusive_modes = [
@@ -228,7 +235,8 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
         ("-m, --manage-logs",  "List and delete saved audit reports"),
         ("-c, --install-cron", "Install an automated audit cron job (schedule wizard)"),
         ("--manage-cron",      "List, edit or delete installed cron jobs"),
-        ("--french",           "Switch interface to French"),
+        ("--french",           "Switch interface to French (alias for --lang=fr)"),
+        ("--lang=CODE",        "Set interface language (e.g. --lang=fr, --lang=en)"),
         ("--install-completion", "Install bash completion to /etc/bash_completion.d/"),
         ("-o, --offline",      "Skip external IP lookup (no HTTP calls)"),
         ("-V, --version",      "Show version and exit (no sudo required)"),

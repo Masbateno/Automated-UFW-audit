@@ -88,7 +88,7 @@ def parse_cron_file(path: Path, legacy: bool = False) -> Optional[CronEntry]:
 
     # Extract cron expression line (format: "M H DOM MON DOW  root  /path/script")
     cron_match = re.search(
-        r"^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+root\s+(\S+)",
+        r"^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+root\s+(.+)$",
         text,
         re.MULTILINE,
     )
@@ -96,6 +96,7 @@ def parse_cron_file(path: Path, legacy: bool = False) -> Optional[CronEntry]:
         return None
 
     minute_s, hour_s, dom, month, dow, script = cron_match.groups()
+    script = script.strip()
     schedule_expr = f"{minute_s} {hour_s} {dom} {month} {dow}"
 
     try:
@@ -249,6 +250,33 @@ def _ordinal(n: int) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Cron expression validator
+# ---------------------------------------------------------------------------
+
+def _validate_custom_cron(expr: str) -> str:
+    """
+    Validate a 5-field cron expression entered by the user.
+
+    Checks:
+    1. Has exactly 5 whitespace-separated fields.
+    2. Minute field, if a plain integer, is in 0–59.
+    3. Hour field, if a plain integer, is in 0–23.
+
+    Returns:
+        Empty string if valid; a human-readable error message otherwise.
+    """
+    if not re.match(r"^\S+\s+\S+\s+\S+\s+\S+\s+\S+$", expr):
+        return "expected 5 fields: minute hour dom month dow"
+    fields = expr.split()
+    minute_s, hour_s = fields[0], fields[1]
+    if minute_s.isdigit() and not (0 <= int(minute_s) <= 59):
+        return f"minute value {minute_s!r} out of range (0–59)"
+    if hour_s.isdigit() and not (0 <= int(hour_s) <= 23):
+        return f"hour value {hour_s!r} out of range (0–23)"
+    return ""
+
+
+# ---------------------------------------------------------------------------
 # Interactive runners (--install-cron, --manage-cron, --remove-cron)
 # ---------------------------------------------------------------------------
 
@@ -291,7 +319,7 @@ def prompt_email(t) -> str:
     if answer.isdigit() and int(answer) == len(saved) + 1:
         answer = input(f"  {t('email_prompt.enter_new')} : ").strip()
 
-    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", answer):
+    if not re.match(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$", answer):
         print(f"  ⚠ {t('email_prompt.invalid')}")
         return ""
 
@@ -383,8 +411,9 @@ def run_install_cron(user_config, config, t) -> int:
         print()
         print(f"  {t('install_cron.prompt_custom')}")
         custom_expr = input("  > ").strip()
-        if not re.match(r"^\S+\s+\S+\s+\S+\s+\S+\s+\S+$", custom_expr):
-            print(f"  ✖ {t('install_cron.invalid_schedule')}")
+        err = _validate_custom_cron(custom_expr)
+        if err:
+            print(f"  ✖ {t('install_cron.invalid_schedule')} ({err})")
             return 1
 
     # --- Step 3: Time ---
@@ -549,7 +578,7 @@ def _manage_email_store(t) -> None:
 
         if answer == "a":
             raw = input(f"  {t('manage_cron.email_store_enter')} : ").strip()
-            if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", raw):
+            if not re.match(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$", raw):
                 print(f"  ✖ {t('manage_cron.email_store_invalid_email')}")
             else:
                 store.add(raw)
@@ -793,8 +822,9 @@ def edit_cron_schedule(entry, config, t) -> None:
         print()
         print(f"  {t('install_cron.prompt_custom')}")
         custom_expr = input("  > ").strip()
-        if not re.match(r"^\S+\s+\S+\s+\S+\s+\S+\s+\S+$", custom_expr):
-            print(f"  ✖ {t('install_cron.invalid_schedule')}")
+        err = _validate_custom_cron(custom_expr)
+        if err:
+            print(f"  ✖ {t('install_cron.invalid_schedule')} ({err})")
             return
 
     if choice != 4:

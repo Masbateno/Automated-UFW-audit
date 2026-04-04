@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _translations: dict[str, Any] = {}
+_default_translations: dict[str, Any] = {}  # always EN — used as per-key fallback
 _lang: str = "en"
 _initialized: bool = False
 
@@ -67,7 +68,7 @@ def init(lang: str = DEFAULT_LANG) -> None:
         FileNotFoundError: If neither the requested nor the fallback locale
                            file can be found.
     """
-    global _translations, _lang, _initialized
+    global _translations, _default_translations, _lang, _initialized
 
     locale_path = _LOCALES_DIR / f"{lang}.json"
 
@@ -86,20 +87,24 @@ def init(lang: str = DEFAULT_LANG) -> None:
         )
 
     _MAX_LOCALE_SIZE = 512 * 1024  # 512 KB
-    with locale_path.open(encoding="utf-8") as fh:
-        content = fh.read(_MAX_LOCALE_SIZE + 1)
-    if len(content) > _MAX_LOCALE_SIZE:
-        raise ValueError(f"Locale file {locale_path} exceeds maximum allowed size (512 KB)")
-    try:
-        _translations = json.loads(content)
-    except json.JSONDecodeError as exc:
-        raise ValueError(
-            f"Locale file {locale_path} is not valid JSON: {exc}"
-        ) from exc
+    _translations = _load_locale(locale_path)
 
     _lang = locale_path.stem  # reflects actual loaded locale, not the requested one
     _initialized = True
-    logger.debug("Loaded locale %r from %s", lang, locale_path)
+    logger.debug("Loaded locale %r from %s", _lang, locale_path)
+
+    # Load default (EN) translations for per-key fallback when using a non-default lang
+    if _lang != DEFAULT_LANG:
+        default_path = _LOCALES_DIR / f"{DEFAULT_LANG}.json"
+        if default_path.exists():
+            try:
+                _default_translations = _load_locale(default_path)
+            except (OSError, ValueError):
+                _default_translations = {}
+        else:
+            _default_translations = {}
+    else:
+        _default_translations = _translations
 
 
 def t(key: str, **kwargs: Any) -> str:
@@ -124,6 +129,11 @@ def t(key: str, **kwargs: Any) -> str:
         return f"[{key}]"
 
     value = _resolve(key, _translations)
+
+    if value is None and _default_translations is not _translations:
+        value = _resolve(key, _default_translations)
+        if value is not None:
+            logger.debug("Key %r missing in %r — using EN fallback", key, _lang)
 
     if value is None:
         logger.debug("Missing translation key: %r (lang=%r)", key, _lang)
@@ -158,6 +168,33 @@ def current_lang() -> str:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+def _load_locale(path: Path) -> dict[str, Any]:
+    """
+    Read, size-check, parse and validate a single locale JSON file.
+
+    Raises:
+        ValueError:  On oversized file, invalid JSON, or non-dict root.
+        OSError:     On read failure.
+    """
+    _MAX_LOCALE_SIZE = 512 * 1024  # 512 KB
+    with path.open(encoding="utf-8") as fh:
+        content = fh.read(_MAX_LOCALE_SIZE + 1)
+    if len(content) > _MAX_LOCALE_SIZE:
+        raise ValueError(f"Locale file {path} exceeds maximum allowed size (512 KB)")
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Locale file {path} is not valid JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValueError(
+            f"Locale file {path} must contain a JSON object, got {type(data).__name__}"
+        )
+    return data
+
+
+_MAX_KEY_DEPTH = 10  # guard against absurdly deep dot-notation keys
+
+
 def _resolve(key: str, data: dict[str, Any]) -> Any:
     """
     Walk a nested dict using dot-separated key segments.
@@ -170,6 +207,9 @@ def _resolve(key: str, data: dict[str, Any]) -> Any:
         The value at the resolved path, or None if any segment is missing.
     """
     segments = key.split(".")
+    if len(segments) > _MAX_KEY_DEPTH:
+        logger.warning("Translation key %r exceeds max depth (%d)", key, _MAX_KEY_DEPTH)
+        return None
     node: Any = data
     for segment in segments:
         if not isinstance(node, dict) or segment not in node:

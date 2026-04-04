@@ -180,6 +180,9 @@ def run_manage_logs(user_config, config, t) -> int:
         print(f"  ✔ {t('manage_logs.location_updated', path=str(chosen))}")
 
     elif answer == "all":
+        confirm = input(f"  {t('manage_logs.confirm_all', count=len(logs))} [y/N] ").strip().lower()
+        if confirm != "y":
+            return 0
         deleted = 0
         for f in logs:
             try:

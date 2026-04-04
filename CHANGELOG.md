@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.5.0](#v150) | 2026-04-04 | Firewall Stack Analysis; Network Context; enriched banner; code quality pass (12 modules hardened); 766/766 tests |
 | [v1.4.2](#v142) | 2026-04-04 | Hotfix: NetBIOS 137/138 still warned when UFW rule exists |
 | [v1.4.1](#v141) | 2026-04-04 | Hotfix: `--install-completion` missing from bash completion suggestions |
 | [v1.4.0](#v140) | 2026-04-04 | UFW default deny awareness; `__main__.py` split into 4 modules; hardening pass (11 fixes); 676/676 tests |
@@ -37,6 +38,48 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.5.0
+
+**2026-04-04** — 766/766 tests
+
+### New sections
+
+- **FIREWALL STACK ANALYSIS** (`checks/firewall_stack.py`) — detects raw iptables ACCEPT rules that bypass UFW in the INPUT chain; ACCEPT rules in FORWARD chain (suppressed if Docker/WireGuard/libvirt are detected); nftables tables running in parallel to UFW (iptables-nft compatibility tables are excluded); ip_forward enabled without a routing daemon (Docker, WireGuard, or libvirt/KVM)
+- **NETWORK CONTEXT** (`checks/network_context.py`) — interface table (name, type, UP/DOWN, IPv4 address); established TCP connection count + top remote IPs; WARN if established connection to an external host on a sensitive port (MySQL, PostgreSQL, Redis, MongoDB, CouchDB)
+
+### Banner enriched
+
+- Kernel version, iptables version + backend (`nf_tables` / `legacy`), nftables version shown at startup
+- `"not installed"` displayed when iptables or nftables is absent
+
+### JSON output (`--json-full`)
+
+- `"firewall_stack"` object: `input_bypasses`, `forward_bypasses`, `nftables_active`, `ip_forward`, routing daemon flags
+- `"network_context"` object: `interfaces` list, `connections_count`, `top_remote_ips`
+
+### Tests
+
+- `tests/test_firewall_stack.py` — 38 tests (new file)
+- `tests/test_network_context.py` — 51 tests (new file)
+- `tests/test_report.py` — fixture updated for `iptables_version` / `nftables_version`
+
+### Code quality pass (12 modules — no behaviour change for clean audits)
+
+- **`report_markdown.py`** — XSS fix: `_safe_url()` rejects non-`http(s)` URLs; timestamp coherence via `created_at`; table column normalization; `.md` file extension
+- **`registry.py`** — port range validation (1–65535); Python keyword guard on `config_key`; `__iter__` return type
+- **`cli.py`** — `--lang=CODE` generalizes `--french`; `--quiet`+`--json` conflict; `--json`+`--fix` conflict; `--log-days` capped at 3650; unused `field` import removed
+- **`config.py`** — atomic writes (`.tmp` + `replace()`) for `UserConfig` and `EmailStore`; email validation (strict regex); `set()` rejects invalid keys
+- **`cron.py`** — email regex tightened; cron script path supports spaces; `_validate_custom_cron()` checks minute (0–59) and hour (0–23) ranges
+- **`fixes.py`** — manual findings now displayed after auto-fixes; UFW delete regex anchored (`^(?:sudo\s+)?ufw`); shell operator guard; `done_summary` locale key
+- **`i18n.py`** — per-key EN fallback when FR key missing; JSON root type validated; key depth guard (max 10); `_load_locale()` extracted; logging reflects actual loaded language
+- **`manage_logs.py`** — `"all"` delete requires `[y/N]` confirmation
+- **`panorama.py`** — `PanoramaRow TypedDict`; `state`/`exposures` defensive guards; `risk` normalized lowercase
+- **`completion.py`** — `src.exists()` guard before copy; distinct messages per failure reason
+- **`_paths.py`** — `.strip()` on env var; `resolve(strict=True)`
+- **`pyproject.toml`** — README explicit `content-type = "text/markdown"`; Python 3.11 classifier
 
 ---
 

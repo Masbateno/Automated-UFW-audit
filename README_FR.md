@@ -154,13 +154,20 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Qualité & fiabilité
 
-- ✅ 676 tests unitaires
+- ✅ 766 tests unitaires
 - 🧱 Architecture modulaire (snapshot / check séparés)
 - 🧪 Testé sur Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.4.0
+## 🆕 v1.5.0
+
+- 🖥️ **Bannière enrichie** — version du noyau, version iptables et backend, version nftables affichées au démarrage
+- 🔥 **Analyse de la pile pare-feu** — nouvelle section détectant les règles iptables ACCEPT brutes contournant UFW, les rulesets nftables parallèles, et le forwarding IP inattendu
+- 🌐 **Contexte réseau** — nouvelle section affichant les interfaces réseau actives (type, état, IP) et les connexions TCP établies
+- ✅ 766/766 tests unitaires
+
+## v1.4.0
 
 - 🔌 **Système de plugins** — déposez des fichiers `.json` dans `~/.config/ufw-audit/services.d/` pour ajouter des définitions de services personnalisés
 - ⚙️ **Ports avec processus identifié** — un port non couvert avec un processus connu génère un WARN (amélioration) au lieu d'une ALERT (action), avec une note de mise en garde
@@ -169,6 +176,8 @@ mkdir -p ~/.config/ufw-audit/services.d/
 - 📬 **Sujet email cron enrichi** — `[UFW-AUDIT] hostname - Score X/10`
 - 🛡️ **Prise en compte de la politique de refus par défaut** — les ports non couverts sont rétrogradés en INFO si la politique UFW par défaut est deny/reject (pas de fausses alertes sur les systèmes bien configurés)
 - ✅ 676/676 tests unitaires
+
+
 
 ---
 
@@ -202,7 +211,7 @@ Automated-UFW-audit/
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 676 tests unitaires
+└── tests/                          # 766 tests unitaires
 ```
 
 ---

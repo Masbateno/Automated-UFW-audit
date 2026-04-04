@@ -17,6 +17,110 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v0.20   | 548   | 17 degraded-mode tests; `ss`/rules/log absent scenarios |
 | v0.21   | 619   | 78 new tests + 3 bug fixes + email store feature; pre-v1.0 quality pass |
 | v1.0    | 619   | No new tests — packaging (`pipx`), `not_listening` locale fix, Python 3.9 minimum |
+| v1.1.0  | 639   | +20 tests — summary box, vsftpd/Transmission detection fixes |
+| v1.2.0  | 639   | No new tests — 12 defensive fixes across 8 modules |
+| v1.2.1  | 639   | No new tests — packaging cleanup |
+| v1.3.0  | 652   | +13 tests in `test_sysinfo.py` — `--offline`, IPv6 public IP, 3-provider fallback |
+| v1.4.0  | 676   | +24 tests — plugin isolation, process-aware ports, `TestFinding`, parametrized CLI flags |
+| v1.4.1  | 676   | No new tests — `--install-completion` bash completion fix |
+| v1.4.2  | 677   | +1 test — NetBIOS 137/138 now correctly COVERED when UFW rule exists |
+| v1.5.0  | 766   | +89 tests — `test_firewall_stack.py` (38), `test_network_context.py` (51); banner kernel/iptables/nftables |
+
+### v1.5.0 — 766/766 (2026-04-04)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -v
+766 passed in Xs
+```
+
+#### New tests added (+89)
+
+| File | New | Coverage |
+|------|-----|----------|
+| `tests/test_firewall_stack.py` | 38 | `FirewallStackSnapshot`, `check_firewall_stack()`: clean system, INPUT bypass, FORWARD with Docker/WireGuard/libvirt, nftables (ufw-only, compat iptables tables, user tables), ip_forward with all routing daemons; `_parse_raw_accepts`, `_has_user_nft_rules` |
+| `tests/test_network_context.py` | 51 | `NetworkContextSnapshot`, `check_network_context()`: clean system, tunnel interface (UP/DOWN), sensitive remote port (external DB), private IP suppression; `_interface_type` (all categories incl. br0), `_parse_interfaces` (loopback excluded, state UP/DOWN, address), `_parse_connections` (process extraction, header skip), `_split_addr_port`, `_is_private_or_loopback`, `top_remote_ips` |
+
+#### New modules
+
+- **`checks/firewall_stack.py`** — detects raw iptables ACCEPT rules bypassing UFW in INPUT/FORWARD chains, nftables parallel to UFW, ip_forward without routing daemon
+- **`checks/network_context.py`** — network interfaces table (E) + established TCP connections summary (C)
+
+#### Banner additions
+
+- `SystemInfo` extended with `iptables_version` and `nftables_version`
+- `print_banner()` extended with `kernel`, `iptables`, `nftables` rows
+- `test_report.py` fixture updated (`iptables_version="1.8.9"`, `nftables_version=""`)
+
+---
+
+### v1.4.2 — 677/677 (2026-04-04)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+#### New tests added (+1)
+
+| File | Test | Coverage |
+|------|------|----------|
+| `tests/test_ports.py` | `test_netbios_covered_by_ufw_no_warn` | NetBIOS ports 137/138 with an explicit UFW rule → COVERED, no deduction |
+
+**Bug fixed:** `_categorize_port()` checked the NetBIOS branch before `_is_covered_by_ufw()` — ports 137/138 were always classified `NETBIOS` even when a UFW rule existed. Fix: UFW coverage check moved first.
+
+---
+
+### v1.4.1 — 676/676 (2026-04-04)
+
+No new tests. Hotfix: `--install-completion` was missing from the bash completion `long_opts` list — TAB completion did not suggest the flag.
+
+---
+
+### v1.4.0 — 676/676 (2026-04-04)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+#### New tests added (+24)
+
+| File | New | Coverage |
+|------|-----|----------|
+| `tests/test_scoring.py` | 6 | `TestFinding`: `FindingLevel` values, `nature` field, `cmd`/`note`/`detail` optional fields |
+| `tests/test_ports.py` | 9 | Process-aware findings: `WARN` (not `ALERT`) for identified processes; `note` field set; default deny suppresses `UNCOVERED_PUBLIC` |
+| `tests/test_registry.py` | 4 | Plugin isolation: `load_plugins()` with temp directory; invalid JSON ignored; port format validation |
+| `tests/test_cli.py` | 5 | Parametrized `--json`, `--json-full`, `--offline`, `--quiet`, `--verbose` flags |
+
+---
+
+### v1.3.0 — 652/652 (2026-03-31)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+#### New tests added (+13)
+
+| File | New | Coverage |
+|------|-----|----------|
+| `tests/test_sysinfo.py` | 11 | `get_public_ip()`: 3-provider fallback (ipify → ifconfig.me → icanhazip); offline flag; IPv6 public detection; ULA/link-local excluded |
+| `tests/test_cli.py`     | 2  | `--offline`/`-o` flag parsing |
+
+---
+
+### v1.2.0 — 639/639 (2026-03-30)
+
+No new tests. Code quality pass: 12 defensive fixes across 8 modules (i18n, paths, logs, registry, scoring, sysinfo, report_markdown, output). All existing tests remain green.
+
+---
+
+### v1.1.0 — 639/639 (2026-03-30)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+#### New tests added (+20)
+
+| File | New | Coverage |
+|------|-----|----------|
+| `tests/test_services.py` | 12 | `_wrap_for_box()`: word wrapping edge cases; vsftpd `listen_port` regex; Transmission JSON `rpc-port` |
+| `tests/test_output.py`   | 8  | `_visual_width()` with wide Unicode (emoji); box padding overhead formula |
+
+---
 
 ### v0.21 — 619/619 (2026-03-28)
 

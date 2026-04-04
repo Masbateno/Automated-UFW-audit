@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from ufw_audit.checks.firewall_stack import FirewallStackSnapshot
+from ufw_audit.checks.network_context import NetworkContextSnapshot, top_remote_ips
 from ufw_audit.checks.ports import PortsSnapshot
 from ufw_audit.checks.services import ServiceSnapshot
 from ufw_audit.report import SystemInfo
@@ -19,6 +21,8 @@ def build_json_data(
     public_ip: str,
     snapshots: list[ServiceSnapshot],
     ports_snapshot: PortsSnapshot,
+    stack_snapshot: FirewallStackSnapshot,
+    net_snapshot: NetworkContextSnapshot,
     full: bool,
     version: str,
 ) -> dict:
@@ -72,4 +76,29 @@ def build_json_data(
             }
             for lp in ports_snapshot.ports if lp.is_all_interfaces
         ]
+        data["firewall_stack"] = {
+            "input_bypasses":    stack_snapshot.input_raw_accepts,
+            "forward_bypasses":  stack_snapshot.forward_raw_accepts,
+            "nftables_active":   stack_snapshot.nftables_active,
+            "ip_forward":        stack_snapshot.ip_forward,
+            "docker_present":    stack_snapshot.docker_present,
+            "wireguard_present": stack_snapshot.wireguard_present,
+            "libvirt_present":   stack_snapshot.libvirt_present,
+        }
+        data["network_context"] = {
+            "interfaces": [
+                {
+                    "name":    iface.name,
+                    "type":    iface.if_type,
+                    "up":      iface.is_up,
+                    "address": iface.address,
+                }
+                for iface in net_snapshot.interfaces
+            ],
+            "connections_count": len(net_snapshot.connections),
+            "top_remote_ips": [
+                {"ip": ip, "count": n}
+                for ip, n in top_remote_ips(net_snapshot.connections, n=5)
+            ],
+        }
     return data

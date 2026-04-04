@@ -53,10 +53,11 @@ class MarkdownReport:
         enabled:  Always True for instances created via open().
     """
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, created_at: Optional[datetime] = None) -> None:
         self.path: Path = path
         self.enabled: bool = True
         self._lines: list[str] = []
+        self.created_at: datetime = created_at or datetime.now()
 
     # ------------------------------------------------------------------
     # Factory
@@ -74,11 +75,12 @@ class MarkdownReport:
         Returns:
             Open MarkdownReport instance ready for writing.
         """
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename  = f"ufw_audit_{timestamp}_md.log"
+        now       = datetime.now()
+        timestamp = now.strftime("%Y%m%d_%H%M%S")
+        filename  = f"ufw_audit_{timestamp}.md"
         path      = directory / filename
 
-        instance = cls(path=path)
+        instance = cls(path=path, created_at=now)
         logger.debug("Markdown report opened: %s", path)
         return instance
 
@@ -88,7 +90,7 @@ class MarkdownReport:
 
     def write_header(self, info: SystemInfo) -> None:
         """Write the report header with system info."""
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = self.created_at.strftime("%Y-%m-%d %H:%M:%S")
 
         self._writeln("# UFW-AUDIT Report")
         self._writeln("")
@@ -426,6 +428,13 @@ hr {{ margin: 20px 0; border: none; border-top: 1px solid #ccc; }}
 </html>"""
 
 
+def _safe_url(url: str) -> str:
+    """Return url only if it uses a safe scheme; otherwise return '#'."""
+    if url.startswith(("http://", "https://")):
+        return url  # already html.escaped by _inline_format caller
+    return "#"
+
+
 def _inline_format(text: str) -> str:
     """Apply inline formatting (bold, code, links) to text."""
     # Escape HTML entities first to prevent injection from system-generated content
@@ -436,8 +445,12 @@ def _inline_format(text: str) -> str:
     # Code: `text` → <code>text</code>
     text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
 
-    # Links: [text](url) → <a href="url">text</a>
-    text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', text)
+    # Links: [text](url) → <a href="url">text</a>  — URL scheme validated to prevent XSS
+    text = re.sub(
+        r"\[([^\]]+)\]\(([^)]+)\)",
+        lambda m: f'<a href="{_safe_url(m.group(2))}">{m.group(1)}</a>',
+        text,
+    )
 
     return text
 
@@ -465,7 +478,9 @@ def _parse_markdown_table(table_lines: list[str]) -> str:
         html += f"<th>{_inline_format(cell)}</th>"
     html += "</tr>\n</thead>\n<tbody>\n"
 
+    max_cols = len(header_cells)
     for row in data_rows:
+        row = row[:max_cols] + [""] * (max_cols - len(row))
         html += "<tr>"
         for cell in row:
             html += f"<td>{_inline_format(cell)}</td>"

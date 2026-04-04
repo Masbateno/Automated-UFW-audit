@@ -8,9 +8,13 @@
     "subtitle": "UFW firewall audit",
     "system": "System",
     "host": "Host",
+    "kernel": "Kernel",
     "ufw": "UFW",
+    "iptables": "iptables",
+    "nftables": "nftables",
     "user": "User",
-    "date": "Date"
+    "date": "Date",
+    "not_installed": "not installed"
   },
   "sections": {
     "prerequisites": "PREREQUISITES CHECK",
@@ -26,7 +30,9 @@
     "summary": "AUDIT SUMMARY",
     "fixes": "AVAILABLE FIXES",
     "risk_context": "RISK CONTEXT — DETECTED SERVICES",
-    "virtualization": "VIRTUALISATION ANALYSIS"
+    "virtualization": "VIRTUALISATION ANALYSIS",
+    "firewall_stack": "FIREWALL STACK ANALYSIS",
+    "network_context": "NETWORK CONTEXT"
   },
   "status": {
     "ok": "OK",
@@ -54,6 +60,31 @@
     "open_any_found": "Rule allowing all incoming connections without port restriction: {rule}",
     "ipv6_ok": "IPv6 configuration consistent with UFW rules",
     "ipv6_missing": "UFW rules exist for IPv4 but no equivalent IPv6 rules found"
+  },
+  "firewall_stack": {
+    "no_issues": "No additional firewall rules interfering with UFW detected",
+    "iptables_bypass": "Raw iptables ACCEPT rule bypasses UFW in INPUT chain: {rule}",
+    "iptables_forward_bypass": "Raw iptables ACCEPT rule bypasses UFW in FORWARD chain: {rule}",
+    "forward_routing_ok": "FORWARD chain has ACCEPT rules — consistent with Docker/VPN routing",
+    "nftables_parallel": "Active nftables rules detected alongside UFW — potential rule conflicts",
+    "ip_forward_ok": "IP forwarding enabled — routing daemon detected (Docker, VPN or KVM)",
+    "ip_forward_enabled": "IP forwarding enabled without detected VPN/Docker — verify this is intentional"
+  },
+  "network_context": {
+    "no_interfaces": "No network interfaces found",
+    "interfaces_found": "{count} network interface(s) active",
+    "tunnel_active": "Tunnel interface active: {name}",
+    "no_connections": "No established TCP connections",
+    "connections_found": "{count} established TCP connection(s)",
+    "sensitive_remote": "Established connection to external host on sensitive port {port} ({addr})",
+    "col_interface": "INTERFACE",
+    "col_type": "TYPE",
+    "col_status": "STATUS",
+    "col_address": "ADDRESS",
+    "up": "UP",
+    "down": "DOWN",
+    "connections_total": "{count} established TCP connection(s)",
+    "top_remotes": "Top remote IPs"
   },
   "services": {
     "panorama": {
@@ -194,6 +225,7 @@
     "change_prompt": "New report storage path",
     "location_updated": "Location updated: {path}",
     "deleted_one": "{name} deleted",
+    "confirm_all": "Delete all {count} report(s)?",
     "deleted_all": "{count} report(s) deleted",
     "deleted_multi": "{count} report(s) deleted",
     "invalid": "Unrecognised choice"
@@ -270,7 +302,9 @@
     "manual": "manual — apply the command manually",
     "done": "Fixes complete. Re-run the audit to verify.",
     "auto_mode_banner": "AUTO-FIX MODE — {count} fix(es) will be applied automatically",
-    "auto_summary_title": "AUTO-FIX SUMMARY"
+    "auto_summary_title": "AUTO-FIX SUMMARY",
+    "manual_items_title": "Manual actions required (no automatic fix available):",
+    "done_summary": "{applied} of {total} fix(es) applied."
   },
   "risk_context": {
     "title": "Risk context",

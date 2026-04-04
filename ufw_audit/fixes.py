@@ -43,10 +43,9 @@ def run_fixes(engine, config, t) -> None:
         return
 
     # Sort ufw delete commands descending to avoid renumbering
-    ufw_deletes = [(m, c) for m, c in auto_items
-                   if re.search(r"ufw.*--force delete \d+$", c)]
-    others      = [(m, c) for m, c in auto_items
-                   if not re.search(r"ufw.*--force delete \d+$", c)]
+    _UFW_DELETE_RE = re.compile(r"^(?:sudo\s+)?ufw\s+.*--force\s+delete\s+\d+$")
+    ufw_deletes = [(m, c) for m, c in auto_items if _UFW_DELETE_RE.search(c)]
+    others      = [(m, c) for m, c in auto_items if not _UFW_DELETE_RE.search(c)]
 
     def sort_key(item):
         match = re.search(r"delete (\d+)$", item[1])
@@ -60,18 +59,26 @@ def run_fixes(engine, config, t) -> None:
         print(f"\033[1;33m  ⚠  {auto_msg}\033[0m")
         print()
 
+    _SHELL_OPS = ("&&", "||", ";", "|", ">", "<", "`", "$(")
     applied_cmds = []
+    skipped_cmds = 0
 
     print()
     for msg, cmd in sorted_items:
+        safe_cmd = cmd.replace("\n", " ").strip()
         print(f"  ✖  {msg}")
-        print(f"  → {cmd}")
+        print(f"  → {safe_cmd}")
         if config.yes:
             answer = "y"
         else:
             answer = input(f"  {t('fixes.apply_prompt')} ").strip().lower()
 
         if answer == "y":
+            if any(op in cmd for op in _SHELL_OPS):
+                print(f"  ✖ {t('fixes.manual')} (unsafe shell syntax in command)")
+                skipped_cmds += 1
+                print()
+                continue
             try:
                 proc = subprocess.run(
                     shlex.split(cmd), stdin=subprocess.DEVNULL,
@@ -86,11 +93,15 @@ def run_fixes(engine, config, t) -> None:
                     print(f"  ✖ {t('fixes.manual')} (exit {proc.returncode}{detail})")
             except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
                 print(f"  ✖ {t('fixes.manual')} ({type(exc).__name__})")
+                skipped_cmds += 1
         else:
             print(f"  ✖ {t('fixes.manual')}")
+            skipped_cmds += 1
         print()
 
-    print(f"  {t('fixes.done')}")
+    total = len(sorted_items)
+    applied = len(applied_cmds)
+    print(f"  {t('fixes.done_summary', applied=applied, total=total)}")
 
     # Auto-fix summary — list every command that was applied
     if config.yes and applied_cmds:
@@ -98,3 +109,10 @@ def run_fixes(engine, config, t) -> None:
         print(f"\033[1;34m  [{t('fixes.auto_summary_title')}]\033[0m")
         for cmd in applied_cmds:
             print(f"  ✔ {cmd}")
+
+    # Manual items — findings with no automatic fix
+    if manual_items:
+        print()
+        print(f"  \033[1;33m{t('fixes.manual_items_title')}\033[0m")
+        for msg in manual_items:
+            print(f"  • {msg}")

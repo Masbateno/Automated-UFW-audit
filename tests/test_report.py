@@ -21,6 +21,8 @@ def system_info():
         hostname="testhost",
         kernel="6.8.0",
         ufw_version="0.36.2",
+        iptables_version="1.8.9",
+        nftables_version="",
         user="testuser",
         config_path="/home/testuser/.config/ufw-audit/config.conf",
         language="en",

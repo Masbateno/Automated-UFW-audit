@@ -442,9 +442,15 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v1.3.0** — i18n completeness: all deduction reasons translated via `t()`; `--offline`/`-o` flag; IPv6 public address detection; 3-provider IP fallback chain; 652/652
 
-**v1.4.0** *(current)* — Plugin system (`services.d/*.json`); process-aware port findings (WARN + note instead of ALERT for identified processes); `--json` / `--json-full` SIEM output; GeoIP2 crash fix (`AddressNotFoundError`); enriched cron email subject with hostname + score; UFW default deny awareness (uncovered ports downgraded to INFO when default policy = deny/reject); 676/676
+**v1.4.0** — Plugin system (`services.d/*.json`); process-aware port findings (WARN + note instead of ALERT for identified processes); `--json` / `--json-full` SIEM output; GeoIP2 crash fix (`AddressNotFoundError`); enriched cron email subject with hostname + score; UFW default deny awareness (uncovered ports downgraded to INFO when default policy = deny/reject); 676/676
 
-**v1.5.0** *(planned)*
+**v1.4.1** — Hotfix: `--install-completion` missing from bash completion TAB suggestions (`long_opts` list updated)
+
+**v1.4.2** — Hotfix: NetBIOS ports 137/138 still warned despite explicit UFW rule; `_is_covered_by_ufw()` moved before NetBIOS branch in `_categorize_port()`; 677/677
+
+**v1.5.0** *(current)* — Enriched banner (kernel, iptables version + backend, nftables version); new FIREWALL STACK ANALYSIS section (raw iptables bypass, nftables parallel, ip_forward); new NETWORK CONTEXT section (interfaces table, established connections); 766/766
+
+**v1.6.0** *(planned)*
 - `--diff` — compare current audit against a previous `--json` output to detect new ports/services (audit drift)
 - `--fix --safe` — auto-fix mode restricted to LOW/MEDIUM severity findings only; CRITICAL/HIGH never applied without explicit confirmation
 

@@ -60,23 +60,27 @@ class SystemInfo:
 
     def __init__(
         self,
-        os_name:     str,
-        hostname:    str,
-        kernel:      str,
-        ufw_version: str,
-        user:        str,
-        config_path: str,
-        language:    str,
-        version:     str,
+        os_name:          str,
+        hostname:         str,
+        kernel:           str,
+        ufw_version:      str,
+        iptables_version: str,
+        nftables_version: str,
+        user:             str,
+        config_path:      str,
+        language:         str,
+        version:          str,
     ) -> None:
-        self.os_name     = os_name
-        self.hostname    = hostname
-        self.kernel      = kernel
-        self.ufw_version = ufw_version
-        self.user        = user
-        self.config_path = config_path
-        self.language    = language
-        self.version     = version
+        self.os_name          = os_name
+        self.hostname         = hostname
+        self.kernel           = kernel
+        self.ufw_version      = ufw_version
+        self.iptables_version = iptables_version
+        self.nftables_version = nftables_version
+        self.user             = user
+        self.config_path      = config_path
+        self.language         = language
+        self.version          = version
 
 
 # ---------------------------------------------------------------------------
