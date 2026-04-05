@@ -137,6 +137,8 @@ Addresses saved here are offered as suggestions whenever `--install-cron` or `--
 
 All selected addresses are stored comma-separated and each receives an individual email when the audit detects issues.
 
+> **Postfix note:** No additional configuration is needed for multiple recipients. Postfix always sends as the single account configured in `sasl_passwd` (the sender). Recipients can be any valid email addresses — on the same domain or different ones — without any extra setup.
+
 ---
 
 ## Email requirements

@@ -137,6 +137,8 @@ Les adresses enregistrées ici sont proposées comme suggestions à chaque fois 
 
 Toutes les adresses sélectionnées sont stockées séparées par des virgules et chacune reçoit un email individuel lorsque l'audit détecte des problèmes.
 
+> **Note Postfix :** Aucune configuration supplémentaire n'est nécessaire pour plusieurs destinataires. Postfix envoie toujours depuis le compte unique configuré dans `sasl_passwd` (l'expéditeur). Les destinataires peuvent être n'importe quelle adresse email valide — sur le même domaine ou des domaines différents — sans configuration additionnelle.
+
 ---
 
 ## Prérequis pour l'email
