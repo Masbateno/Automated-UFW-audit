@@ -182,6 +182,8 @@ sudo ufw-audit --manage-cron
 sudo ufw-audit --install-completion
 ```
 
+> Email notifications require a working Postfix setup. See [AUTOMATION.md](AUTOMATION.md) for step-by-step configuration (installation, SMTP relay, sender rewriting, testing).
+
 Options can be combined:
 
 ```bash

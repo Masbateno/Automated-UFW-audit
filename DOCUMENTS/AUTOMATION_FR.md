@@ -179,60 +179,114 @@ sudo ufw-audit --manage-logs
 
 ## Configuration Postfix pour les emails HTML (v0.12+)
 
-À partir de **v0.12**, les rapports cron sont envoyés au format HTML (MIME multipart/alternative) plutôt que texte brut. Pour une livraison fiable, Postfix doit être correctement configuré avec :
+À partir de **v0.12**, les rapports cron sont envoyés au format HTML (MIME multipart/alternative) plutôt que texte brut. Postfix doit être installé et configuré pour relayer ces emails via un serveur SMTP externe.
 
-1. **Réécriture d'adresse d'expéditeur**
-2. **Authentification SASL** (si utilisation d'un relais SMTP)
+### Étape 1 — Installer Postfix et mailutils
 
-### Problèmes courants
-
-#### 1. Erreur : « 553 bad address format »
-
-Si vous voyez cette erreur dans `/var/log/mail.log` :
-```
-550 5.5.1 bad address format (in reply to MAIL FROM command)
+```bash
+sudo apt install postfix mailutils
 ```
 
-**Cause :** Postfix envoie l'email avec l'adresse système `root@hostname.local` (domaine non valide).
+Pendant l'installation, un wizard interactif s'affiche :
+- **General type of mail configuration** → choisir **"Internet Site"**
+- **System mail name** → votre hostname ou domaine (ex : `monserveur.com`)
 
-**Solution :** Configurer `sender_canonical_maps` pour réécrire les adresses système :
+### Étape 2 — Configurer un relais SMTP
+
+Postfix ne peut pas envoyer directement sur internet depuis un desktop ou un serveur domestique (les FAI bloquent le port 25). Il faut passer par un fournisseur SMTP externe.
+
+**Exemple avec Mailo :**
+
+```bash
+sudo postconf -e "relayhost = [smtp.mailo.com]:587"
+sudo postconf -e "smtp_sasl_auth_enable = yes"
+sudo postconf -e "smtp_sasl_security_options = noanonymous"
+sudo postconf -e "smtp_tls_security_level = encrypt"
+sudo postconf -e "smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd"
+sudo postconf -e "inet_interfaces = loopback-only"
+```
+
+> `inet_interfaces = loopback-only` empêche Postfix d'écouter sur les interfaces réseau externes — recommandé pour les desktops et postes de travail.
+
+**Exemple avec Gmail** (nécessite un [App Password](https://myaccount.google.com/apppasswords) — la 2FA doit être activée) :
+
+```bash
+sudo postconf -e "relayhost = [smtp.gmail.com]:587"
+sudo postconf -e "smtp_sasl_auth_enable = yes"
+sudo postconf -e "smtp_sasl_security_options = noanonymous"
+sudo postconf -e "smtp_tls_security_level = encrypt"
+sudo postconf -e "smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd"
+sudo postconf -e "inet_interfaces = loopback-only"
+```
+
+### Étape 3 — Enregistrer les identifiants SMTP
+
+Utilisez un éditeur de texte pour éviter les problèmes avec les caractères spéciaux dans les mots de passe :
+
+```bash
+sudo nano /etc/postfix/sasl_passwd
+```
+
+Ajoutez une ligne au format suivant :
+```
+[smtp.mailo.com]:587 vous@mailo.com:VOTRE_MOT_DE_PASSE
+```
+
+Puis sécurisez et compilez le fichier :
+
+```bash
+sudo chmod 600 /etc/postfix/sasl_passwd
+sudo postmap /etc/postfix/sasl_passwd
+```
+
+### Étape 4 — Réécrire l'adresse d'expéditeur
+
+Postfix envoie les emails avec l'adresse système locale (ex : `root@hostname.lan`), rejetée par les serveurs SMTP externes. Il faut la réécrire avec votre vraie adresse :
 
 ```bash
 sudo bash -c 'cat > /etc/postfix/sender_canonical << EOF
-/^root@/ votre.email@exemple.com
+/^.*@/ vous@mailo.com
 EOF'
 
 sudo postmap /etc/postfix/sender_canonical
 sudo postconf -e "sender_canonical_maps = regexp:/etc/postfix/sender_canonical"
-sudo systemctl restart postfix
 ```
 
-#### 2. Erreur : « 530 Authentication required »
-
-Si votre serveur SMTP requiert une authentification :
+### Étape 5 — Appliquer et tester
 
 ```bash
-# Créer le fichier de credentials
-sudo bash -c 'cat > /etc/postfix/sasl_passwd << EOF
-smtp.exemple.com utilisateur@exemple.com:MOTDEPASSE
-EOF'
+sudo systemctl restart postfix
 
-sudo chmod 600 /etc/postfix/sasl_passwd
+echo "Test ufw-audit" | mail -s "Test Postfix" vous@mailo.com
+sudo tail -10 /var/log/mail.log
+```
+
+Résultat attendu dans les logs :
+```
+status=sent (250 Message to be delivered)
+```
+
+### Problèmes courants
+
+#### Erreur : « 553 bad address format »
+
+La réécriture de l'expéditeur (étape 4) n'a pas été appliquée. Vérifiez que `sender_canonical_maps` est actif :
+
+```bash
+sudo postconf sender_canonical_maps
+# Attendu : sender_canonical_maps = regexp:/etc/postfix/sender_canonical
+```
+
+#### Erreur : « 530 Authentication required » ou « 535 Authentication failed »
+
+Les identifiants dans `/etc/postfix/sasl_passwd` sont incorrects ou le fichier n'a pas été compilé. Rééditez le fichier avec `sudo nano`, puis relancez :
+
+```bash
 sudo postmap /etc/postfix/sasl_passwd
-
-sudo postconf -e "smtp_sasl_auth_enable = yes"
-sudo postconf -e "smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd"
-sudo postconf -e "smtp_use_tls = yes"
-
 sudo systemctl restart postfix
 ```
 
-### Vérifier la configuration
-
-```bash
-sudo grep "UFW-AUDIT" /var/log/mail.log | tail -10
-# Attendu : status=sent (250 Message to be delivered)
-```
+Pour Gmail, assurez-vous d'utiliser un **App Password** et non votre mot de passe Google habituel.
 
 ### Notes techniques
 

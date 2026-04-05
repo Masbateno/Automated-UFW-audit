@@ -150,6 +150,8 @@ mkdir -p ~/.config/ufw-audit/services.d/
 - 📁 Gestion des rapports (`--manage-logs`)
 - 🔁 Multi-jobs planifiés (`--manage-cron`)
 
+> Les notifications email nécessitent une configuration Postfix fonctionnelle. Voir [AUTOMATION_FR.md](DOCUMENTS/AUTOMATION_FR.md) pour les instructions pas à pas.
+
 ---
 
 ## 🧪 Qualité & fiabilité
