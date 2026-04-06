@@ -27,6 +27,38 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v1.5.0  | 766   | +89 tests — `test_firewall_stack.py` (38), `test_network_context.py` (51) ; banner kernel/iptables/nftables |
 | v1.6.0  | 928   | +162 tests — `test_hardening.py` (49), `test_ipv6.py` (33), `test_compare.py` (49), `test_plugin_checks.py` (31) |
 | v1.7.0  | 966   | +38 tests — `test_profiles.py` (36), `test_compare.py` (+2 filtre ports éphémères), `test_ipv6.py` (+2 entrées malformées) |
+| v1.8.0  | 1104  | +138 tests — `test_ssh.py` (93) + `test_file_perms.py` (45) : modifiable-par-tous (7), trop-permissif (5), clés-hôtes-SSH (4), NOPASSWD-ALL (5), NOPASSWD-spécifique (4), combinés (5), _is_nopasswd_all (8), dataclass (2), tout-correct (4) |
+
+### v1.8.0 — 1104/1104 (2026-04-06)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -v
+1104 passed in 1.03s
+```
+
+#### Nouveaux tests (+138)
+
+| Fichier | Nouveaux | Couverture |
+|---------|----------|------------|
+| `tests/test_ssh.py` | 93 | Audit SSH complet : non-installé (suggestion d'installation, commande distro), retour anticipé non-actif ; `_check_sshd_config` — 15 directives (incl. `AllowTcpForwarding` activé→WARN, `PubkeyAuthentication` désactivé→ALERT), Ciphers/MACs/KEX faibles, parse premier-gagne, accumulation de déductions ; `_check_private_keys` — DSA ALERT, RSA < 2048 ALERT, RSA ≥ 2048 OK, ed25519 OK, sans-passphrase WARN, illisible INFO ; `_check_authorized_keys` — vide/absent INFO, ok-supprimé-par-erreur, note from=, opts dépréciés ; `_check_ssh_dir_perms` — 700 ok, 755/777 warn ; `_check_client_config` — `StrictHostKeyChecking no` warn ; `_check_known_hosts` — ok, vide/absent info, détection de doublons sur hôtes séparés par virgule ; intégration + helpers |
+| `tests/test_file_perms.py` | 45 | Tout-correct (4) ; modifiable-par-tous ALERT/déduction/clé/priorité/bit-002/multiple/sans-ok (7) ; trop-permissif WARN/plafond/4e-fichier (5) ; clés-hôtes WARN/plafond-2/3-warns (4) ; NOPASSWD-ALL WARN/déduction/clé/lignes-multiples/sans-OK (5) ; NOPASSWD-spécifique INFO/sans-déduction/constat-unique/sans-OK (4) ; combinés plafonds-indépendants/all-correct (5) ; `_is_nopasswd_all` parametrize vrai/faux (8) ; dataclass (2) |
+
+#### Nouveaux modules
+
+- **`checks/ssh.py`** — module d'audit SSH : `SSHSnapshot.from_system()`, `check_ssh()`, 6 sous-vérifications, parsing binaire des clés, suggestions d'installation adaptées à la distro
+- **`checks/file_perms.py`** — fichiers sensibles & sudoers : `FilePermsSnapshot.from_system()`, `check_file_perms()`, détection modifiable-par-tous/trop-permissif/clés-hôtes-SSH/NOPASSWD
+
+#### Corrections qualité
+
+- Clé i18n `output.recommendation_label` — remplace le français codé en dur "Que faire ?" dans tous les locales
+- `display.py` — les constats INFO affichent le texte `detail` en mode verbose (`-v`)
+- `output.print_recommendation()` — import paresseux de `t()` pour éviter les imports circulaires
+- `ssh.py` — vérifications `AllowTcpForwarding` et `PubkeyAuthentication` ajoutées ; détection de doublons dans `known_hosts` gère maintenant les champs hôtes séparés par virgule
+- `file_perms.py` — fallback OSError sur stat() en `0o777` (pire cas) ; `_is_nopasswd_all` utilise une correspondance exacte stricte (`== "ALL"`) pour éviter les faux-positifs sur `NOPASSWD: ALL /bin/sh`
+
+---
 
 ### v1.7.0 — 966/966 (2026-04-04)
 

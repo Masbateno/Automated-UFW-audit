@@ -27,6 +27,38 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v1.5.0  | 766   | +89 tests — `test_firewall_stack.py` (38), `test_network_context.py` (51); banner kernel/iptables/nftables |
 | v1.6.0  | 928   | +162 tests — `test_hardening.py` (49), `test_ipv6.py` (33), `test_compare.py` (49), `test_plugin_checks.py` (31) |
 | v1.7.0  | 966   | +38 tests — `test_profiles.py` (36), `test_compare.py` (+2 ephemeral port filter), `test_ipv6.py` (+2 malformed input) |
+| v1.8.0  | 1104  | +138 tests — `test_ssh.py` (93) + `test_file_perms.py` (45): world-writable (7), too-permissive (5), SSH host keys (4), NOPASSWD ALL (5), NOPASSWD specific (4), combined (5), _is_nopasswd_all (9), dataclass (2), all-ok (4) |
+
+### v1.8.0 — 1104/1104 (2026-04-06)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -v
+1104 passed in 1.03s
+```
+
+#### New tests added (+138)
+
+| File | New | Coverage |
+|------|-----|----------|
+| `tests/test_ssh.py` | 93 | Full SSH audit: not-installed (install hint, distro cmd), not-active early return; `_check_sshd_config` — all 15 directives (incl. `AllowTcpForwarding` enabled→WARN, `PubkeyAuthentication` disabled→ALERT), weak Ciphers/MACs/KEX, first-value-wins parse, multiple-issue deduction accumulation; `_check_private_keys` — DSA ALERT, RSA < 2048 ALERT, RSA ≥ 2048 OK, ed25519 OK, no-passphrase WARN, passphrase OK, unreadable INFO; `_check_authorized_keys` — empty/absent INFO, ok-suppressed-by-error, `from=` note, deprecated options; `_check_ssh_dir_perms` — 700 ok, 755/777 warn; `_check_client_config` — `StrictHostKeyChecking no` warn; `_check_known_hosts` — ok, empty/absent info, comma-separated host duplicate detection; integration (4-issue combination, clean snapshot); helpers — `_has_passphrase` (OpenSSH/PEM/none/truncated/empty), `_rsa_bits_from_blob`, `_detect_ssh_install_cmd` |
+| `tests/test_file_perms.py` | 45 | All-OK (4); world-writable ALERT/deduction/key/priority/002-bit/multiple/no-ok (7); too-permissive WARN/cap/4th-file (5); SSH host key WARN/cap-2/3-warns (4); sudoers NOPASSWD ALL WARN/deduction/key/multiple-single-deduction/no-OK (5); NOPASSWD specific INFO/no-deduction/single-finding/no-OK (4); combined permissive+nopasswd/world_writable+hostkey/all-caps/all-correct (5); `_is_nopasswd_all` parametrize true/false (8); dataclass defaults/fields (2) |
+
+#### New modules
+
+- **`checks/ssh.py`** — SSH audit module: `SSHSnapshot.from_system()`, `check_ssh()`, 6 sub-checks, binary key parsing, distro-aware install hints
+- **`checks/file_perms.py`** — Sensitive files & sudoers: `FilePermsSnapshot.from_system()`, `check_file_perms()`, world-writable/too-permissive/SSH-host-key/NOPASSWD detection
+
+#### Quality changes
+
+- `output.recommendation_label` i18n key — replaces hardcoded French "Que faire ?" in all locales
+- `display.py` — INFO findings show `detail` text in verbose mode (`-v`)
+- `output.print_recommendation()` — lazy `t()` import prevents circular imports
+- `ssh.py` — `AllowTcpForwarding` and `PubkeyAuthentication` checks added; `known_hosts` duplicate detection now splits comma-separated host fields
+- `file_perms.py` — OSError fallback on stat() uses `0o777` (worst case); `_is_nopasswd_all` uses strict exact-match (`== "ALL"`) to prevent false-positives on `NOPASSWD: ALL /bin/sh`
+
+---
 
 ### v1.7.0 — 966/966 (2026-04-04)
 

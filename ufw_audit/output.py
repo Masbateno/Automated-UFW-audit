@@ -204,9 +204,10 @@ def print_recommendation(lines: str | list[str]) -> None:
         lines: Single string or list of strings. Each line is printed
                with a → prefix on a new indented line.
     """
+    from ufw_audit.i18n import t as _t
     if isinstance(lines, str):
         lines = lines.splitlines()
-    _p(f"\n    {_c.dim}Que faire ?{_c.reset}")
+    _p(f"\n    {_c.dim}{_t('output.recommendation_label')}{_c.reset}")
     for line in lines:
         _p(f"    {_c.cyan}→ {line}{_c.reset}")
     _p()

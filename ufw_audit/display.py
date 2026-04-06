@@ -77,6 +77,8 @@ def display_result(result, report, verbose: bool, quiet: bool = False) -> None:
         elif finding.level == FindingLevel.INFO:
             print_info(finding.message)
             report.write_finding("INFO", finding.message)
+            if finding.detail and verbose:
+                print_recommendation(finding.detail)
 
 
 # ---------------------------------------------------------------------------

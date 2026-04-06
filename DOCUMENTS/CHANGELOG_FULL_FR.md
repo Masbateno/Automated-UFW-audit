@@ -6,6 +6,104 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.8.0] — 2026-04-05
+
+### Résumé
+- **Audit de sécurité SSH** (CHECK 11) — analyse complète de `sshd_config`, audit des clés privées, `authorized_keys`, `~/.ssh/config`, `known_hosts`
+- Cible le répertoire home de `SUDO_USER`, pas celui de root
+- Suggestions d'installation adaptées à la distro (apt/dnf/pacman/zypper/apk)
+- Correction i18n : le label "Que faire ?" était toujours en français — désormais traduit via `output.recommendation_label`
+- Les constats INFO affichent désormais leur texte de détail en mode verbose (`-v`)
+- 1104/1104 tests unitaires (+138)
+
+### Audit SSH (`checks/ssh.py`)
+
+Nouveau module implémentant le CHECK 11 dans `runner.py` :
+
+**`SSHSnapshot`** — collecté via `from_system()` :
+- `sshd_installed` / `sshd_active` via `which sshd` + `systemctl is-active`
+- `install_cmd` — adapté à la distro : vérifie apt > apt-get > dnf > yum > pacman > zypper > apk
+- `config_lines` — parse premier-gagne de `/etc/ssh/sshd_config` + drop-ins dans `/etc/ssh/sshd_config.d/*.conf`
+- `private_keys` — scanne `~/.ssh/` pour les fichiers commençant par `id_` (non-publics) ; `_has_passphrase()` décode le format OpenSSH nouveau (en-tête binaire, champ cipher) et le repli PEM (`Proc-Type: 4,ENCRYPTED`)
+- `authorized_keys` — lit `~/.ssh/authorized_keys` ; chaque entrée analysée pour type et options
+- `client_config_lines` — lit `~/.ssh/config` si présent
+- `known_hosts_count` — nombre de lignes dans `~/.ssh/known_hosts`
+- `ssh_dir_perms` — permissions octales de `~/.ssh/`
+
+**`check_ssh(snapshot, t)`** — appelle 6 sous-vérifications :
+
+- `_check_sshd_config` — 15 directives : `PasswordAuthentication`, `PermitRootLogin`, `X11Forwarding`, `PermitEmptyPasswords`, `MaxAuthTries` (> 3 → WARN), `LoginGraceTime` (> 60s → INFO), `IgnoreRhosts`, `HostbasedAuthentication`, `PermitUserEnvironment`, `StrictModes`, `AllowTcpForwarding` (activé → WARN −1 pt), `PubkeyAuthentication` (désactivé → ALERT −3 pts), absence de `AllowUsers`/`AllowGroups` (INFO) ; plus crypto faible (chiffrements CBC, MACs HMAC-MD5/SHA1, KEX DH group1/14/exchange-sha1) → WARN
+- `_check_private_keys` — DSA → ALERT ; RSA < 2048 → ALERT ; ECDSA 256/384/521 bits → OK ; ed25519 → OK ; sans passphrase → WARN −1 pt ; clé illisible → INFO
+- `_check_authorized_keys` — flag `ak_found_issue` empêche `authorized_keys_ok` d'apparaître avec des erreurs ; options dépréciées (no-pty, command=) → INFO ; restriction `from=` → note OK
+- `_check_ssh_dir_perms` — `~/.ssh` pas en 700 → WARN −1 pt
+- `_check_client_config` — vérifie `StrictHostKeyChecking no` → WARN
+- `_check_known_hosts` — `known_hosts` vide (SSH utilisé mais aucun hôte tracé) → INFO
+
+**Extraction des bits RSA** — `_rsa_bits_from_blob(blob)` : décode le format binaire SSH RSA `[ktype_len][ktype][e_len][e][n_len][n]` ; nombre d'octets du module × 8 = taille en bits.
+
+**Parsing binaire avec vérification des bornes** — `_has_passphrase()` vérifie toutes les longueurs avant `struct.unpack_from` ; pas de crash sur les fichiers de clés tronqués.
+
+### Corrections i18n / affichage
+
+- Clé i18n `output.recommendation_label` ajoutée dans `en.json` ("What to do?") et `fr.json` ("Que faire ?")
+- `output.print_recommendation()` importe `t()` de façon paresseuse pour éviter les imports circulaires ; utilise `_t('output.recommendation_label')` au lieu du français codé en dur
+- `display.py` : les constats INFO affichent désormais leur texte `detail` en mode verbose — même branche que WARN/ALERT
+
+### Tests (`tests/test_ssh.py`)
+
+93 nouveaux tests (nouveau fichier) :
+
+| Groupe | Tests | Couverture |
+|--------|-------|------------|
+| non installé / non actif | 3 | suggestion d'installation, retour anticipé active=False |
+| `_check_sshd_config` | 26 | 15 directives (incl. `AllowTcpForwarding` activé→WARN, `PubkeyAuthentication` désactivé→ALERT), Ciphers/MACs/KEX faibles, premier-gagne, accumulation de déductions |
+| `_check_private_keys` | 14 | DSA ALERT, RSA < 2048 ALERT, RSA ≥ 2048 OK, ed25519 OK, warn/ok passphrase, INFO illisible |
+| `_check_authorized_keys` | 12 | vide, absent INFO, ok-supprimé-par-erreur, note from=, opts dépréciés |
+| `_check_ssh_dir_perms` | 4 | 700 ok, 755 warn, 777 warn |
+| `_check_client_config` | 5 | StrictHostKeyChecking no warn, ok, absent |
+| `_check_known_hosts` | 6 | count ok, vide info, absent info, détection de doublons hôtes séparés par virgule |
+| intégration | 2 | combinaison (4 problèmes, ≥ 4 déductions), snapshot propre (score 0) |
+| helpers | 21 | `_has_passphrase` (OpenSSH/PEM/none/tronqué/vide), `_rsa_bits_from_blob`, `_detect_ssh_install_cmd` |
+
+**Helpers de test :** `_has_finding(result, key, level)` — assertion combinée clé+niveau ; `_make_rsa_blob(bits)` — construit un blob de clé publique RSA au format binaire SSH valide ; `base_snapshot(**kwargs)` — toujours utilisé pour construire les snapshots.
+
+### Fichiers sensibles & sudoers (`checks/file_perms.py`)
+
+Nouveau module implémentant le CHECK 12 dans `runner.py` :
+
+**`FilePermsSnapshot`** — collecté via `from_system()` :
+- `sensitive_files` — `/etc/passwd` (644), `/etc/shadow` (640), `/etc/gshadow` (640), `/etc/group` (644), `/etc/sudoers` (440) ; permissions collectées via `stat.S_IMODE`
+- `ssh_host_key_issues` — fichiers `/etc/ssh/ssh_host_*_key` (pas `.pub`) avec permissions ≠ 600
+- `sudoers_nopasswd_all` / `sudoers_nopasswd_specific` — lignes de `/etc/sudoers` + `/etc/sudoers.d/*` contenant NOPASSWD, séparées par `_is_nopasswd_all()`
+
+**`check_file_perms(snapshot, *, t)`** — logique pure :
+- Fichier modifiable par tous (`mode & 0o002`) : ALERT, −3 pts
+- Bits de permissions excédentaires au-delà de max_mode : WARN, −1 pt par fichier, plafonné à 3
+- Clé hôte SSH avec mauvaises permissions : WARN, −1 pt, plafonné à 2
+- `NOPASSWD:ALL` dans sudoers : WARN par ligne, −2 pts (déduction unique quel que soit le nombre de lignes)
+- `NOPASSWD:<commande spécifique>` : INFO, sans déduction
+- Tout correct : OK
+
+**`_is_nopasswd_all(line)`** — extrait la partie commande après `NOPASSWD:` et vérifie si elle commence par `ALL`.
+
+### Tests (`tests/test_file_perms.py`)
+
+43 nouveaux tests (nouveau fichier) :
+
+| Groupe | Tests | Couverture |
+|--------|-------|------------|
+| Tout correct | 4 | snapshot vide, permissions correctes, fichiers absents |
+| Modifiable par tous | 6 | niveau ALERT, −3 pts, clé correcte, vérification bit 002, fichiers multiples, pas de OK |
+| Trop permissif | 5 | niveau WARN, −1 pt, plafond 3 déductions, 4e fichier génère toujours un constat |
+| Clés hôtes SSH | 4 | WARN + −1 pt, plafond 2 déductions, 3 constats toujours émis |
+| Sudoers NOPASSWD ALL | 5 | WARN, −2 pts, clé, plusieurs lignes déduction unique, pas de OK |
+| Sudoers NOPASSWD spécifique | 4 | INFO, pas de déduction, comptage, pas de OK |
+| Combinés | 3 | permissif+nopasswd_all, world_writable+clé_hôte, tous fichiers corrects |
+| `_is_nopasswd_all` | 9 | vrai/faux parametrize (complet/spécifique/sans-NOPASSWD/vide) |
+| Dataclass | 3 | valeurs par défaut de FilePermsSnapshot, champs de FileInfo |
+
+---
+
 ## [v1.7.0] — 2026-04-04
 
 ### Résumé

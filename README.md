@@ -156,13 +156,23 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Quality & reliability
 
-- ✅ 966 unit tests
+- ✅ 1104 unit tests
 - 🧱 Modular architecture (snapshot / check separated)
 - 🧪 Tested on Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.7.0
+## 🆕 v1.8.0
+
+- 🔑 **SSH Security Audit** (CHECK 11) — full `sshd_config` analysis (15 directives: +AllowTcpForwarding, +PubkeyAuthentication; weak Ciphers/MACs/KEX), private key audit (type, size, passphrase), `authorized_keys`, `~/.ssh/config`, `known_hosts`
+- 🔐 **Sensitive Files & Sudoers** (CHECK 12) — permissions on `/etc/passwd`, `/etc/shadow`, `/etc/gshadow`, `/etc/group`, `/etc/sudoers`; SSH host key permissions; `NOPASSWD:ALL` detection in sudoers
+- 👤 **Real-user targeting** — SSH check inspects `SUDO_USER`'s home directory, not root's
+- 🖥️ **Distro-aware install hints** — detects apt/dnf/pacman/zypper/apk and proposes the right install command when SSH is absent
+- 🌐 **i18n fix** — "What to do?" / "Que faire ?" label now fully translated (was hardcoded French)
+- 📋 **INFO detail in verbose mode** — `-v` now shows recommendation details for INFO findings
+- ✅ 1104/1104 unit tests (+138)
+
+## v1.7.0
 
 - 🎛️ **Audit profiles** — named profiles (`server`, `workstation`, `container`) shipped as `.conf` files; `--profile=NAME` CLI flag, persisted across runs
 - 🔑 **`Deduction.key`** — deterministic profile override matching; no heuristics on translated strings
@@ -219,7 +229,7 @@ Automated-UFW-audit/
 │   ├── TESTING.md / _FR.md         # test plan & validated scenarios
 │   └── AUTOMATION.md / _FR.md      # cron & automation guide
 ├── ufw_audit/                      # Python package
-│   ├── checks/                     # firewall, services, ports, logs, ddns, docker, virt
+│   ├── checks/                     # firewall, services, ports, logs, ddns, docker, virt, ssh
 │   ├── data/
 │   │   ├── services.json           # 22 built-in service definitions
 │   │   ├── profiles/               # built-in audit profiles (server, workstation, container)
@@ -229,7 +239,7 @@ Automated-UFW-audit/
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 966 unit tests
+└── tests/                          # 1049 unit tests
 ```
 
 ---

@@ -1,9 +1,9 @@
 *[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
-# ufw-audit v1.7.0
+# ufw-audit v1.8.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.7.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.8.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -43,6 +43,8 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **IPv6 consistency check** — detects IPv6 listeners not covered by a matching UFW v6 rule; conflict detection when IPv6 is disabled globally but listeners are present
 - **Comparative report** — baseline saved after each audit (`~/.config/ufw-audit/last_baseline.json`); next run displays score delta, alert/warn changes, new/closed ports, started/stopped services
 - **Plugin check API** — drop a Python file in `~/.config/ufw-audit/checks.d/` to add a custom audit check; plugins are fail-safe (exceptions never abort the audit) and ANSI-sanitized
+- **SSH security audit** — full `sshd_config` analysis (15 directives + weak Ciphers/MACs/KEX); private key audit (type, size, passphrase); `authorized_keys` inspection; `~/.ssh/config` client-side check; `known_hosts` entry count; targets `SUDO_USER`'s home; distro-aware install hints
+- **Sensitive files & sudoers** — permissions audit on `/etc/passwd`, `/etc/shadow`, `/etc/gshadow`, `/etc/group`, `/etc/sudoers` (world-writable → ALERT, too-permissive → WARN); SSH host private key permissions under `/etc/ssh/`; `NOPASSWD:ALL` detection across sudoers and sudoers.d
 
 ---
 

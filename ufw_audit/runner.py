@@ -33,6 +33,8 @@ from ufw_audit.checks.services import ServiceSnapshot
 from ufw_audit.checks.virtualization import VirtSnapshot, check_virtualization
 from ufw_audit.checks.hardening import HardeningSnapshot, check_hardening
 from ufw_audit.checks.ipv6 import IPv6Snapshot, check_ipv6
+from ufw_audit.checks.ssh import SSHSnapshot, check_ssh
+from ufw_audit.checks.file_perms import FilePermsSnapshot, check_file_perms
 from ufw_audit.plugin_checks import load_plugin_checks
 
 
@@ -251,6 +253,34 @@ def run_checks(
             apply_profile(ipv6_result, profile)
         engine.apply(ipv6_result)
         display_result(ipv6_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 11 — SSH security ----
+    ssh_snapshot = SSHSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("ssh"):
+        if not config.quiet:
+            print_section(t("sections.ssh"))
+        report.write_section(t("sections.ssh"))
+        ssh_result = check_ssh(ssh_snapshot, t=t)
+        if profile is not None:
+            apply_profile(ssh_result, profile)
+        engine.apply(ssh_result)
+        display_result(ssh_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 12 — Sensitive file permissions + sudoers ----
+    file_perms_snapshot = FilePermsSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("file_perms"):
+        if not config.quiet:
+            print_section(t("sections.file_perms"))
+        report.write_section(t("sections.file_perms"))
+        file_perms_result = check_file_perms(file_perms_snapshot, t=t)
+        if profile is not None:
+            apply_profile(file_perms_result, profile)
+        engine.apply(file_perms_result)
+        display_result(file_perms_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:
             print()
 

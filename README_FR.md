@@ -156,13 +156,23 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Qualité & fiabilité
 
-- ✅ 966 tests unitaires
+- ✅ 1104 tests unitaires
 - 🧱 Architecture modulaire (snapshot / check séparés)
 - 🧪 Testé sur Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.7.0
+## 🆕 v1.8.0
+
+- 🔑 **Audit de sécurité SSH** (CHECK 11) — analyse complète de `sshd_config` (15 directives : +AllowTcpForwarding, +PubkeyAuthentication ; Ciphers/MACs/KEX faibles), audit des clés privées (type, taille, passphrase), `authorized_keys`, `~/.ssh/config`, `known_hosts`
+- 🔐 **Fichiers sensibles & sudoers** (CHECK 12) — permissions de `/etc/passwd`, `/etc/shadow`, `/etc/gshadow`, `/etc/group`, `/etc/sudoers` ; permissions des clés hôtes SSH ; détection de `NOPASSWD:ALL` dans sudoers
+- 👤 **Ciblage utilisateur réel** — le check SSH inspecte le home de `SUDO_USER`, pas celui de root
+- 🖥️ **Suggestion d'installation adaptée à la distro** — détecte apt/dnf/pacman/zypper/apk et propose la bonne commande si SSH est absent
+- 🌐 **Correction i18n** — le label "Que faire ?" est désormais entièrement traduit (était toujours en français)
+- 📋 **Détail des INFO en mode verbose** — `-v` affiche les recommandations pour les constats INFO
+- ✅ 1104/1104 tests unitaires (+138)
+
+## v1.7.0
 
 - 🎛️ **Profils d'audit** — profils nommés (`server`, `workstation`, `container`) livrés en `.conf` ; option `--profile=NAME`, persistante entre les exécutions
 - 🔑 **`Deduction.key`** — correspondance d'override déterministe ; plus d'heuristique sur les chaînes traduites
@@ -221,7 +231,7 @@ Automated-UFW-audit/
 │   ├── TESTING.md / _FR.md         # plan de test & scénarios validés
 │   └── AUTOMATION.md / _FR.md      # guide d'automatisation cron
 ├── ufw_audit/                      # package Python
-│   ├── checks/                     # firewall, services, ports, logs, ddns, docker, virt
+│   ├── checks/                     # firewall, services, ports, logs, ddns, docker, virt, ssh
 │   ├── data/
 │   │   ├── services.json           # définitions des 22 services intégrés
 │   │   ├── profiles/               # profils d'audit intégrés (server, workstation, container)
