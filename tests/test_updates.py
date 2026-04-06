@@ -261,7 +261,7 @@ class TestUpdatesSnapshot:
 
 
 # ---------------------------------------------------------------------------
-# Edge cases and invariants (ChatGPT quality pass)
+# Edge cases and invariants (quality pass)
 # ---------------------------------------------------------------------------
 
 class TestEdgeCases:

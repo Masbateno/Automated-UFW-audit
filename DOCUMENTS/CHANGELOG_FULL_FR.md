@@ -14,7 +14,7 @@ Toutes les modifications notables du projet sont documentées ici.
 - **Webhooks** (`--webhook`) — payloads générique et Slack, non-fatal
 - **Scores par domaine** — sous-scores 5 domaines en terminal, JSON et webhook
 - **Mode `--diff`** — audit silencieux, affichage delta uniquement
-- Passage qualité ChatGPT sur domain_scores, updates, webhook, explain
+- Passage qualité sur domain_scores, updates, webhook, explain
 - 1332/1332 tests unitaires (+228)
 
 ### Audit mises à jour système (`checks/updates.py`)

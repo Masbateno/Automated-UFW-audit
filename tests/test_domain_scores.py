@@ -181,7 +181,7 @@ class TestComputeDomainScoresAttribution:
         for d in DOMAINS:
             assert scores[d]["deductions"] == 0
 
-    # --- gaps from ChatGPT review -------------------------------------------
+    # --- additional coverage gaps -------------------------------------------
 
     def test_multiple_deductions_same_domain_accumulate(self):
         """Two SSH deductions must stack in the same domain bucket."""

@@ -473,7 +473,7 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v1.8.0** — Audit sécurité SSH (15 directives, clés privées, authorized_keys, known_hosts) ; fichiers sensibles & sudoers (monde-écriture, trop-permissif, NOPASSWD:ALL) ; ciblage home `SUDO_USER` ; suggestions distro-aware ; correctif i18n (`recommendation_label`) ; détail INFO en verbose ; 1104/1104
 
-**v1.9.0** *(actuel)* — Audit mises à jour système (CHECK 13 : apt en attente, unattended-upgrades, −2/−1 pts composés) ; `--explain KEY` avec WHY/HOW/CIS Ubuntu 22.04 (20 clés) ; webhooks (`--webhook`, générique + Slack, non-fatal) ; scores par domaine (5 domaines, barre, JSON/webhook) ; mode `--diff` ; passage qualité ChatGPT (domain_scores, updates, webhook, explain) ; 1332/1332
+**v1.9.0** *(actuel)* — Audit mises à jour système (CHECK 13 : apt en attente, unattended-upgrades, −2/−1 pts composés) ; `--explain KEY` avec WHY/HOW/CIS Ubuntu 22.04 (20 clés) ; webhooks (`--webhook`, générique + Slack, non-fatal) ; scores par domaine (5 domaines, barre, JSON/webhook) ; mode `--diff` ; passage qualité (domain_scores, updates, webhook, explain) ; 1332/1332
 - `--diff` — comparer l'audit courant avec un précédent export `--json` pour détecter les nouveaux ports/services (dérive d'audit)
 - `--fix --safe` — mode auto-fix restreint aux findings LOW/MEDIUM uniquement ; les findings CRITICAL/HIGH ne sont jamais appliqués sans confirmation explicite
 

@@ -473,7 +473,7 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v1.8.0** — SSH security audit (15 directives, private keys, authorized_keys, known_hosts); sensitive files & sudoers (world-writable, too-permissive, NOPASSWD:ALL); `SUDO_USER` home targeting; distro-aware install hints; i18n fix (`recommendation_label`); INFO detail in verbose mode; 1104/1104
 
-**v1.9.0** *(current)* — System updates audit (CHECK 13: apt pending, unattended-upgrades, −2/−1 pts compound); `--explain KEY` with WHY/HOW/CIS Ubuntu 22.04 refs (20 keys); webhooks (`--webhook`, generic + Slack, non-fatal); domain scores (5 domains, bar chart, JSON/webhook); `--diff` mode; ChatGPT quality pass (domain_scores, updates, webhook, explain); 1332/1332
+**v1.9.0** *(current)* — System updates audit (CHECK 13: apt pending, unattended-upgrades, −2/−1 pts compound); `--explain KEY` with WHY/HOW/CIS Ubuntu 22.04 refs (20 keys); webhooks (`--webhook`, generic + Slack, non-fatal); domain scores (5 domains, bar chart, JSON/webhook); `--diff` mode; code quality pass (domain_scores, updates, webhook, explain); 1332/1332
 
 **Post v1.0**
 - Web UI (`--gui`) — graphical interface for non-technical users, pedagogical approach, simplified scope
