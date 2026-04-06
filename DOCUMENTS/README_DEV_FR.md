@@ -53,6 +53,9 @@ Cette séparation permet de tester toute la logique métier en instanciant direc
 | `sysinfo.py` | Info système — `collect_system_info()`, `detect_network_context()`, `get_user_home()` |
 | `compare.py` | Rapport comparatif — `AuditBaseline`, `AuditDelta`, `build_baseline()`, `save_baseline()`, `load_baseline()`, `compute_delta()`, `display_delta()` |
 | `plugin_checks.py` | Chargeur de plugins — `PluginCheck`, `load_plugin_checks()`, sanitisation ANSI |
+| `explain.py` | `--explain KEY` — `normalize_key()`, `run_explain()`, 20 clés canoniques, lookup référence CIS |
+| `domain_scores.py` | Sous-scores par domaine — `compute_domain_scores()`, `render_domain_scores()`, attribution 5 domaines |
+| `webhook.py` | Envoi webhook — `build_generic_payload()`, `build_slack_payload()`, `send_webhook()`, auto-détection format |
 
 ### Module cron
 
@@ -75,6 +78,7 @@ Cette séparation permet de tester toute la logique métier en instanciant direc
 | `network_context.py` | Tableau d'interfaces réseau, connexions TCP établies, ports sensibles distants |
 | `hardening.py` | Durcissement : fail2ban, mises à jour auto, AppArmor, rp_filter, redirections ICMP, log_martians, broadcast |
 | `ipv6.py` | Cohérence ports IPv6 actifs / règles UFW v6 |
+| `updates.py` | État des mises à jour système : paquets apt en attente (sécurité/réguliers), détection `unattended-upgrades` |
 
 ---
 
@@ -113,9 +117,13 @@ ufw_audit/
 │   ├── firewall_stack.py # FirewallStackSnapshot + check_firewall_stack()
 │   ├── network_context.py # NetworkContextSnapshot + check_network_context()
 │   ├── hardening.py     # HardeningSnapshot + check_hardening()
-│   └── ipv6.py          # IPv6Snapshot + check_ipv6()
+│   ├── ipv6.py          # IPv6Snapshot + check_ipv6()
+│   └── updates.py       # UpdatesSnapshot + check_updates()
 ├── compare.py           # AuditBaseline + AuditDelta + rapport comparatif
 ├── plugin_checks.py     # PluginCheck + load_plugin_checks()
+├── explain.py           # run_explain(), normalize_key(), EXPLAIN_KEYS
+├── domain_scores.py     # compute_domain_scores(), render_domain_scores()
+├── webhook.py           # build_generic_payload(), build_slack_payload(), send_webhook()
 ├── data/
 │   ├── services.json            # Registre déclaratif des 22 services
 │   └── ufw-audit.bash-completion  # Script d'autocomplétion bash
@@ -149,7 +157,11 @@ tests/
 ├── test_scoring.py
 ├── test_services.py
 ├── test_sysinfo.py
-└── test_virtualization.py
+├── test_virtualization.py
+├── test_updates.py
+├── test_explain.py
+├── test_domain_scores.py
+└── test_webhook.py
 
 pyproject.toml           # Config de build (setuptools, installation pip/pipx)
 README.md / README_FR.md           # Documentation utilisateur (EN/FR)
@@ -196,7 +208,7 @@ python3 -m unittest tests/test_firewall.py
 ### Résultats attendus
 
 ```
-966 passed in X.XXs
+1332 passed in X.XXs
 ```
 
 Les tests n'effectuent aucun appel système — tous les snapshots sont construits directement dans les tests. Ils peuvent être lancés sans `sudo` et sans UFW installé.

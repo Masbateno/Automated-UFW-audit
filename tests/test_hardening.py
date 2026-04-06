@@ -29,7 +29,6 @@ def make_snapshot(**overrides) -> HardeningSnapshot:
     """Return a fully-hardened HardeningSnapshot with optional overrides."""
     defaults = dict(
         fail2ban_active=True,
-        auto_updates_enabled=True,
         apparmor_loaded=True,
         apparmor_mode="enforce",
         apparmor_enforced=5,
@@ -75,29 +74,6 @@ class TestCleanSystem:
     def test_no_alert_when_fully_hardened(self):
         result = check_hardening(make_snapshot(), t=_t)
         assert not has_level(result, "alert")
-
-
-# ---------------------------------------------------------------------------
-# Automatic updates
-# ---------------------------------------------------------------------------
-
-class TestAutoUpdates:
-    def test_ok_when_auto_updates_enabled(self):
-        result = check_hardening(make_snapshot(auto_updates_enabled=True), t=_t)
-        assert has_level(result, "ok")
-
-    def test_warn_when_auto_updates_missing(self):
-        result = check_hardening(make_snapshot(auto_updates_enabled=False), t=_t)
-        assert has_level(result, "warn")
-
-    def test_deduction_when_auto_updates_missing(self):
-        result = check_hardening(make_snapshot(auto_updates_enabled=False), t=_t)
-        assert total_deductions(result) >= 1
-
-    def test_deduction_key_auto_updates(self):
-        result = check_hardening(make_snapshot(auto_updates_enabled=False), t=_t)
-        reasons = [d.reason for d in result.deductions]
-        assert "hardening.auto_updates_missing" in reasons
 
 
 # ---------------------------------------------------------------------------
@@ -281,15 +257,14 @@ class TestIcmpBroadcast:
 # ---------------------------------------------------------------------------
 
 class TestCumulativeDeductions:
-    def test_three_issues_three_deductions(self):
-        """auto_updates + rp_filter + accept_redirects = 3 points."""
+    def test_two_issues_two_deductions(self):
+        """rp_filter=0 + accept_redirects = 2 points."""
         snap = make_snapshot(
-            auto_updates_enabled=False,
             rp_filter=0,
             accept_redirects=True,
         )
         result = check_hardening(snap, t=_t)
-        assert total_deductions(result) == 3
+        assert total_deductions(result) == 2
 
     def test_no_deductions_for_info_only_fields(self):
         """fail2ban + apparmor_mode + log_martians + icmp_broadcast = 0 deductions."""
@@ -303,23 +278,21 @@ class TestCumulativeDeductions:
         assert total_deductions(result) == 0
 
     def test_mixed_warn_and_info_coexist(self):
-        """rp_filter=2 (INFO) + auto_updates=False (WARN) must both appear."""
+        """rp_filter=0 (WARN) + fail2ban=False (INFO) must both appear."""
         snap = make_snapshot(
-            auto_updates_enabled=False,
-            rp_filter=2,
+            rp_filter=0,
+            fail2ban_active=False,
         )
         result = check_hardening(snap, t=_t)
         assert has_level(result, "warn")
         assert has_level(result, "info")
-        # Only auto_updates triggers a deduction; rp_filter=2 is INFO-only
         assert total_deductions(result) == 1
 
     def test_mixed_ok_info_warn_all_present(self):
         """Verify all three levels can coexist in one result."""
         snap = make_snapshot(
-            auto_updates_enabled=False,   # WARN
-            rp_filter=2,                  # INFO
-            fail2ban_active=True,         # OK
+            rp_filter=0,           # WARN
+            fail2ban_active=False, # INFO
         )
         result = check_hardening(snap, t=_t)
         assert has_level(result, "ok")

@@ -56,6 +56,12 @@ def _run(argv=None) -> int:
         print_help(i18n.t, VERSION)
         return EXIT_OK
 
+    if config.explain_key:
+        i18n.init(lang=config.lang)
+        from ufw_audit.explain import run_explain
+        run_explain(config.explain_key, i18n.t)
+        return EXIT_OK
+
     if config.install_completion:
         require_root()
         return install_completion()
@@ -76,6 +82,10 @@ def _run(argv=None) -> int:
     require_root()
     i18n.init(lang=config.lang)
     t = i18n.t
+
+    # --diff runs the audit silently and shows only the baseline delta
+    if config.diff_mode:
+        config.quiet = True
 
     _devnull = None
     if config.json_mode:
@@ -152,14 +162,52 @@ def _run(argv=None) -> int:
 
         engine.finalize()
 
+        # ---- Webhook notification (non-fatal) ----------------------------------
+        _webhook_url = config.webhook_url or user_config.get_webhook_url()
+        if _webhook_url and not config.offline:
+            # Persist URL if supplied via CLI flag (keeps it for future runs)
+            if config.webhook_url and config.webhook_url != user_config.get_webhook_url():
+                try:
+                    user_config.set_webhook_url(config.webhook_url)
+                except ValueError:
+                    pass  # invalid URL — will be caught by send_webhook below
+            _webhook_fmt = config.webhook_format if config.webhook_format != "auto" \
+                else user_config.get_webhook_format()
+            try:
+                from ufw_audit.webhook import WebhookError, send_webhook
+                _status = send_webhook(
+                    _webhook_url, engine, sys_info, VERSION,
+                    fmt=_webhook_fmt,
+                )
+                if not config.quiet:
+                    output.print_info(f"Webhook: POST → {_webhook_url} [{_status}]")
+            except Exception as _exc:  # noqa: BLE001
+                import sys as _sys
+                print(f"Warning: webhook failed: {_exc}", file=_sys.stderr)
+        # ------------------------------------------------------------------------
+
         curr_baseline = build_baseline(engine, ports_snapshot, snapshots)
         save_baseline(curr_baseline)
 
         if not config.quiet:
             print_audit_summary(engine, network_context, public_ip, config, t, report, snapshots)
+            from ufw_audit.domain_scores import compute_domain_scores, render_domain_scores
+            _domain_scores = compute_domain_scores(engine)
+            for _line in render_domain_scores(_domain_scores, t):
+                print(_line)
+            print()
             if prev_baseline:
                 print()
                 display_delta(compute_delta(prev_baseline, curr_baseline), t, output)
+
+        # --diff: restore stdout and show the delta only
+        if config.diff_mode:
+            sys.stdout = sys.__stdout__
+            if not prev_baseline:
+                print("No previous baseline found — run a full audit first to establish a baseline.")
+            else:
+                _delta = compute_delta(prev_baseline, curr_baseline)
+                display_delta(_delta, t, output)
 
         report.write_risk_context_section(
             section_title=t("sections.risk_context"),

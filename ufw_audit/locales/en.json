@@ -37,7 +37,8 @@
     "ipv6": "IPv6 CONSISTENCY CHECK",
     "compare": "CHANGES SINCE LAST AUDIT",
     "ssh": "SSH SECURITY AUDIT",
-    "file_perms": "SENSITIVE FILES & SUDOERS"
+    "file_perms": "SENSITIVE FILES & SUDOERS",
+    "updates": "SYSTEM UPDATES"
   },
   "status": {
     "ok": "OK",
@@ -211,7 +212,7 @@
     "block_normal": "Normal configuration",
     "implicit_policy": "Service(s) relying on default UFW policy rather than explicit rules. Correct if policy is deny, but an explicit rule is more robust.",
     "implicit_svcs": "Affected service(s)",
-    "scope_line1": "This score reflects your UFW firewall configuration only.",
+    "scope_line1": "This score covers firewall, services, SSH, file permissions and system updates.",
     "scope_line2": "System updates, application security, and other attack vectors are outside the scope of this audit."
   },
   "log_dir": {
@@ -429,8 +430,6 @@
   },
   "hardening": {
     "no_issues": "System hardening parameters look good",
-    "auto_updates_ok": "Automatic security updates (unattended-upgrades) are enabled",
-    "auto_updates_missing": "Automatic security updates not enabled — consider installing unattended-upgrades",
     "fail2ban_ok": "fail2ban is active and protecting against brute-force attacks",
     "fail2ban_missing": "fail2ban not detected — consider installing it to block brute-force attacks",
     "apparmor_not_installed": "AppArmor not detected — consider enabling it for mandatory access control",
@@ -562,7 +561,166 @@
     "sudoers_nopasswd_specific_detail": "Passwordless sudo for specific commands is often intentional. Verify each entry is still needed.",
     "ok": "Sensitive file permissions and sudoers: no issues detected"
   },
+  "updates": {
+    "no_apt":                           "apt not available — package update check skipped",
+    "security_pending":                 "{count} security package(s) pending update: {packages}",
+    "security_pending_detail":          "Security updates fix known vulnerabilities. Apply immediately: sudo apt-get upgrade",
+    "security_pending_reason":          "{count} security package(s) pending update",
+    "regular_pending":                  "{count} package(s) pending update (non-security)",
+    "unattended_not_configured":        "unattended-upgrades not configured — security patches require manual intervention",
+    "unattended_not_configured_detail": "Install and enable: sudo apt install unattended-upgrades && sudo dpkg-reconfigure -plow unattended-upgrades",
+    "unattended_not_configured_reason": "unattended-upgrades not configured",
+    "ok":                               "System packages are up to date"
+  },
   "output": {
     "recommendation_label": "What to do?"
+  },
+  "domain_scores": {
+    "title":      "Domain Scores",
+    "ssh":        "SSH",
+    "file_perms": "Files & Access",
+    "updates":    "Updates",
+    "hardening":  "Hardening",
+    "firewall":   "Firewall & Services"
+  },
+  "explain": {
+    "ssh": {
+      "password_auth": {
+        "title": "Password authentication enabled (PasswordAuthentication yes)",
+        "why": "Allows anyone to attempt to guess passwords via brute force. Millions of bots scan the internet 24/7 trying common passwords against SSH port 22. A weak or reused password is all it takes for a full compromise.",
+        "how": "1. Generate a key pair if you don't have one:\n   ssh-keygen -t ed25519\n2. Copy your public key to the server:\n   ssh-copy-id user@server\n3. Disable password auth:\n   sudo nano /etc/ssh/sshd_config  →  PasswordAuthentication no\n4. Restart SSH:\n   sudo systemctl restart ssh"
+      },
+      "permit_root_login": {
+        "title": "Root SSH login permitted (PermitRootLogin)",
+        "why": "Direct root login bypasses audit trails and gives full system access from the first connection. If an attacker guesses or steals the root credential, no further privilege escalation is needed — the server is fully compromised immediately.",
+        "how": "1. Ensure a regular user with sudo rights exists\n2. Disable root login:\n   sudo nano /etc/ssh/sshd_config  →  PermitRootLogin no\n3. Restart SSH:\n   sudo systemctl restart ssh"
+      },
+      "permit_empty_passwords": {
+        "title": "Empty passwords allowed (PermitEmptyPasswords yes)",
+        "why": "Any account without a password is directly accessible over SSH with a blank password. This is an immediate full-access vulnerability requiring zero effort from an attacker.",
+        "how": "1. Disable empty passwords:\n   sudo nano /etc/ssh/sshd_config  →  PermitEmptyPasswords no\n2. Lock accounts with empty passwords:\n   sudo passwd -l <username>\n3. Restart SSH:\n   sudo systemctl restart ssh"
+      },
+      "allow_tcp_forwarding": {
+        "title": "TCP forwarding enabled (AllowTcpForwarding yes)",
+        "why": "TCP forwarding lets any authenticated user tunnel arbitrary TCP traffic through SSH. An attacker with a valid account can pivot to internal services that are not directly reachable from the internet.",
+        "how": "1. Disable TCP forwarding:\n   sudo nano /etc/ssh/sshd_config  →  AllowTcpForwarding no\n2. If specific users need port forwarding, use:\n   AllowTcpForwarding local\n3. Restart SSH:\n   sudo systemctl restart ssh"
+      },
+      "pubkey_auth_disabled": {
+        "title": "Public key authentication disabled (PubkeyAuthentication no)",
+        "why": "Disabling public key authentication forces all users onto password login. This removes the strongest authentication mechanism available and makes the server entirely dependent on password strength.",
+        "how": "1. Enable key-based authentication:\n   sudo nano /etc/ssh/sshd_config  →  PubkeyAuthentication yes\n2. Generate a key pair:\n   ssh-keygen -t ed25519\n3. Copy the key to the server:\n   ssh-copy-id user@server\n4. Restart SSH:\n   sudo systemctl restart ssh"
+      },
+      "x11_forwarding": {
+        "title": "X11 forwarding enabled (X11Forwarding yes)",
+        "why": "X11 forwarding exposes your local X11 display to a remote server. A malicious or compromised remote host could capture keystrokes and screen contents from your X session.",
+        "how": "1. Disable X11 forwarding:\n   sudo nano /etc/ssh/sshd_config  →  X11Forwarding no\n2. If genuinely needed, ensure X11UseLocalhost yes is also set\n3. Restart SSH:\n   sudo systemctl restart ssh"
+      },
+      "dsa_key": {
+        "title": "DSA host key in use",
+        "why": "DSA keys are cryptographically broken and deprecated in OpenSSH 7.0+. The algorithm offers only 1024-bit security and is vulnerable to attacks when the random number generator produces weak values.",
+        "how": "1. Remove the DSA host key:\n   sudo rm /etc/ssh/ssh_host_dsa_key*\n2. Regenerate all host keys:\n   sudo ssh-keygen -A\n3. Restart SSH:\n   sudo systemctl restart ssh\n4. Remove old fingerprints from clients:\n   ssh-keygen -R <hostname>"
+      },
+      "no_passphrase": {
+        "title": "Private key without passphrase",
+        "why": "If the key file is copied or stolen — via a compromised server, backup leak, or misconfigured storage — the attacker gains immediate access to every system that trusts it. No cracking required.",
+        "how": "1. Add a passphrase to an existing key:\n   ssh-keygen -p -f ~/.ssh/id_ed25519\n2. Use ssh-agent to avoid re-entering the passphrase every session\n3. For service accounts, use dedicated keys with restrictive authorized_keys options (command=, from=)"
+      },
+      "client_strict_host_no": {
+        "title": "StrictHostKeyChecking disabled in SSH client config",
+        "why": "Disabling host verification allows man-in-the-middle (MITM) attacks: an attacker can silently intercept your SSH session and impersonate the server with no warning displayed.",
+        "how": "1. Remove StrictHostKeyChecking no from ~/.ssh/config\n2. Use the default: StrictHostKeyChecking ask (first connection prompts, subsequent connections verify)\n3. To skip verification for one specific host only, use a Host block:\n   Host jump-host.example.com\n       StrictHostKeyChecking no"
+      },
+      "ignore_rhosts_disabled": {
+        "title": "IgnoreRhosts disabled — .rhosts files trusted",
+        "why": ".rhosts files allow passwordless login based on hostname alone. Hostnames can be spoofed, making this a trivial authentication bypass that has been obsolete for decades.",
+        "how": "1. Enable IgnoreRhosts (the default):\n   sudo nano /etc/ssh/sshd_config  →  IgnoreRhosts yes\n2. Restart SSH:\n   sudo systemctl restart ssh"
+      },
+      "host_based_auth": {
+        "title": "Host-based authentication enabled",
+        "why": "Host-based authentication trusts the identity of a remote host rather than a user credential. If the trusted host is compromised, attackers automatically gain access to this server without any further authentication.",
+        "how": "1. Disable host-based authentication (the default):\n   sudo nano /etc/ssh/sshd_config  →  HostbasedAuthentication no\n2. Restart SSH:\n   sudo systemctl restart ssh"
+      },
+      "strict_modes_disabled": {
+        "title": "SSH StrictModes disabled",
+        "why": "Without StrictModes, sshd skips permission checks on ~/.ssh and key files. World-readable private keys or group-writable home directories are silently accepted, effectively nullifying file permission security.",
+        "how": "1. Enable StrictModes (the default):\n   sudo nano /etc/ssh/sshd_config  →  StrictModes yes\n2. Fix file permissions:\n   chmod 700 ~/.ssh\n   chmod 600 ~/.ssh/authorized_keys\n3. Restart SSH:\n   sudo systemctl restart ssh"
+      }
+    },
+    "file_perms": {
+      "world_writable": {
+        "title": "World-writable sensitive file",
+        "why": "Any local user on the system can modify this file. For configuration files (sshd_config, sudoers) this allows privilege escalation. For credential files it allows tampering that persists across sessions.",
+        "how": "1. Identify the file and owner:\n   ls -la <path>\n2. Remove world-write permission:\n   sudo chmod o-w <path>\n3. Verify the fix:\n   ls -la <path>  →  last three bits should be ---"
+      },
+      "too_permissive": {
+        "title": "File permissions too open",
+        "why": "Overly permissive files can be read or written by unintended users. SSH keys readable by others allow impersonation. Configuration files readable by all may leak credentials or internal paths.",
+        "how": "1. Note the expected permissions shown in the audit output\n2. Apply the correct permissions:\n   sudo chmod <expected> <path>\n3. Verify:\n   ls -la <path>"
+      },
+      "sudoers_nopasswd_all": {
+        "title": "NOPASSWD:ALL in sudoers (unrestricted passwordless sudo)",
+        "why": "Grants full, unrestricted root access without any password. If this account is compromised — malware, stolen session token, weak password — the attacker has immediate full system control with zero additional effort.",
+        "how": "1. Edit sudoers safely:\n   sudo visudo\n2. Replace NOPASSWD:ALL with a specific command list, e.g.:\n   user ALL=(ALL) NOPASSWD: /usr/bin/apt-get\n3. If passwordless sudo is needed for automation, isolate it to a dedicated service account with a minimal allowed command list"
+      },
+      "ssh_host_key_perms": {
+        "title": "SSH host key permissions too open",
+        "why": "SSH host private keys must be readable only by root. If a non-root user can read the host key, they can impersonate this server to any client — enabling a man-in-the-middle attack on future SSH connections.",
+        "how": "1. Restrict permissions:\n   sudo chmod 600 <path>\n2. Verify root ownership:\n   sudo chown root:root <path>\n3. Restart SSH:\n   sudo systemctl restart ssh"
+      }
+    },
+    "updates": {
+      "security_pending": {
+        "title": "Security updates pending",
+        "why": "Pending security updates mean the system contains known vulnerabilities with public CVEs and often public exploits. Attackers actively scan for unpatched systems. Every day of delay increases the window of exposure.",
+        "how": "1. Apply security updates now:\n   sudo apt-get upgrade\n2. Preview what would be applied:\n   sudo unattended-upgrade --dry-run\n3. Apply only security patches automatically:\n   sudo unattended-upgrade\n4. If kernel updates are included, reboot:\n   sudo reboot"
+      },
+      "unattended_not_configured": {
+        "title": "Automatic security updates not configured",
+        "why": "Without automatic updates, security patches accumulate until someone manually applies them. Maintenance windows of exposure grow over time, and critical patches are often missed on servers without active monitoring.",
+        "how": "1. Install the package:\n   sudo apt install unattended-upgrades\n2. Configure it interactively:\n   sudo dpkg-reconfigure -plow unattended-upgrades\n3. Verify the service is active:\n   sudo systemctl status unattended-upgrades\n4. Test with a dry run:\n   sudo unattended-upgrade --dry-run -d"
+      }
+    },
+    "hardening": {
+      "rp_filter_disabled": {
+        "title": "Reverse path filtering disabled (rp_filter = 0)",
+        "why": "Without reverse path filtering, the kernel accepts packets from source IP addresses that could not have arrived via the receiving interface — a sign of IP spoofing. This enables spoofed-source attacks and can be used to bypass firewall rules that rely on source IP.",
+        "how": "1. Enable immediately (takes effect now):\n   sudo sysctl -w net.ipv4.conf.all.rp_filter=1\n2. Make it permanent:\n   echo 'net.ipv4.conf.all.rp_filter=1' | sudo tee -a /etc/sysctl.d/99-rp-filter.conf\n3. Apply all sysctl settings:\n   sudo sysctl --system"
+      },
+      "redirects_enabled": {
+        "title": "ICMP redirects accepted (accept_redirects = 1)",
+        "why": "ICMP redirect messages can instruct the kernel to change its routing tables. An attacker on the local network can send forged ICMP redirects to reroute traffic through a machine they control, enabling a routing hijack or man-in-the-middle attack.",
+        "how": "1. Disable immediately (takes effect now):\n   sudo sysctl -w net.ipv4.conf.all.accept_redirects=0\n2. Make it permanent:\n   echo 'net.ipv4.conf.all.accept_redirects=0' | sudo tee -a /etc/sysctl.d/99-redirects.conf\n3. Apply all sysctl settings:\n   sudo sysctl --system"
+      }
+    }
+  },
+  "explain_cis": {
+    "ssh": {
+      "password_auth":          "CIS Ubuntu 22.04 L1 — 5.2.8 — Ensure SSH PasswordAuthentication is disabled",
+      "permit_root_login":      "CIS Ubuntu 22.04 L1 — 5.2.10 — Ensure SSH root login is disabled",
+      "permit_empty_passwords": "CIS Ubuntu 22.04 L1 — 5.2.9 — Ensure SSH PermitEmptyPasswords is disabled",
+      "allow_tcp_forwarding":   "CIS Ubuntu 22.04 L2 — 5.2.21 — Ensure SSH AllowTcpForwarding is disabled",
+      "pubkey_auth_disabled":   "CIS Ubuntu 22.04 — general SSH hardening best practice",
+      "x11_forwarding":         "CIS Ubuntu 22.04 L1 — 5.2.6 — Ensure SSH X11 forwarding is disabled",
+      "dsa_key":                "CIS Ubuntu 22.04 L1 — 5.2.2 — Ensure SSH private host key file permissions / deprecated algorithm",
+      "no_passphrase":          "CIS Ubuntu 22.04 — SSH key security best practice",
+      "client_strict_host_no":  "CIS Ubuntu 22.04 — SSH client security best practice (MITM prevention)",
+      "ignore_rhosts_disabled": "CIS Ubuntu 22.04 L1 — 5.2.12 — Ensure SSH IgnoreRhosts is enabled",
+      "host_based_auth":        "CIS Ubuntu 22.04 L1 — 5.2.13 — Ensure SSH HostbasedAuthentication is disabled",
+      "strict_modes_disabled":  "CIS Ubuntu 22.04 L1 — 5.2.2 — Ensure SSH private host key file permissions are configured"
+    },
+    "file_perms": {
+      "world_writable":       "CIS Ubuntu 22.04 L1 — 6.1.10 — Ensure no world writable files exist",
+      "too_permissive":       "CIS Ubuntu 22.04 L1 — 6.1 — Ensure appropriate permissions on sensitive files",
+      "sudoers_nopasswd_all": "CIS Ubuntu 22.04 L2 — 5.3.4 — Ensure users must provide password for privilege escalation",
+      "ssh_host_key_perms":   "CIS Ubuntu 22.04 L1 — 5.2.2 — Ensure permissions on SSH private host key files are configured"
+    },
+    "updates": {
+      "security_pending":          "CIS Ubuntu 22.04 L1 — 1.9 — Ensure updates, patches and additional security software are installed",
+      "unattended_not_configured": "CIS Ubuntu 22.04 L1 — 1.9 — Ensure updates, patches and additional security software are installed"
+    },
+    "hardening": {
+      "rp_filter_disabled": "CIS Ubuntu 22.04 L1 — 3.3.1 — Ensure source routed packets are not accepted",
+      "redirects_enabled":  "CIS Ubuntu 22.04 L1 — 3.3.2 — Ensure ICMP redirects are not accepted"
+    }
   }
 }

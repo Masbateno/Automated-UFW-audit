@@ -242,6 +242,44 @@ class UserConfig:
         """Persist the active audit profile name."""
         self.set("audit_profile", name)
 
+    # ------------------------------------------------------------------
+    # Webhook helpers
+    # ------------------------------------------------------------------
+
+    def get_webhook_url(self) -> str:
+        """Return the saved webhook URL, or empty string if not set."""
+        return self._data.get("webhook_url", "")
+
+    def set_webhook_url(self, url: str) -> None:
+        """
+        Persist the webhook URL.
+
+        Raises:
+            ValueError: If the URL does not start with http:// or https://.
+        """
+        url = url.strip()
+        if url and not url.startswith(("http://", "https://")):
+            raise ValueError(f"Webhook URL must start with http:// or https://: {url!r}")
+        if url:
+            self.set("webhook_url", url)
+        else:
+            self.delete("webhook_url")
+
+    def get_webhook_format(self) -> str:
+        """Return the saved webhook format ('auto', 'generic', or 'slack'), default 'auto'."""
+        return self._data.get("webhook_format", "auto")
+
+    def set_webhook_format(self, fmt: str) -> None:
+        """
+        Persist the webhook format.
+
+        Raises:
+            ValueError: If fmt is not one of 'auto', 'generic', 'slack'.
+        """
+        if fmt not in ("auto", "generic", "slack"):
+            raise ValueError(f"Webhook format must be 'auto', 'generic', or 'slack': {fmt!r}")
+        self.set("webhook_format", fmt)
+
     @property
     def path(self) -> Path:
         """Path to the config file."""

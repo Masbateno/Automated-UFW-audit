@@ -1,9 +1,9 @@
 *[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
-# ufw-audit v1.8.0
+# ufw-audit v1.9.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.8.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.9.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -45,6 +45,11 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **Plugin check API** — drop a Python file in `~/.config/ufw-audit/checks.d/` to add a custom audit check; plugins are fail-safe (exceptions never abort the audit) and ANSI-sanitized
 - **SSH security audit** — full `sshd_config` analysis (15 directives + weak Ciphers/MACs/KEX); private key audit (type, size, passphrase); `authorized_keys` inspection; `~/.ssh/config` client-side check; `known_hosts` entry count; targets `SUDO_USER`'s home; distro-aware install hints
 - **Sensitive files & sudoers** — permissions audit on `/etc/passwd`, `/etc/shadow`, `/etc/gshadow`, `/etc/group`, `/etc/sudoers` (world-writable → ALERT, too-permissive → WARN); SSH host private key permissions under `/etc/ssh/`; `NOPASSWD:ALL` detection across sudoers and sudoers.d
+- **System updates audit** — detects pending security packages via `apt-get -s upgrade` (−2 pts flat); absent `unattended-upgrades` combined with pending security updates (−1 pt compound); regular updates → INFO only
+- **`--explain KEY`** — structured per-finding explanation (WHY IT IS A RISK / HOW TO FIX / CIS Ubuntu 22.04 reference); 20 explainable keys; `--explain list` shows all keys with titles; key normalisation handles `file_perms.*` middle segments; no root required
+- **Domain scores** — per-domain security sub-scores (SSH / Files & Access / Updates / Hardening / Firewall & Services); displayed as bar chart after audit; included in JSON output and webhook payload
+- **Webhooks** — `--webhook URL` POSTs audit result as JSON after each audit; generic (Grafana/automation) and Slack formats (auto-detected by URL); non-fatal; `--webhook-format=auto|generic|slack`
+- **`--diff` mode** — runs audit silently and displays only the comparative delta (what changed since last audit)
 
 ---
 
@@ -340,8 +345,12 @@ The report opens with a 62-char ASCII art header and contains: system informatio
 | `-n`, `--no-color`      | Disable ANSI colour output                                         |
 | `--json`                | Export summary as JSON                                             |
 | `--json-full`           | Export full audit details as JSON                                  |
+| `--explain=KEY`         | Print structured explanation for a finding key (`--explain list` shows all) |
+| `--diff`                | Silent audit — show only the baseline delta                        |
+| `--webhook=URL`         | POST audit result as JSON to URL after each audit                  |
+| `--webhook-format=FMT`  | Webhook payload format: `auto` (default), `generic`, or `slack`   |
 | `--log-days=N`          | Analyse logs over N days (default: 7)                              |
-| `-o`, `--offline`       | Skip external IP lookup (no HTTP calls)                            |
+| `-o`, `--offline`       | Skip external IP lookup and webhook call (no HTTP calls)           |
 | `--manage-logs`         | Interactive UI to list and delete saved report files               |
 | `--install-cron`        | Set up an automated nightly audit (cron)                           |
 | `--install-completion`  | Install bash completion and create sudo PATH symlink               |
@@ -460,7 +469,11 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v1.6.0** — New HARDENING section (fail2ban, auto-updates, AppArmor, rp_filter, ICMP redirects, log_martians, ICMP broadcast); new IPv6 CONSISTENCY section; comparative report (baseline delta); plugin check API; 928/928
 
-**v1.7.0** *(current)* — Audit profiles (`server`/`workstation`/`container`, INI format, `extends` inheritance, `--profile=NAME`); `Deduction.key` for deterministic profile override matching; multi-email cron notifications; bulk cron delete (`d:1,3` / `d:1-3` / `d:all`); ephemeral port filter in comparative report; `--reset-baseline`; 966/966
+**v1.7.0** — Audit profiles (`server`/`workstation`/`container`, INI format, `extends` inheritance, `--profile=NAME`); `Deduction.key` for deterministic profile override matching; multi-email cron notifications; bulk cron delete (`d:1,3` / `d:1-3` / `d:all`); ephemeral port filter in comparative report; `--reset-baseline`; 966/966
+
+**v1.8.0** — SSH security audit (15 directives, private keys, authorized_keys, known_hosts); sensitive files & sudoers (world-writable, too-permissive, NOPASSWD:ALL); `SUDO_USER` home targeting; distro-aware install hints; i18n fix (`recommendation_label`); INFO detail in verbose mode; 1104/1104
+
+**v1.9.0** *(current)* — System updates audit (CHECK 13: apt pending, unattended-upgrades, −2/−1 pts compound); `--explain KEY` with WHY/HOW/CIS Ubuntu 22.04 refs (20 keys); webhooks (`--webhook`, generic + Slack, non-fatal); domain scores (5 domains, bar chart, JSON/webhook); `--diff` mode; ChatGPT quality pass (domain_scores, updates, webhook, explain); 1332/1332
 
 **Post v1.0**
 - Web UI (`--gui`) — graphical interface for non-technical users, pedagogical approach, simplified scope

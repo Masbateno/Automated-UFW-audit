@@ -42,7 +42,6 @@ class HardeningSnapshot:
 
     Args:
         fail2ban_active:              True if fail2ban service is running.
-        auto_updates_enabled:         True if unattended-upgrades is enabled.
         apparmor_loaded:              True if AppArmor module is loaded.
         apparmor_mode:                "enforce"|"permissive"|"inactive"|"not_installed".
         apparmor_enforced:            Number of profiles in enforce mode.
@@ -53,7 +52,6 @@ class HardeningSnapshot:
         icmp_echo_ignore_broadcasts:  True if net.ipv4.icmp_echo_ignore_broadcasts == 1.
     """
     fail2ban_active:             bool = False
-    auto_updates_enabled:        bool = False
     apparmor_loaded:             bool = False
     apparmor_mode:               str  = "not_installed"
     apparmor_enforced:           int  = 0
@@ -83,9 +81,6 @@ class HardeningSnapshot:
             out = _run("fail2ban-client", "status")
             fail2ban_active = bool(out and "Number of jail" in out)
 
-        # --- unattended-upgrades ---
-        auto_updates_enabled = _check_auto_updates()
-
         # --- AppArmor ---
         apparmor_loaded  = False
         apparmor_mode    = "not_installed"
@@ -111,7 +106,6 @@ class HardeningSnapshot:
 
         return cls(
             fail2ban_active=fail2ban_active,
-            auto_updates_enabled=auto_updates_enabled,
             apparmor_loaded=apparmor_loaded,
             apparmor_mode=apparmor_mode,
             apparmor_enforced=apparmor_enforced,
@@ -141,25 +135,6 @@ def check_hardening(snapshot: HardeningSnapshot, t=None) -> CheckResult:
     _t = t if t is not None else _identity_t
     result = CheckResult()
     found_issue = False  # tracks deduction-worthy (warn-level) issues only
-
-    # --- Automatic security updates ---
-    if snapshot.auto_updates_enabled:
-        result.ok(message=_t("hardening.auto_updates_ok"),
-                  key="hardening.auto_updates_ok")
-    else:
-        result.warn(
-            message=_t("hardening.auto_updates_missing"),
-            nature="improvement",
-            cmd="sudo apt install unattended-upgrades && sudo dpkg-reconfigure -plow unattended-upgrades",
-            key="hardening.auto_updates_missing",
-        )
-        result.add_deduction(
-            reason=_t("hardening.auto_updates_missing"),
-            points=1,
-            context="local",
-            key="hardening.auto_updates_missing",
-        )
-        found_issue = True
 
     # --- fail2ban ---
     if snapshot.fail2ban_active:
@@ -257,32 +232,6 @@ def check_hardening(snapshot: HardeningSnapshot, t=None) -> CheckResult:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _check_auto_updates() -> bool:
-    """Return True if unattended-upgrades is installed and configured to run.
-
-    Uses dpkg-query as the authoritative source for package presence,
-    then checks the APT periodic config, falling back to the systemd timer.
-    """
-    # Step 1 — package installed? (dpkg-query is locale-independent and precise)
-    dpkg_out = _run("dpkg-query", "-W", "-f=${Status}", "unattended-upgrades")
-    if not dpkg_out or "install ok installed" not in dpkg_out:
-        return False
-
-    # Step 2 — is it configured to actually run upgrades?
-    apt_conf = Path("/etc/apt/apt.conf.d/20auto-upgrades")
-    if apt_conf.exists():
-        try:
-            content = apt_conf.read_text(encoding="utf-8", errors="ignore")
-            if re.search(r'APT::Periodic::Unattended-Upgrade\s+"1"', content):
-                return True
-        except OSError:
-            pass
-
-    # Step 3 — fallback: systemd timer active
-    timer_out = _run("systemctl", "is-active", "apt-daily-upgrade.timer")
-    return timer_out.strip() == "active"
-
 
 def _parse_apparmor_mode(aa_status_output: str) -> str:
     """Parse the operating mode from `aa-status` output."""

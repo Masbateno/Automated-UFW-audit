@@ -1,9 +1,9 @@
 *[Read in English](README_TECH.md)* · *[Vue d'ensemble](../README_FR.md)*
 
-# ufw-audit v1.8.0
+# ufw-audit v1.9.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.8.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.9.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -45,6 +45,11 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 - **API Plugin** — déposer un fichier Python dans `~/.config/ufw-audit/checks.d/` pour ajouter une vérification personnalisée ; les plugins sont fail-safe (les exceptions n'interrompent jamais l'audit) et les séquences ANSI sont nettoyées
 - **Audit de sécurité SSH** — analyse complète de `sshd_config` (15 directives + Ciphers/MACs/KEX faibles) ; audit des clés privées (type, taille, passphrase) ; inspection `authorized_keys` ; vérification côté client `~/.ssh/config` ; comptage des entrées `known_hosts` ; cible le home de `SUDO_USER` ; suggestions d'installation adaptées à la distro
 - **Fichiers sensibles & sudoers** — audit des permissions de `/etc/passwd`, `/etc/shadow`, `/etc/gshadow`, `/etc/group`, `/etc/sudoers` (modifiable par tous → ALERT, trop permissif → WARN) ; permissions des clés hôtes privées SSH sous `/etc/ssh/` ; détection de `NOPASSWD:ALL` dans sudoers et sudoers.d
+- **Audit des mises à jour système** — détecte les paquets de sécurité en attente via `apt-get -s upgrade` (−2 pts fixe) ; absence de `unattended-upgrades` combinée à des mises à jour de sécurité en attente (−1 pt composé) ; mises à jour régulières → INFO uniquement
+- **`--explain KEY`** — explication structurée par constat (POURQUOI C'EST UN RISQUE / COMMENT CORRIGER / référence CIS Ubuntu 22.04) ; 20 clés explicables ; `--explain list` liste toutes les clés avec leurs titres ; normalisation des clés `file_perms.*` ; sans droit root
+- **Scores par domaine** — sous-scores de sécurité par domaine (SSH / Fichiers & Accès / Mises à jour / Durcissement / Pare-feu & Services) ; affichés en barre █/░ après l'audit ; inclus dans la sortie JSON et le payload webhook
+- **Webhooks** — `--webhook URL` envoie le résultat d'audit en JSON après chaque audit ; formats générique (Grafana/automation) et Slack (auto-détecté) ; non-fatal ; `--webhook-format=auto|generic|slack`
+- **Mode `--diff`** — lance l'audit silencieusement et affiche uniquement le delta comparatif (changements depuis le dernier audit)
 
 ---
 
@@ -340,8 +345,12 @@ Le rapport s'ouvre avec un en-tête ASCII art sur 62 caractères et contient : i
 | `-n`, `--no-color`      | Désactiver la sortie ANSI couleur                                  |
 | `--json`                | Exporter le résumé en JSON                                         |
 | `--json-full`           | Exporter l'audit complet en JSON                                   |
+| `--explain=KEY`         | Afficher l'explication d'une clé de constat (`--explain list` liste tout) |
+| `--diff`                | Audit silencieux — afficher uniquement le delta de la baseline      |
+| `--webhook=URL`         | Envoyer le résultat d'audit en JSON à l'URL après chaque audit     |
+| `--webhook-format=FMT`  | Format webhook : `auto` (défaut), `generic` ou `slack`            |
 | `--log-days=N`          | Analyser les logs sur N jours (défaut : 7)                         |
-| `-o`, `--offline`       | Désactiver la résolution d'IP publique (aucun appel HTTP)          |
+| `-o`, `--offline`       | Désactiver la résolution d'IP publique et l'appel webhook (aucun appel HTTP) |
 | `--manage-logs`         | Interface interactive pour gérer les rapports sauvegardés          |
 | `--install-cron`        | Configurer un audit nocturne automatique (cron)                    |
 | `--install-completion`  | Installer l'autocomplétion bash et créer le lien symbolique sudo PATH |
@@ -460,7 +469,11 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v1.6.0** — Nouvelle section DURCISSEMENT (fail2ban, mises à jour auto, AppArmor, rp_filter, redirections ICMP, log_martians, broadcast ICMP) ; nouvelle section COHÉRENCE IPv6 ; rapport comparatif (delta de baseline) ; API plugin de vérification ; 928/928
 
-**v1.7.0** *(actuel)* — Profils d'audit (`server`/`workstation`/`container`, format INI, héritage `extends`, `--profile=NAME`) ; `Deduction.key` pour correspondance d'override déterministe ; notifications cron multi-email ; suppression cron en lot (`d:1,3` / `d:1-3` / `d:all`) ; filtre des ports éphémères dans le rapport comparatif ; `--reset-baseline` ; 966/966
+**v1.7.0** — Profils d'audit (`server`/`workstation`/`container`, format INI, héritage `extends`, `--profile=NAME`) ; `Deduction.key` pour correspondance d'override déterministe ; notifications cron multi-email ; suppression cron en lot (`d:1,3` / `d:1-3` / `d:all`) ; filtre des ports éphémères dans le rapport comparatif ; `--reset-baseline` ; 966/966
+
+**v1.8.0** — Audit sécurité SSH (15 directives, clés privées, authorized_keys, known_hosts) ; fichiers sensibles & sudoers (monde-écriture, trop-permissif, NOPASSWD:ALL) ; ciblage home `SUDO_USER` ; suggestions distro-aware ; correctif i18n (`recommendation_label`) ; détail INFO en verbose ; 1104/1104
+
+**v1.9.0** *(actuel)* — Audit mises à jour système (CHECK 13 : apt en attente, unattended-upgrades, −2/−1 pts composés) ; `--explain KEY` avec WHY/HOW/CIS Ubuntu 22.04 (20 clés) ; webhooks (`--webhook`, générique + Slack, non-fatal) ; scores par domaine (5 domaines, barre, JSON/webhook) ; mode `--diff` ; passage qualité ChatGPT (domain_scores, updates, webhook, explain) ; 1332/1332
 - `--diff` — comparer l'audit courant avec un précédent export `--json` pour détecter les nouveaux ports/services (dérive d'audit)
 - `--fix --safe` — mode auto-fix restreint aux findings LOW/MEDIUM uniquement ; les findings CRITICAL/HIGH ne sont jamais appliqués sans confirmation explicite
 

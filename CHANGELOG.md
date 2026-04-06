@@ -4,6 +4,8 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.9.0](#v190) | 2026-04-06 | System updates audit (CHECK 13); `--explain KEY` with CIS refs; webhooks; domain scores; `--diff`; 1332/1332 tests |
+| [v1.8.0](#v180) | 2026-04-06 | SSH security audit (CHECK 11); sensitive files & sudoers (CHECK 12); i18n fix; INFO verbose detail; 1104/1104 tests |
 | [v1.7.0](#v170) | 2026-04-04 | Audit profiles; `Deduction.key`; multi-email cron; multi-delete cron; `--reset-baseline`; ephemeral-port filter; 966/966 tests |
 | [v1.6.0](#v160) | 2026-04-04 | Hardening check; IPv6 consistency check; comparative report; plugin API; 926/926 tests |
 | [v1.5.0](#v150) | 2026-04-04 | Firewall Stack Analysis; Network Context; enriched banner; code quality pass (12 modules hardened); 766/766 tests |
@@ -40,6 +42,89 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.9.0
+
+**2026-04-06**
+
+### System updates audit (CHECK 13)
+
+- New module `checks/updates.py` — `UpdatesSnapshot` + `check_updates()`
+- Detects security packages pending update via `apt-get -s upgrade` + `-security` suite matching
+- Detects regular packages pending update (informational)
+- Detects `unattended-upgrades` installation and configuration (apt-conf + systemd timer)
+- Scoring: security pending → −2 pts (flat regardless of package count); `unattended-upgrades` absent + security pending → −1 pt additional (compound risk)
+- Deduplication of package names (`dict.fromkeys` order-preserving); `None`-safe list handling
+
+### `--explain KEY`
+
+- New module `explain.py` — `normalize_key()` + `run_explain()`
+- Prints structured explanation per finding: title, WHY IT IS A RISK, HOW TO FIX, CIS Ubuntu 22.04 reference
+- 20 explainable keys across all domains (SSH ×11, file_perms ×4, updates ×2, hardening ×2, firewall ×1)
+- `--explain list` — lists all 20 keys with translated titles
+- Key normalisation strips `file_perms.*` middle segments (regex handles deep nesting)
+- CIS references stored in `explain_cis` locale section (EN + FR)
+- No root required — early exit before privilege check
+
+### Webhooks (`--webhook`)
+
+- New module `webhook.py` — `build_generic_payload()`, `build_slack_payload()`, `send_webhook()`
+- Generic payload: Grafana / custom HTTP receivers; includes `domain_scores`
+- Slack payload: auto-detected by URL (`hooks.slack.com`), colour-coded (red/orange/green)
+- `--webhook-format=auto|generic|slack` — override format detection
+- Non-fatal: failures print to stderr, audit exit code unaffected
+- `--offline` suppresses webhook call; stdlib only (`urllib.request`)
+- Config persistence: `get/set_webhook_url()`, `get/set_webhook_format()` in `UserConfig`
+
+### Domain scores
+
+- New module `domain_scores.py` — `compute_domain_scores()` + `render_domain_scores()`
+- Five domains: SSH, Files & Access, Updates, Hardening, Firewall & Services
+- Each domain scored independently: `max(0, min(10, 10 − domain_deductions))`
+- Displayed in terminal after audit summary (█/░ bar chart)
+- Included in `--json`, `--json-full`, and generic webhook payload
+- Hardened against `None` keys, missing attributes, negative points
+
+### `--diff` mode
+
+- Runs audit silently (`quiet=True`), displays only the comparative delta (what changed since last audit)
+- Combines with `--verbose`
+
+### Tests
+
+- `test_updates.py` — 34 tests: apt unavailable, security/regular pending, unattended-upgrades, combined scenarios, edge cases (None lists, duplicates, invariants)
+- `test_explain.py` — ~94 tests: normalize_key (deep nesting, over-strip guard), EXPLAIN_KEYS list, run_explain (unknown key, list mode, all 20 keys ×3 parametrized), CLI parsing
+- `test_domain_scores.py` — ~48 tests: key-to-domain (None/malformed inputs), deduction attribution, score floor/ceiling, rendering, CIS all-20-keys, JSON/webhook structure
+- `test_webhook.py` — ~54 tests: URL detection, format selection, generic/Slack payloads, HTTP mocking, UserConfig persistence, CLI parsing, combined flags
+- 1332/1332 (+228)
+
+---
+
+## v1.8.0
+
+**2026-04-06**
+
+### SSH security audit (CHECK 11)
+
+- New module `checks/ssh.py` — full `sshd_config` analysis (15 directives + weak crypto), private key audit, `authorized_keys`, `~/.ssh/config`, `known_hosts`
+- Targets `SUDO_USER`'s home directory; distro-aware install hints (apt/dnf/pacman/zypper/apk)
+- 93 new tests in `tests/test_ssh.py`
+
+### Sensitive files & sudoers (CHECK 12)
+
+- New module `checks/file_perms.py` — world-writable/too-permissive sensitive files, SSH host key permissions, `NOPASSWD:ALL` sudoers detection
+- 45 new tests in `tests/test_file_perms.py`
+
+### i18n / display
+
+- `output.recommendation_label` key added (EN/FR) — fixes hardcoded French in all-locale output
+- INFO findings now show `detail` text in verbose mode (`-v`)
+
+### Tests
+
+- 1104/1104 (+138)
 
 ---
 

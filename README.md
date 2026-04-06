@@ -156,13 +156,22 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Quality & reliability
 
-- ✅ 1104 unit tests
+- ✅ 1332 unit tests
 - 🧱 Modular architecture (snapshot / check separated)
 - 🧪 Tested on Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.8.0
+## 🆕 v1.9.0
+
+- 📦 **System Updates Audit** (CHECK 13) — detects pending security packages (−2 pts flat) and absent `unattended-upgrades` (−1 pt compound risk); apt-based, deduplicates package names
+- 📖 **`--explain KEY`** — structured per-finding explanation: WHY IT IS A RISK / HOW TO FIX / CIS Ubuntu 22.04 reference; 20 keys; `--explain list` shows all; no root required
+- 🌐 **Webhooks** — `--webhook URL` POSTs audit result after each run; generic (Grafana/custom) and Slack formats (auto-detected); non-fatal, stdlib-only
+- 📊 **Domain Scores** — per-domain security sub-scores (SSH / Files & Access / Updates / Hardening / Firewall & Services) displayed in terminal + included in JSON and webhook
+- 🔄 **`--diff` mode** — silent audit + delta-only display (what changed since last audit)
+- ✅ 1332/1332 unit tests (+228)
+
+## v1.8.0
 
 - 🔑 **SSH Security Audit** (CHECK 11) — full `sshd_config` analysis (15 directives: +AllowTcpForwarding, +PubkeyAuthentication; weak Ciphers/MACs/KEX), private key audit (type, size, passphrase), `authorized_keys`, `~/.ssh/config`, `known_hosts`
 - 🔐 **Sensitive Files & Sudoers** (CHECK 12) — permissions on `/etc/passwd`, `/etc/shadow`, `/etc/gshadow`, `/etc/group`, `/etc/sudoers`; SSH host key permissions; `NOPASSWD:ALL` detection in sudoers

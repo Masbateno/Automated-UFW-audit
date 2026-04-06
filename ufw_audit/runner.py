@@ -35,6 +35,7 @@ from ufw_audit.checks.hardening import HardeningSnapshot, check_hardening
 from ufw_audit.checks.ipv6 import IPv6Snapshot, check_ipv6
 from ufw_audit.checks.ssh import SSHSnapshot, check_ssh
 from ufw_audit.checks.file_perms import FilePermsSnapshot, check_file_perms
+from ufw_audit.checks.updates import UpdatesSnapshot, check_updates
 from ufw_audit.plugin_checks import load_plugin_checks
 
 
@@ -281,6 +282,20 @@ def run_checks(
             apply_profile(file_perms_result, profile)
         engine.apply(file_perms_result)
         display_result(file_perms_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 13 — System updates ----
+    updates_snapshot = UpdatesSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("updates"):
+        if not config.quiet:
+            print_section(t("sections.updates"))
+        report.write_section(t("sections.updates"))
+        updates_result = check_updates(updates_snapshot, t=t)
+        if profile is not None:
+            apply_profile(updates_result, profile)
+        engine.apply(updates_result)
+        display_result(updates_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:
             print()
 

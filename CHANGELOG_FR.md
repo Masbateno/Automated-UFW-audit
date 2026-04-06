@@ -4,6 +4,8 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.9.0](#v190) | 2026-04-06 | Audit mises à jour système (CHECK 13) ; `--explain KEY` + refs CIS ; webhooks ; scores par domaine ; `--diff` ; 1332/1332 tests |
+| [v1.8.0](#v180) | 2026-04-06 | Audit sécurité SSH (CHECK 11) ; fichiers sensibles & sudoers (CHECK 12) ; correctif i18n ; détail INFO en verbose ; 1104/1104 tests |
 | [v1.7.0](#v170) | 2026-04-04 | Profils d'audit ; `Deduction.key` ; multi-email cron ; suppression multiple cron ; `--reset-baseline` ; filtre ports éphémères ; 966/966 tests |
 | [v1.6.0](#v160) | 2026-04-04 | Vérification durcissement ; cohérence IPv6 ; rapport comparatif ; API plugin ; 926/926 tests |
 | [v1.5.0](#v150) | 2026-04-04 | Analyse pile pare-feu ; Contexte réseau ; bannière enrichie ; passage qualité (12 modules renforcés) ; 766/766 tests |
@@ -40,6 +42,88 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.9.0
+
+**2026-04-06**
+
+### Audit mises à jour système (CHECK 13)
+
+- Nouveau module `checks/updates.py` — `UpdatesSnapshot` + `check_updates()`
+- Détecte les paquets de sécurité en attente via `apt-get -s upgrade` + correspondance suite `-security`
+- Détecte les mises à jour régulières en attente (informatif)
+- Détecte l'installation et la configuration de `unattended-upgrades` (apt-conf + timer systemd)
+- Scoring : sécurité en attente → −2 pts (fixe, indépendant du nombre) ; `unattended-upgrades` absent + sécurité en attente → −1 pt supplémentaire (risque composé)
+- Déduplication des noms de paquets ; gestion défensive de listes `None`
+
+### `--explain KEY`
+
+- Nouveau module `explain.py` — `normalize_key()` + `run_explain()`
+- Affiche une explication structurée par constat : titre, POURQUOI C'EST UN RISQUE, COMMENT CORRIGER, référence CIS Ubuntu 22.04
+- 20 clés explicables sur tous les domaines (SSH ×11, file_perms ×4, updates ×2, hardening ×2)
+- `--explain list` — liste toutes les clés avec leurs titres traduits
+- Normalisation des clés : supprime les segments intermédiaires `file_perms.*` (regex gère l'imbrication profonde)
+- Références CIS stockées dans la section locale `explain_cis` (EN + FR)
+- Ne nécessite pas les droits root
+
+### Webhooks (`--webhook`)
+
+- Nouveau module `webhook.py` — `build_generic_payload()`, `build_slack_payload()`, `send_webhook()`
+- Payload générique : Grafana / récepteurs HTTP personnalisés ; inclut `domain_scores`
+- Payload Slack : auto-détecté par URL, colorisé (rouge/orange/vert)
+- `--webhook-format=auto|generic|slack` — forcer le format
+- Non-fatal : les erreurs s'affichent sur stderr, le code de sortie n'est pas affecté
+- `--offline` supprime l'appel webhook ; stdlib uniquement (`urllib.request`)
+- Persistance : `get/set_webhook_url()`, `get/set_webhook_format()` dans `UserConfig`
+
+### Scores par domaine
+
+- Nouveau module `domain_scores.py` — `compute_domain_scores()` + `render_domain_scores()`
+- Cinq domaines : SSH, Fichiers & Accès, Mises à jour, Durcissement, Pare-feu & Services
+- Chaque domaine scoré indépendamment : `max(0, min(10, 10 − déductions_domaine))`
+- Affiché en terminal après le résumé d'audit (barre █/░)
+- Inclus dans `--json`, `--json-full` et le payload webhook générique
+
+### Mode `--diff`
+
+- Lance l'audit silencieusement, affiche uniquement le delta comparatif (changements depuis le dernier audit)
+- Compatible avec `--verbose`
+
+### Tests
+
+- `test_updates.py` — 34 tests
+- `test_explain.py` — ~94 tests : normalize_key, EXPLAIN_KEYS, run_explain, parsing CLI
+- `test_domain_scores.py` — ~48 tests : attribution déductions, plancher/plafond, rendu, CIS, structure JSON/webhook
+- `test_webhook.py` — ~54 tests : détection URL, formats, payloads, mocking HTTP, persistance config, parsing CLI
+- 1332/1332 (+228)
+
+---
+
+## v1.8.0
+
+**2026-04-06**
+
+### Audit sécurité SSH (CHECK 11)
+
+- Nouveau module `checks/ssh.py` — analyse complète `sshd_config` (15 directives + crypto faible), audit des clés privées, `authorized_keys`, `~/.ssh/config`, `known_hosts`
+- Cible le répertoire home de `SUDO_USER` ; suggestions d'installation adaptées à la distro
+- 93 nouveaux tests dans `tests/test_ssh.py`
+
+### Fichiers sensibles & sudoers (CHECK 12)
+
+- Nouveau module `checks/file_perms.py` — fichiers sensibles accessibles en écriture globale / trop permissifs, permissions clés hôtes SSH, détection `NOPASSWD:ALL` sudoers
+- 45 nouveaux tests dans `tests/test_file_perms.py`
+
+### i18n / affichage
+
+- Clé `output.recommendation_label` ajoutée (EN/FR) — corrige le français codé en dur dans toutes les locales
+- Les constats INFO affichent maintenant le texte `detail` en mode verbose (`-v`)
+
+### Tests
+
+- 1104/1104 (+138)
 
 ---
 

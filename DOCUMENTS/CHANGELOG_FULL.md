@@ -6,6 +6,78 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.9.0] — 2026-04-06
+
+### TL;DR
+- **System Updates Audit** (CHECK 13) — apt pending security/regular packages, unattended-upgrades detection
+- **`--explain KEY`** — WHY/HOW/CIS explanations for 20 finding keys
+- **Webhooks** (`--webhook`) — generic and Slack payloads, non-fatal
+- **Domain scores** — 5-domain sub-scores in terminal, JSON, and webhook
+- **`--diff` mode** — silent audit, delta-only display
+- ChatGPT quality pass on domain_scores, updates, webhook, explain
+- 1332/1332 unit tests (+228)
+
+### System updates audit (`checks/updates.py`)
+
+New module implementing CHECK 13 in `runner.py`:
+
+**`UpdatesSnapshot`** — collected via `from_system()`:
+- `apt_available` — `_command_exists("apt-get")`
+- `pending_security` / `pending_regular` — parsed from `apt-get -s upgrade` Inst lines; `-security` suite regex
+- `unattended_installed` / `unattended_enabled` — dpkg-query + apt-conf + systemd timer
+
+**`check_updates(snapshot, t)`**:
+- `pending_security` non-empty → WARN `updates.security_pending`, −2 pts (flat, order-preserving dedup via `dict.fromkeys`)
+- `pending_regular` non-empty → INFO `updates.regular_pending`, no deduction
+- `!uu_ok + pending_security` → WARN `updates.unattended_not_configured`, −1 pt (compound risk)
+- `!uu_ok + no security` → INFO `updates.unattended_not_configured`, no deduction
+- `pending_security or []` / `pending_regular or []` — `None`-safe guard at top of function
+
+### `--explain KEY` (`explain.py`)
+
+- `EXPLAIN_KEYS` — 20 canonical keys: SSH ×11, file_perms ×4, updates ×2, hardening ×2, firewall ×1
+- `normalize_key(key)` — regex `^(file_perms)\.(?:[^.]+\.)+(…)$` strips middle segments; handles deep nesting
+- `run_explain(key, t)` — prints title / WHY IT IS A RISK / HOW TO FIX / CIS reference; `key="list"` mode
+- `explain_cis` locale section — 20 keys × CIS Ubuntu 22.04 benchmark control (EN + FR)
+- No root required — `__main__.py` exits before privilege check when `--explain` is set
+
+### Webhooks (`webhook.py`)
+
+- `_is_slack_url(url)` — detects `hooks.slack.com` or `/services/t` (case-insensitive)
+- `detect_format(url, requested)` — `auto` delegates to `_is_slack_url`; `generic`/`slack` explicit override
+- `build_generic_payload()` — includes `source`, `version`, `host`, `timestamp` (UTC), `score`, `max_score`, `risk`, `alerts`, `warnings`, `domain_scores`, `findings`
+- `build_slack_payload()` — colour-coded attachment (red/orange/green), findings truncated at 2500 chars
+- `send_webhook()` — `urllib.request` only; raises `WebhookError` on HTTP error/URL error/OSError/non-2xx; `--offline` suppresses call
+- Config persistence: `UserConfig.get/set_webhook_url()`, `get/set_webhook_format()` with validation
+
+### Domain scores (`domain_scores.py`)
+
+- `DOMAINS = ["ssh", "file_perms", "updates", "hardening", "firewall"]`
+- `_key_to_domain(key)` — maps `key.split(".", 1)[0]` to domain; unknown prefix → `"firewall"`; `None`/non-str → `None`
+- `compute_domain_scores(engine)` — aggregates `engine.breakdown` deductions by domain; `max(0, min(10, 10 − pts))`; synthetic/empty keys excluded via `_key_to_domain`
+- `render_domain_scores(scores, t)` — █/░ bar chart; `int()` fill (no rounding artefacts); empty-safe
+- Always included in `build_json_data()` and `build_generic_payload()`; displayed in terminal after `print_audit_summary()`
+
+### CLI additions (`cli.py`)
+
+| Flag | Default | Behaviour |
+|------|---------|-----------|
+| `--explain=KEY` | `""` | Calls `run_explain()` and exits (no root required) |
+| `--diff` | `False` | Sets `quiet=True`, shows only delta |
+| `--webhook=URL` | `""` | POSTs result after audit |
+| `--webhook-format=FMT` | `"auto"` | `auto\|generic\|slack`; invalid → `CLIError` |
+
+### Tests
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| `test_updates.py` | 34 | apt unavailable, security/regular pending, unattended-upgrades, combined, edge cases (None lists, duplicates, invariants, mutation guard) |
+| `test_explain.py` | ~94 | normalize_key (deep nesting, over-strip guard, all canonical), EXPLAIN_KEYS list, run_explain (unknown, list, all 20 keys ×3 parametrized + snapshot), CLI parsing |
+| `test_domain_scores.py` | ~48 | _key_to_domain (None, ".", double-dot), deduction attribution, floor/ceiling, multi-deduction stacking, cross-domain isolation, rendering (order, partial bar), CIS all-20-keys, JSON/webhook structure |
+| `test_webhook.py` | ~54 | URL detection, format selection, generic/Slack payloads (structure, content, domain_scores, JSON serializable), HTTP mocking (status, Content-Type, body, errors, timeout, format dispatch), UserConfig persistence, CLI parsing, combined flags |
+
+---
+
 ## [v1.8.0] — 2026-04-05
 
 ### TL;DR

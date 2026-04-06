@@ -124,4 +124,13 @@ def build_json_data(
                 "ipv6_listeners":      ipv6_snapshot.ipv6_listeners,
                 "ufw_v6_covered":      ipv6_snapshot.ufw_v6_covered,
             }
+
+    # Domain sub-scores (always included)
+    from ufw_audit.domain_scores import compute_domain_scores, DOMAINS
+    _ds = compute_domain_scores(engine)
+    data["domain_scores"] = {
+        domain: {"score": _ds[domain]["score"], "label": _ds[domain]["label"]}
+        for domain in DOMAINS
+    }
+
     return data

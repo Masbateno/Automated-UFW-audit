@@ -88,6 +88,18 @@ class AuditConfig:
     reset_baseline: bool = False
     """--reset-baseline: delete the stored audit baseline and exit."""
 
+    explain_key: str = ""
+    """--explain=KEY: print a detailed explanation for a finding key and exit."""
+
+    diff_mode: bool = False
+    """--diff: run audit silently and show only changes since the last baseline."""
+
+    webhook_url: str = ""
+    """--webhook=URL: POST audit result as JSON to this URL after the audit."""
+
+    webhook_format: str = "auto"
+    """--webhook-format=FMT: payload format — 'auto' (default), 'generic', or 'slack'."""
+
 
 # ---------------------------------------------------------------------------
 # Parser
@@ -197,12 +209,37 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         elif arg == "--reset-baseline":
             config.reset_baseline = True
 
+        elif arg.startswith("--explain="):
+            config.explain_key = arg.split("=", 1)[1].strip()
+
+        elif arg == "--explain" and i + 1 < len(argv):
+            i += 1
+            config.explain_key = argv[i].strip()
+
+        elif arg == "--diff":
+            config.diff_mode = True
+
+        elif arg.startswith("--webhook="):
+            config.webhook_url = arg.split("=", 1)[1].strip()
+
+        elif arg == "--webhook" and i + 1 < len(argv):
+            i += 1
+            config.webhook_url = argv[i].strip()
+
+        elif arg.startswith("--webhook-format="):
+            config.webhook_format = arg.split("=", 1)[1].strip()
+
         else:
             raise CLIError(f"Unknown option: {arg!r}")
 
         i += 1
 
     # Validate
+    if config.webhook_format not in ("auto", "generic", "slack"):
+        raise CLIError(
+            f"--webhook-format must be 'auto', 'generic', or 'slack', got: {config.webhook_format!r}"
+        )
+
     if config.yes and not config.fix:
         raise CLIError("--yes requires --fix")
     if config.quiet and config.json_mode:
@@ -253,6 +290,10 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
         ("-o, --offline",      "Skip external IP lookup (no HTTP calls)"),
         ("--profile=NAME",     "Audit profile: server (default), workstation, container, or custom"),
         ("--reset-baseline",   "Delete the stored audit baseline and exit"),
+        ("--explain=KEY",      "Print explanation for a finding key and exit (no sudo required)"),
+        ("--diff",             "Show only changes since last baseline (silent audit)"),
+        ("--webhook=URL",      "POST audit result as JSON to URL after audit"),
+        ("--webhook-format=F", "Webhook format: auto (default), generic, or slack"),
         ("-V, --version",      "Show version and exit (no sudo required)"),
         ("-h, --help",         "Show this help message (no sudo required)"),
     ]
@@ -271,6 +312,9 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
     print("  sudo ufw-audit --french -d      French + save report")
     print("  sudo ufw-audit -f               Audit + fix mode")
     print("  sudo ufw-audit --log-days=14    Analyse 14 days of logs")
+    print("  ufw-audit --explain list        List all explainable keys")
+    print("  ufw-audit --explain ssh.password_auth  Explain a specific finding")
+    print("  sudo ufw-audit --webhook=https://hooks.slack.com/...  Send to Slack")
     print()
     print("Exit codes (--quiet mode):")
     print("  0   Clean audit — no alerts, no warnings")
