@@ -41,7 +41,9 @@
     "updates": "MISES À JOUR SYSTÈME",
     "kernel_modules": "AUDIT DES MODULES NOYAU",
     "cron_audit": "AUDIT DES TÂCHES CRON",
-    "services_state": "AUDIT DE L'ÉTAT DES SERVICES"
+    "services_state": "AUDIT DE L'ÉTAT DES SERVICES",
+    "user_accounts": "AUDIT DES COMPTES UTILISATEURS",
+    "password_policy": "AUDIT DE LA POLITIQUE DES MOTS DE PASSE"
   },
   "status": {
     "ok": "OK",
@@ -565,53 +567,53 @@
     "ok": "Permissions des fichiers sensibles et sudoers : aucun problème détecté"
   },
   "updates": {
-    "no_apt":                           "apt non disponible — vérification des mises à jour ignorée",
-    "security_pending":                 "{count} paquet(s) de sécurité en attente de mise à jour : {packages}",
-    "security_pending_detail":          "Les mises à jour de sécurité corrigent des vulnérabilités connues. À appliquer immédiatement : sudo apt-get upgrade",
-    "security_pending_reason":          "{count} paquet(s) de sécurité en attente de mise à jour",
-    "regular_pending":                  "{count} paquet(s) en attente de mise à jour (hors sécurité)",
-    "unattended_not_configured":        "unattended-upgrades non configuré — les correctifs de sécurité nécessitent une intervention manuelle",
+    "no_apt": "apt non disponible — vérification des mises à jour ignorée",
+    "security_pending": "{count} paquet(s) de sécurité en attente de mise à jour : {packages}",
+    "security_pending_detail": "Les mises à jour de sécurité corrigent des vulnérabilités connues. À appliquer immédiatement : sudo apt-get upgrade",
+    "security_pending_reason": "{count} paquet(s) de sécurité en attente de mise à jour",
+    "regular_pending": "{count} paquet(s) en attente de mise à jour (hors sécurité)",
+    "unattended_not_configured": "unattended-upgrades non configuré — les correctifs de sécurité nécessitent une intervention manuelle",
     "unattended_not_configured_detail": "Installer et activer : sudo apt install unattended-upgrades && sudo dpkg-reconfigure -plow unattended-upgrades",
     "unattended_not_configured_reason": "unattended-upgrades non configuré",
-    "ok":                               "Les paquets système sont à jour"
+    "ok": "Les paquets système sont à jour"
   },
   "kernel_modules": {
-    "no_lsmod":           "lsmod non disponible — vérification des modules noyau ignorée",
-    "risky_fs":           "Module(s) de système de fichiers à risque chargé(s) : {modules}",
-    "risky_fs_detail":    "Ces modules sont rarement nécessaires sur un serveur et élargissent la surface d'attaque. Déchargez-les et placez-les en liste noire.",
-    "risky_fs_reason":    "Module(s) de système de fichiers à risque chargé(s) : {modules}",
-    "risky_net":          "Module(s) de protocole réseau à risque chargé(s) : {modules}",
-    "risky_net_detail":   "Ces protocoles (DCCP, SCTP, RDS, TIPC) sont rarement utilisés et ont un historique d'exploits noyau. Déchargez-les et placez-les en liste noire.",
-    "risky_net_reason":   "Module(s) de protocole réseau à risque chargé(s) : {modules}",
-    "ok":                 "Aucun module noyau à risque chargé"
+    "no_lsmod": "lsmod non disponible — vérification des modules noyau ignorée",
+    "risky_fs": "Module(s) de système de fichiers à risque chargé(s) : {modules}",
+    "risky_fs_detail": "Ces modules sont rarement nécessaires sur un serveur et élargissent la surface d'attaque. Déchargez-les et placez-les en liste noire.",
+    "risky_fs_reason": "Module(s) de système de fichiers à risque chargé(s) : {modules}",
+    "risky_net": "Module(s) de protocole réseau à risque chargé(s) : {modules}",
+    "risky_net_detail": "Ces protocoles (DCCP, SCTP, RDS, TIPC) sont rarement utilisés et ont un historique d'exploits noyau. Déchargez-les et placez-les en liste noire.",
+    "risky_net_reason": "Module(s) de protocole réseau à risque chargé(s) : {modules}",
+    "ok": "Aucun module noyau à risque chargé"
   },
   "cron_audit": {
-    "pipe_to_shell":            "{count} tâche(s) cron envoie(nt) du contenu distant vers un shell (curl/wget | sh)",
-    "pipe_to_shell_detail":     "Rediriger des téléchargements distants vers un shell est un vecteur d'attaque courant sur la chaîne d'approvisionnement. Examinez et remplacez par des téléchargements explicites avec vérification d'intégrité.",
-    "pipe_to_shell_reason":     "{count} tâche(s) cron envoie(nt) du contenu distant vers un shell",
-    "world_writable":           "{count} script(s) référencé(s) dans cron sont accessibles en écriture par tous : {scripts}",
-    "world_writable_detail":    "Les scripts accessibles en écriture par tous peuvent être remplacés par n'importe quel utilisateur local, permettant une élévation de privilèges. Restreignez les permissions immédiatement.",
-    "world_writable_reason":    "{count} script(s) accessibles en écriture par tous dans cron",
-    "unexpected_users":         "Crontab(s) d'utilisateur(s) inattendu(s) trouvé(s) : {users}",
-    "ok":                       "Aucun motif risqué trouvé dans les tâches cron"
+    "pipe_to_shell": "{count} tâche(s) cron envoie(nt) du contenu distant vers un shell (curl/wget | sh)",
+    "pipe_to_shell_detail": "Rediriger des téléchargements distants vers un shell est un vecteur d'attaque courant sur la chaîne d'approvisionnement. Examinez et remplacez par des téléchargements explicites avec vérification d'intégrité.",
+    "pipe_to_shell_reason": "{count} tâche(s) cron envoie(nt) du contenu distant vers un shell",
+    "world_writable": "{count} script(s) référencé(s) dans cron sont accessibles en écriture par tous : {scripts}",
+    "world_writable_detail": "Les scripts accessibles en écriture par tous peuvent être remplacés par n'importe quel utilisateur local, permettant une élévation de privilèges. Restreignez les permissions immédiatement.",
+    "world_writable_reason": "{count} script(s) accessibles en écriture par tous dans cron",
+    "unexpected_users": "Crontab(s) d'utilisateur(s) inattendu(s) trouvé(s) : {users}",
+    "ok": "Aucun motif risqué trouvé dans les tâches cron"
   },
   "services_state": {
-    "no_systemctl":                "systemctl non disponible — vérification de l'état des services ignorée",
-    "service_inactive":            "Service de sécurité activé mais non démarré : {service}",
-    "service_inactive_detail":     "Ce service est configuré pour démarrer au boot mais est actuellement arrêté ou en échec. Vérifiez ses journaux et redémarrez-le.",
-    "service_inactive_reason":     "Service de sécurité inactif : {service}",
-    "ok":                          "Tous les services de sécurité surveillés sont actifs"
+    "no_systemctl": "systemctl non disponible — vérification de l'état des services ignorée",
+    "service_inactive": "Service de sécurité activé mais non démarré : {service}",
+    "service_inactive_detail": "Ce service est configuré pour démarrer au boot mais est actuellement arrêté ou en échec. Vérifiez ses journaux et redémarrez-le.",
+    "service_inactive_reason": "Service de sécurité inactif : {service}",
+    "ok": "Tous les services de sécurité surveillés sont actifs"
   },
   "output": {
     "recommendation_label": "Que faire ?"
   },
   "domain_scores": {
-    "title":      "Scores par domaine",
-    "ssh":        "SSH",
+    "title": "Scores par domaine",
+    "ssh": "SSH",
     "file_perms": "Fichiers & Accès",
-    "updates":    "Mises à jour",
-    "hardening":  "Durcissement",
-    "firewall":   "Pare-feu & Services"
+    "updates": "Mises à jour",
+    "hardening": "Durcissement",
+    "firewall": "Pare-feu & Services"
   },
   "explain": {
     "ssh": {
@@ -674,6 +676,31 @@
         "title": "SSH StrictModes désactivé",
         "why": "Sans StrictModes, sshd ne vérifie pas les permissions de ~/.ssh et des fichiers de clés. Les clés privées lisibles par tous ou les répertoires home accessibles en groupe sont silencieusement acceptés, rendant les permissions de fichiers inefficaces.",
         "how": "1. Activez StrictModes (valeur par défaut) :\n   sudo nano /etc/ssh/sshd_config  →  StrictModes yes\n2. Corrigez les permissions :\n   chmod 700 ~/.ssh\n   chmod 600 ~/.ssh/authorized_keys\n3. Redémarrez SSH :\n   sudo systemctl restart ssh"
+      },
+      "max_auth_tries": {
+        "title": "Trop de tentatives d'authentification autorisées (MaxAuthTries > 3)",
+        "why": "Chaque tentative SSH échouée permet de sonder des noms d'utilisateurs valides et de tester des identifiants. Avec la valeur par défaut de 6 tentatives, une attaque automatisée peut tester de nombreux mots de passe par connexion avant d'être déconnectée. Réduire à 3 limite la surface d'attaque par connexion et ralentit considérablement les campagnes de force brute.",
+        "how": "1. Réduisez MaxAuthTries :\n   sudo nano /etc/ssh/sshd_config  →  MaxAuthTries 3\n2. Redémarrez SSH :\n   sudo systemctl restart ssh"
+      },
+      "permit_user_env": {
+        "title": "Variables d'environnement utilisateur autorisées (PermitUserEnvironment yes)",
+        "why": "Autoriser les utilisateurs à définir des variables d'environnement via ~/.ssh/environment ou les options authorized_keys permet une escalade de privilèges : les substitutions LD_PRELOAD, PATH ou PYTHONPATH peuvent rediriger l'exécution vers du code contrôlé par un attaquant, même si le binaire cible est de confiance.",
+        "how": "1. Désactivez les variables d'environnement utilisateur :\n   sudo nano /etc/ssh/sshd_config  →  PermitUserEnvironment no\n2. Redémarrez SSH :\n   sudo systemctl restart ssh"
+      },
+      "weak_ciphers": {
+        "title": "Suites de chiffrement SSH faibles en usage",
+        "why": "Les algorithmes anciens (3DES-CBC, arcfour/RC4, blowfish-CBC, AES en mode CBC) sont cryptographiquement faibles ou cassés. Les chiffrements en mode CBC sont vulnérables aux attaques BEAST et Lucky13. RC4 présente des biais statistiques exploitables avec suffisamment de trafic. Un attaquant enregistrant les sessions pourrait les déchiffrer ultérieurement.",
+        "how": "1. Restreignez aux chiffrements forts :\n   sudo nano /etc/ssh/sshd_config\n   Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr\n2. Redémarrez SSH :\n   sudo systemctl restart ssh\n3. Vérifiez la compatibilité du client :\n   ssh -Q cipher  # liste les chiffrements supportés"
+      },
+      "weak_macs": {
+        "title": "Algorithmes MAC SSH faibles en usage",
+        "why": "Les MACs faibles (hmac-md5, hmac-sha1, umac-64) sont vulnérables aux attaques par collision. Un MAC compromis signifie que l'intégrité des messages ne peut pas être garantie — un attaquant en homme-du-milieu pourrait altérer les données de session en transit sans être détecté. MD5 et SHA-1 ne sont plus résistants aux collisions.",
+        "how": "1. Restreignez aux MACs forts :\n   sudo nano /etc/ssh/sshd_config\n   MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com\n2. Redémarrez SSH :\n   sudo systemctl restart ssh"
+      },
+      "weak_kex": {
+        "title": "Algorithmes d'échange de clés SSH faibles en usage",
+        "why": "Les algorithmes KEX faibles (diffie-hellman-group1-sha1 utilise un groupe 1024 bits ; diffie-hellman-group14-sha1 utilise SHA-1 déprécié) offrent une confidentialité persistante insuffisante. Des acteurs étatiques ont démontré des attaques de précalcul contre les groupes DH 1024 bits standards (attaque Logjam). Un KEX compromis permet de récupérer la clé de session après coup.",
+        "how": "1. Restreignez aux algorithmes KEX forts :\n   sudo nano /etc/ssh/sshd_config\n   KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512\n2. Redémarrez SSH :\n   sudo systemctl restart ssh"
       }
     },
     "file_perms": {
@@ -720,37 +747,125 @@
         "title": "Redirections ICMP acceptées (accept_redirects = 1)",
         "why": "Les messages de redirection ICMP peuvent ordonner au noyau de modifier ses tables de routage. Un attaquant sur le réseau local peut envoyer de fausses redirections ICMP pour réacheminer le trafic via une machine qu'il contrôle, permettant un détournement de routage ou une attaque de l'homme du milieu.",
         "how": "1. Désactivez immédiatement (prend effet maintenant) :\n   sudo sysctl -w net.ipv4.conf.all.accept_redirects=0\n2. Rendez le changement permanent :\n   echo 'net.ipv4.conf.all.accept_redirects=0' | sudo tee -a /etc/sysctl.d/99-redirects.conf\n3. Appliquez tous les paramètres sysctl :\n   sudo sysctl --system"
+      },
+      "fail2ban_missing": {
+        "title": "fail2ban non installé",
+        "why": "Sans fail2ban, les attaques par force brute contre SSH et d'autres services ne font face à aucun bannissement automatique d'IP. Même avec l'authentification par clé activée, les tentatives répétées inondent les logs et consomment des ressources. fail2ban bannit les IP après un nombre configurable d'échecs, stoppant les campagnes automatisées dès le début.",
+        "how": "1. Installez fail2ban :\n   sudo apt install fail2ban\n2. Activez et démarrez :\n   sudo systemctl enable --now fail2ban\n3. Vérifiez que la prison SSH est active :\n   sudo fail2ban-client status sshd\n4. Configuration personnalisée dans /etc/fail2ban/jail.local :\n   [sshd]\n   bantime  = 1h\n   maxretry = 5"
+      },
+      "log_martians_disabled": {
+        "title": "Journalisation des paquets martiens désactivée (log_martians = 0)",
+        "why": "Les paquets martiens ont des adresses sources impossibles selon la table de routage — indicateur fort d'usurpation d'IP, de paquets forgés ou de scan. Sans les journaliser, la reconnaissance précoce et les attaques par usurpation ne laissent aucune trace. Activer cette journalisation est peu coûteux et fournit des données forensiques précieuses.",
+        "how": "1. Activez immédiatement :\n   sudo sysctl -w net.ipv4.conf.all.log_martians=1\n   sudo sysctl -w net.ipv4.conf.default.log_martians=1\n2. Rendez le changement permanent :\n   echo 'net.ipv4.conf.all.log_martians=1' | sudo tee -a /etc/sysctl.d/99-network-security.conf\n   echo 'net.ipv4.conf.default.log_martians=1' | sudo tee >> /etc/sysctl.d/99-network-security.conf\n3. Appliquez :\n   sudo sysctl --system"
+      },
+      "rp_filter_loose": {
+        "title": "Filtrage par chemin inverse en mode permissif (rp_filter = 2)",
+        "why": "Le mode permissif (rp_filter=2) accepte les paquets tant qu'il existe une route quelconque vers la source, pas nécessairement via l'interface réceptrice. Cela offre une protection plus faible que le mode strict (=1) contre l'usurpation d'IP et les attaques par routage source. Le mode strict rejette les paquets dont le chemin de retour ne correspond pas à l'interface d'arrivée.",
+        "how": "1. Passez en mode strict :\n   sudo sysctl -w net.ipv4.conf.all.rp_filter=1\n2. Rendez le changement permanent :\n   echo 'net.ipv4.conf.all.rp_filter=1' | sudo tee -a /etc/sysctl.d/99-rp-filter.conf\n3. Appliquez :\n   sudo sysctl --system\nNote : le mode strict peut perturber le routage asymétrique (serveurs multi-homés). Vérifiez la connectivité réseau après application."
+      }
+    },
+    "kernel_modules": {
+      "risky_fs": {
+        "title": "Modules noyau de systèmes de fichiers risqués chargés",
+        "why": "Les pilotes de systèmes de fichiers (cramfs, freevxfs, hfs, hfsplus, jffs2, squashfs, udf, usb_storage) élargissent inutilement la surface d'attaque du noyau. Des vulnérabilités dans ces pilotes peuvent être déclenchées en montant une image de système de fichiers malveillante ou en insérant un périphérique USB, permettant potentiellement une escalade de privilèges ou une exécution de code arbitraire dans l'espace noyau.",
+        "how": "1. Déchargez le module maintenant :\n   sudo modprobe -r <nom_du_module>\n2. Mettez-le sur liste noire pour empêcher le rechargement :\n   echo 'blacklist <module>' | sudo tee -a /etc/modprobe.d/blacklist-rare-fs.conf\n   echo 'install <module> /bin/false' | sudo tee -a /etc/modprobe.d/blacklist-rare-fs.conf\n3. Reconstruisez l'initramfs :\n   sudo update-initramfs -u\nNote : ne bloquez que les modules que votre système n'utilise pas (ex : usb_storage est nécessaire pour les clés USB)."
+      },
+      "risky_net": {
+        "title": "Modules noyau de protocoles réseau risqués chargés",
+        "why": "Des protocoles comme DCCP, SCTP, RDS et TIPC ont eu des vulnérabilités critiques dans le noyau (CVE avec exécution de code à distance et escalade de privilèges). Ces protocoles sont rarement nécessaires sur des serveurs standard et représentent une surface d'attaque inutile dans l'espace noyau. Leur chargement rend le système exploitable par l'envoi de paquets réseau forgés vers n'importe quel socket ouvert.",
+        "how": "1. Déchargez le module maintenant :\n   sudo modprobe -r <nom_du_module>\n2. Mettez-le sur liste noire :\n   echo 'blacklist <module>' | sudo tee -a /etc/modprobe.d/blacklist-rare-net.conf\n   echo 'install <module> /bin/false' | sudo tee -a /etc/modprobe.d/blacklist-rare-net.conf\n3. Reconstruisez l'initramfs :\n   sudo update-initramfs -u\nNote : SCTP est utilisé par certains logiciels de téléphonie et de clustering. Vérifiez avant de bloquer."
+      }
+    },
+    "cron_audit": {
+      "pipe_to_shell": {
+        "title": "Motif pipe-vers-shell dans cron système (curl/wget | sh)",
+        "why": "Télécharger un script et le passer directement à un shell contourne toutes les vérifications d'intégrité. Si le serveur distant est compromis, le DNS est détourné, ou la connexion est interceptée (HTTP simple), du code arbitraire s'exécute avec les privilèges de la tâche cron — souvent root. Il est impossible d'auditer ou de versionner ce qui sera exécuté au moment de l'exécution.",
+        "how": "1. Identifiez l'entrée cron dans /etc/cron.* ou /etc/crontab\n2. Remplacez par une approche en deux étapes :\n   a. Téléchargez dans un fichier : curl -fsSL -o /tmp/script.sh https://...\n   b. Vérifiez la somme de contrôle : sha256sum -c /tmp/script.sha256\n   c. Exécutez : bash /tmp/script.sh\n3. Mieux encore : hébergez le script localement, versionnez-le,\n   et référencez la copie locale depuis cron"
+      },
+      "world_writable": {
+        "title": "Script accessible en écriture par tous référencé dans cron système",
+        "why": "N'importe quel utilisateur local peut modifier un script accessible en écriture par tous. Comme cron l'exécute selon un planning — souvent en tant que root — écraser le script est une escalade de privilèges locale triviale : pas d'exploit nécessaire, juste un accès en écriture sur le fichier. C'est une technique classique de persistance et d'escalade.",
+        "how": "1. Supprimez la permission d'écriture globale :\n   sudo chmod o-w <chemin>\n2. Vérifiez que la propriété est correcte (doit appartenir à root) :\n   ls -la <chemin>\n3. Examinez le contenu du script pour détecter des modifications inattendues :\n   sudo cat <chemin>"
+      }
+    },
+    "services_state": {
+      "enabled_inactive": {
+        "title": "Service de sécurité activé au démarrage mais actuellement inactif",
+        "why": "Un service configuré pour démarrer au boot mais actuellement arrêté peut avoir planté, être mal configuré, ou avoir été délibérément désactivé. Si ce service est un contrôle de sécurité (pare-feu, détection d'intrusion, démon de logs), son absence crée une fenêtre pendant laquelle les menaces ne sont ni détectées ni bloquées. Le système semble protégé au démarrage mais ne l'est pas en runtime.",
+        "how": "1. Vérifiez pourquoi le service s'est arrêté :\n   sudo journalctl -u <service> -n 50\n2. Redémarrez et vérifiez :\n   sudo systemctl start <service>\n   sudo systemctl status <service>\n3. Si le service plante au démarrage, examinez la configuration :\n   sudo systemctl status <service> --no-pager -l\n4. Assurez-vous qu'il reste activé :\n   sudo systemctl enable <service>"
       }
     }
   },
   "explain_cis": {
     "ssh": {
-      "password_auth":          "CIS Ubuntu 22.04 N1 — 5.2.8 — Désactiver l'authentification SSH par mot de passe",
-      "permit_root_login":      "CIS Ubuntu 22.04 N1 — 5.2.10 — Désactiver la connexion SSH root",
+      "password_auth": "CIS Ubuntu 22.04 N1 — 5.2.8 — Désactiver l'authentification SSH par mot de passe",
+      "permit_root_login": "CIS Ubuntu 22.04 N1 — 5.2.10 — Désactiver la connexion SSH root",
       "permit_empty_passwords": "CIS Ubuntu 22.04 N1 — 5.2.9 — Désactiver PermitEmptyPasswords",
-      "allow_tcp_forwarding":   "CIS Ubuntu 22.04 N2 — 5.2.21 — Désactiver le transfert TCP SSH",
-      "pubkey_auth_disabled":   "CIS Ubuntu 22.04 — bonne pratique de sécurité SSH",
-      "x11_forwarding":         "CIS Ubuntu 22.04 N1 — 5.2.6 — Désactiver le transfert X11 SSH",
-      "dsa_key":                "CIS Ubuntu 22.04 N1 — 5.2.2 — Permissions sur les clés hôtes SSH privées / algorithme déprécié",
-      "no_passphrase":          "CIS Ubuntu 22.04 — bonne pratique de sécurité des clés SSH",
-      "client_strict_host_no":  "CIS Ubuntu 22.04 — sécurité du client SSH (prévention MITM)",
+      "allow_tcp_forwarding": "CIS Ubuntu 22.04 N2 — 5.2.21 — Désactiver le transfert TCP SSH",
+      "pubkey_auth_disabled": "CIS Ubuntu 22.04 — bonne pratique de sécurité SSH",
+      "x11_forwarding": "CIS Ubuntu 22.04 N1 — 5.2.6 — Désactiver le transfert X11 SSH",
+      "dsa_key": "CIS Ubuntu 22.04 N1 — 5.2.2 — Permissions sur les clés hôtes SSH privées / algorithme déprécié",
+      "no_passphrase": "CIS Ubuntu 22.04 — bonne pratique de sécurité des clés SSH",
+      "client_strict_host_no": "CIS Ubuntu 22.04 — sécurité du client SSH (prévention MITM)",
       "ignore_rhosts_disabled": "CIS Ubuntu 22.04 N1 — 5.2.12 — Activer IgnoreRhosts SSH",
-      "host_based_auth":        "CIS Ubuntu 22.04 N1 — 5.2.13 — Désactiver l'authentification basée sur l'hôte SSH",
-      "strict_modes_disabled":  "CIS Ubuntu 22.04 N1 — 5.2.2 — Configurer les permissions des clés hôtes SSH privées"
+      "host_based_auth": "CIS Ubuntu 22.04 N1 — 5.2.13 — Désactiver l'authentification basée sur l'hôte SSH",
+      "strict_modes_disabled": "CIS Ubuntu 22.04 N1 — 5.2.2 — Configurer les permissions des clés hôtes SSH privées",
+      "max_auth_tries": "CIS Ubuntu 22.04 L1 — 5.2.7 — Ensure SSH MaxAuthTries is set to 4 or less",
+      "permit_user_env": "CIS Ubuntu 22.04 L1 — 5.2.11 — Ensure SSH PermitUserEnvironment is disabled",
+      "weak_ciphers": "CIS Ubuntu 22.04 L1 — 5.2.15 — Ensure only strong cipher suites are used",
+      "weak_macs": "CIS Ubuntu 22.04 L1 — 5.2.16 — Ensure only strong MAC algorithms are used",
+      "weak_kex": "CIS Ubuntu 22.04 L1 — 5.2.17 — Ensure only strong key exchange algorithms are used"
     },
     "file_perms": {
-      "world_writable":       "CIS Ubuntu 22.04 N1 — 6.1.10 — Aucun fichier accessible en écriture par tous",
-      "too_permissive":       "CIS Ubuntu 22.04 N1 — 6.1 — Permissions appropriées sur les fichiers sensibles",
+      "world_writable": "CIS Ubuntu 22.04 N1 — 6.1.10 — Aucun fichier accessible en écriture par tous",
+      "too_permissive": "CIS Ubuntu 22.04 N1 — 6.1 — Permissions appropriées sur les fichiers sensibles",
       "sudoers_nopasswd_all": "CIS Ubuntu 22.04 N2 — 5.3.4 — Les utilisateurs doivent fournir un mot de passe pour l'escalade de privilèges",
-      "ssh_host_key_perms":   "CIS Ubuntu 22.04 N1 — 5.2.2 — Configurer les permissions des clés hôtes SSH privées"
+      "ssh_host_key_perms": "CIS Ubuntu 22.04 N1 — 5.2.2 — Configurer les permissions des clés hôtes SSH privées"
     },
     "updates": {
-      "security_pending":          "CIS Ubuntu 22.04 N1 — 1.9 — Installer les mises à jour, correctifs et logiciels de sécurité",
+      "security_pending": "CIS Ubuntu 22.04 N1 — 1.9 — Installer les mises à jour, correctifs et logiciels de sécurité",
       "unattended_not_configured": "CIS Ubuntu 22.04 N1 — 1.9 — Installer les mises à jour, correctifs et logiciels de sécurité"
     },
     "hardening": {
       "rp_filter_disabled": "CIS Ubuntu 22.04 N1 — 3.3.1 — Ne pas accepter les paquets à routage source",
-      "redirects_enabled":  "CIS Ubuntu 22.04 N1 — 3.3.2 — Ne pas accepter les redirections ICMP"
+      "redirects_enabled": "CIS Ubuntu 22.04 N1 — 3.3.2 — Ne pas accepter les redirections ICMP",
+      "log_martians_disabled": "CIS Ubuntu 22.04 L1 — 3.3.12 — Ensure suspicious packets are logged",
+      "rp_filter_loose": "CIS Ubuntu 22.04 L1 — 3.3.1 — Ensure source routed packets are not accepted (strict mode recommended)",
+      "fail2ban_missing": "CIS Ubuntu 22.04 — SSH brute-force protection best practice (login rate-limiting via fail2ban or pam_faillock)"
+    },
+    "kernel_modules": {
+      "risky_fs": "CIS Ubuntu 22.04 L1 — 1.1.1.x — Ensure mounting of legacy/rare filesystems is disabled",
+      "risky_net": "CIS Ubuntu 22.04 L1 — 3.4.x — Ensure DCCP/SCTP/RDS/TIPC is disabled"
+    },
+    "cron_audit": {
+      "world_writable": "CIS Ubuntu 22.04 L1 — 5.1.8 — Ensure cron is restricted to authorized users",
+      "pipe_to_shell": "CIS Ubuntu 22.04 L1 — 5.1 — Configure cron (script integrity: verify sources before execution)"
+    },
+    "services_state": {
+      "enabled_inactive": "CIS Ubuntu 22.04 — security service availability best practice (ensure critical services remain active after boot)"
     }
+  },
+  "user_accounts": {
+    "no_shadow": "/etc/shadow non lisible — vérifications mot de passe vide et expiration ignorées (lancer avec sudo)",
+    "uid_zero": "Compte(s) UID 0 autres que root détecté(s) : {users}",
+    "uid_zero_detail": "Ces comptes possèdent des privilèges équivalents à root. Seul root devrait avoir l'UID 0. Verrouillez ou renommez-les.",
+    "uid_zero_reason": "Compte(s) UID 0 autres que root : {users}",
+    "empty_password": "Compte(s) avec mot de passe vide détecté(s) : {users}",
+    "empty_password_detail": "Ces comptes sont accessibles sans mot de passe. Définissez un mot de passe ou verrouillez-les immédiatement.",
+    "empty_password_reason": "Compte(s) avec mot de passe vide : {users}",
+    "expired_account": "Compte(s) dont la date d'expiration est dépassée : {users}",
+    "expired_account_detail": "Ces comptes ont dépassé leur date d'expiration configurée. Pensez à les supprimer ou les verrouiller.",
+    "ok": "Tous les comptes utilisateurs sont sains"
+  },
+  "password_policy": {
+    "no_quality_module": "Aucun module PAM de qualité des mots de passe configuré (pam_pwquality/pam_cracklib absent)",
+    "no_quality_module_detail": "Sans pam_pwquality ou pam_cracklib, les utilisateurs peuvent définir des mots de passe trivialement faibles. N'importe quelle chaîne est acceptée quelle que soit sa longueur ou complexité.",
+    "no_quality_module_reason": "Aucun module PAM de qualité des mots de passe configuré",
+    "weak_minlen": "Longueur minimale des mots de passe trop courte (minlen = {minlen})",
+    "weak_minlen_detail": "Les mots de passe de moins de 8 caractères sont facilement attaquables par force brute. Augmentez minlen à au moins 8 dans /etc/security/pwquality.conf.",
+    "weak_minlen_reason": "Longueur minimale des mots de passe trop courte (minlen = {minlen})",
+    "no_expiry": "Expiration des mots de passe non appliquée (PASS_MAX_DAYS = {days})",
+    "no_expiry_detail": "Les mots de passe n'expirent jamais. Envisagez de définir PASS_MAX_DAYS à une valeur raisonnable (ex : 365) si votre politique l'exige. Note : NIST SP 800-63B ne recommande plus l'expiration périodique sauf en cas de compromission suspectée.",
+    "ok": "La politique de mots de passe est correctement configurée"
   }
 }

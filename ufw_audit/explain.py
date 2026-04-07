@@ -24,26 +24,48 @@ import re
 # ---------------------------------------------------------------------------
 
 EXPLAIN_KEYS: list[str] = [
+    # SSH — authentication
     "ssh.password_auth",
     "ssh.permit_root_login",
     "ssh.permit_empty_passwords",
-    "ssh.allow_tcp_forwarding",
     "ssh.pubkey_auth_disabled",
-    "ssh.x11_forwarding",
-    "ssh.dsa_key",
     "ssh.no_passphrase",
-    "ssh.client_strict_host_no",
+    "ssh.dsa_key",
+    # SSH — access control
+    "ssh.max_auth_tries",
+    "ssh.allow_tcp_forwarding",
+    "ssh.x11_forwarding",
+    "ssh.permit_user_env",
     "ssh.ignore_rhosts_disabled",
     "ssh.host_based_auth",
     "ssh.strict_modes_disabled",
+    "ssh.client_strict_host_no",
+    # SSH — cryptography
+    "ssh.weak_ciphers",
+    "ssh.weak_macs",
+    "ssh.weak_kex",
+    # Files & access
     "file_perms.world_writable",
     "file_perms.too_permissive",
     "file_perms.sudoers_nopasswd_all",
     "file_perms.ssh_host_key_perms",
+    # Updates
     "updates.security_pending",
     "updates.unattended_not_configured",
+    # Hardening
     "hardening.rp_filter_disabled",
+    "hardening.rp_filter_loose",
     "hardening.redirects_enabled",
+    "hardening.log_martians_disabled",
+    "hardening.fail2ban_missing",
+    # Kernel modules
+    "kernel_modules.risky_fs",
+    "kernel_modules.risky_net",
+    # Cron
+    "cron_audit.pipe_to_shell",
+    "cron_audit.world_writable",
+    # Services
+    "services_state.enabled_inactive",
 ]
 
 # ---------------------------------------------------------------------------

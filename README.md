@@ -156,13 +156,20 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Quality & reliability
 
-- ✅ 1541 unit tests
+- ✅ 1675 unit tests
 - 🧱 Modular architecture (snapshot / check separated)
 - 🧪 Tested on Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.10.0
+## 🆕 v1.11.0
+
+- 📖 **`--explain` Phase A2** — 20→33 explainable keys (11 new SSH directives, fail2ban, kernel modules, pipe_to_shell, enabled_inactive)
+- 👤 **User Account Audit** (CHECK 17) — UID 0 non-root accounts (ALERT, −3 pts), empty passwords on login-capable accounts (ALERT, −2 pts), expired accounts (INFO)
+- 🔑 **Password Policy Audit** (CHECK 18) — no PAM quality module (WARN, −1 pt), explicit minlen < 8 (WARN, −1 pt), PASS_MAX_DAYS ≥ 365 (INFO only — NIST SP 800-63B)
+- ✅ 1675/1675 unit tests (+134)
+
+## v1.10.0
 
 - 💡 **`--explain` hint** — every actionable finding now shows `? ufw-audit --explain <key>` directly under it in the summary box
 - 🧩 **Kernel Module Audit** (CHECK 14) — detects loaded risky kernel modules (cramfs, hfs, squashfs, usb_storage, dccp, sctp, rds, tipc); −1 pt per category (max −2 pts)

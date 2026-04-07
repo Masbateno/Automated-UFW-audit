@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.11.0](#v1110) | 2026-04-07 | `--explain` A2 (+13 clés, 20→33) ; audit comptes utilisateurs (CHECK 17) ; audit politique de mots de passe (CHECK 18) ; passage qualité ; 1675/1675 tests |
 | [v1.10.0](#v1100) | 2026-04-07 | Suggestion `--explain` dans le résumé ; audit modules noyau (CHECK 14) ; audit tâches cron (CHECK 15) ; audit état des services (CHECK 16) ; passage qualité (source + 9 fichiers de tests) ; 1541/1541 tests |
 | [v1.9.0](#v190) | 2026-04-06 | Audit mises à jour système (CHECK 13) ; `--explain KEY` + refs CIS ; webhooks ; scores par domaine ; `--diff` ; 1332/1332 tests |
 | [v1.8.0](#v180) | 2026-04-06 | Audit sécurité SSH (CHECK 11) ; fichiers sensibles & sudoers (CHECK 12) ; correctif i18n ; détail INFO en verbose ; 1104/1104 tests |
@@ -43,6 +44,50 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.11.0
+
+**2026-04-07**
+
+### `--explain` Phase A2 (20 → 33 clés)
+
+- `EXPLAIN_KEYS` étendu de 20 à 33 clés ; groupées par catégorie dans le code
+- Nouvelles clés SSH : `max_auth_tries`, `allow_tcp_forwarding`, `x11_forwarding`, `permit_user_env`, `ignore_rhosts_disabled`, `host_based_auth`, `strict_modes_disabled`, `client_strict_host_no`, `weak_ciphers`, `weak_macs`, `weak_kex`
+- Nouvelle clé Hardening : `fail2ban_missing`
+- Nouvelles clés Kernel modules : `risky_fs`, `risky_net`
+- Nouvelles clés Cron / Services : `pipe_to_shell`, `enabled_inactive`
+- Locales (`en.json`, `fr.json`) : titre / pourquoi / comment / ref CIS ajoutés pour les 13 nouvelles clés
+- Test : `test_has_thirty_three_keys`, 13 nouvelles assertions de présence
+
+### Audit comptes utilisateurs (CHECK 17)
+
+- Nouveau module `checks/user_accounts.py` — `UserAccountsSnapshot` + `check_user_accounts()`
+- Comptes avec UID 0 autre que root → ALERT, −3 pts (fixe) ; commande `passwd -l` sûre
+- Mot de passe vide sur un compte avec shell de connexion → ALERT, −2 pts (fixe) ; lit `/etc/shadow` (root requis)
+- Comptes avec date d'expiration passée → INFO, pas de déduction
+- `/etc/shadow` illisible (non-root) → INFO, pas de déduction ; détection UID 0 fonctionne toujours
+- Comptes `nologin`/`/bin/false` exclus de la vérification des mots de passe vides
+- Déduplication `dict.fromkeys` sur toutes les listes ; snapshot jamais muté
+- Domaine : `user_accounts` → `file_perms`
+- Nouveau fichier de tests : `test_user_accounts.py` — 51 tests
+
+### Audit politique de mots de passe (CHECK 18)
+
+- Nouveau module `checks/password_policy.py` — `PasswordPolicySnapshot` + `check_password_policy()`
+- Absence de module PAM qualité (`pam_pwquality` / `pam_cracklib`) → WARN, −1 pt
+- `minlen < 8` explicite (quand le module EST configuré) → WARN, −1 pt
+- `PASS_MAX_DAYS ≥ 365` → INFO seulement ; pas de déduction (NIST SP 800-63B ne l'impose plus)
+- Structure `elif` : `no_quality_module` et `weak_minlen` mutuellement exclusifs
+- `pwquality.conf` a priorité sur l'option `minlen=` inline PAM
+- Domaine : `password_policy` → `hardening`
+- Nouveau fichier de tests : `test_password_policy.py` — 51 tests
+
+### Passage qualité
+
+- `test_user_accounts.py` : `test_no_shadow_info_absent_when_readable`, 3 tests d'immutabilité du snapshot, `test_no_t_does_not_crash`
+- `test_password_policy.py` : `test_minlen_7_flagged`, `test_login_defs_unreadable_no_crash`, `test_pass_min_days_ignored`, `test_no_t_does_not_crash`, `test_pam_cracklib_ok_finding`
 
 ---
 

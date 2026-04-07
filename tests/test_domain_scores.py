@@ -318,7 +318,7 @@ class TestCISReferences:
         val = t("explain_cis.hardening.rp_filter_disabled")
         assert "CIS" in val and "." in val
 
-    def test_explain_cis_all_20_keys_resolve(self):
+    def test_explain_cis_all_keys_resolve(self):
         """Every key in EXPLAIN_KEYS must have a CIS reference."""
         from ufw_audit.explain import EXPLAIN_KEYS, normalize_key
         t = self._make_t()

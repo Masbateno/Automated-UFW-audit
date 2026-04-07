@@ -1,9 +1,9 @@
 *[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
-# ufw-audit v1.10.0
+# ufw-audit v1.11.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.10.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.11.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -475,7 +475,9 @@ ufw-audit is an audit and diagnostic tool, not a security shield. It analyses yo
 
 **v1.9.0** — System updates audit (CHECK 13: apt pending, unattended-upgrades, −2/−1 pts compound); `--explain KEY` with WHY/HOW/CIS Ubuntu 22.04 refs (20 keys); webhooks (`--webhook`, generic + Slack, non-fatal); domain scores (5 domains, bar chart, JSON/webhook); `--diff` mode; code quality pass; 1332/1332
 
-**v1.10.0** *(current)* — `--explain` hint in summary box (Phase A1); kernel module audit (CHECK 14: cramfs/hfs/squashfs/usb_storage/dccp/sctp/rds/tipc, −1 pt/category); cron job audit (CHECK 15: pipe-to-shell −2 pts, world-writable −1 pt; /etc/cron.d parsed as crontab format); service state audit (CHECK 16: two-step systemctl query, enabled-but-inactive security services, −1 pt/service max −3); quality pass (shlex.quote in fix cmds, firewall.py key= on all rule findings, 9 test files expanded); 1541/1541
+**v1.10.0** — `--explain` hint in summary box (Phase A1); kernel module audit (CHECK 14: cramfs/hfs/squashfs/usb_storage/dccp/sctp/rds/tipc, −1 pt/category); cron job audit (CHECK 15: pipe-to-shell −2 pts, world-writable −1 pt; /etc/cron.d parsed as crontab format); service state audit (CHECK 16: two-step systemctl query, enabled-but-inactive security services, −1 pt/service max −3); quality pass (shlex.quote in fix cmds, firewall.py key= on all rule findings, 9 test files expanded); 1541/1541
+
+**v1.11.0** *(current)* — `--explain` A2 (20→33 keys: 11 SSH + fail2ban + 2 kernel + pipe_to_shell + enabled_inactive); user account audit (CHECK 17: UID 0 −3 pts, empty password −2 pts, expired INFO); password policy audit (CHECK 18: no PAM quality module −1 pt, weak minlen −1 pt, PASS_MAX_DAYS≥365 INFO); quality pass; 1675/1675
 
 **Post v1.0**
 - Web UI (`--gui`) — graphical interface for non-technical users, pedagogical approach, simplified scope

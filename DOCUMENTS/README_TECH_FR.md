@@ -1,9 +1,9 @@
 *[Read in English](README_TECH.md)* · *[Vue d'ensemble](../README_FR.md)*
 
-# ufw-audit v1.10.0
+# ufw-audit v1.11.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.10.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.11.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -475,7 +475,9 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v1.9.0** — Audit mises à jour système (CHECK 13 : apt en attente, unattended-upgrades, −2/−1 pts composés) ; `--explain KEY` avec WHY/HOW/CIS Ubuntu 22.04 (20 clés) ; webhooks (`--webhook`, générique + Slack, non-fatal) ; scores par domaine (5 domaines, barre, JSON/webhook) ; mode `--diff` ; passage qualité ; 1332/1332
 
-**v1.10.0** *(actuel)* — Suggestion `--explain` dans le résumé (Phase A1) ; audit modules noyau (CHECK 14 : cramfs/hfs/squashfs/usb_storage/dccp/sctp/rds/tipc, −1 pt/catégorie) ; audit tâches cron (CHECK 15 : pipe-to-shell −2 pts, scripts accessibles en écriture −1 pt ; /etc/cron.d parsé en format crontab) ; audit état des services (CHECK 16 : requête systemctl en deux étapes, services de sécurité inactifs, −1 pt/service max −3) ; passage qualité (shlex.quote dans les cmds de correction, key= sur tous les findings firewall.py, 9 fichiers de tests étendus) ; 1541/1541
+**v1.10.0** — Suggestion `--explain` dans le résumé (Phase A1) ; audit modules noyau (CHECK 14 : cramfs/hfs/squashfs/usb_storage/dccp/sctp/rds/tipc, −1 pt/catégorie) ; audit tâches cron (CHECK 15 : pipe-to-shell −2 pts, scripts accessibles en écriture −1 pt ; /etc/cron.d parsé en format crontab) ; audit état des services (CHECK 16 : requête systemctl en deux étapes, services de sécurité inactifs, −1 pt/service max −3) ; passage qualité (shlex.quote dans les cmds de correction, key= sur tous les findings firewall.py, 9 fichiers de tests étendus) ; 1541/1541
+
+**v1.11.0** *(actuel)* — `--explain` A2 (20→33 clés : 11 SSH + fail2ban + 2 modules noyau + pipe_to_shell + enabled_inactive) ; audit comptes utilisateurs (CHECK 17 : UID 0 −3 pts, mot de passe vide −2 pts, expirés INFO) ; audit politique de mots de passe (CHECK 18 : absence module PAM −1 pt, minlen faible −1 pt, PASS_MAX_DAYS≥365 INFO) ; passage qualité ; 1675/1675
 - `--diff` — comparer l'audit courant avec un précédent export `--json` pour détecter les nouveaux ports/services (dérive d'audit)
 - `--fix --safe` — mode auto-fix restreint aux findings LOW/MEDIUM uniquement ; les findings CRITICAL/HIGH ne sont jamais appliqués sans confirmation explicite
 

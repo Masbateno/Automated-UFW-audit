@@ -6,6 +6,71 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.11.0] — 2026-04-07
+
+### TL;DR
+- **`--explain` Phase A2** — `EXPLAIN_KEYS` expanded from 20 to 33 (11 new SSH keys + `fail2ban_missing` + 2 kernel module keys + `pipe_to_shell` + `enabled_inactive`); locale entries + CIS refs for all 13 new keys
+- **User Account Audit** (CHECK 17) — UID 0 non-root (ALERT −3), empty password on login-capable account (ALERT −2), expired accounts (INFO); reads `/etc/passwd` always + `/etc/shadow` when root
+- **Password Policy Audit** (CHECK 18) — no PAM quality module (WARN −1), explicit `minlen < 8` (WARN −1), `PASS_MAX_DAYS ≥ 365` (INFO only, per NIST SP 800-63B); reads `login.defs` + `common-password` + `pwquality.conf`
+- `user_accounts` → `file_perms` domain; `password_policy` → `hardening` domain
+- Quality pass: snapshot immutability tests; boundary tests; `test_no_t_does_not_crash` for both new checks
+- 1675/1675 unit tests (+134)
+
+### `--explain` Phase A2 (`explain.py`)
+
+`EXPLAIN_KEYS` grows from 20 to 33 entries, organized by category with comments:
+
+```python
+# SSH — authentication (6)
+# SSH — access control (8)
+# SSH — cryptography (3)
+# Files & access (4)
+# Updates (2)
+# Hardening (5)
+# Kernel modules (2)
+# Cron (2)
+# Services (1)
+```
+
+New keys: `ssh.max_auth_tries`, `ssh.allow_tcp_forwarding`, `ssh.x11_forwarding`, `ssh.permit_user_env`, `ssh.ignore_rhosts_disabled`, `ssh.host_based_auth`, `ssh.strict_modes_disabled`, `ssh.client_strict_host_no`, `ssh.weak_ciphers`, `ssh.weak_macs`, `ssh.weak_kex`, `hardening.fail2ban_missing`, `kernel_modules.risky_fs`, `kernel_modules.risky_net`, `cron_audit.pipe_to_shell`, `services_state.enabled_inactive`.
+
+Both `en.json` and `fr.json` receive title/why/how/CIS entries for all 13 new keys.
+
+### User account audit (`checks/user_accounts.py` — CHECK 17)
+
+**Snapshot** (`UserAccountsSnapshot`):
+- `/etc/passwd` always readable — populates `uid_zero_accounts` (UID 0 ≠ root) and `login_shells` map
+- `/etc/shadow` root-only — sets `shadow_readable`, populates `empty_password_accounts` (field 1 empty + login shell) and `expired_accounts` (field 7 non-zero integer < today)
+- Accounts with `nologin`/`/bin/false` shells excluded from empty-password check
+
+**Check logic** (`check_user_accounts`):
+| Condition | Level | Deduction |
+|-----------|-------|-----------|
+| UID 0 non-root account(s) | ALERT | −3 pts flat |
+| Empty password on login-capable account | ALERT | −2 pts flat |
+| Expired account expiry date | INFO | none |
+| `/etc/shadow` unreadable | INFO | none |
+
+All account lists use `dict.fromkeys` deduplication; snapshot is never mutated.
+
+### Password policy audit (`checks/password_policy.py` — CHECK 18)
+
+**Snapshot** (`PasswordPolicySnapshot`):
+- `/etc/login.defs` — `PASS_MAX_DAYS`, `PASS_MIN_DAYS`
+- `/etc/pam.d/common-password` — detects `pam_pwquality.so` or `pam_cracklib.so`; captures inline `minlen=`
+- `/etc/security/pwquality.conf` — captures `minlen` (takes precedence over inline option)
+
+**Check logic** (`check_password_policy`):
+| Condition | Level | Deduction |
+|-----------|-------|-----------|
+| No PAM quality module | WARN | −1 pt |
+| Explicit `minlen < 8` (module configured) | WARN | −1 pt |
+| `PASS_MAX_DAYS ≥ 365` | INFO | none |
+
+`no_quality_module` and `weak_minlen` use `elif` — mutually exclusive. Rationale: you cannot have a consciously weakened minlen without a configured module.
+
+---
+
 ## [v1.10.0] — 2026-04-07
 
 ### TL;DR

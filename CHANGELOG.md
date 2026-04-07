@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.11.0](#v1110) | 2026-04-07 | `--explain` A2 (+13 keys, 20→33); user account audit (CHECK 17); password policy audit (CHECK 18); quality pass; 1675/1675 tests |
 | [v1.10.0](#v1100) | 2026-04-07 | `--explain` hint in summary box; kernel module audit (CHECK 14); cron job audit (CHECK 15); service state audit (CHECK 16); quality pass (source + 9 test files); 1541/1541 tests |
 | [v1.9.0](#v190) | 2026-04-06 | System updates audit (CHECK 13); `--explain KEY` with CIS refs; webhooks; domain scores; `--diff`; 1332/1332 tests |
 | [v1.8.0](#v180) | 2026-04-06 | SSH security audit (CHECK 11); sensitive files & sudoers (CHECK 12); i18n fix; INFO verbose detail; 1104/1104 tests |
@@ -43,6 +44,51 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.11.0
+
+**2026-04-07**
+
+### `--explain` Phase A2 (20 → 33 keys)
+
+- `EXPLAIN_KEYS` expanded from 20 to 33 keys; grouped by category in source
+- New SSH keys: `max_auth_tries`, `allow_tcp_forwarding`, `x11_forwarding`, `permit_user_env`, `ignore_rhosts_disabled`, `host_based_auth`, `strict_modes_disabled`, `client_strict_host_no`, `weak_ciphers`, `weak_macs`, `weak_kex`
+- New Hardening key: `fail2ban_missing`
+- New Kernel modules keys: `risky_fs`, `risky_net`
+- New Cron key: `pipe_to_shell` (duplicate of `world_writable` already present)
+- New Services state key: `enabled_inactive`
+- Locale (`en.json`, `fr.json`): title / why / how / CIS ref added for all 13 new keys
+- Test: `test_has_thirty_three_keys`, 13 new membership assertions
+
+### User account audit (CHECK 17)
+
+- New module `checks/user_accounts.py` — `UserAccountsSnapshot` + `check_user_accounts()`
+- UID 0 accounts other than root → ALERT, −3 pts (flat); `shlex`-safe `passwd -l` command
+- Empty password on login-capable account → ALERT, −2 pts (flat); reads `/etc/shadow` (root required)
+- Accounts with a past expiry date → INFO, no deduction
+- `/etc/shadow` unreadable (non-root) → INFO, no deduction; UID 0 detection still runs (world-readable `/etc/passwd`)
+- Accounts using `nologin`/`/bin/false` excluded from empty-password check
+- `dict.fromkeys` deduplication on all account lists; snapshot never mutated
+- Domain: `user_accounts` → `file_perms`
+- New test file: `test_user_accounts.py` — 51 tests
+
+### Password policy audit (CHECK 18)
+
+- New module `checks/password_policy.py` — `PasswordPolicySnapshot` + `check_password_policy()`
+- No PAM quality module (`pam_pwquality` / `pam_cracklib` absent from `common-password`) → WARN, −1 pt
+- Explicit `minlen < 8` in `pwquality.conf` or inline PAM option (when module IS configured) → WARN, −1 pt
+- `PASS_MAX_DAYS ≥ 365` → INFO only; no deduction (NIST SP 800-63B no longer mandates periodic expiration)
+- `elif` structure: `no_quality_module` and `weak_minlen` are mutually exclusive
+- `pwquality.conf` minlen takes precedence over inline PAM `minlen=` option
+- Domain: `password_policy` → `hardening`
+- New test file: `test_password_policy.py` — 51 tests
+
+### Quality pass
+
+- `test_user_accounts.py`: `test_no_shadow_info_absent_when_readable`, 3 snapshot immutability tests, `test_no_t_does_not_crash`
+- `test_password_policy.py`: `test_minlen_7_flagged`, `test_login_defs_unreadable_no_crash`, `test_pass_min_days_ignored`, `test_no_t_does_not_crash`, `test_pam_cracklib_ok_finding`
 
 ---
 

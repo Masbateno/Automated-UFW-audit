@@ -29,7 +29,24 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v1.7.0  | 966   | +38 tests — `test_profiles.py` (36), `test_compare.py` (+2 ephemeral port filter), `test_ipv6.py` (+2 malformed input) |
 | v1.8.0  | 1104  | +138 tests — `test_ssh.py` (93) + `test_file_perms.py` (45): world-writable (7), too-permissive (5), SSH host keys (4), NOPASSWD ALL (5), NOPASSWD specific (4), combined (5), _is_nopasswd_all (9), dataclass (2), all-ok (4) |
 | v1.9.0  | 1332  | +228 tests — `test_updates.py` (34), `test_explain.py` (~94), `test_domain_scores.py` (~48), `test_webhook.py` (~54); quality passes on `test_hardening.py` + `test_profiles.py` |
+| v1.11.0 | 1675  | +134 tests — `test_user_accounts.py` (51), `test_password_policy.py` (51); `--explain` A2 keys in `test_explain.py` (+13 assertions); quality pass on both new test files |
 | v1.10.0 | 1541  | +209 tests — `test_display_explain_hint.py` (25), `test_kernel_modules.py` (48), `test_cron_audit.py` (47), `test_services_state.py` (35); quality pass: `test_check_rules.py` (+10), `test_cli.py` (+38), `test_compare.py` (+7), `test_cron.py` (+10), `test_ddns.py` (+5), `test_degraded.py` (+3) |
+
+### v1.11.0 — 1675/1675 (2026-04-07)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+1675 passed in 1.41s
+```
+
+#### New tests added (+134)
+
+| File | New | Coverage |
+|------|-----|----------|
+| `tests/test_user_accounts.py` | 51 | Snapshot defaults (shadow_readable/uid_zero/empty_password/expired); shadow not readable (INFO, no deduction, key, uid_zero still reported); all-OK (ok finding, no deduction, key, no ok when finding); UID 0 (ALERT, −3 pts flat, deduction key, finding key, username in message, multiple→single deduction, cmd contains username, nature=action, duplicates deduplicated, snapshot not mutated); empty passwords (ALERT, −2 pts flat, deduction key, finding key, username in message, multiple→single deduction, nature=action); expired (INFO, no deduction, finding key, username in message, no ok when expired); combined (uid_zero+empty_password, all three issues, expired no extra deduction, no_shadow+uid_zero); edge cases (None lists→ok, empty username no crash, no_shadow_info_absent_when_readable, snapshot immutability ×2, no_t_does_not_crash, constants) |
+| `tests/test_password_policy.py` | 51 | Snapshot defaults (login_defs_readable/pass_max_days/pass_min_days/pam_quality_module/pam_minlen); all-OK (ok when fully configured, no deduction, ok key, no ok when finding, pam_cracklib ok, minlen at threshold, minlen above threshold); no quality module (WARN, −1 pt, finding key, deduction key, nature=action, cmd present); weak minlen (minlen_7_flagged, WARN, −1 pt, finding key, deduction key, minlen in message, minlen_1_flagged, no warn when None, no weak_minlen when no module, nature=action); PASS_MAX_DAYS (INFO never expires, key, no deduction, days in message, no info when low, threshold boundary, below threshold not flagged, None no crash); combined (no_module+no_expiry, weak_minlen+no_expiry, max combined deduction); edge cases (login_defs_unreadable, pass_min_days ignored, no_t_does_not_crash, pam_cracklib_ok_finding); constants (×4) |
 
 ### v1.10.0 — 1541/1541 (2026-04-07)
 

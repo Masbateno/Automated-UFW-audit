@@ -39,6 +39,8 @@ from ufw_audit.checks.updates import UpdatesSnapshot, check_updates
 from ufw_audit.checks.kernel_modules import KernelModulesSnapshot, check_kernel_modules
 from ufw_audit.checks.cron_audit import CronAuditSnapshot, check_cron_audit
 from ufw_audit.checks.services_state import ServicesStateSnapshot, check_services_state
+from ufw_audit.checks.user_accounts import UserAccountsSnapshot, check_user_accounts
+from ufw_audit.checks.password_policy import PasswordPolicySnapshot, check_password_policy
 from ufw_audit.plugin_checks import load_plugin_checks
 
 
@@ -341,6 +343,34 @@ def run_checks(
             apply_profile(services_state_result, profile)
         engine.apply(services_state_result)
         display_result(services_state_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 17 — User account audit ----
+    user_accounts_snapshot = UserAccountsSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("user_accounts"):
+        if not config.quiet:
+            print_section(t("sections.user_accounts"))
+        report.write_section(t("sections.user_accounts"))
+        user_accounts_result = check_user_accounts(user_accounts_snapshot, t=t)
+        if profile is not None:
+            apply_profile(user_accounts_result, profile)
+        engine.apply(user_accounts_result)
+        display_result(user_accounts_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 18 — Password policy audit ----
+    password_policy_snapshot = PasswordPolicySnapshot.from_system()
+    if profile is None or not profile.should_skip_section("password_policy"):
+        if not config.quiet:
+            print_section(t("sections.password_policy"))
+        report.write_section(t("sections.password_policy"))
+        password_policy_result = check_password_policy(password_policy_snapshot, t=t)
+        if profile is not None:
+            apply_profile(password_policy_result, profile)
+        engine.apply(password_policy_result)
+        display_result(password_policy_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:
             print()
 

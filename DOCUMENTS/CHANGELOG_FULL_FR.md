@@ -6,6 +6,18 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.11.0] — 2026-04-07
+
+### TL;DR
+- **`--explain` Phase A2** — `EXPLAIN_KEYS` passe de 20 à 33 (11 nouvelles clés SSH + `fail2ban_missing` + 2 clés modules noyau + `pipe_to_shell` + `enabled_inactive`) ; entrées locale + refs CIS pour les 13 nouvelles clés
+- **Audit comptes utilisateurs** (CHECK 17) — UID 0 non-root (ALERT −3), mot de passe vide sur compte avec shell de connexion (ALERT −2), comptes expirés (INFO) ; lit `/etc/passwd` toujours + `/etc/shadow` si root
+- **Audit politique de mots de passe** (CHECK 18) — absence de module PAM qualité (WARN −1), `minlen < 8` explicite (WARN −1), `PASS_MAX_DAYS ≥ 365` (INFO uniquement, per NIST SP 800-63B) ; lit `login.defs` + `common-password` + `pwquality.conf`
+- `user_accounts` → domaine `file_perms` ; `password_policy` → domaine `hardening`
+- Passage qualité : tests d'immutabilité du snapshot ; tests aux frontières ; `test_no_t_does_not_crash` pour les deux nouvelles vérifications
+- 1675/1675 tests unitaires (+134)
+
+---
+
 ## [v1.10.0] — 2026-04-07
 
 ### TL;DR

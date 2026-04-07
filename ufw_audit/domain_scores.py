@@ -55,6 +55,8 @@ _PREFIX_TO_DOMAIN: dict[str, str] = {
     "kernel_modules":  "hardening",
     "cron_audit":      "hardening",
     "services_state":  "hardening",
+    "user_accounts":    "file_perms",
+    "password_policy":  "hardening",
 }
 
 

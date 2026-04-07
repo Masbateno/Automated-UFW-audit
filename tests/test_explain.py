@@ -70,20 +70,37 @@ class TestNormalizeKey:
 # ---------------------------------------------------------------------------
 
 class TestExplainKeysList:
-    def test_has_twenty_keys(self):
-        assert len(EXPLAIN_KEYS) == 20
+    def test_has_thirty_three_keys(self):
+        assert len(EXPLAIN_KEYS) == 33
 
     def test_all_keys_are_strings(self):
         for k in EXPLAIN_KEYS:
             assert isinstance(k, str)
 
     def test_known_keys_present(self):
+        # original 20
         assert "ssh.password_auth" in EXPLAIN_KEYS
         assert "ssh.permit_root_login" in EXPLAIN_KEYS
         assert "file_perms.world_writable" in EXPLAIN_KEYS
         assert "updates.security_pending" in EXPLAIN_KEYS
         assert "hardening.rp_filter_disabled" in EXPLAIN_KEYS
         assert "hardening.redirects_enabled" in EXPLAIN_KEYS
+        # Phase A2 additions — SSH
+        assert "ssh.max_auth_tries" in EXPLAIN_KEYS
+        assert "ssh.permit_user_env" in EXPLAIN_KEYS
+        assert "ssh.weak_ciphers" in EXPLAIN_KEYS
+        assert "ssh.weak_macs" in EXPLAIN_KEYS
+        assert "ssh.weak_kex" in EXPLAIN_KEYS
+        # Phase A2 additions — hardening
+        assert "hardening.fail2ban_missing" in EXPLAIN_KEYS
+        assert "hardening.log_martians_disabled" in EXPLAIN_KEYS
+        assert "hardening.rp_filter_loose" in EXPLAIN_KEYS
+        # Phase A2 additions — new checks
+        assert "kernel_modules.risky_fs" in EXPLAIN_KEYS
+        assert "kernel_modules.risky_net" in EXPLAIN_KEYS
+        assert "cron_audit.pipe_to_shell" in EXPLAIN_KEYS
+        assert "cron_audit.world_writable" in EXPLAIN_KEYS
+        assert "services_state.enabled_inactive" in EXPLAIN_KEYS
 
 
 # ---------------------------------------------------------------------------

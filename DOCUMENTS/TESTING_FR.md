@@ -29,7 +29,17 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v1.7.0  | 966   | +38 tests — `test_profiles.py` (36), `test_compare.py` (+2 filtre ports éphémères), `test_ipv6.py` (+2 entrées malformées) |
 | v1.8.0  | 1104  | +138 tests — `test_ssh.py` (93) + `test_file_perms.py` (45) : modifiable-par-tous (7), trop-permissif (5), clés-hôtes-SSH (4), NOPASSWD-ALL (5), NOPASSWD-spécifique (4), combinés (5), _is_nopasswd_all (8), dataclass (2), tout-correct (4) |
 | v1.9.0  | 1332  | +228 tests — `test_updates.py` (34), `test_explain.py` (~94), `test_domain_scores.py` (~48), `test_webhook.py` (~54) ; passages qualité sur `test_hardening.py` + `test_profiles.py` |
+| v1.11.0 | 1675  | +134 tests — `test_user_accounts.py` (51), `test_password_policy.py` (51) ; clés A2 `--explain` dans `test_explain.py` (+13 assertions) ; passage qualité sur les deux nouveaux fichiers |
 | v1.10.0 | 1541  | +209 tests — `test_display_explain_hint.py` (25), `test_kernel_modules.py` (48), `test_cron_audit.py` (47), `test_services_state.py` (35) ; passage qualité : `test_check_rules.py` (+10), `test_cli.py` (+38), `test_compare.py` (+7), `test_cron.py` (+10), `test_ddns.py` (+5), `test_degraded.py` (+3) |
+
+### v1.11.0 — 1675/1675 (2026-04-07)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+1675 passed in 1.41s
+```
 
 ### v1.10.0 — 1541/1541 (2026-04-07)
 

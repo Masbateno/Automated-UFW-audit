@@ -41,7 +41,9 @@
     "updates": "SYSTEM UPDATES",
     "kernel_modules": "KERNEL MODULE AUDIT",
     "cron_audit": "CRON JOB AUDIT",
-    "services_state": "SERVICE STATE AUDIT"
+    "services_state": "SERVICE STATE AUDIT",
+    "user_accounts": "USER ACCOUNT AUDIT",
+    "password_policy": "PASSWORD POLICY AUDIT"
   },
   "status": {
     "ok": "OK",
@@ -565,53 +567,53 @@
     "ok": "Sensitive file permissions and sudoers: no issues detected"
   },
   "updates": {
-    "no_apt":                           "apt not available — package update check skipped",
-    "security_pending":                 "{count} security package(s) pending update: {packages}",
-    "security_pending_detail":          "Security updates fix known vulnerabilities. Apply immediately: sudo apt-get upgrade",
-    "security_pending_reason":          "{count} security package(s) pending update",
-    "regular_pending":                  "{count} package(s) pending update (non-security)",
-    "unattended_not_configured":        "unattended-upgrades not configured — security patches require manual intervention",
+    "no_apt": "apt not available — package update check skipped",
+    "security_pending": "{count} security package(s) pending update: {packages}",
+    "security_pending_detail": "Security updates fix known vulnerabilities. Apply immediately: sudo apt-get upgrade",
+    "security_pending_reason": "{count} security package(s) pending update",
+    "regular_pending": "{count} package(s) pending update (non-security)",
+    "unattended_not_configured": "unattended-upgrades not configured — security patches require manual intervention",
     "unattended_not_configured_detail": "Install and enable: sudo apt install unattended-upgrades && sudo dpkg-reconfigure -plow unattended-upgrades",
     "unattended_not_configured_reason": "unattended-upgrades not configured",
-    "ok":                               "System packages are up to date"
+    "ok": "System packages are up to date"
   },
   "kernel_modules": {
-    "no_lsmod":           "lsmod not available — kernel module check skipped",
-    "risky_fs":           "Risky filesystem module(s) loaded: {modules}",
-    "risky_fs_detail":    "These modules are rarely needed on a server and widen the attack surface. Unload and blacklist them.",
-    "risky_fs_reason":    "Risky filesystem module(s) loaded: {modules}",
-    "risky_net":          "Risky network protocol module(s) loaded: {modules}",
-    "risky_net_detail":   "These protocols (DCCP, SCTP, RDS, TIPC) are rarely used and have a history of kernel exploits. Unload and blacklist them.",
-    "risky_net_reason":   "Risky network protocol module(s) loaded: {modules}",
-    "ok":                 "No risky kernel modules loaded"
+    "no_lsmod": "lsmod not available — kernel module check skipped",
+    "risky_fs": "Risky filesystem module(s) loaded: {modules}",
+    "risky_fs_detail": "These modules are rarely needed on a server and widen the attack surface. Unload and blacklist them.",
+    "risky_fs_reason": "Risky filesystem module(s) loaded: {modules}",
+    "risky_net": "Risky network protocol module(s) loaded: {modules}",
+    "risky_net_detail": "These protocols (DCCP, SCTP, RDS, TIPC) are rarely used and have a history of kernel exploits. Unload and blacklist them.",
+    "risky_net_reason": "Risky network protocol module(s) loaded: {modules}",
+    "ok": "No risky kernel modules loaded"
   },
   "cron_audit": {
-    "pipe_to_shell":            "{count} cron job(s) pipe remote content into a shell (curl/wget | sh)",
-    "pipe_to_shell_detail":     "Piping remote downloads directly into a shell is a common supply-chain attack vector. Review and replace with explicit script downloads and integrity checks.",
-    "pipe_to_shell_reason":     "{count} cron job(s) pipe remote content into a shell",
-    "world_writable":           "{count} script(s) referenced in cron are world-writable: {scripts}",
-    "world_writable_detail":    "World-writable scripts can be replaced by any local user, enabling privilege escalation. Restrict permissions immediately.",
-    "world_writable_reason":    "{count} world-writable script(s) in cron",
-    "unexpected_users":         "Unexpected user crontab(s) found: {users}",
-    "ok":                       "No risky patterns found in cron jobs"
+    "pipe_to_shell": "{count} cron job(s) pipe remote content into a shell (curl/wget | sh)",
+    "pipe_to_shell_detail": "Piping remote downloads directly into a shell is a common supply-chain attack vector. Review and replace with explicit script downloads and integrity checks.",
+    "pipe_to_shell_reason": "{count} cron job(s) pipe remote content into a shell",
+    "world_writable": "{count} script(s) referenced in cron are world-writable: {scripts}",
+    "world_writable_detail": "World-writable scripts can be replaced by any local user, enabling privilege escalation. Restrict permissions immediately.",
+    "world_writable_reason": "{count} world-writable script(s) in cron",
+    "unexpected_users": "Unexpected user crontab(s) found: {users}",
+    "ok": "No risky patterns found in cron jobs"
   },
   "services_state": {
-    "no_systemctl":                "systemctl not available — service state check skipped",
-    "service_inactive":            "Security service enabled but not running: {service}",
-    "service_inactive_detail":     "This service is set to start at boot but is currently stopped or failed. Check its logs and restart it.",
-    "service_inactive_reason":     "Security service inactive: {service}",
-    "ok":                          "All monitored security services are active"
+    "no_systemctl": "systemctl not available — service state check skipped",
+    "service_inactive": "Security service enabled but not running: {service}",
+    "service_inactive_detail": "This service is set to start at boot but is currently stopped or failed. Check its logs and restart it.",
+    "service_inactive_reason": "Security service inactive: {service}",
+    "ok": "All monitored security services are active"
   },
   "output": {
     "recommendation_label": "What to do?"
   },
   "domain_scores": {
-    "title":      "Domain Scores",
-    "ssh":        "SSH",
+    "title": "Domain Scores",
+    "ssh": "SSH",
     "file_perms": "Files & Access",
-    "updates":    "Updates",
-    "hardening":  "Hardening",
-    "firewall":   "Firewall & Services"
+    "updates": "Updates",
+    "hardening": "Hardening",
+    "firewall": "Firewall & Services"
   },
   "explain": {
     "ssh": {
@@ -674,6 +676,31 @@
         "title": "SSH StrictModes disabled",
         "why": "Without StrictModes, sshd skips permission checks on ~/.ssh and key files. World-readable private keys or group-writable home directories are silently accepted, effectively nullifying file permission security.",
         "how": "1. Enable StrictModes (the default):\n   sudo nano /etc/ssh/sshd_config  →  StrictModes yes\n2. Fix file permissions:\n   chmod 700 ~/.ssh\n   chmod 600 ~/.ssh/authorized_keys\n3. Restart SSH:\n   sudo systemctl restart ssh"
+      },
+      "max_auth_tries": {
+        "title": "Too many authentication attempts allowed (MaxAuthTries > 3)",
+        "why": "Each failed SSH attempt can probe valid usernames and test credentials. With the default of 6 attempts, an automated attack can test many passwords per connection before being disconnected. Reducing to 3 limits the credential surface per connection and makes brute-force campaigns significantly slower.",
+        "how": "1. Reduce MaxAuthTries:\n   sudo nano /etc/ssh/sshd_config  →  MaxAuthTries 3\n2. Restart SSH:\n   sudo systemctl restart ssh"
+      },
+      "permit_user_env": {
+        "title": "User environment variables allowed (PermitUserEnvironment yes)",
+        "why": "Allowing users to set environment variables via ~/.ssh/environment or authorized_keys options enables privilege escalation through environment manipulation: LD_PRELOAD, PATH, or PYTHONPATH overrides can redirect execution to attacker-controlled code even when the binary is trusted.",
+        "how": "1. Disable user environment:\n   sudo nano /etc/ssh/sshd_config  →  PermitUserEnvironment no\n2. Restart SSH:\n   sudo systemctl restart ssh"
+      },
+      "weak_ciphers": {
+        "title": "Weak SSH cipher suites in use",
+        "why": "Legacy ciphers (3DES-CBC, arcfour/RC4, blowfish-CBC, CBC-mode AES) are cryptographically weak or broken. CBC-mode ciphers are vulnerable to BEAST and Lucky13 attacks. RC4 has statistical biases exploitable with enough traffic. An attacker recording sessions could later decrypt them.",
+        "how": "1. Restrict to strong ciphers:\n   sudo nano /etc/ssh/sshd_config\n   Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr\n2. Restart SSH:\n   sudo systemctl restart ssh\n3. Test your client still connects:\n   ssh -Q cipher  # lists supported ciphers"
+      },
+      "weak_macs": {
+        "title": "Weak SSH MAC algorithms in use",
+        "why": "Weak MACs (hmac-md5, hmac-sha1, umac-64) are vulnerable to collision attacks. A compromised MAC means message integrity cannot be guaranteed — an attacker in a man-in-the-middle position could tamper with session data in transit without detection. MD5 and SHA-1 are no longer collision-resistant.",
+        "how": "1. Restrict to strong MACs:\n   sudo nano /etc/ssh/sshd_config\n   MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com\n2. Restart SSH:\n   sudo systemctl restart ssh"
+      },
+      "weak_kex": {
+        "title": "Weak SSH key exchange algorithms in use",
+        "why": "Weak KEX algorithms (diffie-hellman-group1-sha1 uses a 1024-bit group; diffie-hellman-group14-sha1 uses deprecated SHA-1) offer insufficient forward secrecy. Nation-state actors have demonstrated precomputation attacks against standard 1024-bit DH groups (Logjam). Compromised KEX means the session key can be recovered after the fact.",
+        "how": "1. Restrict to strong KEX:\n   sudo nano /etc/ssh/sshd_config\n   KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512\n2. Restart SSH:\n   sudo systemctl restart ssh"
       }
     },
     "file_perms": {
@@ -720,37 +747,125 @@
         "title": "ICMP redirects accepted (accept_redirects = 1)",
         "why": "ICMP redirect messages can instruct the kernel to change its routing tables. An attacker on the local network can send forged ICMP redirects to reroute traffic through a machine they control, enabling a routing hijack or man-in-the-middle attack.",
         "how": "1. Disable immediately (takes effect now):\n   sudo sysctl -w net.ipv4.conf.all.accept_redirects=0\n2. Make it permanent:\n   echo 'net.ipv4.conf.all.accept_redirects=0' | sudo tee -a /etc/sysctl.d/99-redirects.conf\n3. Apply all sysctl settings:\n   sudo sysctl --system"
+      },
+      "fail2ban_missing": {
+        "title": "fail2ban not installed",
+        "why": "Without fail2ban, brute-force attacks against SSH and other services face no automatic IP banning. Even with key-based authentication, repeated failed attempts flood logs, consume resources, and may indicate active reconnaissance. fail2ban bans IPs after a configurable number of failures, stopping automated campaigns early.",
+        "how": "1. Install fail2ban:\n   sudo apt install fail2ban\n2. Enable and start:\n   sudo systemctl enable --now fail2ban\n3. Verify the SSH jail is active:\n   sudo fail2ban-client status sshd\n4. Optional — custom config in /etc/fail2ban/jail.local:\n   [sshd]\n   bantime  = 1h\n   maxretry = 5"
+      },
+      "log_martians_disabled": {
+        "title": "Martian packet logging disabled (log_martians = 0)",
+        "why": "Martian packets have source addresses that are impossible given the routing table — a strong indicator of IP spoofing, forged packets, or scanning. Without logging them, early-stage reconnaissance and spoofing attacks leave no trace. Enabling this logging is low-cost and provides valuable forensic data.",
+        "how": "1. Enable immediately:\n   sudo sysctl -w net.ipv4.conf.all.log_martians=1\n   sudo sysctl -w net.ipv4.conf.default.log_martians=1\n2. Make it permanent:\n   echo 'net.ipv4.conf.all.log_martians=1' | sudo tee -a /etc/sysctl.d/99-network-security.conf\n   echo 'net.ipv4.conf.default.log_martians=1' | sudo tee >> /etc/sysctl.d/99-network-security.conf\n3. Apply:\n   sudo sysctl --system"
+      },
+      "rp_filter_loose": {
+        "title": "Reverse path filtering in loose mode (rp_filter = 2)",
+        "why": "Loose mode (rp_filter=2) accepts packets as long as any route to the source exists, not necessarily via the receiving interface. This provides weaker protection than strict mode (=1) against IP spoofing and source-routing attacks. Strict mode drops packets whose reverse path does not match the interface they arrived on.",
+        "how": "1. Switch to strict mode:\n   sudo sysctl -w net.ipv4.conf.all.rp_filter=1\n2. Make it permanent:\n   echo 'net.ipv4.conf.all.rp_filter=1' | sudo tee -a /etc/sysctl.d/99-rp-filter.conf\n3. Apply:\n   sudo sysctl --system\nNote: strict mode may break asymmetric routing (e.g. multi-homed servers). Verify network connectivity after applying."
+      }
+    },
+    "kernel_modules": {
+      "risky_fs": {
+        "title": "Risky filesystem kernel modules loaded",
+        "why": "Filesystem drivers (cramfs, freevxfs, hfs, hfsplus, jffs2, squashfs, udf, usb_storage) expand kernel attack surface unnecessarily on servers. Vulnerabilities in these drivers can be triggered by mounting a maliciously crafted filesystem image or inserting a USB device, potentially enabling privilege escalation or arbitrary code execution in kernel space.",
+        "how": "1. Unload the module now:\n   sudo modprobe -r <module_name>\n2. Blacklist to prevent reloading:\n   echo 'blacklist <module>' | sudo tee -a /etc/modprobe.d/blacklist-rare-fs.conf\n   echo 'install <module> /bin/false' | sudo tee -a /etc/modprobe.d/blacklist-rare-fs.conf\n3. Rebuild initramfs:\n   sudo update-initramfs -u\nNote: only blacklist modules your system does not use (e.g. usb_storage is needed for USB drives)."
+      },
+      "risky_net": {
+        "title": "Risky network protocol kernel modules loaded",
+        "why": "Protocols like DCCP, SCTP, RDS, and TIPC have had critical kernel vulnerabilities (CVEs with remote code execution and privilege escalation). These protocols are rarely needed on standard servers and represent unnecessary kernel attack surface. Loading them makes the system exploitable by sending crafted network packets to any open socket.",
+        "how": "1. Unload the module now:\n   sudo modprobe -r <module_name>\n2. Blacklist to prevent reloading:\n   echo 'blacklist <module>' | sudo tee -a /etc/modprobe.d/blacklist-rare-net.conf\n   echo 'install <module> /bin/false' | sudo tee -a /etc/modprobe.d/blacklist-rare-net.conf\n3. Rebuild initramfs:\n   sudo update-initramfs -u\nNote: SCTP is used by some telephony and clustering software. Verify before blacklisting."
+      }
+    },
+    "cron_audit": {
+      "pipe_to_shell": {
+        "title": "Pipe-to-shell pattern in system cron (curl/wget | sh)",
+        "why": "Fetching a script and piping it directly to a shell bypasses all integrity checks. If the remote server is compromised, the DNS is hijacked, or the connection is intercepted (plain HTTP), arbitrary code runs with the cron job's privileges — often root. There is no way to audit or version-control what will be executed at runtime.",
+        "how": "1. Identify the cron entry in /etc/cron.* or /etc/crontab\n2. Replace with a two-step approach:\n   a. Download to a file: curl -fsSL -o /tmp/script.sh https://...\n   b. Verify checksum: sha256sum -c /tmp/script.sha256\n   c. Execute: bash /tmp/script.sh\n3. Better: host the script locally, pin it in version control,\n   and reference the local copy from cron"
+      },
+      "world_writable": {
+        "title": "World-writable script referenced in system cron",
+        "why": "Any local user can modify a world-writable script. Because cron runs it on a schedule — often as root — overwriting the script is a trivial local privilege escalation: no exploit needed, just write access to the file. This is a classic persistence and escalation technique.",
+        "how": "1. Remove world-write permission:\n   sudo chmod o-w <path>\n2. Verify ownership is correct (should be root):\n   ls -la <path>\n3. Review the script content for unexpected modifications:\n   sudo cat <path>"
+      }
+    },
+    "services_state": {
+      "enabled_inactive": {
+        "title": "Security service enabled at boot but currently inactive",
+        "why": "A service configured to start at boot but currently stopped may have crashed, been misconfigured, or been deliberately disabled. If the service is a security control (firewall, intrusion detection, log daemon), its absence creates a window during which threats go undetected or unblocked. The system appears protected at startup but is not at runtime.",
+        "how": "1. Check why the service stopped:\n   sudo journalctl -u <service> -n 50\n2. Restart and verify:\n   sudo systemctl start <service>\n   sudo systemctl status <service>\n3. If the service crashes on start, investigate the config:\n   sudo systemctl status <service> --no-pager -l\n4. Ensure it remains enabled:\n   sudo systemctl enable <service>"
       }
     }
   },
   "explain_cis": {
     "ssh": {
-      "password_auth":          "CIS Ubuntu 22.04 L1 — 5.2.8 — Ensure SSH PasswordAuthentication is disabled",
-      "permit_root_login":      "CIS Ubuntu 22.04 L1 — 5.2.10 — Ensure SSH root login is disabled",
+      "password_auth": "CIS Ubuntu 22.04 L1 — 5.2.8 — Ensure SSH PasswordAuthentication is disabled",
+      "permit_root_login": "CIS Ubuntu 22.04 L1 — 5.2.10 — Ensure SSH root login is disabled",
       "permit_empty_passwords": "CIS Ubuntu 22.04 L1 — 5.2.9 — Ensure SSH PermitEmptyPasswords is disabled",
-      "allow_tcp_forwarding":   "CIS Ubuntu 22.04 L2 — 5.2.21 — Ensure SSH AllowTcpForwarding is disabled",
-      "pubkey_auth_disabled":   "CIS Ubuntu 22.04 — general SSH hardening best practice",
-      "x11_forwarding":         "CIS Ubuntu 22.04 L1 — 5.2.6 — Ensure SSH X11 forwarding is disabled",
-      "dsa_key":                "CIS Ubuntu 22.04 L1 — 5.2.2 — Ensure SSH private host key file permissions / deprecated algorithm",
-      "no_passphrase":          "CIS Ubuntu 22.04 — SSH key security best practice",
-      "client_strict_host_no":  "CIS Ubuntu 22.04 — SSH client security best practice (MITM prevention)",
+      "allow_tcp_forwarding": "CIS Ubuntu 22.04 L2 — 5.2.21 — Ensure SSH AllowTcpForwarding is disabled",
+      "pubkey_auth_disabled": "CIS Ubuntu 22.04 — general SSH hardening best practice",
+      "x11_forwarding": "CIS Ubuntu 22.04 L1 — 5.2.6 — Ensure SSH X11 forwarding is disabled",
+      "dsa_key": "CIS Ubuntu 22.04 L1 — 5.2.2 — Ensure SSH private host key file permissions / deprecated algorithm",
+      "no_passphrase": "CIS Ubuntu 22.04 — SSH key security best practice",
+      "client_strict_host_no": "CIS Ubuntu 22.04 — SSH client security best practice (MITM prevention)",
       "ignore_rhosts_disabled": "CIS Ubuntu 22.04 L1 — 5.2.12 — Ensure SSH IgnoreRhosts is enabled",
-      "host_based_auth":        "CIS Ubuntu 22.04 L1 — 5.2.13 — Ensure SSH HostbasedAuthentication is disabled",
-      "strict_modes_disabled":  "CIS Ubuntu 22.04 L1 — 5.2.2 — Ensure SSH private host key file permissions are configured"
+      "host_based_auth": "CIS Ubuntu 22.04 L1 — 5.2.13 — Ensure SSH HostbasedAuthentication is disabled",
+      "strict_modes_disabled": "CIS Ubuntu 22.04 L1 — 5.2.2 — Ensure SSH private host key file permissions are configured",
+      "max_auth_tries": "CIS Ubuntu 22.04 L1 — 5.2.7 — Ensure SSH MaxAuthTries is set to 4 or less",
+      "permit_user_env": "CIS Ubuntu 22.04 L1 — 5.2.11 — Ensure SSH PermitUserEnvironment is disabled",
+      "weak_ciphers": "CIS Ubuntu 22.04 L1 — 5.2.15 — Ensure only strong cipher suites are used",
+      "weak_macs": "CIS Ubuntu 22.04 L1 — 5.2.16 — Ensure only strong MAC algorithms are used",
+      "weak_kex": "CIS Ubuntu 22.04 L1 — 5.2.17 — Ensure only strong key exchange algorithms are used"
     },
     "file_perms": {
-      "world_writable":       "CIS Ubuntu 22.04 L1 — 6.1.10 — Ensure no world writable files exist",
-      "too_permissive":       "CIS Ubuntu 22.04 L1 — 6.1 — Ensure appropriate permissions on sensitive files",
+      "world_writable": "CIS Ubuntu 22.04 L1 — 6.1.10 — Ensure no world writable files exist",
+      "too_permissive": "CIS Ubuntu 22.04 L1 — 6.1 — Ensure appropriate permissions on sensitive files",
       "sudoers_nopasswd_all": "CIS Ubuntu 22.04 L2 — 5.3.4 — Ensure users must provide password for privilege escalation",
-      "ssh_host_key_perms":   "CIS Ubuntu 22.04 L1 — 5.2.2 — Ensure permissions on SSH private host key files are configured"
+      "ssh_host_key_perms": "CIS Ubuntu 22.04 L1 — 5.2.2 — Ensure permissions on SSH private host key files are configured"
     },
     "updates": {
-      "security_pending":          "CIS Ubuntu 22.04 L1 — 1.9 — Ensure updates, patches and additional security software are installed",
+      "security_pending": "CIS Ubuntu 22.04 L1 — 1.9 — Ensure updates, patches and additional security software are installed",
       "unattended_not_configured": "CIS Ubuntu 22.04 L1 — 1.9 — Ensure updates, patches and additional security software are installed"
     },
     "hardening": {
       "rp_filter_disabled": "CIS Ubuntu 22.04 L1 — 3.3.1 — Ensure source routed packets are not accepted",
-      "redirects_enabled":  "CIS Ubuntu 22.04 L1 — 3.3.2 — Ensure ICMP redirects are not accepted"
+      "redirects_enabled": "CIS Ubuntu 22.04 L1 — 3.3.2 — Ensure ICMP redirects are not accepted",
+      "log_martians_disabled": "CIS Ubuntu 22.04 L1 — 3.3.12 — Ensure suspicious packets are logged",
+      "rp_filter_loose": "CIS Ubuntu 22.04 L1 — 3.3.1 — Ensure source routed packets are not accepted (strict mode recommended)",
+      "fail2ban_missing": "CIS Ubuntu 22.04 — SSH brute-force protection best practice (login rate-limiting via fail2ban or pam_faillock)"
+    },
+    "kernel_modules": {
+      "risky_fs": "CIS Ubuntu 22.04 L1 — 1.1.1.x — Ensure mounting of legacy/rare filesystems is disabled",
+      "risky_net": "CIS Ubuntu 22.04 L1 — 3.4.x — Ensure DCCP/SCTP/RDS/TIPC is disabled"
+    },
+    "cron_audit": {
+      "world_writable": "CIS Ubuntu 22.04 L1 — 5.1.8 — Ensure cron is restricted to authorized users",
+      "pipe_to_shell": "CIS Ubuntu 22.04 L1 — 5.1 — Configure cron (script integrity: verify sources before execution)"
+    },
+    "services_state": {
+      "enabled_inactive": "CIS Ubuntu 22.04 — security service availability best practice (ensure critical services remain active after boot)"
     }
+  },
+  "user_accounts": {
+    "no_shadow": "/etc/shadow not readable — empty-password and expiry checks skipped (run with sudo)",
+    "uid_zero": "UID 0 account(s) other than root detected: {users}",
+    "uid_zero_detail": "These accounts have full root-equivalent privileges. Only root should have UID 0. Lock or rename them.",
+    "uid_zero_reason": "UID 0 account(s) other than root: {users}",
+    "empty_password": "Account(s) with empty password detected: {users}",
+    "empty_password_detail": "These accounts can be accessed without any password. Set a password or lock them immediately.",
+    "empty_password_reason": "Account(s) with empty password: {users}",
+    "expired_account": "Account(s) with a past expiry date: {users}",
+    "expired_account_detail": "These accounts have passed their configured expiry date. Consider removing or locking them as housekeeping.",
+    "ok": "All user accounts are healthy"
+  },
+  "password_policy": {
+    "no_quality_module": "No PAM password quality module configured (pam_pwquality/pam_cracklib absent)",
+    "no_quality_module_detail": "Without pam_pwquality or pam_cracklib, users can set trivially weak passwords. Any string is accepted regardless of length or complexity.",
+    "no_quality_module_reason": "No PAM password quality module configured",
+    "weak_minlen": "Password minimum length too low (minlen = {minlen})",
+    "weak_minlen_detail": "Passwords shorter than 8 characters are easily brute-forced. Increase minlen to at least 8 in /etc/security/pwquality.conf.",
+    "weak_minlen_reason": "Password minimum length too low (minlen = {minlen})",
+    "no_expiry": "Password expiry not enforced (PASS_MAX_DAYS = {days})",
+    "no_expiry_detail": "Passwords never expire. Consider setting PASS_MAX_DAYS to a reasonable value (e.g. 365) if your policy requires periodic rotation. Note: NIST SP 800-63B no longer mandates expiration unless compromise is suspected.",
+    "ok": "Password policy is adequately configured"
   }
 }
