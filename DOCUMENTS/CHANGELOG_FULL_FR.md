@@ -6,6 +6,103 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.10.0] — 2026-04-07
+
+### TL;DR
+- **Suggestion `--explain` dans le résumé** (Phase A1) — chaque finding actionnable affiche désormais `? ufw-audit --explain <clé>` si la clé est explicable
+- **Audit des modules noyau** (CHECK 14) — détecte les modules noyau risqués chargés (systèmes de fichiers : cramfs, hfs, squashfs, usb_storage… ; réseau : dccp, sctp, rds, tipc)
+- **Audit des tâches cron** (CHECK 15) — signale les pipes `curl/wget | sh/bash/zsh`, les scripts cron accessibles en écriture par tous, les crontabs d'utilisateurs inattendus ; `/etc/cron.d` parsé en format crontab
+- **Audit de l'état des services** (CHECK 16) — requête `systemctl` en deux étapes ; alerte si un service de sécurité est activé au boot mais inactif/en échec
+- `kernel_modules`, `cron_audit`, `services_state` mappés au domaine `hardening` dans les scores par domaine
+- Passage qualité : `shlex.quote` dans les cmds de correction ; `key=` sur tous les findings `firewall.py` ; 9 fichiers de tests étendus
+- 1541/1541 tests unitaires (+209)
+
+### Suggestion `--explain` dans le résumé (`display.py` — Phase A1)
+
+Dans `print_audit_summary()`, la closure `_add_finding_lines()` injecte maintenant une ligne de suggestion sous chaque finding dont la clé résout vers une clé explicable :
+
+```
+? ufw-audit --explain <clé_normalisée>
+```
+
+- Utilise `normalize_key()` de `explain.py` — `file_perms.shadow.world_writable` → `file_perms.world_writable`
+- Affiché uniquement si la clé normalisée est dans `EXPLAIN_KEYS`
+- Construit directement comme f-string (pas de lookup locale — la syntaxe de commande est identique en FR et EN)
+- Nouveau fichier de tests : `tests/test_display_explain_hint.py` — 25 tests
+
+### Audit des modules noyau (`checks/kernel_modules.py` — CHECK 14)
+
+Nouveau module implémentant CHECK 14 dans `runner.py` :
+
+**`KernelModulesSnapshot`** — collecté via `from_system()` avec `lsmod` :
+- `lsmod_available` — si `lsmod` existe sur le système
+- `loaded_modules` — liste complète des modules actuellement chargés, normalisée en minuscules à la collecte
+
+**`check_kernel_modules(snapshot, t)`** :
+- `_RISKY_FS` — cramfs, freevxfs, jffs2, hfs, hfsplus, squashfs, udf, usb_storage
+- `_RISKY_NET` — dccp, sctp, rds, tipc
+- FS risqué chargé → WARN `kernel_modules.risky_fs`, −1 pt (flat) ; cmd : `sudo modprobe -r <modules>` (sécurisé via `shlex.quote`)
+- Protocole réseau risqué → WARN `kernel_modules.risky_net`, −1 pt (flat)
+- Max −2 pts au total
+- `lsmod` indisponible → INFO `kernel_modules.no_lsmod`, aucune déduction
+- Nouveau fichier de tests : `tests/test_kernel_modules.py` — 48 tests
+
+### Audit des tâches cron (`checks/cron_audit.py` — CHECK 15)
+
+Nouveau module implémentant CHECK 15 dans `runner.py` :
+
+**`CronAuditSnapshot`** — collecté via `from_system()` :
+- `pipe_to_shell_entries` — lignes cron correspondant à `\b(curl|wget)\b.*|\S*sh\b` (couvre `/bin/sh`, `zsh`, `/usr/bin/bash -s`)
+- `/etc/cron.d` parsé en format crontab (chemins de scripts extraits) ; `cron.daily/hourly/weekly/monthly` examinés directement via `stat`
+- `world_writable_scripts` — scripts `.sh` accessibles en écriture, dédupliqués
+- `unexpected_user_crons` — utilisateurs dans `/var/spool/cron/crontabs/` absents de `_EXPECTED_CRONTAB_USERS`
+
+**`check_cron_audit(snapshot, t)`** :
+- Pipe vers shell → WARN `cron_audit.pipe_to_shell`, −2 pts (flat, `nature="action"`)
+- Script accessible en écriture → WARN `cron_audit.world_writable`, −1 pt ; cmd : `sudo chmod o-w <scripts>` (sécurisé via `shlex.quote`)
+- Crontab utilisateur inattendu → INFO `cron_audit.unexpected_users`, aucune déduction
+- Max −3 pts total
+- Nouveau fichier de tests : `tests/test_cron_audit.py` — 47 tests (regex paramétrée, injection shell)
+
+### Audit de l'état des services (`checks/services_state.py` — CHECK 16)
+
+Nouveau module implémentant CHECK 16 dans `runner.py` :
+
+**`ServicesStateSnapshot`** — collecté via `from_system()` en deux étapes :
+1. `systemctl list-unit-files --type=service` → collecte les services `enabled`/`enabled-runtime`
+2. `systemctl list-units --all --type=service` → filtre par état actif, ignore si absent de l'ensemble enabled
+- `systemctl_available` — si `systemctl` existe
+- `enabled_inactive` — services à la fois `enabled` ET actuellement `inactive` ou `failed`
+
+**`check_services_state(snapshot, t)`** :
+- Services surveillés (`SECURITY_SERVICES`) : ufw, fail2ban, apparmor, auditd, clamav-daemon, clamav-freshclam, ssh, sshd, crowdsec, ossec
+- Un WARN par service inactif (`nature="action"`), −1 pt chacun ; cmd : `sudo systemctl restart <svc> && sudo journalctl -u <svc> -n 50` (sécurisé via `shlex.quote`)
+- Déductions plafonnées à −3 pts ; findings émis pour tous les services inactifs
+- `systemctl` indisponible → INFO `services_state.no_systemctl`, aucune déduction
+- Nouveau fichier de tests : `tests/test_services_state.py` — 35 tests
+
+### Mise à jour des scores par domaine
+
+`kernel_modules`, `cron_audit` et `services_state` sont maintenant mappés au domaine `hardening` dans `_PREFIX_TO_DOMAIN` (précédemment rattrapés par `firewall`).
+
+### Passage qualité
+
+**Modifications source :**
+- `checks/firewall.py` — `key=` ajouté à tous les findings de `_check_duplicates`, `_check_open_any`, `_check_ipv6_coverage`
+
+**Améliorations tests :**
+
+| Fichier | Avant | Après | Modifications principales |
+|---------|-------|-------|--------------------------|
+| `test_check_rules.py` | 19 | 29 | Assertions par clé ; classes `TestOpenAny`/`TestDuplicates`/`TestIPv6Coverage`/`TestCombined` |
+| `test_cli.py` | 25 | 63 | Tous défauts/flags/combinaisons ; `TestWebhook`, `TestExplain`, `TestMutuallyExclusiveModes` |
+| `test_compare.py` | 47 | 54 | `SimpleNamespace` pour objets de données ; `_make_delta()` au niveau module ; `skipif` Windows |
+| `test_cron.py` | 52 | 62 | `TestOrdinal` paramétrisé ; jours de la semaine FR ; cas limite `_parse_dom("")` |
+| `test_ddns.py` | 37 | 42 | Hostname entre guillemets ; valeur vide ; regex de repli ; règle malformée sans crash |
+| `test_degraded.py` | 17 | 20 | Vrai `LogEntry` ; combinaisons `check_firewall(inactif)` + ports/règles vides |
+
+---
+
 ## [v1.9.0] — 2026-04-06
 
 ### TL;DR

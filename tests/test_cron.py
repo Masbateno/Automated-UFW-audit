@@ -128,6 +128,19 @@ class TestCronToHuman:
         result = cron_to_human("5 9 * * *", "en")
         assert "09:05" in result
 
+    def test_multiple_weekdays_fr(self):
+        """Multiple weekdays should be comma-joined using French day names."""
+        result = cron_to_human("0 3 * * 1,3,5", "fr")
+        assert "lundi" in result
+        assert "mercredi" in result
+        assert "vendredi" in result
+        assert "03:00" in result
+
+    def test_unknown_lang_does_not_crash(self):
+        """An unrecognised language code must return a non-empty string."""
+        result = cron_to_human("0 3 * * *", "de")
+        assert result  # non-empty — falls back to French branch
+
 
 # ---------------------------------------------------------------------------
 # make_slug
@@ -256,15 +269,20 @@ class TestParseCronFile:
 # ---------------------------------------------------------------------------
 
 class TestOrdinal:
-    def test_1st(self):   assert _ordinal(1) == "1st"
-    def test_2nd(self):   assert _ordinal(2) == "2nd"
-    def test_3rd(self):   assert _ordinal(3) == "3rd"
-    def test_4th(self):   assert _ordinal(4) == "4th"
-    def test_11th(self):  assert _ordinal(11) == "11th"
-    def test_12th(self):  assert _ordinal(12) == "12th"
-    def test_13th(self):  assert _ordinal(13) == "13th"
-    def test_21st(self):  assert _ordinal(21) == "21st"
-    def test_22nd(self):  assert _ordinal(22) == "22nd"
+    @pytest.mark.parametrize("n,expected", [
+        (1,  "1st"),
+        (2,  "2nd"),
+        (3,  "3rd"),
+        (4,  "4th"),
+        (11, "11th"),  # teen exceptions — must use "th" regardless of last digit
+        (12, "12th"),
+        (13, "13th"),
+        (21, "21st"),  # non-teen: last digit 1 → "st"
+        (22, "22nd"),
+        (31, "31st"),
+    ])
+    def test_ordinal(self, n, expected):
+        assert _ordinal(n) == expected
 
 
 class TestParseDayNames:
@@ -293,3 +311,7 @@ class TestParseDom:
 
     def test_ignores_non_digits(self):
         assert _parse_dom("1,abc,15") == [1, 15]
+
+    def test_empty_string_returns_empty(self):
+        """An empty DOM field must not crash and must return an empty list."""
+        assert _parse_dom("") == []

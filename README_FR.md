@@ -156,13 +156,21 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Qualité & fiabilité
 
-- ✅ 1332 tests unitaires
+- ✅ 1541 tests unitaires
 - 🧱 Architecture modulaire (snapshot / check séparés)
 - 🧪 Testé sur Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.9.0
+## 🆕 v1.10.0
+
+- 💡 **Suggestion `--explain`** — chaque finding actionnable affiche désormais `? ufw-audit --explain <clé>` directement sous lui dans le résumé
+- 🧩 **Audit des modules noyau** (CHECK 14) — détecte les modules noyau risqués chargés (cramfs, hfs, squashfs, usb_storage, dccp, sctp, rds, tipc) ; −1 pt par catégorie (max −2 pts)
+- 🕐 **Audit des tâches cron** (CHECK 15) — signale les pipes `curl/wget | sh` dans cron (−2 pts), les scripts accessibles en écriture par tous (−1 pt), les crontabs d'utilisateurs inattendus (INFO)
+- ⚠️ **Audit de l'état des services** (CHECK 16) — alerte si un service de sécurité (ufw, fail2ban, apparmor, auditd…) est activé au boot mais inactif/en échec ; −1 pt par service (max −3 pts)
+- ✅ 1541/1541 tests unitaires (+209)
+
+## v1.9.0
 
 - 📦 **Audit des mises à jour système** (CHECK 13) — détecte les paquets de sécurité en attente (−2 pts fixe) et l'absence de `unattended-upgrades` (−1 pt risque composé) ; apt uniquement, déduplique les noms de paquets
 - 📖 **`--explain KEY`** — explication structurée par constat : POURQUOI C'EST UN RISQUE / COMMENT CORRIGER / référence CIS Ubuntu 22.04 ; 20 clés ; `--explain list` liste tout ; sans droit root

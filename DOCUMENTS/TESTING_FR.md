@@ -29,6 +29,45 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v1.7.0  | 966   | +38 tests — `test_profiles.py` (36), `test_compare.py` (+2 filtre ports éphémères), `test_ipv6.py` (+2 entrées malformées) |
 | v1.8.0  | 1104  | +138 tests — `test_ssh.py` (93) + `test_file_perms.py` (45) : modifiable-par-tous (7), trop-permissif (5), clés-hôtes-SSH (4), NOPASSWD-ALL (5), NOPASSWD-spécifique (4), combinés (5), _is_nopasswd_all (8), dataclass (2), tout-correct (4) |
 | v1.9.0  | 1332  | +228 tests — `test_updates.py` (34), `test_explain.py` (~94), `test_domain_scores.py` (~48), `test_webhook.py` (~54) ; passages qualité sur `test_hardening.py` + `test_profiles.py` |
+| v1.10.0 | 1541  | +209 tests — `test_display_explain_hint.py` (25), `test_kernel_modules.py` (48), `test_cron_audit.py` (47), `test_services_state.py` (35) ; passage qualité : `test_check_rules.py` (+10), `test_cli.py` (+38), `test_compare.py` (+7), `test_cron.py` (+10), `test_ddns.py` (+5), `test_degraded.py` (+3) |
+
+### v1.10.0 — 1541/1541 (2026-04-07)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+1541 passed in 1.37s
+```
+
+#### Nouveaux tests (+209)
+
+| Fichier | Nb | Couverture |
+|---------|-----|-----------|
+| `tests/test_display_explain_hint.py` | 25 | `normalize_key` ; appartenance à `EXPLAIN_KEYS` ; intégration `print_audit_summary` (hint affiché, clé normalisée, aucun hint pour clé inconnue ou vide, préfixe `?`, plusieurs findings, clé normalisée vs brute) |
+| `tests/test_kernel_modules.py` | 48 | `lsmod` indisponible (INFO, retour anticipé) ; tout-correct ; modules FS risqués (WARN, −1 pt flat, clé, nature=improvement) ; modules réseau risqués (idem) ; combinés ; `_unload_cmd` (incl. guillemets injection shell) ; snapshot defaults ; ensemble `RISKY_MODULES` ; cas limites (None, doublons, guard mutation, max ≤2, normalisation majuscules) |
+| `tests/test_cron_audit.py` | 47 | tout-correct ; pipe-to-shell (WARN, −2 pts flat, nature=action) ; scripts accessibles en écriture (WARN, −1 pt, cmd chmod) ; utilisateurs inattendus (INFO) ; combinés ; `_chmod_cmd` (incl. guillemets injection shell) ; regex `_PIPE_TO_SHELL_RE` paramétrée (sh, bash, zsh, /bin/sh, /usr/bin/bash ; non-correspondances) ; snapshot defaults ; cas limites |
+| `tests/test_services_state.py` | 35 | `systemctl` indisponible (INFO, retour anticipé) ; tout-correct ; services inactifs (WARN, −1 pt par service) ; plafond −3 pts (findings émis même au-delà) ; ensemble `SECURITY_SERVICES` ; snapshot defaults ; cas limites (noms vides, doublons) |
+
+#### Passage qualité — fichiers de tests étendus
+
+| Fichier | Avant | Après | Ajouts principaux |
+|---------|-------|-------|-------------------|
+| `test_check_rules.py` | 19 | 29 | Assertions par clé (f.key == "rules.xxx") ; classes `TestOpenAny`/`TestDuplicates`/`TestIPv6Coverage`/`TestCombined` |
+| `test_cli.py` | 25 | 63 | Tous les 25+ flags dans `TestDefaults` ; `TestWebhook`, `TestExplain`, `TestMutuallyExclusiveModes` |
+| `test_compare.py` | 47 | 54 | `SimpleNamespace` pour objets de données ; `_make_delta()` au niveau module ; `skipif` Windows |
+| `test_cron.py` | 52 | 62 | `TestOrdinal` paramétrisé ; jours semaine FR ; `_parse_dom("")` |
+| `test_ddns.py` | 37 | 42 | Hostname entre guillemets ; valeur vide ; regex de repli ; règle malformée sans crash |
+| `test_degraded.py` | 17 | 20 | Vrai `LogEntry` ; combinaisons pare-feu inactif + ports/règles vides |
+
+#### Nouveaux modules
+
+- **`checks/kernel_modules.py`** — `KernelModulesSnapshot.from_system()`, `check_kernel_modules()`, `RISKY_MODULES`, `_unload_cmd()`
+- **`checks/cron_audit.py`** — `CronAuditSnapshot.from_system()`, `check_cron_audit()`, `_PIPE_TO_SHELL_RE`, `_chmod_cmd()`
+- **`checks/services_state.py`** — `ServicesStateSnapshot.from_system()`, `check_services_state()`, `SECURITY_SERVICES`
+- **`tests/test_display_explain_hint.py`** — tests d'intégration pour la Phase A1 (suggestion `--explain` dans le résumé)
+
+---
 
 ### v1.8.0 — 1104/1104 (2026-04-06)
 

@@ -245,8 +245,12 @@ def _check_duplicates(lines: list[str], t, result: CheckResult) -> None:
                 message=t("rules.duplicate_found", rule=clean),
                 nature="action",
                 cmd=f"sudo ufw --force delete {del_index}",
+                key="rules.duplicate_found",
             )
-            result.add_deduction(reason=t("rules.duplicate_found", rule=clean), points=1)
+            result.add_deduction(
+                reason=t("rules.duplicate_found", rule=clean), points=1,
+                context="local", key="rules.duplicate_found",
+            )
             is_dup = True
             found_duplicate = True
         else:
@@ -260,9 +264,12 @@ def _check_duplicates(lines: list[str], t, result: CheckResult) -> None:
                             message=t("rules.duplicate_found", rule=clean),
                             nature="action",
                             cmd=f"sudo ufw --force delete {real_index}",
+                            key="rules.duplicate_found",
                         )
                         result.add_deduction(
-                            reason=t("rules.duplicate_found", rule=clean), points=1)
+                            reason=t("rules.duplicate_found", rule=clean), points=1,
+                            context="local", key="rules.duplicate_found",
+                        )
                         is_dup = True
                         found_duplicate = True
 
@@ -270,7 +277,7 @@ def _check_duplicates(lines: list[str], t, result: CheckResult) -> None:
             seen_clean[clean] = real_index
 
     if not found_duplicate:
-        result.ok(message=t("rules.no_duplicates"))
+        result.ok(message=t("rules.no_duplicates"), key="rules.no_duplicates")
 
 
 def _check_open_any(lines: list[str], t, result: CheckResult) -> None:
@@ -288,12 +295,16 @@ def _check_open_any(lines: list[str], t, result: CheckResult) -> None:
                 message=t("rules.open_any_found", rule=line.strip()),
                 nature="action",
                 cmd=f"sudo ufw --force delete {real_index}" if real_index is not None else "",
+                key="rules.open_any_found",
             )
-            result.add_deduction(reason=t("rules.open_any_found", rule=""), points=2)
+            result.add_deduction(
+                reason=t("rules.open_any_found", rule=""), points=2,
+                context="local", key="rules.open_any_found",
+            )
             found_open_any = True
 
     if not found_open_any:
-        result.ok(message=t("rules.no_open_any"))
+        result.ok(message=t("rules.no_open_any"), key="rules.no_open_any")
 
 
 def _check_ipv6_coverage(
@@ -313,11 +324,17 @@ def _check_ipv6_coverage(
 
     if ipv4_count > 0 and ipv6_count == 0:
         if ipv6_enabled:
-            result.warn(message=t("rules.ipv6_missing"), nature="improvement")
-            result.add_deduction(reason=t("rules.ipv6_missing"), points=1)
+            result.warn(
+                message=t("rules.ipv6_missing"), nature="improvement",
+                key="rules.ipv6_missing",
+            )
+            result.add_deduction(
+                reason=t("rules.ipv6_missing"), points=1,
+                context="local", key="rules.ipv6_missing",
+            )
         # else: IPv6 is disabled in /etc/default/ufw — no warning
     elif ipv4_count > 0:
-        result.ok(message=t("rules.ipv6_ok"))
+        result.ok(message=t("rules.ipv6_ok"), key="rules.ipv6_ok")
 
 
 # ---------------------------------------------------------------------------

@@ -6,6 +6,114 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.10.0] — 2026-04-07
+
+### TL;DR
+- **`--explain` hint in summary box** (Phase A1) — every actionable finding now shows `? ufw-audit --explain <key>` when the key is explainable
+- **Kernel Module Audit** (CHECK 14) — detects risky loaded kernel modules (filesystem: cramfs, hfs, squashfs, usb_storage…; network: dccp, sctp, rds, tipc)
+- **Cron Job Audit** (CHECK 15) — flags `curl/wget | sh/bash/zsh` pipes, world-writable cron scripts, unexpected user crontabs; `/etc/cron.d` parsed as crontab format
+- **Service State Audit** (CHECK 16) — two-step `systemctl` query; warns when a security service is enabled at boot but currently inactive/failed
+- `kernel_modules`, `cron_audit`, `services_state` map to the `hardening` domain in domain scores
+- Quality pass: `shlex.quote` in fix cmds; `key=` on all `firewall.py` rule findings; 9 test files expanded (19→29, 25→63, 47→54, 52→62, 37→42, 17→20…)
+- 1541/1541 unit tests (+209)
+
+### `--explain` hint in summary box (`display.py` — Phase A1)
+
+Inside `print_audit_summary()`, the `_add_finding_lines()` closure now injects a hint line under each finding whose key resolves to an explainable key:
+
+```
+? ufw-audit --explain <normalized_key>
+```
+
+- Uses `normalize_key()` from `explain.py` — `file_perms.shadow.world_writable` → `file_perms.world_writable`
+- Only shown when the normalized key is in `EXPLAIN_KEYS`
+- Hint is built directly as an f-string (no locale lookup needed — the command syntax is language-agnostic)
+- New test file: `tests/test_display_explain_hint.py` — 25 tests (normalize_key unit, EXPLAIN_KEYS membership, integration with `print_audit_summary`)
+
+### Kernel module audit (`checks/kernel_modules.py` — CHECK 14)
+
+New module implementing CHECK 14 in `runner.py`:
+
+**`KernelModulesSnapshot`** — collected via `from_system()` using `lsmod`:
+- `lsmod_available` — whether `lsmod` exists on this system
+- `loaded_modules` — full list of currently loaded module names, normalized to lowercase at collection
+
+**`check_kernel_modules(snapshot, t)`**:
+- `_RISKY_FS` — cramfs, freevxfs, jffs2, hfs, hfsplus, squashfs, udf, usb_storage
+- `_RISKY_NET` — dccp, sctp, rds, tipc
+- Risky FS loaded → WARN `kernel_modules.risky_fs`, −1 pt (flat); cmd: `sudo modprobe -r <modules>` (shell-safe via `shlex.quote`)
+- Risky net loaded → WARN `kernel_modules.risky_net`, −1 pt (flat)
+- Max −2 pts; both categories are independent
+- `lsmod` unavailable → INFO `kernel_modules.no_lsmod`, no deduction
+- `None`-safe: `loaded_modules or []` guard
+- New test file: `tests/test_kernel_modules.py` — 48 tests
+
+### Cron job audit (`checks/cron_audit.py` — CHECK 15)
+
+New module implementing CHECK 15 in `runner.py`:
+
+**`CronAuditSnapshot`** — collected via `from_system()`:
+- `pipe_to_shell_entries` — cron lines matching `\b(curl|wget)\b.*|\S*sh\b` (covers `/bin/sh`, `zsh`, `/usr/bin/bash -s`)
+- `/etc/cron.d` parsed as crontab format (script paths extracted from lines); `cron.daily/hourly/weekly/monthly` stat'd directly
+- `world_writable_scripts` — world-writable `.sh` scripts found via both paths (deduped)
+- `unexpected_user_crons` — usernames in `/var/spool/cron/crontabs/` not in `_EXPECTED_CRONTAB_USERS` (default: `root`)
+
+**`check_cron_audit(snapshot, t)`**:
+- Pipe-to-shell → WARN `cron_audit.pipe_to_shell`, −2 pts (flat, `nature="action"`)
+- World-writable script → WARN `cron_audit.world_writable`, −1 pt (flat); cmd: `sudo chmod o-w <scripts>` (shell-safe via `shlex.quote`)
+- Unexpected user crontab → INFO `cron_audit.unexpected_users`, no deduction
+- Max −3 pts total; `None`-safe
+- New test file: `tests/test_cron_audit.py` — 47 tests (incl. regex parametrize, shell injection quoting)
+
+### Service state audit (`checks/services_state.py` — CHECK 16)
+
+New module implementing CHECK 16 in `runner.py`:
+
+**`ServicesStateSnapshot`** — collected via `from_system()` using two-step `systemctl` query:
+1. `systemctl list-unit-files --type=service` → collect `enabled` / `enabled-runtime` services
+2. `systemctl list-units --all --type=service` → filter by active state, skip if not in enabled set
+- `systemctl_available` — whether `systemctl` exists
+- `enabled_inactive` — services that are both `enabled` AND currently `inactive` or `failed`
+
+**`check_services_state(snapshot, t)`**:
+- Monitored services (`SECURITY_SERVICES`): ufw, fail2ban, apparmor, auditd, clamav-daemon, clamav-freshclam, ssh, sshd, crowdsec, ossec
+- One WARN per inactive service (`nature="action"`), −1 pt each; cmd: `sudo systemctl restart <svc> && sudo journalctl -u <svc> -n 50` (shell-safe via `shlex.quote`)
+- Deductions capped at −3 pts; findings emitted for all inactive services regardless
+- `systemctl` unavailable → INFO `services_state.no_systemctl`, no deduction
+- `None`-safe
+- New test file: `tests/test_services_state.py` — 35 tests
+
+### Domain scores update
+
+`kernel_modules`, `cron_audit`, and `services_state` deductions now map to the `hardening` domain in `_PREFIX_TO_DOMAIN` (previously fell to `firewall` catch-all).
+
+### Quality pass
+
+**Source changes:**
+- `checks/firewall.py` — added `key=` to all findings in `_check_duplicates`, `_check_open_any`, `_check_ipv6_coverage`
+
+**Test improvements:**
+
+| File | Before | After | Key changes |
+|------|--------|-------|-------------|
+| `test_check_rules.py` | 19 | 29 | Key-based assertions; `TestOpenAny`/`TestDuplicates`/`TestIPv6Coverage`/`TestCombined` classes |
+| `test_cli.py` | 25 | 63 | All defaults/flags/combos; `TestWebhook`, `TestExplain`, `TestMutuallyExclusiveModes` |
+| `test_compare.py` | 47 | 54 | `SimpleNamespace` for data objects; module-level `_make_delta()`; `skipif` Windows |
+| `test_cron.py` | 52 | 62 | Parametrized `TestOrdinal`; French weekdays; `_parse_dom("")` edge case |
+| `test_ddns.py` | 37 | 42 | Quoted hostname; empty value; fallback regex; malformed rule no-crash |
+| `test_degraded.py` | 17 | 20 | Real `LogEntry`; `check_firewall(inactive)` + empty ports/rules combos |
+
+### Tests summary
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| `test_display_explain_hint.py` | 25 | normalize_key, EXPLAIN_KEYS, hint injection, no-hint cases, multi-finding, normalized vs raw key |
+| `test_kernel_modules.py` | 48 | lsmod unavailable, all-OK, risky FS, risky net, combined, _unload_cmd (incl. shell quoting), snapshot defaults, RISKY_MODULES set, edge cases |
+| `test_cron_audit.py` | 47 | all-OK, pipe-to-shell, world-writable, unexpected users, combined, _chmod_cmd (incl. shell quoting), regex parametrize (sh/bash/zsh/bin/sh), snapshot defaults, edge cases |
+| `test_services_state.py` | 35 | systemctl unavailable, all-OK, inactive services, cap at 3, cmd content, nature, SECURITY_SERVICES set, edge cases |
+
+---
+
 ## [v1.9.0] — 2026-04-06
 
 ### TL;DR

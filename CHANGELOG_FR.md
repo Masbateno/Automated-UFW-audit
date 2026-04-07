@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.10.0](#v1100) | 2026-04-07 | Suggestion `--explain` dans le résumé ; audit modules noyau (CHECK 14) ; audit tâches cron (CHECK 15) ; audit état des services (CHECK 16) ; passage qualité (source + 9 fichiers de tests) ; 1541/1541 tests |
 | [v1.9.0](#v190) | 2026-04-06 | Audit mises à jour système (CHECK 13) ; `--explain KEY` + refs CIS ; webhooks ; scores par domaine ; `--diff` ; 1332/1332 tests |
 | [v1.8.0](#v180) | 2026-04-06 | Audit sécurité SSH (CHECK 11) ; fichiers sensibles & sudoers (CHECK 12) ; correctif i18n ; détail INFO en verbose ; 1104/1104 tests |
 | [v1.7.0](#v170) | 2026-04-04 | Profils d'audit ; `Deduction.key` ; multi-email cron ; suppression multiple cron ; `--reset-baseline` ; filtre ports éphémères ; 966/966 tests |
@@ -42,6 +43,60 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.10.0
+
+**2026-04-07**
+
+### Suggestion `--explain` dans le résumé (Phase A1)
+
+- Chaque finding actionnable affiche désormais `? ufw-audit --explain <clé>` si la clé est dans `EXPLAIN_KEYS`
+- Utilise `normalize_key()` — `file_perms.shadow.world_writable` → `file_perms.world_writable`
+- Nouveau fichier de tests : `test_display_explain_hint.py` — 25 tests
+
+### Audit des modules noyau (CHECK 14)
+
+- Nouveau module `checks/kernel_modules.py` — `KernelModulesSnapshot` + `check_kernel_modules()`
+- Modules FS risqués : cramfs, freevxfs, jffs2, hfs, hfsplus, squashfs, udf, usb_storage → WARN, −1 pt (flat)
+- Modules réseau risqués : dccp, sctp, rds, tipc → WARN, −1 pt (flat)
+- Max −2 pts ; cmd : `sudo modprobe -r <modules>` (sécurisé via `shlex.quote`)
+- `lsmod` indisponible → INFO, aucune déduction
+- Nouveau fichier de tests : `test_kernel_modules.py` — 48 tests
+
+### Audit des tâches cron (CHECK 15)
+
+- Nouveau module `checks/cron_audit.py` — `CronAuditSnapshot` + `check_cron_audit()`
+- `curl/wget … | sh/bash/zsh/…` dans tout fichier cron système → WARN, −2 pts (flat) ; regex couvre `/bin/sh`, `zsh`, `/usr/bin/bash -s`
+- Script `.sh` accessible en écriture référencé dans cron → WARN, −1 pt ; cmd : `sudo chmod o-w <scripts>` (sécurisé)
+- `/etc/cron.d` parsé en format crontab (chemins extraits) ; `cron.daily/hourly/weekly/monthly` examinés directement
+- Crontabs d'utilisateurs inattendus dans `/var/spool/cron/crontabs/` → INFO, aucune déduction
+- Max −3 pts
+- Nouveau fichier de tests : `test_cron_audit.py` — 47 tests
+
+### Audit de l'état des services (CHECK 16)
+
+- Nouveau module `checks/services_state.py` — `ServicesStateSnapshot` + `check_services_state()`
+- Requête `systemctl` en deux étapes : `list-unit-files` (état activé) + `list-units --all` (état actif) — ne signale que les services activés+inactifs
+- Services surveillés : ufw, fail2ban, apparmor, auditd, clamav-daemon, clamav-freshclam, ssh, sshd, crowdsec, ossec
+- Activé au boot mais inactif/en échec → WARN par service, −1 pt (plafonné à −3)
+- `systemctl` indisponible → INFO, aucune déduction
+- Nouveau fichier de tests : `test_services_state.py` — 35 tests
+
+### Passage qualité
+
+- `firewall.py` : `key=` ajouté à tous les findings de `_check_duplicates`, `_check_open_any`, `_check_ipv6_coverage`
+- `test_check_rules.py` (19→29) : assertions par clé, classes `TestOpenAny`/`TestDuplicates`/`TestIPv6Coverage`/`TestCombined`
+- `test_cli.py` (25→63) : tous les flags/défauts/combinaisons couverts ; classes `TestWebhook` et `TestExplain`
+- `test_compare.py` (47→54) : `SimpleNamespace` pour les objets de données, `_make_delta` au niveau module, `skipif` Windows
+- `test_cron.py` (52→62) : `TestOrdinal` paramétrisé, jours de la semaine FR, `_parse_dom("")`
+- `test_ddns.py` (37→42) : hostname entre guillemets, valeur vide, regex de repli, règle malformée
+- `test_degraded.py` (17→20) : vrai `LogEntry`, combinaisons pare-feu inactif + ports/règles vides
+
+### Scores par domaine
+
+- `kernel_modules`, `cron_audit`, `services_state` mappés au domaine `hardening`
 
 ---
 

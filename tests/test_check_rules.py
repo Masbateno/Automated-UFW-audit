@@ -1,5 +1,5 @@
 """
-Unit tests for _check_rules() — open-any detection, duplicate detection,
+Unit tests for check_rules() — open-any detection, duplicate detection,
 IPv6 consistency.
 
 Focus: trailing-space regression (ufw status numbered pads lines with spaces,
@@ -26,27 +26,37 @@ def t(key, **kwargs):
 # Helpers
 # ---------------------------------------------------------------------------
 
-def levels(result):
-    return [f.level.value for f in result.findings]
+def _has_finding(result, key: str, level: FindingLevel) -> bool:
+    return any(f.key == key and f.level == level for f in result.findings)
 
 
-def has_alert(result):
-    return FindingLevel.ALERT.value in levels(result)
+def _get_finding(result, key: str):
+    """Return the first finding with the given key, or None."""
+    return next((f for f in result.findings if f.key == key), None)
 
 
-def has_warn(result):
-    return FindingLevel.WARN.value in levels(result)
+def _deduction_keys(result) -> list[str]:
+    return [d.key for d in result.deductions]
 
 
-def total_deductions(result):
+def total_deductions(result) -> int:
     return sum(d.points for d in result.deductions)
 
 
+def has_alert(result) -> bool:
+    return any(f.level == FindingLevel.ALERT for f in result.findings)
+
+
+def has_warn(result) -> bool:
+    return any(f.level == FindingLevel.WARN for f in result.findings)
+
+
 # ---------------------------------------------------------------------------
-# open-any detection — trailing spaces (regression for the v0.11.3 bug)
+# UFW rule fixtures
 # ---------------------------------------------------------------------------
 
 # ufw status numbered pads lines with trailing spaces — this was the root cause
+# of the v0.11.3 regression where open-any was silently missed.
 OPEN_ANY_TRAILING_SPACES = (
     "[ 1] Anywhere                   ALLOW IN    Anywhere                  \n"
     "[ 2] 22/tcp                     ALLOW IN    Anywhere                  \n"
@@ -75,57 +85,6 @@ CLEAN_RULES = (
     "[ 1] 22/tcp                     ALLOW IN    Anywhere                  \n"
     "[ 2] 80/tcp                     ALLOW IN    Anywhere                  \n"
 )
-
-
-def test_open_any_with_trailing_spaces_is_detected():
-    """Regression: trailing spaces must not prevent open-any detection."""
-    result = _check_rules("", OPEN_ANY_TRAILING_SPACES, t)
-    assert has_alert(result), "Wildcard ALLOW IN Anywhere with trailing spaces not detected"
-
-
-def test_open_any_without_trailing_spaces_is_detected():
-    """Baseline: detection works when there are no trailing spaces."""
-    result = _check_rules("", OPEN_ANY_NO_TRAILING, t)
-    assert has_alert(result)
-
-
-def test_open_any_v6_both_detected():
-    """Both IPv4 and IPv6 wildcard rules trigger alerts."""
-    result = _check_rules("", OPEN_ANY_V6, t)
-    alert_count = sum(
-        1 for f in result.findings if f.level == FindingLevel.ALERT
-        and "rules.open_any_found" in f.message
-    )
-    assert alert_count == 2, f"Expected 2 open-any alerts (IPv4 + IPv6), got {alert_count}"
-
-
-def test_open_any_deduction_applied():
-    """Wildcard rule carries a score deduction."""
-    result = _check_rules("", OPEN_ANY_TRAILING_SPACES, t)
-    assert total_deductions(result) >= 2
-
-
-def test_open_any_tcp_detected():
-    """Anywhere/tcp ALLOW IN Anywhere/tcp — all TCP ports open — must be detected."""
-    result = _check_rules("", OPEN_ANY_TCP, t)
-    assert has_alert(result)
-
-
-def test_open_any_udp_detected():
-    """Anywhere/udp ALLOW IN Anywhere/udp — all UDP ports open — must be detected."""
-    result = _check_rules("", OPEN_ANY_UDP, t)
-    assert has_alert(result)
-
-
-def test_clean_rules_no_open_any_alert():
-    """No false positive when rules are port-restricted."""
-    result = _check_rules("", CLEAN_RULES, t)
-    assert not has_alert(result)
-
-
-# ---------------------------------------------------------------------------
-# Duplicate detection
-# ---------------------------------------------------------------------------
 
 DUPLICATE_EXACT = (
     "[ 1] 80/tcp                     ALLOW IN    Anywhere                  \n"
@@ -159,45 +118,6 @@ NO_DUPLICATE_RULES = (
     "[ 2] 443/tcp                    ALLOW IN    Anywhere                  \n"
 )
 
-
-def test_exact_duplicate_detected():
-    result = _check_rules("", DUPLICATE_EXACT, t)
-    assert has_alert(result)
-
-
-def test_comment_stripped_for_duplicate_check():
-    """80/tcp # test2 and 80/tcp without comment are the same rule."""
-    result = _check_rules("", DUPLICATE_COMMENT_IGNORED, t)
-    assert has_alert(result)
-
-
-def test_semantic_duplicate_tcp_detected():
-    """80/tcp is redundant when 80 (no proto) exists — must be flagged."""
-    result = _check_rules("", DUPLICATE_SEMANTIC_TCP, t)
-    assert has_alert(result)
-
-
-def test_semantic_duplicate_udp_detected():
-    """5353/udp is redundant when 5353 (no proto) exists — must be flagged."""
-    result = _check_rules("", DUPLICATE_SEMANTIC_UDP, t)
-    assert has_alert(result)
-
-
-def test_tcp_and_udp_only_no_false_positive():
-    """PORT/tcp + PORT/udp without PORT — complementary rules, not duplicates."""
-    result = _check_rules("", NO_DUPLICATE_TCP_UDP_ONLY, t)
-    assert not any("rules.duplicate_found" in f.message for f in result.findings)
-
-
-def test_no_false_positive_duplicates():
-    result = _check_rules("", NO_DUPLICATE_RULES, t)
-    assert not any("rules.duplicate_found" in f.message for f in result.findings)
-
-
-# ---------------------------------------------------------------------------
-# IPv6 consistency
-# ---------------------------------------------------------------------------
-
 IPV4_ONLY_RULES = (
     "[ 1] 22/tcp                     ALLOW IN    Anywhere                  \n"
 )
@@ -207,12 +127,183 @@ IPV4_AND_IPV6_RULES = (
     "[ 2] 22/tcp (v6)                ALLOW IN    Anywhere (v6)             \n"
 )
 
+# Combined: open-any (line 1) + duplicate 80/tcp (lines 2+3) + IPv4-only → ipv6_missing
+ALL_ISSUES = (
+    "[ 1] Anywhere                   ALLOW IN    Anywhere                  \n"
+    "[ 2] 80/tcp                     ALLOW IN    Anywhere                  \n"
+    "[ 3] 80/tcp                     ALLOW IN    Anywhere                  \n"
+)
 
-def test_ipv6_missing_triggers_warning():
-    result = _check_rules("", IPV4_ONLY_RULES, t)
-    assert has_warn(result)
+
+# ---------------------------------------------------------------------------
+# open-any detection
+# ---------------------------------------------------------------------------
+
+class TestOpenAny:
+    def test_trailing_spaces_detected(self):
+        """Regression: trailing spaces must not prevent open-any detection."""
+        result = _check_rules("", OPEN_ANY_TRAILING_SPACES, t)
+        assert _has_finding(result, "rules.open_any_found", FindingLevel.ALERT), \
+            "Wildcard ALLOW IN Anywhere with trailing spaces not detected"
+
+    def test_no_trailing_spaces_detected(self):
+        """Baseline: detection works when there are no trailing spaces."""
+        result = _check_rules("", OPEN_ANY_NO_TRAILING, t)
+        assert _has_finding(result, "rules.open_any_found", FindingLevel.ALERT)
+
+    def test_v6_both_detected(self):
+        """Both IPv4 and IPv6 wildcard rules trigger separate alerts."""
+        result = _check_rules("", OPEN_ANY_V6, t)
+        alerts = [f for f in result.findings if f.key == "rules.open_any_found"]
+        assert len(alerts) == 2, f"Expected 2 open-any alerts (IPv4 + IPv6), got {len(alerts)}"
+
+    def test_deduction_applied(self):
+        """Wildcard rule carries a score deduction."""
+        result = _check_rules("", OPEN_ANY_TRAILING_SPACES, t)
+        assert total_deductions(result) >= 2
+
+    def test_deduction_key(self):
+        result = _check_rules("", OPEN_ANY_TRAILING_SPACES, t)
+        assert "rules.open_any_found" in _deduction_keys(result)
+
+    def test_tcp_variant_detected(self):
+        """Anywhere/tcp ALLOW IN Anywhere/tcp — all TCP ports open — must be detected."""
+        result = _check_rules("", OPEN_ANY_TCP, t)
+        assert _has_finding(result, "rules.open_any_found", FindingLevel.ALERT)
+
+    def test_udp_variant_detected(self):
+        """Anywhere/udp ALLOW IN Anywhere/udp — all UDP ports open — must be detected."""
+        result = _check_rules("", OPEN_ANY_UDP, t)
+        assert _has_finding(result, "rules.open_any_found", FindingLevel.ALERT)
+
+    def test_clean_rules_no_alert(self):
+        """No false positive when rules are port-restricted."""
+        result = _check_rules("", CLEAN_RULES, t)
+        assert not _has_finding(result, "rules.open_any_found", FindingLevel.ALERT)
+
+    def test_nature_is_action(self):
+        result = _check_rules("", OPEN_ANY_TRAILING_SPACES, t)
+        finding = _get_finding(result, "rules.open_any_found")
+        assert finding is not None
+        assert finding.nature == "action"
+
+    def test_cmd_contains_delete(self):
+        """The fix command must reference ufw --force delete."""
+        result = _check_rules("", OPEN_ANY_TRAILING_SPACES, t)
+        finding = _get_finding(result, "rules.open_any_found")
+        assert finding is not None
+        assert "ufw --force delete" in finding.cmd
+
+    def test_cmd_references_rule_index(self):
+        """The delete command must target the specific rule index."""
+        result = _check_rules("", OPEN_ANY_TRAILING_SPACES, t)
+        finding = _get_finding(result, "rules.open_any_found")
+        assert finding is not None
+        assert "1" in finding.cmd  # rule [ 1] → delete 1
 
 
-def test_ipv4_and_ipv6_no_warning():
-    result = _check_rules("", IPV4_AND_IPV6_RULES, t)
-    assert not has_warn(result)
+# ---------------------------------------------------------------------------
+# Duplicate detection
+# ---------------------------------------------------------------------------
+
+class TestDuplicates:
+    def test_exact_duplicate_detected(self):
+        result = _check_rules("", DUPLICATE_EXACT, t)
+        assert _has_finding(result, "rules.duplicate_found", FindingLevel.ALERT)
+
+    def test_comment_stripped_for_duplicate_check(self):
+        """80/tcp # test2 and 80/tcp without comment are the same rule."""
+        result = _check_rules("", DUPLICATE_COMMENT_IGNORED, t)
+        assert _has_finding(result, "rules.duplicate_found", FindingLevel.ALERT)
+
+    def test_semantic_duplicate_tcp_detected(self):
+        """80/tcp is redundant when 80 (no proto) exists — must be flagged."""
+        result = _check_rules("", DUPLICATE_SEMANTIC_TCP, t)
+        assert _has_finding(result, "rules.duplicate_found", FindingLevel.ALERT)
+
+    def test_semantic_duplicate_udp_detected(self):
+        """5353/udp is redundant when 5353 (no proto) exists — must be flagged."""
+        result = _check_rules("", DUPLICATE_SEMANTIC_UDP, t)
+        assert _has_finding(result, "rules.duplicate_found", FindingLevel.ALERT)
+
+    def test_tcp_and_udp_only_no_false_positive(self):
+        """PORT/tcp + PORT/udp without PORT — complementary rules, not duplicates."""
+        result = _check_rules("", NO_DUPLICATE_TCP_UDP_ONLY, t)
+        assert not _has_finding(result, "rules.duplicate_found", FindingLevel.ALERT)
+
+    def test_no_false_positive_duplicates(self):
+        result = _check_rules("", NO_DUPLICATE_RULES, t)
+        assert not _has_finding(result, "rules.duplicate_found", FindingLevel.ALERT)
+
+    def test_deduction_applied(self):
+        result = _check_rules("", DUPLICATE_EXACT, t)
+        assert total_deductions(result) >= 1
+
+    def test_deduction_key(self):
+        result = _check_rules("", DUPLICATE_EXACT, t)
+        assert "rules.duplicate_found" in _deduction_keys(result)
+
+    def test_nature_is_action(self):
+        result = _check_rules("", DUPLICATE_EXACT, t)
+        finding = _get_finding(result, "rules.duplicate_found")
+        assert finding is not None
+        assert finding.nature == "action"
+
+    def test_cmd_contains_delete(self):
+        """The fix command must reference ufw --force delete."""
+        result = _check_rules("", DUPLICATE_EXACT, t)
+        finding = _get_finding(result, "rules.duplicate_found")
+        assert finding is not None
+        assert "ufw --force delete" in finding.cmd
+
+
+# ---------------------------------------------------------------------------
+# IPv6 consistency
+# ---------------------------------------------------------------------------
+
+class TestIPv6Coverage:
+    def test_ipv6_missing_triggers_warning(self):
+        result = _check_rules("", IPV4_ONLY_RULES, t)
+        assert _has_finding(result, "rules.ipv6_missing", FindingLevel.WARN)
+
+    def test_ipv4_and_ipv6_no_warning(self):
+        result = _check_rules("", IPV4_AND_IPV6_RULES, t)
+        assert not _has_finding(result, "rules.ipv6_missing", FindingLevel.WARN)
+
+    def test_ipv6_disabled_suppresses_warning(self):
+        """When ipv6_enabled=False, missing IPv6 rules are not flagged."""
+        result = _check_rules("", IPV4_ONLY_RULES, t, ipv6_enabled=False)
+        assert not _has_finding(result, "rules.ipv6_missing", FindingLevel.WARN)
+
+    def test_deduction_key(self):
+        result = _check_rules("", IPV4_ONLY_RULES, t)
+        assert "rules.ipv6_missing" in _deduction_keys(result)
+
+    def test_nature_is_improvement(self):
+        result = _check_rules("", IPV4_ONLY_RULES, t)
+        finding = _get_finding(result, "rules.ipv6_missing")
+        assert finding is not None
+        assert finding.nature == "improvement"
+
+
+# ---------------------------------------------------------------------------
+# Combined scenarios
+# ---------------------------------------------------------------------------
+
+class TestCombined:
+    def test_open_any_and_duplicate_both_detected(self):
+        """open-any + duplicate in same ruleset → both findings present."""
+        result = _check_rules("", ALL_ISSUES, t)
+        assert _has_finding(result, "rules.open_any_found", FindingLevel.ALERT)
+        assert _has_finding(result, "rules.duplicate_found", FindingLevel.ALERT)
+
+    def test_combined_total_deduction(self):
+        """open-any (−2) + duplicate (−1) = at least 3 pts deducted."""
+        result = _check_rules("", ALL_ISSUES, t)
+        assert total_deductions(result) >= 3
+
+    def test_open_any_and_ipv6_missing(self):
+        """IPv4-only open-any ruleset → both open-any alert and ipv6_missing warn."""
+        result = _check_rules("", OPEN_ANY_TRAILING_SPACES, t)
+        assert _has_finding(result, "rules.open_any_found", FindingLevel.ALERT)
+        assert _has_finding(result, "rules.ipv6_missing", FindingLevel.WARN)

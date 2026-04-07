@@ -1,9 +1,9 @@
 *[Read in English](README_TECH.md)* · *[Vue d'ensemble](../README_FR.md)*
 
-# ufw-audit v1.9.0
+# ufw-audit v1.10.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.9.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.10.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -473,7 +473,9 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v1.8.0** — Audit sécurité SSH (15 directives, clés privées, authorized_keys, known_hosts) ; fichiers sensibles & sudoers (monde-écriture, trop-permissif, NOPASSWD:ALL) ; ciblage home `SUDO_USER` ; suggestions distro-aware ; correctif i18n (`recommendation_label`) ; détail INFO en verbose ; 1104/1104
 
-**v1.9.0** *(actuel)* — Audit mises à jour système (CHECK 13 : apt en attente, unattended-upgrades, −2/−1 pts composés) ; `--explain KEY` avec WHY/HOW/CIS Ubuntu 22.04 (20 clés) ; webhooks (`--webhook`, générique + Slack, non-fatal) ; scores par domaine (5 domaines, barre, JSON/webhook) ; mode `--diff` ; passage qualité (domain_scores, updates, webhook, explain) ; 1332/1332
+**v1.9.0** — Audit mises à jour système (CHECK 13 : apt en attente, unattended-upgrades, −2/−1 pts composés) ; `--explain KEY` avec WHY/HOW/CIS Ubuntu 22.04 (20 clés) ; webhooks (`--webhook`, générique + Slack, non-fatal) ; scores par domaine (5 domaines, barre, JSON/webhook) ; mode `--diff` ; passage qualité ; 1332/1332
+
+**v1.10.0** *(actuel)* — Suggestion `--explain` dans le résumé (Phase A1) ; audit modules noyau (CHECK 14 : cramfs/hfs/squashfs/usb_storage/dccp/sctp/rds/tipc, −1 pt/catégorie) ; audit tâches cron (CHECK 15 : pipe-to-shell −2 pts, scripts accessibles en écriture −1 pt ; /etc/cron.d parsé en format crontab) ; audit état des services (CHECK 16 : requête systemctl en deux étapes, services de sécurité inactifs, −1 pt/service max −3) ; passage qualité (shlex.quote dans les cmds de correction, key= sur tous les findings firewall.py, 9 fichiers de tests étendus) ; 1541/1541
 - `--diff` — comparer l'audit courant avec un précédent export `--json` pour détecter les nouveaux ports/services (dérive d'audit)
 - `--fix --safe` — mode auto-fix restreint aux findings LOW/MEDIUM uniquement ; les findings CRITICAL/HIGH ne sont jamais appliqués sans confirmation explicite
 

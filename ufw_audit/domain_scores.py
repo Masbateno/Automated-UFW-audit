@@ -48,10 +48,13 @@ _LABELS: dict[str, str] = {
 # Known key prefixes that map to specific domains.
 # Any prefix not listed here → "firewall" (catch-all).
 _PREFIX_TO_DOMAIN: dict[str, str] = {
-    "ssh":        "ssh",
-    "file_perms": "file_perms",
-    "updates":    "updates",
-    "hardening":  "hardening",
+    "ssh":             "ssh",
+    "file_perms":      "file_perms",
+    "updates":         "updates",
+    "hardening":       "hardening",
+    "kernel_modules":  "hardening",
+    "cron_audit":      "hardening",
+    "services_state":  "hardening",
 }
 
 

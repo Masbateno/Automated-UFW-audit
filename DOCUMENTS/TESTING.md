@@ -29,6 +29,45 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v1.7.0  | 966   | +38 tests — `test_profiles.py` (36), `test_compare.py` (+2 ephemeral port filter), `test_ipv6.py` (+2 malformed input) |
 | v1.8.0  | 1104  | +138 tests — `test_ssh.py` (93) + `test_file_perms.py` (45): world-writable (7), too-permissive (5), SSH host keys (4), NOPASSWD ALL (5), NOPASSWD specific (4), combined (5), _is_nopasswd_all (9), dataclass (2), all-ok (4) |
 | v1.9.0  | 1332  | +228 tests — `test_updates.py` (34), `test_explain.py` (~94), `test_domain_scores.py` (~48), `test_webhook.py` (~54); quality passes on `test_hardening.py` + `test_profiles.py` |
+| v1.10.0 | 1541  | +209 tests — `test_display_explain_hint.py` (25), `test_kernel_modules.py` (48), `test_cron_audit.py` (47), `test_services_state.py` (35); quality pass: `test_check_rules.py` (+10), `test_cli.py` (+38), `test_compare.py` (+7), `test_cron.py` (+10), `test_ddns.py` (+5), `test_degraded.py` (+3) |
+
+### v1.10.0 — 1541/1541 (2026-04-07)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+1541 passed in 1.37s
+```
+
+#### New tests added (+209)
+
+| File | New | Coverage |
+|------|-----|----------|
+| `tests/test_display_explain_hint.py` | 25 | `normalize_key` (SSH/updates/file_perms middle segment/multi-segment/no-segment/unknown/empty); `EXPLAIN_KEYS` (non-empty, known keys, no duplicates, unknown absent); `print_audit_summary` integration (hint shown for explainable finding, updates key, file_perms with middle segment, no hint for unknown key, no hint for empty key, `?` prefix, multiple findings each get hint, mixed explainable/not, normalized key in hint not raw) |
+| `tests/test_kernel_modules.py` | 48 | `lsmod` unavailable (INFO, early return, no deduction); all-OK (ok finding, no deduction, no ok when finding, safe modules ignored); risky FS (cramfs/hfs WARN, -1 pt flat, deduction key, multiple→single deduction, usb_storage detected, nature=improvement); risky net (dccp/sctp/rds/tipc WARN, -1 pt flat, deduction key, multiple→single, nature=improvement); combined (fs+net=-2, both findings, mixed safe+risky); `_unload_cmd` (single, multiple, empty, cmd in finding, shell injection quoting); snapshot defaults; `RISKY_MODULES` set (subsets, no overlap, known modules); edge cases (None list, duplicates, mutation guard, max deduction ≤2, order-independent, unrelated modules, uppercase normalization) |
+| `tests/test_cron_audit.py` | 47 | all-OK (ok, no deduction, no ok when finding); pipe-to-shell (WARN, -2 pts flat, key, nature=action, flat regardless of count); world-writable (WARN, -1 pt flat, key, nature=action, cmd contains chmod/path); unexpected users (INFO, no deduction, no ok); combined (pipe+writable=-3, all three issues, writable+user); `_chmod_cmd` (single, multiple, empty, shell injection quoting); `_PIPE_TO_SHELL_RE` regex parametrize (matches: curl/sh, wget/bash, /bin/sh, zsh, /usr/bin/bash; non-matches: python, no pipe, no curl/wget); snapshot defaults; edge cases (None lists, mutation guard, max deduction ≤3, order-independent) |
+| `tests/test_services_state.py` | 35 | `systemctl` unavailable (INFO, early return, no deduction); all-OK (ok, no deduction, no ok when finding); inactive (ufw WARN, 1 svc=-1 pt, 2 svcs=-2 pts, 3 svcs=-3 pts, key, one finding per svc, nature=action, cmd contains svc name); cap (4 svcs→-3 pts, 5 svcs→-3 pts, findings emitted even beyond cap); `SECURITY_SERVICES` set (ufw/fail2ban/apparmor/ssh present, non-empty, no duplicates); snapshot defaults; edge cases (None list, mutation guard, max ≤3, empty service name, duplicate service names) |
+
+#### Quality pass — expanded test files
+
+| File | Before | After | Key additions |
+|------|--------|-------|---------------|
+| `test_check_rules.py` | 19 | 29 | Key-based assertions (f.key == "rules.xxx"); `TestOpenAny`, `TestDuplicates`, `TestIPv6Coverage`, `TestCombined` classes; ipv6-disabled suppression; cmd and nature tests |
+| `test_cli.py` | 25 | 63 | All 25+ flags in `TestDefaults`; `TestWebhook` (url, format, invalid); `TestExplain`; `TestMutuallyExclusiveModes` (--yes alone, --json+--fix, --quiet+--json/--fix); duplicate flags idempotent; config isolation |
+| `test_compare.py` | 47 | 54 | `SimpleNamespace` replaces `MagicMock` for data objects; module-level `_make_delta()`; `@pytest.mark.skipif(sys.platform == "win32")` on permissions test; non-all-interfaces port excluded; inactive/not-installed service excluded |
+| `test_cron.py` | 52 | 62 | `@pytest.mark.parametrize` for `TestOrdinal` (9→1 parametrized with 10 cases incl. 31st); `test_multiple_weekdays_fr`; `test_unknown_lang_does_not_crash`; `test_empty_string_returns_empty` |
+| `test_ddns.py` | 37 | 42 | `test_hostname_with_empty_value`; `test_quoted_hostname`; `test_invalid_domain_format_returns_none`; `test_full_domain_in_content` (fallback regex); `test_malformed_rule_no_port_proto_does_not_crash` |
+| `test_degraded.py` | 17 | 20 | `test_entries_below_bruteforce_threshold_no_warn` (real `LogEntry`); `test_firewall_inactive_and_empty_ports_no_conflict`; `test_firewall_inactive_and_empty_rules_consistent` |
+
+#### New modules
+
+- **`checks/kernel_modules.py`** — `KernelModulesSnapshot.from_system()`, `check_kernel_modules()`, `RISKY_MODULES` set, `_unload_cmd()`
+- **`checks/cron_audit.py`** — `CronAuditSnapshot.from_system()`, `check_cron_audit()`, `_PIPE_TO_SHELL_RE`, `_chmod_cmd()`
+- **`checks/services_state.py`** — `ServicesStateSnapshot.from_system()`, `check_services_state()`, `SECURITY_SERVICES`
+- **`tests/test_display_explain_hint.py`** — integration tests for Phase A1 (`--explain` hint in summary box)
+
+---
 
 ### v1.8.0 — 1104/1104 (2026-04-06)
 

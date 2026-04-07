@@ -38,7 +38,10 @@
     "compare": "CHANGES SINCE LAST AUDIT",
     "ssh": "SSH SECURITY AUDIT",
     "file_perms": "SENSITIVE FILES & SUDOERS",
-    "updates": "SYSTEM UPDATES"
+    "updates": "SYSTEM UPDATES",
+    "kernel_modules": "KERNEL MODULE AUDIT",
+    "cron_audit": "CRON JOB AUDIT",
+    "services_state": "SERVICE STATE AUDIT"
   },
   "status": {
     "ok": "OK",
@@ -571,6 +574,33 @@
     "unattended_not_configured_detail": "Install and enable: sudo apt install unattended-upgrades && sudo dpkg-reconfigure -plow unattended-upgrades",
     "unattended_not_configured_reason": "unattended-upgrades not configured",
     "ok":                               "System packages are up to date"
+  },
+  "kernel_modules": {
+    "no_lsmod":           "lsmod not available — kernel module check skipped",
+    "risky_fs":           "Risky filesystem module(s) loaded: {modules}",
+    "risky_fs_detail":    "These modules are rarely needed on a server and widen the attack surface. Unload and blacklist them.",
+    "risky_fs_reason":    "Risky filesystem module(s) loaded: {modules}",
+    "risky_net":          "Risky network protocol module(s) loaded: {modules}",
+    "risky_net_detail":   "These protocols (DCCP, SCTP, RDS, TIPC) are rarely used and have a history of kernel exploits. Unload and blacklist them.",
+    "risky_net_reason":   "Risky network protocol module(s) loaded: {modules}",
+    "ok":                 "No risky kernel modules loaded"
+  },
+  "cron_audit": {
+    "pipe_to_shell":            "{count} cron job(s) pipe remote content into a shell (curl/wget | sh)",
+    "pipe_to_shell_detail":     "Piping remote downloads directly into a shell is a common supply-chain attack vector. Review and replace with explicit script downloads and integrity checks.",
+    "pipe_to_shell_reason":     "{count} cron job(s) pipe remote content into a shell",
+    "world_writable":           "{count} script(s) referenced in cron are world-writable: {scripts}",
+    "world_writable_detail":    "World-writable scripts can be replaced by any local user, enabling privilege escalation. Restrict permissions immediately.",
+    "world_writable_reason":    "{count} world-writable script(s) in cron",
+    "unexpected_users":         "Unexpected user crontab(s) found: {users}",
+    "ok":                       "No risky patterns found in cron jobs"
+  },
+  "services_state": {
+    "no_systemctl":                "systemctl not available — service state check skipped",
+    "service_inactive":            "Security service enabled but not running: {service}",
+    "service_inactive_detail":     "This service is set to start at boot but is currently stopped or failed. Check its logs and restart it.",
+    "service_inactive_reason":     "Security service inactive: {service}",
+    "ok":                          "All monitored security services are active"
   },
   "output": {
     "recommendation_label": "What to do?"

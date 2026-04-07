@@ -156,13 +156,21 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Quality & reliability
 
-- ✅ 1332 unit tests
+- ✅ 1541 unit tests
 - 🧱 Modular architecture (snapshot / check separated)
 - 🧪 Tested on Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.9.0
+## 🆕 v1.10.0
+
+- 💡 **`--explain` hint** — every actionable finding now shows `? ufw-audit --explain <key>` directly under it in the summary box
+- 🧩 **Kernel Module Audit** (CHECK 14) — detects loaded risky kernel modules (cramfs, hfs, squashfs, usb_storage, dccp, sctp, rds, tipc); −1 pt per category (max −2 pts)
+- 🕐 **Cron Job Audit** (CHECK 15) — flags `curl/wget | sh` pipes in cron (−2 pts), world-writable scripts (−1 pt), unexpected user crontabs (INFO)
+- ⚠️ **Service State Audit** (CHECK 16) — warns when a security service (ufw, fail2ban, apparmor, auditd…) is enabled at boot but currently inactive/failed; −1 pt per service (max −3 pts)
+- ✅ 1541/1541 unit tests (+209)
+
+## v1.9.0
 
 - 📦 **System Updates Audit** (CHECK 13) — detects pending security packages (−2 pts flat) and absent `unattended-upgrades` (−1 pt compound risk); apt-based, deduplicates package names
 - 📖 **`--explain KEY`** — structured per-finding explanation: WHY IT IS A RISK / HOW TO FIX / CIS Ubuntu 22.04 reference; 20 keys; `--explain list` shows all; no root required

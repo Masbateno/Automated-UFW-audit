@@ -38,7 +38,10 @@
     "compare": "CHANGEMENTS DEPUIS LE DERNIER AUDIT",
     "ssh": "AUDIT DE SÉCURITÉ SSH",
     "file_perms": "FICHIERS SENSIBLES & SUDOERS",
-    "updates": "MISES À JOUR SYSTÈME"
+    "updates": "MISES À JOUR SYSTÈME",
+    "kernel_modules": "AUDIT DES MODULES NOYAU",
+    "cron_audit": "AUDIT DES TÂCHES CRON",
+    "services_state": "AUDIT DE L'ÉTAT DES SERVICES"
   },
   "status": {
     "ok": "OK",
@@ -571,6 +574,33 @@
     "unattended_not_configured_detail": "Installer et activer : sudo apt install unattended-upgrades && sudo dpkg-reconfigure -plow unattended-upgrades",
     "unattended_not_configured_reason": "unattended-upgrades non configuré",
     "ok":                               "Les paquets système sont à jour"
+  },
+  "kernel_modules": {
+    "no_lsmod":           "lsmod non disponible — vérification des modules noyau ignorée",
+    "risky_fs":           "Module(s) de système de fichiers à risque chargé(s) : {modules}",
+    "risky_fs_detail":    "Ces modules sont rarement nécessaires sur un serveur et élargissent la surface d'attaque. Déchargez-les et placez-les en liste noire.",
+    "risky_fs_reason":    "Module(s) de système de fichiers à risque chargé(s) : {modules}",
+    "risky_net":          "Module(s) de protocole réseau à risque chargé(s) : {modules}",
+    "risky_net_detail":   "Ces protocoles (DCCP, SCTP, RDS, TIPC) sont rarement utilisés et ont un historique d'exploits noyau. Déchargez-les et placez-les en liste noire.",
+    "risky_net_reason":   "Module(s) de protocole réseau à risque chargé(s) : {modules}",
+    "ok":                 "Aucun module noyau à risque chargé"
+  },
+  "cron_audit": {
+    "pipe_to_shell":            "{count} tâche(s) cron envoie(nt) du contenu distant vers un shell (curl/wget | sh)",
+    "pipe_to_shell_detail":     "Rediriger des téléchargements distants vers un shell est un vecteur d'attaque courant sur la chaîne d'approvisionnement. Examinez et remplacez par des téléchargements explicites avec vérification d'intégrité.",
+    "pipe_to_shell_reason":     "{count} tâche(s) cron envoie(nt) du contenu distant vers un shell",
+    "world_writable":           "{count} script(s) référencé(s) dans cron sont accessibles en écriture par tous : {scripts}",
+    "world_writable_detail":    "Les scripts accessibles en écriture par tous peuvent être remplacés par n'importe quel utilisateur local, permettant une élévation de privilèges. Restreignez les permissions immédiatement.",
+    "world_writable_reason":    "{count} script(s) accessibles en écriture par tous dans cron",
+    "unexpected_users":         "Crontab(s) d'utilisateur(s) inattendu(s) trouvé(s) : {users}",
+    "ok":                       "Aucun motif risqué trouvé dans les tâches cron"
+  },
+  "services_state": {
+    "no_systemctl":                "systemctl non disponible — vérification de l'état des services ignorée",
+    "service_inactive":            "Service de sécurité activé mais non démarré : {service}",
+    "service_inactive_detail":     "Ce service est configuré pour démarrer au boot mais est actuellement arrêté ou en échec. Vérifiez ses journaux et redémarrez-le.",
+    "service_inactive_reason":     "Service de sécurité inactif : {service}",
+    "ok":                          "Tous les services de sécurité surveillés sont actifs"
   },
   "output": {
     "recommendation_label": "Que faire ?"

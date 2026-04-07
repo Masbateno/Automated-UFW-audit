@@ -328,6 +328,8 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
     improvement_items = [f for f in engine.findings if f.nature == "improvement"]
     structural_items  = [f for f in engine.findings if f.nature == "structural"]
 
+    from ufw_audit.explain import EXPLAIN_KEYS, normalize_key as _norm_key
+
     def _add_finding_lines(icon_prefix: str, item) -> None:
         lines.extend(_wrap_for_box(icon_prefix, item.message, inner))
         if item.cmd:
@@ -336,6 +338,12 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
         if item.note:
             note_prefix = " " * len(icon_prefix) + "ℹ "
             lines.extend(_wrap_for_box(note_prefix, item.note, inner))
+        if item.key:
+            norm = _norm_key(item.key)
+            if norm in EXPLAIN_KEYS:
+                hint_prefix = " " * len(icon_prefix) + "? "
+                hint = f"ufw-audit --explain {norm}"
+                lines.extend(_wrap_for_box(hint_prefix, hint, inner))
 
     if action_items or improvement_items or structural_items:
         if action_items:

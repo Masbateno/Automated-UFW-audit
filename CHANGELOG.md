@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.10.0](#v1100) | 2026-04-07 | `--explain` hint in summary box; kernel module audit (CHECK 14); cron job audit (CHECK 15); service state audit (CHECK 16); quality pass (source + 9 test files); 1541/1541 tests |
 | [v1.9.0](#v190) | 2026-04-06 | System updates audit (CHECK 13); `--explain KEY` with CIS refs; webhooks; domain scores; `--diff`; 1332/1332 tests |
 | [v1.8.0](#v180) | 2026-04-06 | SSH security audit (CHECK 11); sensitive files & sudoers (CHECK 12); i18n fix; INFO verbose detail; 1104/1104 tests |
 | [v1.7.0](#v170) | 2026-04-04 | Audit profiles; `Deduction.key`; multi-email cron; multi-delete cron; `--reset-baseline`; ephemeral-port filter; 966/966 tests |
@@ -42,6 +43,60 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.10.0
+
+**2026-04-07**
+
+### `--explain` hint in summary box (Phase A1)
+
+- Every actionable finding now shows `? ufw-audit --explain <key>` when the key is in `EXPLAIN_KEYS`
+- Uses `normalize_key()` — `file_perms.shadow.world_writable` → `file_perms.world_writable`
+- New test file: `test_display_explain_hint.py` — 25 tests
+
+### Kernel module audit (CHECK 14)
+
+- New module `checks/kernel_modules.py` — `KernelModulesSnapshot` + `check_kernel_modules()`
+- Risky FS modules: cramfs, freevxfs, jffs2, hfs, hfsplus, squashfs, udf, usb_storage → WARN, −1 pt (flat)
+- Risky net modules: dccp, sctp, rds, tipc → WARN, −1 pt (flat)
+- Max −2 pts; cmd: `sudo modprobe -r <modules>` (shell-safe via `shlex.quote`)
+- `lsmod` unavailable → INFO, no deduction
+- New test file: `test_kernel_modules.py` — 48 tests
+
+### Cron job audit (CHECK 15)
+
+- New module `checks/cron_audit.py` — `CronAuditSnapshot` + `check_cron_audit()`
+- `curl/wget … | sh/bash/zsh/…` in any system cron file → WARN, −2 pts (flat); regex covers `/bin/sh`, `zsh`, `/usr/bin/bash -s`
+- World-writable `.sh` script referenced in cron → WARN, −1 pt; cmd: `sudo chmod o-w <scripts>` (shell-safe)
+- `/etc/cron.d` parsed as crontab format (script paths extracted); `cron.daily/hourly/weekly/monthly` stat'd directly
+- Unexpected user crontabs in `/var/spool/cron/crontabs/` → INFO, no deduction
+- Max −3 pts
+- New test file: `test_cron_audit.py` — 47 tests
+
+### Service state audit (CHECK 16)
+
+- New module `checks/services_state.py` — `ServicesStateSnapshot` + `check_services_state()`
+- Two-step `systemctl` query: `list-unit-files` (enabled state) + `list-units --all` (active state) — only flags enabled+inactive
+- Monitors: ufw, fail2ban, apparmor, auditd, clamav-daemon, clamav-freshclam, ssh, sshd, crowdsec, ossec
+- Enabled-at-boot but inactive/failed → WARN per service, −1 pt (capped at −3)
+- `systemctl` unavailable → INFO, no deduction
+- New test file: `test_services_state.py` — 35 tests
+
+### Quality pass
+
+- `firewall.py`: added `key=` to all findings in `_check_duplicates`, `_check_open_any`, `_check_ipv6_coverage`
+- `test_check_rules.py` (19→29): key-based assertions, `TestOpenAny`/`TestDuplicates`/`TestIPv6Coverage`/`TestCombined` classes
+- `test_cli.py` (25→63): all flags/defaults/combos covered; `TestWebhook` and `TestExplain` classes
+- `test_compare.py` (47→54): `SimpleNamespace` for data objects, module-level `_make_delta`, `skipif` Windows
+- `test_cron.py` (52→62): parametrized `TestOrdinal`, French weekdays, `_parse_dom("")`
+- `test_ddns.py` (37→42): quoted hostname, empty value, fallback regex, malformed rule
+- `test_degraded.py` (17→20): real `LogEntry`, firewall-inactive + empty-ports/rules combos
+
+### Domain scores
+
+- `kernel_modules`, `cron_audit`, `services_state` now map to the `hardening` domain
 
 ---
 

@@ -208,7 +208,7 @@ python3 -m unittest tests/test_firewall.py
 ### Résultats attendus
 
 ```
-1332 passed in X.XXs
+1541 passed in X.XXs
 ```
 
 Les tests n'effectuent aucun appel système — tous les snapshots sont construits directement dans les tests. Ils peuvent être lancés sans `sudo` et sans UFW installé.

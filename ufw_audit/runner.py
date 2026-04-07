@@ -1,4 +1,4 @@
-"""Audit runner — sequentially executes all 8 checks."""
+"""Audit runner — sequentially executes all audit checks."""
 
 from __future__ import annotations
 
@@ -36,6 +36,9 @@ from ufw_audit.checks.ipv6 import IPv6Snapshot, check_ipv6
 from ufw_audit.checks.ssh import SSHSnapshot, check_ssh
 from ufw_audit.checks.file_perms import FilePermsSnapshot, check_file_perms
 from ufw_audit.checks.updates import UpdatesSnapshot, check_updates
+from ufw_audit.checks.kernel_modules import KernelModulesSnapshot, check_kernel_modules
+from ufw_audit.checks.cron_audit import CronAuditSnapshot, check_cron_audit
+from ufw_audit.checks.services_state import ServicesStateSnapshot, check_services_state
 from ufw_audit.plugin_checks import load_plugin_checks
 
 
@@ -296,6 +299,48 @@ def run_checks(
             apply_profile(updates_result, profile)
         engine.apply(updates_result)
         display_result(updates_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 14 — Kernel module audit ----
+    kernel_modules_snapshot = KernelModulesSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("kernel_modules"):
+        if not config.quiet:
+            print_section(t("sections.kernel_modules"))
+        report.write_section(t("sections.kernel_modules"))
+        kernel_modules_result = check_kernel_modules(kernel_modules_snapshot, t=t)
+        if profile is not None:
+            apply_profile(kernel_modules_result, profile)
+        engine.apply(kernel_modules_result)
+        display_result(kernel_modules_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 15 — Cron job audit ----
+    cron_audit_snapshot = CronAuditSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("cron_audit"):
+        if not config.quiet:
+            print_section(t("sections.cron_audit"))
+        report.write_section(t("sections.cron_audit"))
+        cron_audit_result = check_cron_audit(cron_audit_snapshot, t=t)
+        if profile is not None:
+            apply_profile(cron_audit_result, profile)
+        engine.apply(cron_audit_result)
+        display_result(cron_audit_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 16 — Service state audit ----
+    services_state_snapshot = ServicesStateSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("services_state"):
+        if not config.quiet:
+            print_section(t("sections.services_state"))
+        report.write_section(t("sections.services_state"))
+        services_state_result = check_services_state(services_state_snapshot, t=t)
+        if profile is not None:
+            apply_profile(services_state_result, profile)
+        engine.apply(services_state_result)
+        display_result(services_state_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:
             print()
 

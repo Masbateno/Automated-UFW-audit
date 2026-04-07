@@ -10,9 +10,10 @@ Run with: python -m pytest tests/test_compare.py -v
 from __future__ import annotations
 
 import json
-import tempfile
+import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -35,6 +36,18 @@ def _t(key, **kwargs):
     return key
 
 
+def _make_delta(**overrides) -> AuditDelta:
+    """Build an AuditDelta with all-zero/empty defaults for focused testing."""
+    defaults = dict(
+        prev_timestamp="2026-01-01T00:00:00+00:00",
+        score_delta=0, alert_delta=0, warn_delta=0,
+        new_ports=[], closed_ports=[],
+        new_services=[], stopped_services=[],
+    )
+    defaults.update(overrides)
+    return AuditDelta(**defaults)
+
+
 def make_baseline(**overrides) -> AuditBaseline:
     defaults = dict(
         timestamp="2026-01-01T00:00:00+00:00",
@@ -49,41 +62,34 @@ def make_baseline(**overrides) -> AuditBaseline:
 
 
 def make_engine(score=9, alert_count=0, warn_count=1):
-    engine = MagicMock()
-    engine.score       = score
-    engine.alert_count = alert_count
-    engine.warn_count  = warn_count
-    engine.findings    = []
-    engine.breakdown   = []
-    return engine
+    return SimpleNamespace(
+        score=score,
+        alert_count=alert_count,
+        warn_count=warn_count,
+        findings=[],
+        breakdown=[],
+    )
 
 
 def make_ports_snapshot(port_protos: list[str]):
     """Build a fake PortsSnapshot with is_all_interfaces ports."""
-    ports = []
-    for pp in port_protos:
-        port_num, proto = pp.split("/")
-        lp = MagicMock()
-        lp.port_proto        = pp
-        lp.is_all_interfaces = True
-        ports.append(lp)
-    snap = MagicMock()
-    snap.ports = ports
-    return snap
+    ports = [
+        SimpleNamespace(port_proto=pp, is_all_interfaces=True)
+        for pp in port_protos
+    ]
+    return SimpleNamespace(ports=ports)
 
 
 def make_snapshots(active_labels: list[str]):
     """Build a list of fake ServiceSnapshot objects."""
-    snaps = []
-    for label in active_labels:
-        s           = MagicMock()
-        s.installed = True
-        s.service   = MagicMock()
-        s.service.label = label
-        s.state     = MagicMock()
-        s.state.is_active = True
-        snaps.append(s)
-    return snaps
+    return [
+        SimpleNamespace(
+            installed=True,
+            service=SimpleNamespace(label=label),
+            state=SimpleNamespace(is_active=True),
+        )
+        for label in active_labels
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -153,18 +159,42 @@ class TestBuildBaseline:
 
     def test_deduplicates_ports(self):
         """Duplicate port entries (IPv4 + IPv6 both on 0.0.0.0/::) must appear once."""
-        # Both listening ports have same port_proto "22/tcp"
-        ports = []
-        for _ in range(3):
-            lp = MagicMock()
-            lp.port_proto        = "22/tcp"
-            lp.is_all_interfaces = True
-            ports.append(lp)
-        snap = MagicMock()
-        snap.ports = ports
-        engine = make_engine()
-        bl = build_baseline(engine, snap, [])
+        ports = [SimpleNamespace(port_proto="22/tcp", is_all_interfaces=True)] * 3
+        snap = SimpleNamespace(ports=ports)
+        bl = build_baseline(make_engine(), snap, [])
         assert bl.open_ports.count("22/tcp") == 1
+
+    def test_non_all_interfaces_port_excluded(self):
+        """Ports bound to loopback only (is_all_interfaces=False) must not appear."""
+        ports = [
+            SimpleNamespace(port_proto="22/tcp", is_all_interfaces=True),
+            SimpleNamespace(port_proto="9090/tcp", is_all_interfaces=False),
+        ]
+        snap = SimpleNamespace(ports=ports)
+        bl = build_baseline(make_engine(), snap, [])
+        assert "22/tcp" in bl.open_ports
+        assert "9090/tcp" not in bl.open_ports
+
+    def test_inactive_service_excluded(self):
+        """Services that are installed but not active must not appear in baseline."""
+        snaps = [
+            SimpleNamespace(installed=True, service=SimpleNamespace(label="nginx"),
+                            state=SimpleNamespace(is_active=False)),
+            SimpleNamespace(installed=True, service=SimpleNamespace(label="sshd"),
+                            state=SimpleNamespace(is_active=True)),
+        ]
+        bl = build_baseline(make_engine(), make_ports_snapshot([]), snaps)
+        assert "sshd" in bl.active_services
+        assert "nginx" not in bl.active_services
+
+    def test_not_installed_service_excluded(self):
+        """Services with installed=False must not appear in baseline."""
+        snaps = [
+            SimpleNamespace(installed=False, service=SimpleNamespace(label="fail2ban"),
+                            state=SimpleNamespace(is_active=False)),
+        ]
+        bl = build_baseline(make_engine(), make_ports_snapshot([]), snaps)
+        assert "fail2ban" not in bl.active_services
 
 
 # ---------------------------------------------------------------------------
@@ -191,6 +221,7 @@ class TestSaveLoad:
         path.write_text("NOT JSON", encoding="utf-8")
         assert load_baseline(path=path) is None
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX permissions not applicable on Windows")
     def test_file_created_with_restricted_permissions(self, tmp_path):
         """File must not be readable by group or others — umask-independent check."""
         path = tmp_path / "baseline.json"
@@ -327,39 +358,29 @@ class TestComputeDelta:
 # ---------------------------------------------------------------------------
 
 class TestAuditDeltaIsEmpty:
-    def _make_delta(self, **overrides) -> AuditDelta:
-        defaults = dict(
-            prev_timestamp="2026-01-01T00:00:00+00:00",
-            score_delta=0, alert_delta=0, warn_delta=0,
-            new_ports=[], closed_ports=[],
-            new_services=[], stopped_services=[],
-        )
-        defaults.update(overrides)
-        return AuditDelta(**defaults)
-
     def test_true_when_no_changes(self):
-        assert self._make_delta().is_empty() is True
+        assert _make_delta().is_empty() is True
 
     def test_false_when_score_delta(self):
-        assert self._make_delta(score_delta=1).is_empty() is False
+        assert _make_delta(score_delta=1).is_empty() is False
 
     def test_false_when_alert_delta(self):
-        assert self._make_delta(alert_delta=1).is_empty() is False
+        assert _make_delta(alert_delta=1).is_empty() is False
 
     def test_false_when_warn_delta(self):
-        assert self._make_delta(warn_delta=-1).is_empty() is False
+        assert _make_delta(warn_delta=-1).is_empty() is False
 
     def test_false_when_new_ports(self):
-        assert self._make_delta(new_ports=["8080/tcp"]).is_empty() is False
+        assert _make_delta(new_ports=["8080/tcp"]).is_empty() is False
 
     def test_false_when_closed_ports(self):
-        assert self._make_delta(closed_ports=["80/tcp"]).is_empty() is False
+        assert _make_delta(closed_ports=["80/tcp"]).is_empty() is False
 
     def test_false_when_new_services(self):
-        assert self._make_delta(new_services=["redis"]).is_empty() is False
+        assert _make_delta(new_services=["redis"]).is_empty() is False
 
     def test_false_when_stopped_services(self):
-        assert self._make_delta(stopped_services=["nginx"]).is_empty() is False
+        assert _make_delta(stopped_services=["nginx"]).is_empty() is False
 
 
 # ---------------------------------------------------------------------------
@@ -382,68 +403,54 @@ class TestDisplayDelta:
         display_delta(delta, _t, output_mod)
         return calls
 
-    def _make_delta(self, **overrides) -> AuditDelta:
-        defaults = dict(
-            prev_timestamp="2026-01-01T00:00:00+00:00",
-            score_delta=0,
-            alert_delta=0,
-            warn_delta=0,
-            new_ports=[],
-            closed_ports=[],
-            new_services=[],
-            stopped_services=[],
-        )
-        defaults.update(overrides)
-        return AuditDelta(**defaults)
-
     def test_section_always_printed(self):
-        calls = self._run(self._make_delta())
+        calls = self._run(_make_delta())
         assert calls["section"]
 
     def test_score_improved_uses_ok(self):
-        calls = self._run(self._make_delta(score_delta=1))
+        calls = self._run(_make_delta(score_delta=1))
         assert any("compare.score_improved" in m for m in calls["ok"])
 
     def test_score_degraded_uses_warn(self):
-        calls = self._run(self._make_delta(score_delta=-2))
+        calls = self._run(_make_delta(score_delta=-2))
         assert any("compare.score_degraded" in m for m in calls["warn"])
 
     def test_score_unchanged_uses_info(self):
-        calls = self._run(self._make_delta(score_delta=0))
+        calls = self._run(_make_delta(score_delta=0))
         assert any("compare.score_unchanged" in m for m in calls["info"])
 
     def test_new_port_uses_warn(self):
-        calls = self._run(self._make_delta(new_ports=["8080/tcp"]))
+        calls = self._run(_make_delta(new_ports=["8080/tcp"]))
         assert any("compare.port_appeared" in m for m in calls["warn"])
 
     def test_closed_port_uses_ok(self):
-        calls = self._run(self._make_delta(closed_ports=["8080/tcp"]))
+        calls = self._run(_make_delta(closed_ports=["8080/tcp"]))
         assert any("compare.port_closed" in m for m in calls["ok"])
 
     def test_new_service_uses_info(self):
-        calls = self._run(self._make_delta(new_services=["redis"]))
+        calls = self._run(_make_delta(new_services=["redis"]))
         assert any("compare.service_appeared" in m for m in calls["info"])
 
     def test_stopped_service_uses_info(self):
-        calls = self._run(self._make_delta(stopped_services=["nginx"]))
+        calls = self._run(_make_delta(stopped_services=["nginx"]))
         assert any("compare.service_stopped" in m for m in calls["info"])
 
     def test_no_changes_uses_ok(self):
-        calls = self._run(self._make_delta())
+        calls = self._run(_make_delta())
         assert any("compare.no_changes" in m for m in calls["ok"])
 
     def test_alerts_increased_uses_warn(self):
-        calls = self._run(self._make_delta(alert_delta=1))
+        calls = self._run(_make_delta(alert_delta=1))
         assert any("compare.alerts_increased" in m for m in calls["warn"])
 
     def test_alerts_decreased_uses_ok(self):
-        calls = self._run(self._make_delta(alert_delta=-1))
+        calls = self._run(_make_delta(alert_delta=-1))
         assert any("compare.alerts_decreased" in m for m in calls["ok"])
 
     def test_warns_increased_uses_warn(self):
-        calls = self._run(self._make_delta(warn_delta=2))
+        calls = self._run(_make_delta(warn_delta=2))
         assert any("compare.warns_increased" in m for m in calls["warn"])
 
     def test_warns_decreased_uses_ok(self):
-        calls = self._run(self._make_delta(warn_delta=-1))
+        calls = self._run(_make_delta(warn_delta=-1))
         assert any("compare.warns_decreased" in m for m in calls["ok"])

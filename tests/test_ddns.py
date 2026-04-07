@@ -110,6 +110,11 @@ class TestFindOpenPorts:
         ports = _find_open_ports(rules)
         assert "51820/udp" in ports
 
+    def test_malformed_rule_no_port_proto_does_not_crash(self):
+        """A rule line with no port/proto token must be skipped without raising."""
+        rules = "[ 1] ALLOW IN  Anywhere\n"
+        assert _find_open_ports(rules) == []
+
 
 # ---------------------------------------------------------------------------
 # Domain extraction
@@ -138,6 +143,16 @@ class TestExtractDdclientDomain:
     def test_empty_content(self):
         assert _extract_ddclient_domain("") is None
 
+    def test_hostname_with_empty_value(self):
+        """hostname = (trailing spaces only) must not return a non-empty domain."""
+        result = _extract_ddclient_domain("hostname = \n")
+        assert not result  # empty string or None — neither is a valid domain
+
+    def test_quoted_hostname(self):
+        """hostname = "myhost.duckdns.org" — quotes must be stripped."""
+        result = _extract_ddclient_domain('hostname="myhost.duckdns.org"\n')
+        assert result == "myhost.duckdns.org"
+
 
 class TestExtractInadynDomain:
     def test_hostname_key(self):
@@ -146,6 +161,11 @@ class TestExtractInadynDomain:
 
     def test_empty(self):
         assert _extract_inadyn_domain("") is None
+
+    def test_invalid_domain_format_returns_none(self):
+        """A value that fails the domain regex (no dot, no TLD) must return None."""
+        content = "hostname = not-a-valid\n"
+        assert _extract_inadyn_domain(content) is None
 
 
 class TestExtractNoipDomain:
@@ -164,6 +184,12 @@ class TestExtractDuckdnsDomain:
 
     def test_empty(self):
         assert _extract_duckdns_domain("") is None
+
+    def test_full_domain_in_content(self):
+        """Full domain present without ?domains= param uses the fallback regex."""
+        content = "echo url=myhost.duckdns.org | curl -K -\n"
+        result = _extract_duckdns_domain(content)
+        assert result == "myhost.duckdns.org"
 
 
 # ---------------------------------------------------------------------------

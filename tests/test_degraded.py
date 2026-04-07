@@ -16,8 +16,10 @@ from __future__ import annotations
 
 import pytest
 
+from datetime import datetime, timezone
+
 from ufw_audit.checks.firewall import FirewallStatus, check_firewall, check_rules
-from ufw_audit.checks.logs import LogsSnapshot, check_logs
+from ufw_audit.checks.logs import LogEntry, LogsSnapshot, check_logs
 from ufw_audit.checks.ports import ListeningPort, PortsSnapshot, check_ports
 from ufw_audit.scoring import FindingLevel
 
@@ -43,12 +45,13 @@ def total_deductions(result):
 
 
 def make_fw(installed=True, active=True, incoming_policy="deny",
-            ufw_output="", ipv4_rules_count=0, ipv6_rules_count=0):
+            ufw_output="", numbered_output="", ipv4_rules_count=0, ipv6_rules_count=0):
     return FirewallStatus(
         installed=installed,
         active=active,
         incoming_policy=incoming_policy,
         ufw_output=ufw_output,
+        numbered_output=numbered_output,
         ipv4_rules_count=ipv4_rules_count,
         ipv6_rules_count=ipv6_rules_count,
     )
@@ -170,6 +173,25 @@ class TestLogFileDegraded:
         assert not has_level(result, "alert")
         assert not has_level(result, "warn")
 
+    def test_entries_below_bruteforce_threshold_no_warn(self):
+        """
+        A single valid LogEntry (far below the bruteforce threshold) must not
+        produce a WARN or deduction — only informational findings at most.
+        """
+        single_entry = LogEntry(
+            timestamp=datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            src_ip="1.2.3.4",
+            dst_port=22,
+            proto="TCP",
+        )
+        snap = make_logs_snapshot(
+            entries=[single_entry], days_available=1, log_found=True
+        )
+        result = check_logs(snap, t=_t)
+        assert not has_level(result, "warn")
+        assert not has_level(result, "alert")
+        assert total_deductions(result) == 0
+
     def test_empty_log_zero_deductions(self):
         """log found but no entries → OK finding, zero deductions."""
         result = check_logs(
@@ -231,3 +253,31 @@ class TestCombinedDegradation:
         logs_result  = check_logs(make_logs_snapshot(log_found=False), t=_t)
         combined = total_deductions(ports_result) + total_deductions(logs_result)
         assert combined == 0
+
+    def test_firewall_inactive_and_empty_ports_no_conflict(self):
+        """
+        check_firewall(inactive) emits an ALERT; check_ports(empty) emits an OK.
+        Running both must not raise and findings must not contradict each other.
+        """
+        fw_result    = check_firewall(make_fw(active=False), t=_t)
+        ports_result = check_ports(make_ports_snapshot(), t=_t)
+        assert fw_result is not None
+        assert ports_result is not None
+        # Firewall inactive → at least one ALERT
+        assert has_level(fw_result, "alert")
+        # Empty ports → OK, no alert
+        assert has_level(ports_result, "ok")
+        assert not has_level(ports_result, "alert")
+
+    def test_firewall_inactive_and_empty_rules_consistent(self):
+        """
+        check_firewall(inactive) + check_rules(empty) — typical state when UFW
+        has just been disabled.  Neither check should crash or emit deductions
+        on top of the firewall-inactive finding.
+        """
+        fw_result    = check_firewall(make_fw(active=False), t=_t)
+        rules_result = check_rules("", "", _t)
+        # check_rules with no rules → zero deductions (firewall audit is separate)
+        assert total_deductions(rules_result) == 0
+        # check_firewall(inactive) carries its own deduction via score cap, not here
+        assert fw_result is not None
