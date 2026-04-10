@@ -69,6 +69,11 @@ class TestFlags:
         assert config.json_mode is True
         assert config.json_full is True
 
+    def test_json_full_short(self):
+        config = parse_args(["-J"])
+        assert config.json_mode is True
+        assert config.json_full is True
+
     def test_french(self):
         assert parse_args(["--french"]).lang == "fr"
 
@@ -90,14 +95,23 @@ class TestFlags:
     def test_diff(self):
         assert parse_args(["--diff"]).diff_mode is True
 
+    def test_diff_short(self):
+        assert parse_args(["-D"]).diff_mode is True
+
     def test_explain_with_equals(self):
         assert parse_args(["--explain=ssh.password_auth"]).explain_key == "ssh.password_auth"
 
     def test_explain_with_space(self):
         assert parse_args(["--explain", "ssh.password_auth"]).explain_key == "ssh.password_auth"
 
+    def test_explain_short(self):
+        assert parse_args(["-e", "ssh.password_auth"]).explain_key == "ssh.password_auth"
+
     def test_profile(self):
         assert parse_args(["--profile=server"]).profile == "server"
+
+    def test_profile_short(self):
+        assert parse_args(["-p", "workstation"]).profile == "workstation"
 
     def test_reset_baseline(self):
         assert parse_args(["--reset-baseline"]).reset_baseline is True
@@ -228,6 +242,9 @@ class TestMutuallyExclusiveModes:
         """--manage-cron alone is valid."""
         assert parse_args(["--manage-cron"]).manage_cron is True
 
+    def test_manage_cron_short(self):
+        assert parse_args(["-C"]).manage_cron is True
+
     def test_yes_without_fix_raises(self):
         """--yes without --fix must raise CLIError."""
         with pytest.raises(CLIError, match="--yes requires --fix"):
@@ -258,6 +275,10 @@ class TestWebhook:
         config = parse_args(["--webhook", "https://hooks.example.com/abc"])
         assert config.webhook_url == "https://hooks.example.com/abc"
 
+    def test_webhook_short(self):
+        config = parse_args(["-w", "https://hooks.example.com/abc"])
+        assert config.webhook_url == "https://hooks.example.com/abc"
+
     def test_webhook_format_generic(self):
         assert parse_args(["--webhook-format=generic"]).webhook_format == "generic"
 
@@ -282,3 +303,9 @@ class TestExplain:
 
     def test_explain_key_with_space_arg(self):
         assert parse_args(["--explain", "hardening.rp_filter_disabled"]).explain_key == "hardening.rp_filter_disabled"
+
+    def test_explain_short_with_space(self):
+        assert parse_args(["-e", "hardening.rp_filter_disabled"]).explain_key == "hardening.rp_filter_disabled"
+
+    def test_explain_short_list(self):
+        assert parse_args(["-e", "list"]).explain_key == "list"

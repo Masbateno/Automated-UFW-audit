@@ -56,7 +56,7 @@ class AuditConfig:
     """--json: export audit summary as JSON."""
 
     json_full: bool = False
-    """--json-full: export complete audit details as JSON."""
+    """-J / --json-full: export complete audit details as JSON (implies --json)."""
 
     log_days: int = 7
     """--log-days=N: number of days of UFW logs to analyse."""
@@ -68,7 +68,7 @@ class AuditConfig:
     """--install-cron: install a cron job for automated audits (scheduler wizard)."""
 
     manage_cron: bool = False
-    """--manage-cron: manage installed cron jobs (list/edit/delete)."""
+    """-C / --manage-cron: manage installed cron jobs (list/edit/delete)."""
 
     show_version: bool = False
     """--version: print version string and exit."""
@@ -83,19 +83,19 @@ class AuditConfig:
     """--offline: skip all external HTTP calls (no public IP lookup)."""
 
     profile: str = ""
-    """--profile=NAME: audit profile to apply (server|workstation|container or custom)."""
+    """-p / --profile=NAME: audit profile to apply (server|workstation|container or custom)."""
 
     reset_baseline: bool = False
     """--reset-baseline: delete the stored audit baseline and exit."""
 
     explain_key: str = ""
-    """--explain=KEY: print a detailed explanation for a finding key and exit."""
+    """-e / --explain=KEY: print a detailed explanation for a finding key and exit."""
 
     diff_mode: bool = False
-    """--diff: run audit silently and show only changes since the last baseline."""
+    """-D / --diff: run audit silently and show only changes since the last baseline."""
 
     webhook_url: str = ""
-    """--webhook=URL: POST audit result as JSON to this URL after the audit."""
+    """-w / --webhook=URL: POST audit result as JSON to this URL after the audit."""
 
     webhook_format: str = "auto"
     """--webhook-format=FMT: payload format — 'auto' (default), 'generic', or 'slack'."""
@@ -155,7 +155,7 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         elif arg in ("-j", "--json"):
             config.json_mode = True
 
-        elif arg == "--json-full":
+        elif arg in ("-J", "--json-full"):
             config.json_mode = True
             config.json_full = True
 
@@ -188,7 +188,7 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         elif arg in ("-c", "--install-cron"):
             config.install_cron = True
 
-        elif arg == "--manage-cron":
+        elif arg in ("-C", "--manage-cron"):
             config.manage_cron = True
 
         elif arg in ("-V", "--version"):
@@ -206,23 +206,27 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         elif arg.startswith("--profile="):
             config.profile = arg.split("=", 1)[1].strip()
 
+        elif arg in ("-p", "--profile") and i + 1 < len(argv):
+            i += 1
+            config.profile = argv[i].strip()
+
         elif arg == "--reset-baseline":
             config.reset_baseline = True
 
         elif arg.startswith("--explain="):
             config.explain_key = arg.split("=", 1)[1].strip()
 
-        elif arg == "--explain" and i + 1 < len(argv):
+        elif arg in ("-e", "--explain") and i + 1 < len(argv):
             i += 1
             config.explain_key = argv[i].strip()
 
-        elif arg == "--diff":
+        elif arg in ("-D", "--diff"):
             config.diff_mode = True
 
         elif arg.startswith("--webhook="):
             config.webhook_url = arg.split("=", 1)[1].strip()
 
-        elif arg == "--webhook" and i + 1 < len(argv):
+        elif arg in ("-w", "--webhook") and i + 1 < len(argv):
             i += 1
             config.webhook_url = argv[i].strip()
 
@@ -269,57 +273,76 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
 # ---------------------------------------------------------------------------
 
 def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for future i18n
-    """Print the CLI help message."""
-    opts = [
-        ("-v, --verbose",      "Show detailed port exposure for each service"),
-        ("-d, --detailed",     "Save full audit report to a log file"),
-        ("-q, --quiet",        "Suppress all output — use exit code to detect issues"),
-        ("-f, --fix",          "Offer to apply automatic corrections after the audit"),
-        ("-y, --yes",          "Auto-confirm all fixes with audit trail (use with -f)"),
-        ("-r, --reconfigure",  "Reset saved port configuration and re-ask"),
-        ("-n, --no-color",     "Disable colour output"),
-        ("-j, --json",         "Export summary as JSON"),
-        ("--json-full",        "Export full audit details as JSON"),
-        ("-l N, --log-days=N", "Analyse the last N days of UFW logs (default: 7)"),
-        ("-m, --manage-logs",  "List and delete saved audit reports"),
-        ("-c, --install-cron", "Install an automated audit cron job (schedule wizard)"),
-        ("--manage-cron",      "List, edit or delete installed cron jobs"),
-        ("--french",           "Switch interface to French (alias for --lang=fr)"),
-        ("--lang=CODE",        "Set interface language (e.g. --lang=fr, --lang=en)"),
-        ("--install-completion", "Install bash completion to /etc/bash_completion.d/"),
-        ("-o, --offline",      "Skip external IP lookup (no HTTP calls)"),
-        ("--profile=NAME",     "Audit profile: server (default), workstation, container, or custom"),
-        ("--reset-baseline",   "Delete the stored audit baseline and exit"),
-        ("--explain=KEY",      "Print explanation for a finding key and exit (no sudo required)"),
-        ("--diff",             "Show only changes since last baseline (silent audit)"),
-        ("--webhook=URL",      "POST audit result as JSON to URL after audit"),
-        ("--webhook-format=F", "Webhook format: auto (default), generic, or slack"),
-        ("-V, --version",      "Show version and exit (no sudo required)"),
-        ("-h, --help",         "Show this help message (no sudo required)"),
-    ]
-    col = 22
+    """Print the CLI help message, grouped by category."""
+
+    def section(title: str) -> None:
+        print(f"\n\033[1m{title}\033[0m")
+
+    def opt(flags: str, desc: str, col: int = 28) -> None:
+        print(f"  {flags:<{col}}  {desc}")
+
     print(f"ufw-audit v{version} — UFW firewall audit tool")
     print()
     print("Usage: sudo ufw-audit [OPTIONS]")
-    print()
-    print("Options:")
-    for flag, desc in opts:
-        print(f"  {flag:<{col}}  {desc}")
-    print()
-    print("Examples:")
-    print("  sudo ufw-audit                  Standard audit")
-    print("  sudo ufw-audit -v -d            Verbose + save report")
-    print("  sudo ufw-audit --french -d      French + save report")
-    print("  sudo ufw-audit -f               Audit + fix mode")
-    print("  sudo ufw-audit --log-days=14    Analyse 14 days of logs")
-    print("  ufw-audit --explain list        List all explainable keys")
-    print("  ufw-audit --explain ssh.password_auth  Explain a specific finding")
-    print("  sudo ufw-audit --webhook=https://hooks.slack.com/...  Send to Slack")
-    print()
-    print("Exit codes (--quiet mode):")
-    print("  0   Clean audit — no alerts, no warnings")
-    print("  1   Warnings detected")
-    print("  2   Alerts detected (action required)")
+    print("       ufw-audit --explain KEY   (standalone, no sudo required)")
+
+    section("AUDIT — what to check and how")
+    opt("-p, --profile=NAME",    "Audit profile: server (default), workstation, container")
+    opt("-l N, --log-days=N",    "Analyse last N days of UFW logs (default: 7)")
+    opt("-D, --diff",            "Show only changes since last audit baseline")
+    opt("-o, --offline",         "Skip external IP lookup (no HTTP calls)")
+
+    section("OUTPUT — how to present results")
+    opt("-v, --verbose",         "Show detailed port exposure for each service")
+    opt("-d, --detailed",        "Save full audit report to a log file")
+    opt("-q, --quiet",           "Suppress all output — use exit code to detect issues")
+    opt("-n, --no-color",        "Disable colour output")
+    opt("-j, --json",            "Export audit summary as JSON to stdout")
+    opt("-J, --json-full",       "Export full audit details as JSON (implies --json)")
+
+    section("FIXES — apply remediation suggestions")
+    opt("-f, --fix",             "Preview available fixes (dry run — nothing is executed)")
+    opt("-y, --yes",             "Auto-confirm all fixes with audit trail (use with -f)")
+
+    section("INTEGRATIONS — external reporting")
+    opt("-w, --webhook=URL",     "POST audit result as JSON to URL after audit")
+    opt("    --webhook-format=F","Webhook format: auto (default), generic, or slack")
+
+    section("CONFIGURATION — language and settings")
+    opt("    --lang=CODE",       "Set interface language: en (default), fr")
+    opt("    --french",          "Shortcut for --lang=fr")
+    opt("-r, --reconfigure",     "Reset saved port configuration and re-ask")
+
+    section("MAINTENANCE — cron jobs and logs")
+    opt("-c, --install-cron",    "Install an automated audit cron job (schedule wizard)")
+    opt("-C, --manage-cron",     "List, edit or delete installed cron jobs")
+    opt("-m, --manage-logs",     "List and delete saved audit log files")
+    opt("    --reset-baseline",  "Delete the stored audit baseline and exit")
+
+    section("STANDALONE — no sudo required")
+    opt("-e, --explain=KEY",     "Print WHY/HOW/CIS explanation for a finding key")
+    opt("",                      "  ufw-audit -e list                 (list all keys)")
+    opt("",                      "  ufw-audit -e ssh.password_auth    (explain a key)")
+    opt("    --install-completion", "Install bash tab-completion script")
+    opt("-V, --version",         "Show version and exit")
+    opt("-h, --help",            "Show this help message")
+
+    section("EXAMPLES")
+    print("  sudo ufw-audit                        Standard audit")
+    print("  sudo ufw-audit -v -d                  Verbose + save full report")
+    print("  sudo ufw-audit --french -d            French output + save report")
+    print("  sudo ufw-audit -p workstation         Workstation profile")
+    print("  sudo ufw-audit -l 14                  Analyse 14 days of UFW logs")
+    print("  sudo ufw-audit -D                     Show what changed since last audit")
+    print("  sudo ufw-audit -j | jq '.score'       Extract score as JSON")
+    print("  sudo ufw-audit -w https://hooks.slack.com/...  Send to Slack")
+    print("  ufw-audit -e ssh.password_auth        Explain a finding (no sudo)")
+
+    section("EXIT CODES  (--quiet / scripting mode)")
+    print("  0   No issues detected")
+    print("  1   Warnings present")
+    print("  2   Alerts present — action required")
     print("  3   Technical error")
+
     print()
     print("Documentation: https://github.com/Masbateno/ufw-audit")

@@ -1,5 +1,5 @@
 # bash completion for ufw-audit
-# Installed to /etc/bash_completion.d/ufw-audit by install.sh
+# Installed to /etc/bash_completion.d/ufw-audit by --install-completion
 
 _ufw_audit() {
     local cur prev
@@ -18,8 +18,30 @@ _ufw_audit() {
         return 0
     fi
 
+    # Handle -p NAME / --profile=NAME — suggest known profiles
+    if [[ "${prev}" == "-p" ]]; then
+        COMPREPLY=( $(compgen -W "server workstation container" -- "${cur}") )
+        return 0
+    fi
+    if [[ "${cur}" == --profile* ]]; then
+        COMPREPLY=( "--profile=server" "--profile=workstation" "--profile=container" )
+        return 0
+    fi
+
+    # Handle --lang=CODE — suggest known languages
+    if [[ "${cur}" == --lang* ]]; then
+        COMPREPLY=( "--lang=en" "--lang=fr" )
+        return 0
+    fi
+
+    # Handle --webhook-format=F — suggest known formats
+    if [[ "${cur}" == --webhook-format* ]]; then
+        COMPREPLY=( "--webhook-format=auto" "--webhook-format=generic" "--webhook-format=slack" )
+        return 0
+    fi
+
     # All short options
-    local short_opts="-v -d -q -f -y -r -n -j -l -m -c -o -V -h"
+    local short_opts="-v -d -q -f -y -r -n -j -J -l -m -c -C -o -p -e -D -w -V -h"
 
     # All long options
     local long_opts="
@@ -38,7 +60,14 @@ _ufw_audit() {
         --manage-cron
         --install-completion
         --french
+        --lang=
         --offline
+        --profile=
+        --reset-baseline
+        --explain=
+        --diff
+        --webhook=
+        --webhook-format=
         --version
         --help
     "

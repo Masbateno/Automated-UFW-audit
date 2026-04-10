@@ -6,6 +6,62 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.12.0] — 2026-04-10
+
+### TL;DR
+- **CLI pass** — `--help` redesigned with 7 sections; 6 new short options; bash completion fixed (7 missing opts + smart completions)
+- **Fix #1** — Risk context block now shown for all active services; 11 new `service_risk` entries for medium/low services (Apache, Nginx, Transmission, qBittorrent, Avahi, CUPS, Jellyfin, Plex, Gitea, Syncthing, Ollama)
+- **Fix #2** — GeoIP wget command now includes `sudo mkdir -p /usr/share/GeoIP` prefix (absent on Debian by default)
+- **Fix #3** — `unattended-upgrades` compound risk demoted to INFO (no extra −1 pt) on `workstation` profile
+- **Fix #4** — Expired accounts show ISO date per account; system accounts (UID < 1000) excluded from expiry check
+- **Tests: 1703/1703** (+16 new: workstation profile, date assertions, dict fixtures)
+
+### `--help` redesign (`cli.py`)
+- 7 sections: AUDIT / OUTPUT / FIXES / INTEGRATIONS / CONFIGURATION / MAINTENANCE / STANDALONE
+- Each section has a one-line description; STANDALONE groups no-sudo commands
+- EXIT CODES section clarified for scripting use
+
+### New short options (`cli.py`)
+| Short | Long            | Purpose                    |
+|-------|-----------------|----------------------------|
+| `-J`  | `--json-full`   | Full JSON export           |
+| `-C`  | `--manage-cron` | Manage cron jobs           |
+| `-e`  | `--explain KEY` | Explain a finding key      |
+| `-D`  | `--diff`        | Diff mode                  |
+| `-w`  | `--webhook URL` | Webhook URL                |
+| `-p`  | `--profile NAME`| Audit profile              |
+
+### Bash completion (`data/ufw-audit.bash-completion`)
+- Added 7 previously missing long options: `--lang=`, `--profile=`, `--reset-baseline`, `--explain=`, `--diff`, `--webhook=`, `--webhook-format=`
+- Added 6 new short options: `-J -C -p -e -D -w`
+- Smart completions: `--profile=` → server/workstation/container; `--lang=` → en/fr; `--webhook-format=` → auto/generic/slack; `-p <value>` → server/workstation/container
+
+### Risk context for all services (`en.json`, `fr.json`, `runner.py`, `display.py`)
+- `service_risk` entries added for: `apache_web_server`, `nginx_web_server`, `transmission_web_ui`, `qbittorrent_web_ui`, `avahi_local_network_discovery`, `cups_network_printing`, `jellyfin`, `plex_media_server`, `gitea`, `syncthing`, `ollama_llm_server`
+- `runner.py:150`: `is_high_or_critical` gate removed — risk context shown for all active services
+- `display.py:build_risk_context_entries`: same gate removed for JSON report entries
+
+### GeoIP wget fix (`en.json`, `fr.json`, `display.py`)
+- `geoip2_no_db_cmd` now: `sudo mkdir -p /usr/share/GeoIP && sudo wget -O /usr/share/GeoIP/GeoLite2-Country.mmdb ...`
+- Fallback hardcoded cmd in `display.py` updated identically
+
+### Unattended-upgrades profile-aware (`checks/updates.py`, `runner.py`)
+- `check_updates()` gains `profile_name: str = "server"` parameter
+- When `profile_name == "workstation"`: compound risk branch (`security pending + no automation`) emits INFO instead of WARN with no extra deduction
+- `runner.py`: passes `profile_name=profile.name if profile else "server"`
+
+### Expired accounts with dates (`checks/user_accounts.py`)
+- `UserAccountsSnapshot.expired_accounts`: `List[str]` → `Dict[str, str]` (username → ISO date)
+- `from_system()`: tracks UIDs from `/etc/passwd`; skips accounts with UID < 1000 (system accounts managed by package manager)
+- `check_user_accounts()`: formats finding message as `"alice (2023-06-15), bob (2022-01-01)"`
+
+### Tests
+- `test_cli.py`: 8 new tests — `test_diff_short`, `test_explain_short`, `test_profile_short`, `test_json_full_short`, `test_manage_cron_short`, `test_webhook_short`, `test_explain_short_with_space`, `test_explain_short_list`
+- `test_updates.py`: `TestWorkstationProfile` — 5 new tests covering workstation INFO demotion and server WARN preservation
+- `test_user_accounts.py`: `expired_accounts` fixtures converted to dict; `test_date_in_message`, `test_multiple_expired_all_in_message`, `test_empty_dict_expired_produces_ok` added
+
+---
+
 ## [v1.11.0] — 2026-04-07
 
 ### TL;DR

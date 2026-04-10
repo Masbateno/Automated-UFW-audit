@@ -34,7 +34,7 @@ def make_snap(**kwargs) -> UserAccountsSnapshot:
         shadow_readable=True,
         uid_zero_accounts=[],
         empty_password_accounts=[],
-        expired_accounts=[],
+        expired_accounts={},
     )
     defaults.update(kwargs)
     return UserAccountsSnapshot(**defaults)
@@ -79,7 +79,7 @@ class TestSnapshotDefaults:
 
     def test_expired_default_empty(self):
         s = UserAccountsSnapshot()
-        assert s.expired_accounts == []
+        assert s.expired_accounts == {}
 
 
 # ---------------------------------------------------------------------------
@@ -232,24 +232,37 @@ class TestEmptyPassword:
 
 class TestExpiredAccounts:
     def test_info_when_expired(self):
-        result = check_user_accounts(make_snap(expired_accounts=["olduser"]), t=_t)
+        result = check_user_accounts(make_snap(expired_accounts={"olduser": "2023-01-01"}), t=_t)
         assert has_level(result, "info")
 
     def test_no_deduction_for_expired(self):
-        result = check_user_accounts(make_snap(expired_accounts=["olduser"]), t=_t)
+        result = check_user_accounts(make_snap(expired_accounts={"olduser": "2023-01-01"}), t=_t)
         assert total_deductions(result) == 0
 
     def test_finding_key(self):
-        result = check_user_accounts(make_snap(expired_accounts=["olduser"]), t=_t)
+        result = check_user_accounts(make_snap(expired_accounts={"olduser": "2023-01-01"}), t=_t)
         assert "user_accounts.expired_account" in finding_keys(result)
 
     def test_username_in_message(self):
-        result = check_user_accounts(make_snap(expired_accounts=["olduser"]), t=_t)
+        result = check_user_accounts(make_snap(expired_accounts={"olduser": "2023-01-01"}), t=_t)
         info = next(f for f in result.findings if f.key == "user_accounts.expired_account")
         assert "olduser" in info.message
 
+    def test_date_in_message(self):
+        result = check_user_accounts(make_snap(expired_accounts={"olduser": "2023-06-15"}), t=_t)
+        info = next(f for f in result.findings if f.key == "user_accounts.expired_account")
+        assert "2023-06-15" in info.message
+
+    def test_multiple_expired_all_in_message(self):
+        result = check_user_accounts(
+            make_snap(expired_accounts={"alice": "2022-01-01", "bob": "2023-03-15"}), t=_t
+        )
+        info = next(f for f in result.findings if f.key == "user_accounts.expired_account")
+        assert "alice" in info.message
+        assert "bob" in info.message
+
     def test_no_ok_when_expired(self):
-        result = check_user_accounts(make_snap(expired_accounts=["olduser"]), t=_t)
+        result = check_user_accounts(make_snap(expired_accounts={"olduser": "2023-01-01"}), t=_t)
         assert "user_accounts.ok" not in finding_keys(result)
 
 
@@ -272,7 +285,7 @@ class TestCombined:
             make_snap(
                 uid_zero_accounts=["ghost"],
                 empty_password_accounts=["user1"],
-                expired_accounts=["olduser"],
+                expired_accounts={"olduser": "2023-01-01"},
             ),
             t=_t,
         )
@@ -283,7 +296,7 @@ class TestCombined:
 
     def test_expired_does_not_add_to_deduction(self):
         result = check_user_accounts(
-            make_snap(uid_zero_accounts=["ghost"], expired_accounts=["old"]),
+            make_snap(uid_zero_accounts=["ghost"], expired_accounts={"old": "2022-12-31"}),
             t=_t,
         )
         assert total_deductions(result) == _MAX_DEDUCTION_UID_ZERO
@@ -322,6 +335,10 @@ class TestEdgeCases:
         result = check_user_accounts(snap, t=_t)
         assert has_level(result, "ok")
 
+    def test_empty_dict_expired_produces_ok(self):
+        result = check_user_accounts(make_snap(expired_accounts={}), t=_t)
+        assert has_level(result, "ok")
+
     def test_empty_username_in_list_does_not_crash(self):
         result = check_user_accounts(
             make_snap(uid_zero_accounts=[""]), t=_t
@@ -339,7 +356,7 @@ class TestEdgeCases:
     def test_no_shadow_and_expired_both_reported(self):
         """no_shadow info + expired info — independent, both shown."""
         result = check_user_accounts(
-            make_snap(shadow_readable=False, expired_accounts=["olduser"]), t=_t
+            make_snap(shadow_readable=False, expired_accounts={"olduser": "2023-01-01"}), t=_t
         )
         keys = finding_keys(result)
         assert "user_accounts.no_shadow" in keys
@@ -358,8 +375,8 @@ class TestEdgeCases:
         assert snap.empty_password_accounts == original
 
     def test_snapshot_not_mutated_expired(self):
-        snap = make_snap(expired_accounts=["olduser"])
-        original = list(snap.expired_accounts)
+        snap = make_snap(expired_accounts={"olduser": "2023-01-01"})
+        original = dict(snap.expired_accounts)
         check_user_accounts(snap, t=_t)
         assert snap.expired_accounts == original
 

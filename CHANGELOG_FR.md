@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.12.0](#v1120) | 2026-04-10 | Refonte `--help` + 6 nouvelles options courtes + autocomplétion + 4 correctifs Debian VM ; 1703/1703 tests |
 | [v1.11.0](#v1110) | 2026-04-07 | `--explain` A2 (+13 clés, 20→33) ; audit comptes utilisateurs (CHECK 17) ; audit politique de mots de passe (CHECK 18) ; passage qualité ; 1675/1675 tests |
 | [v1.10.0](#v1100) | 2026-04-07 | Suggestion `--explain` dans le résumé ; audit modules noyau (CHECK 14) ; audit tâches cron (CHECK 15) ; audit état des services (CHECK 16) ; passage qualité (source + 9 fichiers de tests) ; 1541/1541 tests |
 | [v1.9.0](#v190) | 2026-04-06 | Audit mises à jour système (CHECK 13) ; `--explain KEY` + refs CIS ; webhooks ; scores par domaine ; `--diff` ; 1332/1332 tests |
@@ -44,6 +45,59 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.12.0
+
+**2026-04-10**
+
+### Refonte `--help`
+
+- 7 sections nommées : AUDIT / OUTPUT / FIXES / INTEGRATIONS / CONFIGURATION / MAINTENANCE / STANDALONE
+- Section STANDALONE regroupe les commandes sans sudo (`--explain`, `--install-completion`, `--version`, `--help`)
+- Section EXIT CODES clarifiée pour l'usage en scripts
+
+### Nouvelles options courtes
+
+| Court | Long | Usage |
+|-------|------|-------|
+| `-J`  | `--json-full` | Export JSON complet |
+| `-C`  | `--manage-cron` | Gestion des tâches cron |
+| `-e`  | `--explain CLÉ` | Expliquer une clé de résultat |
+| `-D`  | `--diff` | Mode différentiel |
+| `-w`  | `--webhook URL` | URL webhook |
+| `-p`  | `--profile NOM` | Profil d'audit |
+
+### Correctif autocomplétion
+
+7 options absentes de la complétion bash : `--lang=`, `--profile=`, `--reset-baseline`, `--explain=`, `--diff`, `--webhook=`, `--webhook-format=`
+
+Complétions intelligentes ajoutées : `--profile=` → server/workstation/container ; `--lang=` → en/fr ; `--webhook-format=` → auto/generic/slack
+
+### Correctifs Debian VM
+
+**Correctif #1 — Contexte de risque pour tous les services installés**
+- Entrées `service_risk` ajoutées dans `en.json` + `fr.json` pour 11 services medium/faible : Apache, Nginx, Transmission, qBittorrent, Avahi, CUPS, Jellyfin, Plex, Gitea, Syncthing, Ollama
+- `runner.py` + `display.py` : bloc contexte de risque affiché pour tous les services actifs
+
+**Correctif #2 — GeoIP wget**
+- Préfixe `sudo mkdir -p /usr/share/GeoIP &&` ajouté à la commande wget (`en.json`, `fr.json`, fallback `display.py`) — répertoire absent par défaut sur Debian
+
+**Correctif #3 — `unattended-upgrades` selon le profil**
+- `check_updates()` accepte le paramètre `profile_name`
+- Profil `workstation` : risque composé (unattended absent + mises à jour de sécurité en attente) dégradé en INFO, pas de déduction −1 pt supplémentaire
+
+**Correctif #4 — Comptes expirés avec dates**
+- `expired_accounts` passe de `List[str]` à `Dict[str, str]` (utilisateur → date ISO d'expiration)
+- Comptes système (UID < 1000) exclus de la vérification d'expiration
+- Message du résultat inclut la date par compte : `alice (2023-06-15), bob (2022-01-01)`
+
+### Tests
+
+- 8 nouveaux tests dans `test_cli.py`
+- 16 nouveaux tests : `TestWorkstationProfile` (5) dans `test_updates.py` ; assertions de dates + fixtures dict dans `test_user_accounts.py`
+- **Total : 1703/1703**
 
 ---
 

@@ -129,21 +129,30 @@ def _check_unattended() -> tuple[bool, bool]:
 # Pure check logic
 # ---------------------------------------------------------------------------
 
-def check_updates(snapshot: UpdatesSnapshot, *, t=None) -> CheckResult:
+def check_updates(
+    snapshot: UpdatesSnapshot,
+    *,
+    t=None,
+    profile_name: str = "server",
+) -> CheckResult:
     """
     Check system update status.
 
     Scoring:
       - Security packages pending:           −2 pts (flat, regardless of count)
       - Unattended-upgrades not configured
-        AND security packages pending:       −1 pt additional (compound risk)
+        AND security packages pending
+        AND profile is not workstation:      −1 pt additional (compound risk)
+      - On workstation profile, unattended not configured: INFO only (no deduction)
       - Regular packages pending:            INFO only, no deduction
       - Unattended-upgrades not configured
         AND system up to date:               INFO only
 
     Args:
-        snapshot: UpdatesSnapshot from the system (or built in tests).
-        t:        Translation function. Defaults to key pass-through.
+        snapshot:     UpdatesSnapshot from the system (or built in tests).
+        t:            Translation function. Defaults to key pass-through.
+        profile_name: Active audit profile name. "workstation" demotes the
+                      unattended-upgrades compound risk to INFO.
 
     Returns:
         CheckResult with findings and any score deductions.
@@ -194,8 +203,8 @@ def check_updates(snapshot: UpdatesSnapshot, *, t=None) -> CheckResult:
     uu_ok = snapshot.unattended_installed and snapshot.unattended_enabled
 
     if not uu_ok:
-        if security:
-            # Compound risk: security gap + no automation
+        if security and profile_name != "workstation":
+            # Compound risk: security gap + no automation (server/default only)
             result.warn(
                 message=_t("updates.unattended_not_configured"),
                 detail=_t("updates.unattended_not_configured_detail"),
@@ -209,7 +218,7 @@ def check_updates(snapshot: UpdatesSnapshot, *, t=None) -> CheckResult:
                 key="updates.unattended_not_configured",
             )
         else:
-            # System up to date but no automation — informational
+            # Workstation profile, or system up to date — informational only
             result.info(
                 message=_t("updates.unattended_not_configured"),
                 detail=_t("updates.unattended_not_configured_detail"),

@@ -147,7 +147,7 @@ def run_checks(
         if not config.quiet:
             print_service_header(snap.label)
         report.write_raw(f"\n  > {snap.label}")
-        if snap.service.is_high_or_critical and snap.is_active:
+        if snap.is_active:
             display_risk_context(snap.service.label, config.lang, t, report)
         svc_result = check_single_service_display(
             snap, network_context, t, report, config.verbose, quiet=config.quiet,
@@ -296,7 +296,10 @@ def run_checks(
         if not config.quiet:
             print_section(t("sections.updates"))
         report.write_section(t("sections.updates"))
-        updates_result = check_updates(updates_snapshot, t=t)
+        updates_result = check_updates(
+            updates_snapshot, t=t,
+            profile_name=profile.name if profile is not None else "server",
+        )
         if profile is not None:
             apply_profile(updates_result, profile)
         engine.apply(updates_result)

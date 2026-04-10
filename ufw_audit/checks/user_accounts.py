@@ -24,7 +24,7 @@ from __future__ import annotations
 import datetime
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from ufw_audit.checks._run import _identity_t
 from ufw_audit.scoring import CheckResult
@@ -69,13 +69,15 @@ class UserAccountsSnapshot:
         uid_zero_accounts:       Usernames with UID 0 other than root.
         empty_password_accounts: Usernames with an empty password hash in
                                  /etc/shadow and a login-capable shell.
-        expired_accounts:        Usernames whose account expiry date (field 7
-                                 of /etc/shadow) is set and in the past.
+        expired_accounts:        Mapping of username → ISO expiry date string
+                                 for accounts whose expiry (field 7 of
+                                 /etc/shadow) is set, in the past, and belong
+                                 to a non-system account (UID ≥ 1000).
     """
-    shadow_readable:         bool       = False
-    uid_zero_accounts:       List[str]  = field(default_factory=list)
-    empty_password_accounts: List[str]  = field(default_factory=list)
-    expired_accounts:        List[str]  = field(default_factory=list)
+    shadow_readable:         bool            = False
+    uid_zero_accounts:       List[str]       = field(default_factory=list)
+    empty_password_accounts: List[str]       = field(default_factory=list)
+    expired_accounts:        Dict[str, str]  = field(default_factory=dict)
 
     @classmethod
     def from_system(cls) -> "UserAccountsSnapshot":
@@ -94,6 +96,7 @@ class UserAccountsSnapshot:
 
         # ---- /etc/passwd — UID 0 detection (always readable) ---------------
         login_shells: dict[str, str] = {}  # username → shell
+        uids:         dict[str, int] = {}  # username → uid
         try:
             for line in _PASSWD_PATH.read_text(encoding="utf-8").splitlines():
                 parts = line.split(":")
@@ -106,6 +109,7 @@ class UserAccountsSnapshot:
                     continue
                 shell = parts[6].strip()
                 login_shells[username] = shell
+                uids[username] = uid
                 if uid == 0 and username != "root":
                     snap.uid_zero_accounts.append(username)
         except OSError:
@@ -118,7 +122,9 @@ class UserAccountsSnapshot:
             return snap
 
         snap.shadow_readable = True
-        today_days = (datetime.date.today() - datetime.date(1970, 1, 1)).days
+        epoch = datetime.date(1970, 1, 1)
+        today = datetime.date.today()
+        today_days = (today - epoch).days
 
         for line in shadow_text.splitlines():
             parts = line.split(":")
@@ -135,11 +141,16 @@ class UserAccountsSnapshot:
 
             # Expired account: field 7 is a positive integer < today.
             # Negative values are invalid shadow entries — skip them.
+            # System accounts (UID < 1000) are excluded — their expiry
+            # settings are managed by the package manager, not the admin.
             if expire_raw and expire_raw != "0":
                 try:
                     expire_days = int(expire_raw)
                     if 0 < expire_days < today_days:
-                        snap.expired_accounts.append(username)
+                        uid = uids.get(username, 0)
+                        if uid >= 1000:
+                            expiry_date = (epoch + datetime.timedelta(days=expire_days)).isoformat()
+                            snap.expired_accounts[username] = expiry_date
                 except ValueError:
                     pass
 
@@ -217,9 +228,11 @@ def check_user_accounts(snapshot: UserAccountsSnapshot, *, t=None) -> CheckResul
         has_finding = True
 
     # ---- Expired accounts --------------------------------------------------
-    expired = list(dict.fromkeys(snapshot.expired_accounts or []))
+    expired = dict(snapshot.expired_accounts) if snapshot.expired_accounts else {}
     if expired:
-        users_str = ", ".join(expired)
+        users_str = ", ".join(
+            f"{u} ({d})" for u, d in expired.items()
+        )
         result.info(
             message=_t("user_accounts.expired_account", users=users_str),
             detail=_t("user_accounts.expired_account_detail"),

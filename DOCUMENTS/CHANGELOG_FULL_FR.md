@@ -6,6 +6,51 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.12.0] — 2026-04-10
+
+### Résumé
+- **Refonte CLI** — `--help` redessiné en 7 sections ; 6 nouvelles options courtes ; autocomplétion bash corrigée (7 options manquantes + complétions intelligentes)
+- **Correctif #1** — Bloc contexte de risque affiché pour tous les services actifs ; 11 nouvelles entrées `service_risk` pour les services medium/faible (Apache, Nginx, Transmission, qBittorrent, Avahi, CUPS, Jellyfin, Plex, Gitea, Syncthing, Ollama)
+- **Correctif #2** — Commande wget GeoIP : `sudo mkdir -p /usr/share/GeoIP` ajouté en préfixe (répertoire absent par défaut sur Debian)
+- **Correctif #3** — Risque composé `unattended-upgrades` dégradé en INFO (pas de −1 pt supplémentaire) sur le profil `workstation`
+- **Correctif #4** — Comptes expirés : date ISO par compte ; comptes système (UID < 1000) exclus de la vérification
+- **Tests : 1703/1703** (+16 nouveaux)
+
+### Refonte `--help` (`cli.py`)
+- 7 sections : AUDIT / OUTPUT / FIXES / INTEGRATIONS / CONFIGURATION / MAINTENANCE / STANDALONE
+- Section STANDALONE regroupe les commandes sans sudo
+- Section EXIT CODES clarifiée pour l'usage en scripts
+
+### Nouvelles options courtes (`cli.py`)
+| Court | Long            | Usage                        |
+|-------|-----------------|------------------------------|
+| `-J`  | `--json-full`   | Export JSON complet          |
+| `-C`  | `--manage-cron` | Gestion des tâches cron      |
+| `-e`  | `--explain CLÉ` | Expliquer une clé            |
+| `-D`  | `--diff`        | Mode différentiel            |
+| `-w`  | `--webhook URL` | URL webhook                  |
+| `-p`  | `--profile NOM` | Profil d'audit               |
+
+### Autocomplétion bash (`data/ufw-audit.bash-completion`)
+- 7 options longues manquantes ajoutées ; 6 nouvelles options courtes ; complétions intelligentes pour `--profile=`, `--lang=`, `--webhook-format=`
+
+### Contexte de risque pour tous les services
+- Entrées `service_risk` ajoutées pour 11 services dans `en.json` + `fr.json`
+- Condition `is_high_or_critical` supprimée dans `runner.py` et `display.py`
+
+### Correctif GeoIP wget
+- Préfixe `sudo mkdir -p /usr/share/GeoIP &&` ajouté dans `en.json`, `fr.json` et le fallback de `display.py`
+
+### `unattended-upgrades` selon le profil (`checks/updates.py`)
+- Nouveau paramètre `profile_name` dans `check_updates()`
+- Profil `workstation` : risque composé → INFO, pas de déduction supplémentaire
+
+### Comptes expirés avec dates (`checks/user_accounts.py`)
+- `expired_accounts` : `List[str]` → `Dict[str, str]` (utilisateur → date ISO)
+- Comptes système (UID < 1000) exclus ; date affichée dans le message du résultat
+
+---
+
 ## [v1.11.0] — 2026-04-07
 
 ### TL;DR

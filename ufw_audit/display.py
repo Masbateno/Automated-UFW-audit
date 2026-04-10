@@ -423,11 +423,9 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
 # ---------------------------------------------------------------------------
 
 def build_risk_context_entries(snapshots, lang: str, t) -> list[dict]:
-    """Build risk context entries for the report from active high/critical services."""
+    """Build risk context entries for the report from active services with risk data."""
     entries = []
     for snap in snapshots:
-        if not snap.service.is_high_or_critical:
-            continue
         if not snap.is_active:
             continue
         svc_id = (snap.service.label.lower()
@@ -470,7 +468,7 @@ def display_geoip_notice(geo_status: str, t, output) -> None:
         if msg.startswith("["):
             msg = "GeoIP2 installed but no GeoLite2-Country database found — IP geolocation disabled"
         if cmd.startswith("["):
-            cmd = "sudo wget -O /usr/share/GeoIP/GeoLite2-Country.mmdb https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb"
+            cmd = "sudo mkdir -p /usr/share/GeoIP && sudo wget -O /usr/share/GeoIP/GeoLite2-Country.mmdb https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb"
         output.print_info(msg)
         output.print_info(f"\u2192 {cmd}")
 

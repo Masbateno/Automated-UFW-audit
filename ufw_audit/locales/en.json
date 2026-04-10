@@ -163,7 +163,7 @@
     "geoip2_unavailable": "GeoIP2 library not found in the ufw-audit environment — IP geolocation disabled",
     "geoip2_unavailable_cmd": "pipx inject ufw-audit geoip2",
     "geoip2_no_db": "GeoIP2 installed but no GeoLite2-Country database found — IP geolocation disabled",
-    "geoip2_no_db_cmd": "sudo wget -O /usr/share/GeoIP/GeoLite2-Country.mmdb https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb"
+    "geoip2_no_db_cmd": "sudo mkdir -p /usr/share/GeoIP && sudo wget -O /usr/share/GeoIP/GeoLite2-Country.mmdb https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb"
   },
   "ddns": {
     "none": "No DDNS client detected — no DDNS-based external exposure identified",
@@ -426,6 +426,61 @@
       "level": "HIGH",
       "exposure": "MQTT broker often without authentication by default, listens on all interfaces",
       "threat": "Unauthorised publish/subscribe to home automation topics, device control, sensor data interception"
+    },
+    "apache_web_server": {
+      "level": "MEDIUM",
+      "exposure": "Web server potentially exposed to the internet — commonly targeted by automated vulnerability scanners",
+      "threat": "Web application exploits, path traversal, remote code execution if CGI or modules are misconfigured"
+    },
+    "nginx_web_server": {
+      "level": "MEDIUM",
+      "exposure": "Web server potentially exposed to the internet — commonly targeted by automated vulnerability scanners",
+      "threat": "Web application exploits, reverse proxy misconfigurations leading to internal service exposure"
+    },
+    "transmission_web_ui": {
+      "level": "MEDIUM",
+      "exposure": "Web interface for BitTorrent client — unauthenticated access by default on older versions",
+      "threat": "Remote control of downloads, potential RCE via malicious torrents if exposed publicly"
+    },
+    "qbittorrent_web_ui": {
+      "level": "MEDIUM",
+      "exposure": "Web interface for BitTorrent client — default credentials (admin/adminadmin) frequently unchanged",
+      "threat": "Remote control of downloads, file system write access via download directory configuration"
+    },
+    "avahi_local_network_discovery": {
+      "level": "LOW",
+      "exposure": "mDNS/DNS-SD service — designed for local network use only, not internet-facing",
+      "threat": "Local network device and service enumeration — low risk on isolated or properly firewalled networks"
+    },
+    "cups_network_printing": {
+      "level": "LOW",
+      "exposure": "Print server — typically restricted to local network, not intended for internet exposure",
+      "threat": "Printer access and configuration disclosure on local network — minimal risk if not publicly exposed"
+    },
+    "jellyfin": {
+      "level": "MEDIUM",
+      "exposure": "Media server web interface — may be exposed for remote streaming access",
+      "threat": "Unauthorised media access, potential RCE if outdated versions with known CVEs are running"
+    },
+    "plex_media_server": {
+      "level": "MEDIUM",
+      "exposure": "Media server with cloud relay — phone-home by default, may be directly accessible if port-forwarded",
+      "threat": "Unauthorised media access, metadata exposure, potential RCE on outdated versions"
+    },
+    "gitea": {
+      "level": "MEDIUM",
+      "exposure": "Self-hosted Git service — may contain private repositories, credentials and CI/CD secrets",
+      "threat": "Source code and secret exfiltration, arbitrary code execution via Git hooks if admin account is compromised"
+    },
+    "syncthing": {
+      "level": "MEDIUM",
+      "exposure": "Peer-to-peer file sync — web UI bound to localhost by default, sync protocol may be externally reachable",
+      "threat": "File access and modification, directory traversal if misconfigured, data synchronisation interception"
+    },
+    "ollama_llm_server": {
+      "level": "MEDIUM",
+      "exposure": "Local LLM API server — no authentication by default, designed for local or trusted network use",
+      "threat": "Unauthorised model inference, resource exhaustion, potential data exfiltration via model prompts"
     }
   },
   "virt": {
