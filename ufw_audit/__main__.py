@@ -12,6 +12,7 @@ import json as _json
 import os
 import sys
 from datetime import datetime
+from pathlib import Path
 
 from ufw_audit import __version__ as VERSION
 from ufw_audit import i18n, output
@@ -63,7 +64,14 @@ def _run(argv=None) -> int:
         return EXIT_OK
 
     if config.install_completion:
-        require_root()
+        if os.geteuid() != 0:
+            self_path = Path(sys.argv[0]).resolve()
+            print(
+                f"✖ --install-completion requires root. Run:\n"
+                f"  sudo {self_path} --install-completion",
+                file=sys.stderr,
+            )
+            return EXIT_ERROR
         return install_completion()
 
     if config.reset_baseline:

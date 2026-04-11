@@ -53,8 +53,8 @@ Cette séparation permet de tester toute la logique métier en instanciant direc
 | `sysinfo.py` | Info système — `collect_system_info()`, `detect_network_context()`, `get_user_home()` |
 | `compare.py` | Rapport comparatif — `AuditBaseline`, `AuditDelta`, `build_baseline()`, `save_baseline()`, `load_baseline()`, `compute_delta()`, `display_delta()` |
 | `plugin_checks.py` | Chargeur de plugins — `PluginCheck`, `load_plugin_checks()`, sanitisation ANSI |
-| `explain.py` | `--explain KEY` — `normalize_key()`, `run_explain()`, 20 clés canoniques, lookup référence CIS |
-| `domain_scores.py` | Sous-scores par domaine — `compute_domain_scores()`, `render_domain_scores()`, attribution 5 domaines |
+| `explain.py` | `--explain KEY` — `normalize_key()`, `run_explain()`, 63 clés canoniques dans 15 groupes, lookup référence CIS |
+| `domain_scores.py` | Sous-scores par domaine — `compute_domain_scores()`, `render_domain_scores()`, attribution 6 domaines |
 | `webhook.py` | Envoi webhook — `build_generic_payload()`, `build_slack_payload()`, `send_webhook()`, auto-détection format |
 
 ### Module cron
@@ -79,6 +79,15 @@ Cette séparation permet de tester toute la logique métier en instanciant direc
 | `hardening.py` | Durcissement : fail2ban, mises à jour auto, AppArmor, rp_filter, redirections ICMP, log_martians, broadcast |
 | `ipv6.py` | Cohérence ports IPv6 actifs / règles UFW v6 |
 | `updates.py` | État des mises à jour système : paquets apt en attente (sécurité/réguliers), détection `unattended-upgrades` |
+| `ssh.py` | Audit sécurité SSH : directives sshd_config, clés privées, authorized_keys, known_hosts |
+| `file_perms.py` | Permissions fichiers sensibles : /etc/passwd, /etc/shadow, sudoers, clés hôte SSH |
+| `user_accounts.py` | Audit comptes utilisateurs : UID 0 non-root, mots de passe vides, comptes expirés |
+| `password_policy.py` | Politique mots de passe : module PAM qualité, minlen, PASS_MAX_DAYS |
+| `kernel_modules.py` | Modules noyau risqués : cramfs, hfs, dccp, sctp, rds, tipc, usb_storage |
+| `cron_audit.py` | Sécurité cron : pipe-to-shell, scripts world-writable |
+| `services_state.py` | État des services : services de sécurité activés au boot mais inactifs |
+| `disk.py` | Santé disques : SMART (smartctl), attributs critiques, utilisation partitions ; support NVMe |
+| `memory.py` | Mémoire & swap : détection usure SSD, swap injustifié, swappiness |
 
 ---
 
@@ -118,7 +127,16 @@ ufw_audit/
 │   ├── network_context.py # NetworkContextSnapshot + check_network_context()
 │   ├── hardening.py     # HardeningSnapshot + check_hardening()
 │   ├── ipv6.py          # IPv6Snapshot + check_ipv6()
-│   └── updates.py       # UpdatesSnapshot + check_updates()
+│   ├── updates.py       # UpdatesSnapshot + check_updates()
+│   ├── ssh.py           # SshSnapshot + check_ssh()
+│   ├── file_perms.py    # FilePermsSnapshot + check_file_perms()
+│   ├── user_accounts.py # UserAccountsSnapshot + check_user_accounts()
+│   ├── password_policy.py # PasswordPolicySnapshot + check_password_policy()
+│   ├── kernel_modules.py # KernelModulesSnapshot + check_kernel_modules()
+│   ├── cron_audit.py    # CronAuditSnapshot + check_cron_audit()
+│   ├── services_state.py # ServicesStateSnapshot + check_services_state()
+│   ├── disk.py          # DiskSnapshot + check_disk() — SMART, partitions, NVMe
+│   └── memory.py        # MemorySnapshot + check_memory() — usure SSD, swappiness
 ├── compare.py           # AuditBaseline + AuditDelta + rapport comparatif
 ├── plugin_checks.py     # PluginCheck + load_plugin_checks()
 ├── explain.py           # run_explain(), normalize_key(), EXPLAIN_KEYS
@@ -161,7 +179,12 @@ tests/
 ├── test_updates.py
 ├── test_explain.py
 ├── test_domain_scores.py
-└── test_webhook.py
+├── test_webhook.py
+├── test_user_accounts.py
+├── test_password_policy.py
+├── test_display_explain_hint.py
+├── test_disk.py
+└── test_memory.py
 
 pyproject.toml           # Config de build (setuptools, installation pip/pipx)
 README.md / README_FR.md           # Documentation utilisateur (EN/FR)
@@ -208,7 +231,7 @@ python3 -m unittest tests/test_firewall.py
 ### Résultats attendus
 
 ```
-1675 passed in X.XXs
+1890 passed in X.XXs
 ```
 
 Les tests n'effectuent aucun appel système — tous les snapshots sont construits directement dans les tests. Ils peuvent être lancés sans `sudo` et sans UFW installé.

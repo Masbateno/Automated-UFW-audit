@@ -6,6 +6,112 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.13.0] — 2026-04-10
+
+### TL;DR
+- **CHECK 22 — Disk Health** (`checks/disk.py`) — SMART health (`smartctl -H/-A`) + partition usage (`df -P`); new `disk` domain (6th); 22 locale keys; NVMe support; SMART tips
+- **CHECK 23 — Memory & Swap** (`checks/memory.py`) — SSD wear detection, unjustified swap (3-condition), profile-aware swappiness; routes to `hardening` domain; 9 locale keys
+- **Partition table display** — `display_disk_partitions()` with colored progress bars (green/yellow/red) in DISK HEALTH section
+- **`--explain` 33 → 63 keys** — 30 new keys across 15 groups; `--explain list` now displays labeled group headers
+- **Quality pass** — disk.py (NVMe, SMART line-specific matching); memory.py (3-condition swap, swapon --show=NAME, /proc errors="ignore")
+- **Tests: 1890/1890** (+187: `test_disk.py` 60 tests, `test_memory.py` 37 tests)
+
+### CHECK 22 — Disk Health (`checks/disk.py`)
+
+**Snapshot** (`DiskSnapshot`):
+- `smartctl_available`: bool — True if `smartctl` is on PATH
+- `smart_results`: List[SmartResult] — one entry per physical disk (`lsblk -d -n -o NAME,TYPE`)
+- `partitions`: List[PartitionInfo] — non-pseudo mounted filesystems (`df -P --block-size=1G`)
+
+**SmartResult** fields: `device`, `model`, `passed` (None = unknown), `virtual` (VM/unsupported), `reallocated_sectors`, `pending_sectors`, `uncorrectable_errors`
+
+**Check logic** (`check_disk`):
+| Condition | Level | Deduction |
+|-----------|-------|-----------|
+| SMART FAILED | ALERT | −3 pts |
+| Reallocated sectors > 0 | WARN | −1 pt |
+| Pending sectors > 0 | WARN | −1 pt |
+| Uncorrectable errors > 0 | WARN | −1 pt |
+| Partition ≥ 90% full | WARN | −1 pt |
+| Partition ≥ 80% full | INFO | none |
+| SMART not available | INFO | none |
+| Virtual/unsupported device | INFO | none |
+
+**Helpers**:
+- `_detect_block_devices()`: `lsblk -d -n -o NAME,TYPE` → `/dev/{name}` for type=disk
+- `_query_smart(device)`: `smartctl -iH` (info + health) + `smartctl -A` (attributes); detects virtual/unsupported by keywords; SMART health matched on "SMART overall-health" line only
+- `_parse_nvme_attrs(output)`: maps NVMe health counters — Media and Data Integrity Errors → `uncorrectable_errors`, Error Information Log Entries → `pending_sectors`
+- `_parse_smart_attr(output, attr_id)`: parses RAW_VALUE at column index 9 (standard smartctl -A format); handles inline parenthetical notation
+- `_read_partition_usage()`: skips tmpfs, devtmpfs, squashfs, overlay, udev, cgroupfs, proc, sysfs, etc.; `--block-size=1G` for GB display
+- `disk.smart_tips` INFO finding: `smartctl -a` per disk + guided commands for short/long tests, watch, abort (`-X`), history (`-l selftest`)
+
+**New `disk` domain** in `domain_scores.py`:
+- Added as 6th entry in `DOMAINS` list (between `hardening` and `firewall`)
+- `_LABELS["disk"] = "Disk Health"`
+- `_PREFIX_TO_DOMAIN["disk"] = "disk"`
+
+### CHECK 23 — Memory & Swap (`checks/memory.py`)
+
+**Snapshot** (`MemorySnapshot`):
+- `mem_total_kb`, `mem_available_kb`: from `/proc/meminfo` (with `errors="ignore"`)
+- `swap_total_kb`, `swap_free_kb`: from `/proc/meminfo`
+- `swappiness`: from `/proc/sys/vm/swappiness` (with `errors="ignore"`)
+- `swap_on_ssd`: bool — `/sys/block/{dev}/queue/rotational` = 0; handles NVMe partition stripping
+- `swap_devices`: List[str] — from `swapon --show=NAME --noheadings --raw`
+
+**Check logic** (`check_memory`, `profile_name="server"`):
+| Condition | Level | Deduction |
+|-----------|-------|-----------|
+| No swap configured | INFO | none |
+| Swap on SSD + swappiness > 30 | WARN | −1 pt |
+| Swap used ≥ 32 MB AND RAM > 50% free AND swappiness > recommended | WARN | none |
+| swappiness suboptimal (default 60) | INFO | none |
+| swappiness optimal | OK | none |
+
+Profile-aware recommended swappiness: server → 1; workstation → 10.
+Unjustified swap requires all 3 conditions to avoid false positives from kswapd LRU aging.
+
+**Domain**: findings with prefix `memory` route to `hardening` via `_PREFIX_TO_DOMAIN`.
+
+**Constants**: `_SSD_SWAPPINESS_THRESHOLD = 30`, `_RAM_FREE_THRESHOLD = 0.50`, `_MIN_SWAP_USED_KB = 32 * 1024`
+
+### Locale (`en.json`, `fr.json`)
+
+**Disk keys** (27): `disk.ok`, `disk.smartctl_missing`, `disk.smartctl_missing_detail`, `disk.smart_ok`, `disk.smart_failed`, `disk.smart_failed_detail`, `disk.smart_failed_reason`, `disk.smart_virtual`, `disk.smart_unknown`, `disk.reallocated_sectors`, `disk.reallocated_sectors_detail`, `disk.reallocated_sectors_reason`, `disk.pending_sectors`, `disk.pending_sectors_detail`, `disk.pending_sectors_reason`, `disk.uncorrectable_errors`, `disk.uncorrectable_errors_detail`, `disk.uncorrectable_errors_reason`, `disk.partition_critical`, `disk.partition_critical_detail`, `disk.partition_critical_reason`, `disk.partition_warn`, `disk.smart_tips`, `disk.smart_tips_detail`, `disk.col_mountpoint`, `disk.col_size`, `disk.col_used`
+
+**Memory keys** (9): `memory.no_swap`, `memory.swap_stats`, `memory.swappiness_ok`, `memory.swappiness_ssd_wear`, `memory.swappiness_ssd_detail`, `memory.swappiness_unjustified`, `memory.swappiness_unjustified_detail`, `memory.swappiness_suboptimal`
+
+**Section keys**: `sections.memory = "MEMORY & SWAP"`, `sections.disk = "DISK HEALTH"`
+
+### Display (`display.py`)
+
+- `display_disk_partitions(snapshot, t, output_module)` — partition table in DISK HEALTH section
+  - Columns: mountpoint, device, size (GB), colored progress bar, usage%
+  - Bar: `█` (filled) + `░` (empty), 10 chars wide; color: green < 70%, yellow < 90%, red ≥ 90%
+  - Size: `< 1 GB` when < 0.5 GB, else `N GB`; `_disk_bar()` and `_gb_str()` helpers
+  - Rows use `print()` directly (not `print_dim`) to preserve embedded ANSI color codes
+
+### Runner (`runner.py`)
+
+- `display_disk_partitions` imported and called after `display_result(disk_result, ...)` inside `if not config.quiet:`
+- `--explain` list: grouped display with 15 labeled sections via `_EXPLAIN_GROUPS`
+
+### `--explain` (`explain.py`)
+
+- `_EXPLAIN_GROUPS`: 15 groups, 63 keys — single source of truth from which `EXPLAIN_KEYS` is derived
+- New groups: SSH — Authorized Keys (5 keys), SSH — Client Config (3 keys), Firewall Rules (2 keys), IPv6 (2 keys), Password Policy (2 keys), Disk (3 keys), Memory (2 keys)
+- `run_explain(key="list")` now iterates `_EXPLAIN_GROUPS` and prints group headers
+- `tests/test_explain.py`: `test_has_sixty_three_keys` asserts `len(EXPLAIN_KEYS) == 63`
+
+### Tests
+
+- `tests/test_disk.py` — 60 tests across 9 classes (+3 NVMe tests):
+  - `TestSnapshotDefaults`, `TestSmartctlMissing`, `TestSmartVirtual`, `TestSmartUnknown`, `TestSmartPassed`, `TestSmartFailed`, `TestSmartAttributes`, `TestNvmeAttrs`, `TestMultipleDisks`, `TestPartitionUsage`, `TestAllClear`, `TestParseSmartAttr`, `TestEdgeCases`
+- `tests/test_memory.py` — 37 tests across 8 classes (+6 robustness tests):
+  - `TestSnapshotDefaults`, `TestNoSwap`, `TestSsdWear`, `TestUnjustifiedSwap`, `TestSuboptimalSwappiness`, `TestProfileAware`, `TestSwapStats`, `TestEdgeCases`
+
+---
+
 ## [v1.12.0] — 2026-04-10
 
 ### TL;DR

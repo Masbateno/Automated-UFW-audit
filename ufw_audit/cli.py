@@ -323,9 +323,12 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
     opt("-e, --explain=KEY",     "Print WHY/HOW/CIS explanation for a finding key")
     opt("",                      "  ufw-audit -e list                 (list all keys)")
     opt("",                      "  ufw-audit -e ssh.password_auth    (explain a key)")
-    opt("    --install-completion", "Install bash tab-completion script")
     opt("-V, --version",         "Show version and exit")
     opt("-h, --help",            "Show this help message")
+
+    section("SETUP — requires sudo")
+    opt("    --install-completion", "Install bash tab-completion to /etc/bash_completion.d/")
+    opt("",                      "  sudo ~/.local/bin/ufw-audit --install-completion")
 
     section("EXAMPLES")
     print("  sudo ufw-audit                        Standard audit")

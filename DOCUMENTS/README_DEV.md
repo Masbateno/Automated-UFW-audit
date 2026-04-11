@@ -53,8 +53,8 @@ This separation allows the entire business logic to be tested by instantiating s
 | `sysinfo.py` | System info — `collect_system_info()`, `detect_network_context()`, `get_user_home()` |
 | `compare.py` | Comparative report — `AuditBaseline`, `AuditDelta`, `build_baseline()`, `save_baseline()`, `load_baseline()`, `compute_delta()`, `display_delta()` |
 | `plugin_checks.py` | Plugin loader — `PluginCheck`, `load_plugin_checks()`, ANSI sanitization |
-| `explain.py` | `--explain KEY` — `normalize_key()`, `run_explain()`, 20-key canonical list, CIS reference lookup |
-| `domain_scores.py` | Per-domain sub-scores — `compute_domain_scores()`, `render_domain_scores()`, 5-domain attribution |
+| `explain.py` | `--explain KEY` — `normalize_key()`, `run_explain()`, 63-key canonical list in 15 groups, CIS reference lookup |
+| `domain_scores.py` | Per-domain sub-scores — `compute_domain_scores()`, `render_domain_scores()`, 6-domain attribution |
 | `webhook.py` | Webhook delivery — `build_generic_payload()`, `build_slack_payload()`, `send_webhook()`, format auto-detection |
 
 ### Cron module
@@ -79,6 +79,15 @@ This separation allows the entire business logic to be tested by instantiating s
 | `hardening.py` | System hardening: fail2ban, auto-updates, AppArmor, rp_filter, ICMP redirects, log_martians, broadcast |
 | `ipv6.py` | IPv6 listener/UFW-rule consistency check |
 | `updates.py` | System update status: apt pending security/regular packages, unattended-upgrades detection |
+| `ssh.py` | SSH security audit: sshd_config directives, private keys, authorized_keys, known_hosts |
+| `file_perms.py` | Sensitive file permissions: /etc/passwd, /etc/shadow, sudoers, SSH host keys |
+| `user_accounts.py` | User account audit: UID 0 non-root, empty passwords, expired accounts |
+| `password_policy.py` | Password policy: PAM quality module, minlen, PASS_MAX_DAYS |
+| `kernel_modules.py` | Risky kernel modules: cramfs, hfs, dccp, sctp, rds, tipc, usb_storage |
+| `cron_audit.py` | Cron security: pipe-to-shell, world-writable scripts |
+| `services_state.py` | Service state: security services enabled at boot but currently inactive |
+| `disk.py` | Disk health: SMART health (smartctl), critical SMART attributes, partition usage; NVMe support |
+| `memory.py` | Memory & swap: SSD wear detection, unjustified swap, swappiness tuning |
 
 ---
 
@@ -117,7 +126,16 @@ ufw_audit/
 │   ├── network_context.py # NetworkContextSnapshot + check_network_context()
 │   ├── hardening.py     # HardeningSnapshot + check_hardening()
 │   ├── ipv6.py          # IPv6Snapshot + check_ipv6()
-│   └── updates.py       # UpdatesSnapshot + check_updates()
+│   ├── updates.py       # UpdatesSnapshot + check_updates()
+│   ├── ssh.py           # SshSnapshot + check_ssh()
+│   ├── file_perms.py    # FilePermsSnapshot + check_file_perms()
+│   ├── user_accounts.py # UserAccountsSnapshot + check_user_accounts()
+│   ├── password_policy.py # PasswordPolicySnapshot + check_password_policy()
+│   ├── kernel_modules.py # KernelModulesSnapshot + check_kernel_modules()
+│   ├── cron_audit.py    # CronAuditSnapshot + check_cron_audit()
+│   ├── services_state.py # ServicesStateSnapshot + check_services_state()
+│   ├── disk.py          # DiskSnapshot + check_disk() — SMART, partitions, NVMe
+│   └── memory.py        # MemorySnapshot + check_memory() — SSD wear, swappiness
 ├── compare.py           # AuditBaseline + AuditDelta + comparative report
 ├── plugin_checks.py     # PluginCheck + load_plugin_checks()
 ├── explain.py           # run_explain(), normalize_key(), EXPLAIN_KEYS
@@ -160,7 +178,12 @@ tests/
 ├── test_updates.py
 ├── test_explain.py
 ├── test_domain_scores.py
-└── test_webhook.py
+├── test_webhook.py
+├── test_user_accounts.py
+├── test_password_policy.py
+├── test_display_explain_hint.py
+├── test_disk.py
+└── test_memory.py
 
 pyproject.toml           # Build config (setuptools, pip/pipx install)
 README.md / README_FR.md           # User documentation (EN/FR)
@@ -207,7 +230,7 @@ python3 -m unittest tests/test_firewall.py
 ### Expected result
 
 ```
-1675 passed in X.XXs
+1890 passed in X.XXs
 ```
 
 Tests make no system calls — all snapshots are built directly in the test files. They can be run without `sudo` and without UFW installed.

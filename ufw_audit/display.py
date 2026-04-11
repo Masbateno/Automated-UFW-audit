@@ -63,22 +63,35 @@ def display_result(result, report, verbose: bool, quiet: bool = False) -> None:
         elif finding.level == FindingLevel.WARN:
             print_warn(finding.message)
             report.write_finding("WARN", finding.message)
+            rec: list[str] = []
             if finding.detail and verbose:
-                print_recommendation(finding.detail)
+                rec.extend(finding.detail.splitlines())
+            if finding.cmd and verbose:
+                rec.extend(finding.cmd.splitlines())
+            if rec:
+                print_recommendation(rec)
         elif finding.level == FindingLevel.ALERT:
             print_alert(finding.message)
             report.write_finding("ALERT", finding.message)
+            rec = []
             if finding.detail:
-                print_recommendation(finding.detail)
-            elif finding.cmd and verbose:
-                print_recommendation(finding.cmd)
+                rec.extend(finding.detail.splitlines())
+            if finding.cmd and verbose:
+                rec.extend(finding.cmd.splitlines())
+            if rec:
+                print_recommendation(rec)
             if finding.note and verbose:
                 print_info(finding.note)
         elif finding.level == FindingLevel.INFO:
             print_info(finding.message)
             report.write_finding("INFO", finding.message)
+            rec = []
             if finding.detail and verbose:
-                print_recommendation(finding.detail)
+                rec.extend(finding.detail.splitlines())
+            if finding.cmd and verbose:
+                rec.extend(finding.cmd.splitlines())
+            if rec:
+                print_recommendation(rec)
 
 
 # ---------------------------------------------------------------------------
@@ -542,4 +555,99 @@ def display_services_panorama(registry, ufw_numbered: str,
         "unknown":        t("services.panorama.unknown"),
     }
     print_services_panorama(panorama_rows, panorama_labels)
+    print()
+
+
+# ---------------------------------------------------------------------------
+# Disk partition table
+# ---------------------------------------------------------------------------
+
+_BAR_WIDTH = 10
+
+
+def _disk_bar(pct: int, c) -> str:
+    """Return a 10-char block progress bar, coloured by usage level."""
+    filled = round(pct * _BAR_WIDTH / 100)
+    empty  = _BAR_WIDTH - filled
+    if pct >= 90:
+        color = c.red
+    elif pct >= 70:
+        color = c.yellow
+    else:
+        color = c.green
+    return f"{color}{'█' * filled}{'░' * empty}{c.dim}"
+
+
+def _gb_str(gb: float) -> str:
+    """Format a GB value; returns '< 1 GB' when the value rounds to zero."""
+    return "< 1 GB" if gb < 0.5 else f"{gb:.0f} GB"
+
+
+def display_disk_partitions(snapshot, t, output_module) -> None:
+    """Print a compact partition usage table (mountpoint / device / size / bar / used% / free)."""
+    if not snapshot.partitions:
+        return
+
+    c = output_module._c
+
+    # Compute display values
+    rows = []
+    for p in snapshot.partitions:
+        size_str = _gb_str(p.size_gb)
+        used_gb  = p.size_gb * p.used_pct / 100
+        free_gb  = max(0.0, p.size_gb - used_gb)
+        if p.size_gb >= 1.0:
+            used_str = f"{_gb_str(used_gb)} ({p.used_pct}%)"
+            free_str = _gb_str(free_gb)
+        else:
+            used_str = f"{p.used_pct}%"
+            free_str = "—"
+        bar = _disk_bar(p.used_pct, c)
+        rows.append((p.mountpoint, p.device, size_str, used_str, bar, free_str))
+
+    # Dynamic column widths (bar column is always _BAR_WIDTH — colour codes excluded)
+    h_mount  = t("disk.col_mountpoint")
+    h_device = t("disk.col_device")
+    h_size   = t("disk.col_size")
+    h_used   = t("disk.col_used")
+    h_free   = t("disk.col_free")
+
+    w_mount  = max(len(h_mount),  max(len(r[0]) for r in rows))
+    w_device = max(len(h_device), max(len(r[1]) for r in rows))
+    w_size   = max(len(h_size),   max(len(r[2]) for r in rows))
+    w_used   = max(len(h_used),   max(len(r[3]) for r in rows))
+    w_free   = max(len(h_free),   max(len(r[5]) for r in rows))
+
+    # Blank line for visual separation from the SMART findings above
+    print()
+
+    header = (
+        f"  {h_mount:<{w_mount}}  "
+        f"{h_device:<{w_device}}  "
+        f"{h_size:>{w_size}}  "
+        f"{h_used:>{w_used}}  "
+        f"{'':>{_BAR_WIDTH}}  "
+        f"{h_free:>{w_free}}"
+    )
+    sep = (
+        f"  {'-' * w_mount}  "
+        f"{'-' * w_device}  "
+        f"{'-' * w_size}  "
+        f"{'-' * w_used}  "
+        f"{'-' * _BAR_WIDTH}  "
+        f"{'-' * w_free}"
+    )
+
+    output_module.print_dim(header)
+    output_module.print_dim(sep)
+    for mountpoint, device, size_str, used_str, bar, free_str in rows:
+        # Bar contains ANSI colour codes — print directly so they're not mangled
+        prefix = (
+            f"  {mountpoint:<{w_mount}}  "
+            f"{device:<{w_device}}  "
+            f"{size_str:>{w_size}}  "
+            f"{used_str:>{w_used}}  "
+        )
+        suffix = f"  {free_str:>{w_free}}"
+        print(f"  {c.dim}{prefix}{bar}{suffix}{c.reset}")
     print()

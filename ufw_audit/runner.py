@@ -10,6 +10,7 @@ from ufw_audit.config import UserConfig
 from ufw_audit.profiles import AuditProfile, apply_profile
 from ufw_audit.display import (
     check_single_service_display,
+    display_disk_partitions,
     display_geoip_notice,
     display_log_results,
     display_network_context,
@@ -41,6 +42,8 @@ from ufw_audit.checks.cron_audit import CronAuditSnapshot, check_cron_audit
 from ufw_audit.checks.services_state import ServicesStateSnapshot, check_services_state
 from ufw_audit.checks.user_accounts import UserAccountsSnapshot, check_user_accounts
 from ufw_audit.checks.password_policy import PasswordPolicySnapshot, check_password_policy
+from ufw_audit.checks.memory import MemorySnapshot, check_memory
+from ufw_audit.checks.disk import DiskSnapshot, check_disk
 from ufw_audit.plugin_checks import load_plugin_checks
 
 
@@ -375,6 +378,38 @@ def run_checks(
         engine.apply(password_policy_result)
         display_result(password_policy_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:
+            print()
+
+    # ---- CHECK 23 — Memory & Swap ----
+    memory_snapshot = MemorySnapshot.from_system()
+    if profile is None or not profile.should_skip_section("memory"):
+        if not config.quiet:
+            print_section(t("sections.memory"))
+        report.write_section(t("sections.memory"))
+        memory_result = check_memory(
+            memory_snapshot, t=t,
+            profile_name=profile.name if profile is not None else "server",
+        )
+        if profile is not None:
+            apply_profile(memory_result, profile)
+        engine.apply(memory_result)
+        display_result(memory_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 22 — Disk health (SMART + partition usage) ----
+    disk_snapshot = DiskSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("disk"):
+        if not config.quiet:
+            print_section(t("sections.disk"))
+        report.write_section(t("sections.disk"))
+        disk_result = check_disk(disk_snapshot, t=t)
+        if profile is not None:
+            apply_profile(disk_result, profile)
+        engine.apply(disk_result)
+        display_result(disk_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            display_disk_partitions(disk_snapshot, t, output)
             print()
 
     # ---- Plugin checks (user-defined, checks.d/) ----

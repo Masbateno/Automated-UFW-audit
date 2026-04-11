@@ -43,7 +43,9 @@
     "cron_audit": "CRON JOB AUDIT",
     "services_state": "SERVICE STATE AUDIT",
     "user_accounts": "USER ACCOUNT AUDIT",
-    "password_policy": "PASSWORD POLICY AUDIT"
+    "password_policy": "PASSWORD POLICY AUDIT",
+    "memory": "MEMORY & SWAP",
+    "disk": "DISK HEALTH"
   },
   "status": {
     "ok": "OK",
@@ -505,6 +507,47 @@
     "icmp_broadcast_ok": "ICMP broadcast echo is ignored",
     "icmp_broadcast_enabled": "ICMP broadcast echo not ignored — smurf amplification risk"
   },
+  "disk": {
+    "ok": "All disks passed SMART health check — no critical attributes detected",
+    "smartctl_missing": "smartctl not installed — SMART health check skipped",
+    "smartctl_missing_detail": "smartmontools provides disk health monitoring via SMART. Without it, failing drives cannot be detected early.",
+    "smart_ok": "{device} ({model}) — SMART: PASSED",
+    "smart_failed": "{device} ({model}) — SMART: FAILED — disk failure imminent",
+    "smart_failed_detail": "This disk has reported a SMART failure. Back up data immediately and plan for disk replacement.",
+    "smart_failed_reason": "SMART FAILED on {device} — disk failure imminent",
+    "smart_virtual": "{device} — SMART not applicable (virtualised or unsupported device)",
+    "smart_unknown": "{device} — SMART health status unknown (device may not support SMART)",
+    "reallocated_sectors": "{device} — {count} reallocated sector(s) detected",
+    "reallocated_sectors_detail": "Reallocated sectors indicate bad blocks remapped by the drive firmware. A non-zero count means sectors have already failed.",
+    "reallocated_sectors_reason": "Reallocated sectors on {device}",
+    "pending_sectors": "{device} — {count} pending sector(s) (candidate for reallocation)",
+    "pending_sectors_detail": "Pending sectors are unstable — the drive is attempting to remap them. May indicate impending failure.",
+    "pending_sectors_reason": "Pending sectors on {device}",
+    "uncorrectable_errors": "{device} — {count} uncorrectable error(s) detected",
+    "uncorrectable_errors_detail": "Uncorrectable errors could not be remapped. Data in affected sectors is unreadable.",
+    "uncorrectable_errors_reason": "Uncorrectable errors on {device}",
+    "partition_critical": "{mountpoint} partition is {pct}% full",
+    "partition_critical_detail": "Partition at {mountpoint} is critically full. Running out of disk space causes service failures and data corruption.",
+    "partition_critical_reason": "Partition {mountpoint} is {pct}% full",
+    "partition_warn": "{mountpoint} partition is {pct}% full — approaching capacity",
+    "col_mountpoint": "MOUNTPOINT",
+    "col_device": "DEVICE",
+    "col_size": "SIZE",
+    "col_used": "USED",
+    "col_free": "FREE",
+    "smart_tips": "Deeper SMART analysis available via smartmontools",
+    "smart_tips_detail": "Each -a command prints the full SMART report (attributes + health) for one disk. Run tests one disk at a time — each command below targets the first disk as an example."
+  },
+  "memory": {
+    "no_swap": "No swap space configured",
+    "swap_stats": "Swap: {used_mb} MB used / {total_mb} MB total ({pct}% in use)",
+    "swappiness_ok": "swappiness={value} — well tuned for this system",
+    "swappiness_ssd_wear": "Swap on SSD with swappiness={value} — unnecessary SSD wear",
+    "swappiness_ssd_detail": "High swappiness on an SSD causes premature wear. Recommended: vm.swappiness={recommended}",
+    "swappiness_unjustified": "Swap in use ({swap_pct}%) while {ram_pct}% of RAM is still free — swappiness={value} is too aggressive",
+    "swappiness_unjustified_detail": "The kernel is swapping out pages despite available RAM. Lowering swappiness reduces unnecessary I/O. Recommended: vm.swappiness={recommended}",
+    "swappiness_suboptimal": "swappiness={value} (system default) — consider lowering to {recommended} to reduce unnecessary swapping"
+  },
   "compare": {
     "section_title": "CHANGES SINCE LAST AUDIT",
     "previous_run": "Previous audit: {timestamp}",
@@ -756,6 +799,76 @@
         "title": "Weak SSH key exchange algorithms in use",
         "why": "Weak KEX algorithms (diffie-hellman-group1-sha1 uses a 1024-bit group; diffie-hellman-group14-sha1 uses deprecated SHA-1) offer insufficient forward secrecy. Nation-state actors have demonstrated precomputation attacks against standard 1024-bit DH groups (Logjam). Compromised KEX means the session key can be recovered after the fact.",
         "how": "1. Restrict to strong KEX:\n   sudo nano /etc/ssh/sshd_config\n   KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512\n2. Restart SSH:\n   sudo systemctl restart ssh"
+      },
+      "rsa_weak": {
+        "title": "RSA host key too short (< 4096 bits)",
+        "why": "RSA keys shorter than 4096 bits are considered weak by modern cryptographic standards. As computing power increases and factorisation attacks improve, short keys become feasible to break. Keys under 2048 bits are practically broken today.",
+        "how": "1. Generate a new 4096-bit RSA host key:\n   sudo ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N ''\n2. Or prefer Ed25519 (shorter but stronger):\n   sudo ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N ''\n3. Restart SSH:\n   sudo systemctl restart ssh\n4. Remove old host fingerprints on clients:\n   ssh-keygen -R <hostname>"
+      },
+      "login_grace_time": {
+        "title": "LoginGraceTime too long (> 60s)",
+        "why": "A long grace period keeps unauthenticated TCP connections open for longer than necessary. An attacker can hold open many parallel SSH connections without completing authentication, potentially exhausting connection limits and degrading service for legitimate users.",
+        "how": "1. Reduce LoginGraceTime:\n   sudo nano /etc/ssh/sshd_config  →  LoginGraceTime 30\n2. Restart SSH:\n   sudo systemctl restart ssh"
+      },
+      "no_allow_users": {
+        "title": "No AllowUsers / AllowGroups restriction in SSH config",
+        "why": "Without AllowUsers or AllowGroups, every system account with a valid credential can attempt SSH login — including service accounts, daemon users, and legacy accounts not intended for remote access. Restricting SSH to specific users dramatically reduces the attack surface.",
+        "how": "1. Decide which users or groups need SSH access\n2. Add an AllowUsers directive:\n   sudo nano /etc/ssh/sshd_config  →  AllowUsers alice bob deploy\n3. Or restrict by group:\n   AllowGroups sshusers\n   sudo addgroup sshusers && sudo adduser alice sshusers\n4. Restart SSH:\n   sudo systemctl restart ssh"
+      },
+      "private_key_perms": {
+        "title": "SSH private key file permissions too open",
+        "why": "Private keys must be readable only by their owner (mode 0600). If group- or world-readable, any user sharing the same group — or any user on the system — can read the key and impersonate whoever owns it on every server that trusts it.",
+        "how": "1. Restrict permissions:\n   chmod 600 <key_path>\n2. Verify ownership:\n   ls -la <key_path>  →  -rw------- owner owner\n3. For root-owned host keys:\n   sudo chmod 600 /etc/ssh/ssh_host_*_key"
+      },
+      "authorized_keys_perms": {
+        "title": "authorized_keys file permissions too open",
+        "why": "An authorized_keys file writable by others allows any user who can write to it to inject their own public key and gain SSH access as this account. Read access by others leaks information about who is authorised and from which hosts.",
+        "how": "1. Restrict permissions:\n   chmod 600 ~/.ssh/authorized_keys\n2. Verify ownership matches the account:\n   ls -la ~/.ssh/authorized_keys\n3. Enable StrictModes in sshd_config to enforce permission checks automatically:\n   sudo nano /etc/ssh/sshd_config  →  StrictModes yes"
+      },
+      "authorized_keys_dsa": {
+        "title": "DSA key in authorized_keys",
+        "why": "DSA keys use a cryptographically broken algorithm, deprecated in OpenSSH 7.0+. They offer only 1024-bit security and authentication via a DSA key provides weaker guarantees than any modern alternative.",
+        "how": "1. Identify the DSA key line (starts with 'ssh-dss')\n2. Remove it from ~/.ssh/authorized_keys\n3. Ask the key owner to generate a new key:\n   ssh-keygen -t ed25519\n4. Add the new public key to authorized_keys\n5. Confirm removal:\n   grep 'ssh-dss' ~/.ssh/authorized_keys  # should return nothing"
+      },
+      "authorized_keys_weak_key": {
+        "title": "Weak RSA key in authorized_keys (< 4096 bits)",
+        "why": "Short RSA keys in authorized_keys are as dangerous as weak host keys: an attacker who factors the private key gains permanent backdoor access to this account on every server that trusts it — including this one.",
+        "how": "1. Identify weak RSA keys (ssh-rsa entries with a short modulus)\n2. Ask the key owner to generate a stronger key:\n   ssh-keygen -t ed25519  # or: ssh-keygen -t rsa -b 4096\n3. Replace the weak entry in authorized_keys with the new public key\n4. Revoke the old key from all servers it was used on"
+      },
+      "authorized_keys_no_restrictions": {
+        "title": "authorized_keys entries without command or host restrictions",
+        "why": "authorized_keys supports options (command=, from=, restrict) that limit what a key can do and from where. Without restrictions, a compromised key grants unrestricted shell access from any IP. For service or deployment keys this violates the principle of least privilege.",
+        "how": "1. For service keys, add a command= restriction:\n   command=\"/usr/bin/rsync --server ...\",no-pty,no-agent-forwarding ssh-ed25519 AAAA...\n2. For keys from known sources, add a from= restriction:\n   from=\"192.168.1.0/24\" ssh-ed25519 AAAA...\n3. Use the restrict option to disable all optional features:\n   restrict,command=\"...\" ssh-ed25519 AAAA..."
+      },
+      "authorized_keys_duplicate": {
+        "title": "Duplicate entries in authorized_keys",
+        "why": "Duplicate keys suggest the file was modified without proper housekeeping — potentially by automation or by a user who lost track of what was added. Stale duplicates may belong to revoked users or compromised credentials that were never cleaned up.",
+        "how": "1. De-duplicate authorized_keys:\n   sort -u ~/.ssh/authorized_keys > /tmp/ak_clean && mv /tmp/ak_clean ~/.ssh/authorized_keys\n2. Review each key comment to verify it belongs to an active, authorised user\n3. Remove any key whose owner is no longer authorised"
+      },
+      "dir_perms": {
+        "title": "~/.ssh directory permissions too open",
+        "why": "The ~/.ssh directory must be mode 0700 (owner only). If group- or world-readable, any user on the system can enumerate authorized_keys, known_hosts, and discover which systems this account can access. If writable, they can inject their own public key.",
+        "how": "1. Fix directory permissions:\n   chmod 700 ~/.ssh\n2. Fix all files inside:\n   chmod 600 ~/.ssh/*\n   chmod 644 ~/.ssh/*.pub 2>/dev/null; true\n3. Verify:\n   ls -la ~ | grep .ssh  →  drwx------"
+      },
+      "client_forward_agent": {
+        "title": "SSH agent forwarding enabled in client config (ForwardAgent yes)",
+        "why": "Agent forwarding passes your SSH authentication credentials through to the remote server. If that server is compromised, root on that server can use your agent to authenticate as you on any other server your key grants access to — without ever seeing your private key.",
+        "how": "1. Disable agent forwarding globally:\n   nano ~/.ssh/config  →  ForwardAgent no\n2. Enable it only for specific trusted jump hosts where strictly necessary:\n   Host jump.trusted.example.com\n       ForwardAgent yes\n3. Prefer ProxyJump for chaining SSH connections instead of agent forwarding"
+      },
+      "client_known_hosts_devnull": {
+        "title": "SSH client known_hosts pointed to /dev/null",
+        "why": "Pointing known_hosts to /dev/null disables host key verification entirely. Every SSH connection silently accepts any host key — including a man-in-the-middle attacker presenting a forged key. This is equivalent to never verifying server identity.",
+        "how": "1. Remove the UserKnownHostsFile /dev/null line from ~/.ssh/config\n2. Let SSH use its default: ~/.ssh/known_hosts\n3. On first connection to each host, verify the fingerprint out-of-band before accepting it"
+      },
+      "known_hosts_deprecated": {
+        "title": "Deprecated key type in known_hosts",
+        "why": "Entries in known_hosts using deprecated algorithms (DSA, short RSA) provide weak integrity guarantees for host verification. If an attacker can forge a key of that type, they can impersonate the target host without triggering a warning.",
+        "how": "1. Remove the deprecated entry:\n   ssh-keygen -R <hostname>\n2. Reconnect to the server — SSH will re-add it with its current key type\n3. Ask the server admin to ensure only Ed25519 or RSA-4096 host keys are active"
+      },
+      "known_hosts_duplicate": {
+        "title": "Duplicate entries in known_hosts",
+        "why": "Multiple entries for the same host with different keys can cause confusion and may allow SSH to silently accept a stale or compromised key. It also indicates the file has not been maintained.",
+        "how": "1. Remove all entries for the affected host:\n   ssh-keygen -R <hostname>\n2. Reconnect to add a single clean entry\n3. Periodically clean known_hosts of stale entries for decommissioned hosts"
       }
     },
     "file_perms": {
@@ -849,6 +962,96 @@
         "why": "A service configured to start at boot but currently stopped may have crashed, been misconfigured, or been deliberately disabled. If the service is a security control (firewall, intrusion detection, log daemon), its absence creates a window during which threats go undetected or unblocked. The system appears protected at startup but is not at runtime.",
         "how": "1. Check why the service stopped:\n   sudo journalctl -u <service> -n 50\n2. Restart and verify:\n   sudo systemctl start <service>\n   sudo systemctl status <service>\n3. If the service crashes on start, investigate the config:\n   sudo systemctl status <service> --no-pager -l\n4. Ensure it remains enabled:\n   sudo systemctl enable <service>"
       }
+    },
+    "rules": {
+      "duplicate_found": {
+        "title": "Duplicate or redundant UFW rules",
+        "why": "Duplicate firewall rules do not improve security but add confusion and maintenance overhead. Redundant rules make the policy harder to audit and can cause unexpected behaviour when rules are later modified or deleted, since UFW processes rules in order.",
+        "how": "1. List rules with numbers:\n   sudo ufw status numbered\n2. Identify and delete the redundant rule:\n   sudo ufw delete <number>\n3. Verify the remaining ruleset:\n   sudo ufw status verbose"
+      },
+      "open_any_found": {
+        "title": "Open wildcard rule (ALLOW from Anywhere to Anywhere)",
+        "why": "A rule allowing all traffic from anywhere to anywhere negates the entire firewall for the affected port or protocol. This is equivalent to having no firewall at all — any external host can reach any open service.",
+        "how": "1. Identify the wildcard rule:\n   sudo ufw status numbered\n2. Delete it:\n   sudo ufw delete <number>\n3. Replace with specific rules covering only the required sources and ports:\n   sudo ufw allow from 192.168.1.0/24 to any port 22\n4. Confirm the default policy is deny:\n   sudo ufw default deny incoming"
+      },
+      "ipv6_missing": {
+        "title": "IPv4 rules present but no equivalent IPv6 rules",
+        "why": "If a service is reachable over both IPv4 and IPv6 but only IPv4 is covered, the IPv6 path is completely unfiltered. An attacker using IPv6 bypasses all the firewall rules that appear to protect the service. This asymmetry is a common blind spot.",
+        "how": "1. Ensure /etc/default/ufw has IPV6=yes\n2. UFW rules added without specifying a protocol apply to both IPv4 and IPv6 automatically:\n   sudo ufw allow 22/tcp  # creates both v4 and v6 rules\n3. Check which services listen on IPv6:\n   sudo ss -tlnp | grep ':::'\n4. Reload UFW:\n   sudo ufw reload"
+      }
+    },
+    "ipv6": {
+      "ufw_disabled_listeners_present": {
+        "title": "Services listening on IPv6 but UFW IPv6 support is disabled",
+        "why": "With UFW IPv6 disabled (IPV6=no in /etc/default/ufw), no ip6tables rules are loaded. Any service listening on a dual-stack address (::) is reachable from the network over IPv6 without any firewall filtering, regardless of what UFW shows for IPv4.",
+        "how": "1. Enable UFW IPv6 support:\n   sudo nano /etc/default/ufw  →  IPV6=yes\n2. Reload UFW to apply ip6tables rules:\n   sudo ufw reload\n3. Verify ip6tables rules are now active:\n   sudo ip6tables -L INPUT -n | head -20"
+      },
+      "port_no_v6_rule": {
+        "title": "Service listening on IPv6 without a UFW IPv6 rule",
+        "why": "A service bound to an IPv6 address with no corresponding UFW rule relies only on the default policy. If the default policy is permissive or unset, the service is reachable from any IPv6 source with no filtering. Firewall policies should be explicit for all listening addresses.",
+        "how": "1. Identify which service is listening:\n   sudo ss -tlnp | grep ':::'\n2. Add an explicit UFW rule (applies to both IPv4 and IPv6 by default):\n   sudo ufw allow <port>/tcp\n3. Or deny it explicitly if the service should not be reachable:\n   sudo ufw deny <port>/tcp\n4. Reload:\n   sudo ufw reload"
+      },
+      "ufw_enabled_kernel_disabled": {
+        "title": "UFW IPv6 enabled but kernel IPv6 support is disabled",
+        "why": "If UFW is configured to manage IPv6 (IPV6=yes) but the kernel has IPv6 disabled (net.ipv6.conf.all.disable_ipv6=1), the intended ip6tables rules are silently never loaded. The system has an inconsistent configuration that may give a false sense of IPv6 protection.",
+        "how": "1. Option A — enable IPv6 in the kernel:\n   sudo sysctl -w net.ipv6.conf.all.disable_ipv6=0\n   echo 'net.ipv6.conf.all.disable_ipv6=0' | sudo tee /etc/sysctl.d/99-ipv6.conf\n   sudo sysctl --system\n2. Option B — disable UFW IPv6 to match the kernel setting:\n   sudo nano /etc/default/ufw  →  IPV6=no\n   sudo ufw reload"
+      }
+    },
+    "password_policy": {
+      "no_quality_module": {
+        "title": "No password quality module configured (pam_pwquality / pam_cracklib)",
+        "why": "Without a PAM quality module, the system imposes no complexity requirements on local passwords. Users can set trivially guessable passwords (dictionary words, 'password123', single characters) that are trivial to crack offline if /etc/shadow is ever leaked.",
+        "how": "1. Install pam_pwquality:\n   sudo apt install libpam-pwquality\n2. Configure minimum requirements in /etc/security/pwquality.conf:\n   minlen = 12\n   dcredit = -1\n   ucredit = -1\n   lcredit = -1\n   ocredit = -1\n3. Verify PAM includes pwquality:\n   grep pam_pwquality /etc/pam.d/common-password"
+      },
+      "weak_minlen": {
+        "title": "Minimum password length too short (< 8 characters)",
+        "why": "Short passwords dramatically reduce the search space for offline brute-force and dictionary attacks. A 6-character password with common character sets can be fully cracked in minutes with modern hardware. NIST SP 800-63B recommends at least 8 characters; CIS recommends 14.",
+        "how": "1. Increase minlen in /etc/security/pwquality.conf:\n   sudo nano /etc/security/pwquality.conf  →  minlen = 12\n2. Test the policy interactively:\n   pwscore\n3. Existing passwords are not affected — enforce a reset cycle for active accounts if compliance requires it"
+      },
+      "no_expiry": {
+        "title": "No password expiry policy configured",
+        "why": "Without password expiry, compromised credentials remain valid indefinitely. If an attacker silently obtains a password (phishing, database leak, keylogger), they retain access until the user voluntarily changes it. Expiry forces periodic rotation and limits the exposure window.",
+        "how": "1. Set a global expiry policy in /etc/login.defs:\n   PASS_MAX_DAYS 90\n   PASS_MIN_DAYS 1\n   PASS_WARN_AGE 14\n2. Apply to existing accounts:\n   sudo chage -M 90 <username>\n3. Check current settings:\n   sudo chage -l <username>\nNote: NIST SP 800-63B now recommends long complex passwords without forced expiry. Adjust policy to your compliance requirements."
+      }
+    },
+    "disk": {
+      "smart_failed": {
+        "title": "SMART overall health check FAILED",
+        "why": "A SMART health failure means the drive's own firmware predicts imminent failure. Data loss is likely imminent. This is the most critical disk warning — the drive should be considered unreliable immediately and replaced.",
+        "how": "1. Back up all data immediately — do not wait\n2. Get the full SMART report:\n   sudo smartctl -a <device>\n3. Run a short self-test to confirm:\n   sudo smartctl -t short <device>\n   sudo smartctl -l selftest <device>  # after ~2 min\n4. Replace the drive\n5. Restore from backup to the replacement drive"
+      },
+      "reallocated_sectors": {
+        "title": "Reallocated sectors detected (SMART attribute 5)",
+        "why": "Reallocated sectors mean the drive has found areas that could not be written reliably and remapped them to spare sectors. A growing count indicates progressive failure — the drive is actively hiding bad areas and more may fail without warning.",
+        "how": "1. Get the full SMART report to see the count and trend:\n   sudo smartctl -a <device>\n2. Run a long self-test:\n   sudo smartctl -t long <device>\n3. Monitor: if the count is growing over weeks, replace the drive\n4. Ensure backups are current"
+      },
+      "pending_sectors": {
+        "title": "Current pending sectors detected (SMART attribute 197)",
+        "why": "Pending sectors are areas the drive has flagged for reallocation but has not yet remapped. They may already be unreadable. This is an active data-loss risk — files stored on these sectors may be unrecoverable.",
+        "how": "1. Back up immediately — files on pending sectors may already be corrupt\n2. Check full SMART data:\n   sudo smartctl -a <device>\n3. Run a filesystem check after unmounting to attempt repair:\n   sudo fsck -f <device>\n4. If the count persists or grows, replace the drive"
+      },
+      "uncorrectable_errors": {
+        "title": "Offline uncorrectable errors detected (SMART attribute 198)",
+        "why": "Uncorrectable errors are sectors that could not be read even with multiple retries. Data in these sectors is permanently lost. Unlike pending sectors, these have already failed — there is no recovery without a prior backup.",
+        "how": "1. Back up immediately — data in affected sectors is permanently gone\n2. Check the full SMART report:\n   sudo smartctl -a <device>\n3. Run a filesystem check:\n   sudo fsck -f <device>  # when unmounted\n4. Replace the drive — uncorrectable errors indicate physical media damage"
+      },
+      "partition_critical": {
+        "title": "Partition is critically full (≥ 90%)",
+        "why": "A full partition causes service failures: databases crash, web servers return 500 errors, logs stop being written (masking security incidents), and processes needing temporary files fail unpredictably. At 100%, the system may become unresponsive.",
+        "how": "1. Find what is consuming space:\n   du -sh <mountpoint>/* 2>/dev/null | sort -rh | head -20\n2. Common culprits:\n   - Logs: sudo journalctl --vacuum-size=500M\n   - Old kernels: sudo apt autoremove\n   - Docker: docker system prune\n3. Move or delete large unnecessary files\n4. If long-term, expand the partition or add storage"
+      }
+    },
+    "memory": {
+      "swappiness_ssd_wear": {
+        "title": "High swappiness on SSD — unnecessary write amplification",
+        "why": "A high swappiness value causes the kernel to swap pages to disk aggressively even when RAM is available. On SSDs, each swap write counts against the drive's total write endurance (TBW). Sustained aggressive swapping shortens SSD lifespan, especially on entry-level drives.",
+        "how": "1. Check current value:\n   cat /proc/sys/vm/swappiness\n2. Set a lower value immediately:\n   sudo sysctl vm.swappiness=10  # workstation\n   sudo sysctl vm.swappiness=1   # server\n3. Make permanent:\n   echo 'vm.swappiness=1' | sudo tee /etc/sysctl.d/99-swappiness.conf\n   sudo sysctl --system"
+      },
+      "swappiness_unjustified": {
+        "title": "Swap in use despite abundant free RAM",
+        "why": "The kernel is moving process memory to swap while RAM is largely available. This wastes swap write cycles (particularly damaging on SSDs), increases I/O latency for affected processes, and may indicate either a swappiness value that is too high for the workload or a memory leak in a running process.",
+        "how": "1. Identify processes with swapped-out memory:\n   sudo smem -rs swap 2>/dev/null | head -15\n2. Lower swappiness to reduce the tendency to swap:\n   sudo sysctl vm.swappiness=10\n3. If a specific process is leaking memory, investigate:\n   sudo top  # watch the RES/VIRT columns\n4. Make swappiness permanent:\n   echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-swappiness.conf"
+      }
     }
   },
   "explain_cis": {
@@ -869,7 +1072,21 @@
       "permit_user_env": "CIS Ubuntu 22.04 L1 — 5.2.11 — Ensure SSH PermitUserEnvironment is disabled",
       "weak_ciphers": "CIS Ubuntu 22.04 L1 — 5.2.15 — Ensure only strong cipher suites are used",
       "weak_macs": "CIS Ubuntu 22.04 L1 — 5.2.16 — Ensure only strong MAC algorithms are used",
-      "weak_kex": "CIS Ubuntu 22.04 L1 — 5.2.17 — Ensure only strong key exchange algorithms are used"
+      "weak_kex": "CIS Ubuntu 22.04 L1 — 5.2.17 — Ensure only strong key exchange algorithms are used",
+      "rsa_weak": "CIS Ubuntu 22.04 L1 — 5.2.2 — Ensure SSH host key algorithm strength (RSA < 4096 bits)",
+      "login_grace_time": "CIS Ubuntu 22.04 L1 — 5.2.18 — Ensure SSH LoginGraceTime is set to one minute or less",
+      "no_allow_users": "CIS Ubuntu 22.04 L2 — 5.2.23 — Ensure SSH access is limited (AllowUsers/AllowGroups)",
+      "private_key_perms": "CIS Ubuntu 22.04 L1 — 5.2.2 — Ensure permissions on SSH private host key files are configured",
+      "authorized_keys_perms": "CIS Ubuntu 22.04 L1 — 6.3.3 — Ensure permissions on SSH authorized_keys files are configured",
+      "authorized_keys_dsa": "CIS Ubuntu 22.04 L1 — 5.2.2 — Deprecated algorithm (DSA) in authorized_keys",
+      "authorized_keys_weak_key": "CIS Ubuntu 22.04 — SSH key strength best practice (NIST SP 800-57)",
+      "authorized_keys_no_restrictions": "CIS Ubuntu 22.04 L2 — 5.2 — Least privilege for authorized_keys entries (service accounts)",
+      "authorized_keys_duplicate": "CIS Ubuntu 22.04 — Access management hygiene (stale credential removal)",
+      "dir_perms": "CIS Ubuntu 22.04 L1 — 6.3.2 — Ensure permissions on SSH .ssh directory are configured",
+      "client_forward_agent": "CIS Ubuntu 22.04 L2 — SSH client security best practice (credential forwarding risk)",
+      "client_known_hosts_devnull": "CIS Ubuntu 22.04 — SSH client MITM prevention (host key verification)",
+      "known_hosts_deprecated": "CIS Ubuntu 22.04 — Deprecated key type in known_hosts (algorithm hygiene)",
+      "known_hosts_duplicate": "CIS Ubuntu 22.04 — Access management hygiene (known_hosts cleanliness)"
     },
     "file_perms": {
       "world_writable": "CIS Ubuntu 22.04 L1 — 6.1.10 — Ensure no world writable files exist",
@@ -898,6 +1115,32 @@
     },
     "services_state": {
       "enabled_inactive": "CIS Ubuntu 22.04 — security service availability best practice (ensure critical services remain active after boot)"
+    },
+    "rules": {
+      "duplicate_found": "CIS Ubuntu 22.04 L1 — 3.5 — Configure firewall (rule hygiene and auditability)",
+      "open_any_found": "CIS Ubuntu 22.04 L1 — 3.5.1 — Ensure ufw is installed and configured with restrictive default policy",
+      "ipv6_missing": "CIS Ubuntu 22.04 L1 — 3.5.1.4 — Ensure ufw rules exist for all open ports (IPv4 and IPv6 parity)"
+    },
+    "ipv6": {
+      "ufw_disabled_listeners_present": "CIS Ubuntu 22.04 L1 — 3.5.1.4 — Ensure IPv6 firewall rules exist for all open ports",
+      "port_no_v6_rule": "CIS Ubuntu 22.04 L1 — 3.5.1.4 — Ensure IPv6 firewall rules exist for all open ports",
+      "ufw_enabled_kernel_disabled": "CIS Ubuntu 22.04 L1 — 3.5.1.4 — IPv6 firewall configuration consistency"
+    },
+    "password_policy": {
+      "no_quality_module": "CIS Ubuntu 22.04 L1 — 5.4.1 — Ensure password creation requirements are configured",
+      "weak_minlen": "CIS Ubuntu 22.04 L1 — 5.4.1 — Ensure password creation requirements are configured (minlen ≥ 14)",
+      "no_expiry": "CIS Ubuntu 22.04 L1 — 5.4.2 — Ensure password expiration is 365 days or less"
+    },
+    "disk": {
+      "smart_failed": "CIS Ubuntu 22.04 — storage health monitoring best practice (predictive failure prevention)",
+      "reallocated_sectors": "CIS Ubuntu 22.04 — storage health monitoring best practice (SMART attribute 5 — reallocated sectors)",
+      "pending_sectors": "CIS Ubuntu 22.04 — storage health monitoring best practice (SMART attribute 197 — pending sectors)",
+      "uncorrectable_errors": "CIS Ubuntu 22.04 — storage health monitoring best practice (SMART attribute 198 — uncorrectable errors)",
+      "partition_critical": "CIS Ubuntu 22.04 — system stability and availability (disk space management)"
+    },
+    "memory": {
+      "swappiness_ssd_wear": "CIS Ubuntu 22.04 — kernel parameter tuning best practice (vm.swappiness for SSD longevity)",
+      "swappiness_unjustified": "CIS Ubuntu 22.04 — kernel parameter tuning best practice (vm.swappiness optimisation)"
     }
   },
   "user_accounts": {

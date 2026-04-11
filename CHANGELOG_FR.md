@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.13.0](#v1130) | 2026-04-10 | Audit santé disques (CHECK 22, SMART + partitions, nouveau domaine `disk`) ; Mémoire & Swap (CHECK 23, usure SSD, swappiness) ; support NVMe ; tableau partitions avec barre de progression ; `--explain` 33→63 clés (15 groupes) ; passage qualité ; 1890/1890 tests |
 | [v1.12.0](#v1120) | 2026-04-10 | Refonte `--help` + 6 nouvelles options courtes + autocomplétion + 4 correctifs Debian VM ; 1703/1703 tests |
 | [v1.11.0](#v1110) | 2026-04-07 | `--explain` A2 (+13 clés, 20→33) ; audit comptes utilisateurs (CHECK 17) ; audit politique de mots de passe (CHECK 18) ; passage qualité ; 1675/1675 tests |
 | [v1.10.0](#v1100) | 2026-04-07 | Suggestion `--explain` dans le résumé ; audit modules noyau (CHECK 14) ; audit tâches cron (CHECK 15) ; audit état des services (CHECK 16) ; passage qualité (source + 9 fichiers de tests) ; 1541/1541 tests |
@@ -45,6 +46,67 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.13.0
+
+**2026-04-10**
+
+### CHECK 22 — Santé disques (`checks/disk.py`)
+
+- `DiskSnapshot` + `check_disk()` — séparation snapshot/logique pure
+- Santé SMART via `smartctl -H` : PASSED → OK ; FAILED → ALERT, −3 pts ; virtuel/non supporté → INFO
+- Attributs critiques SMART via `smartctl -A` : secteurs réalloués (ID 5), secteurs en attente (ID 197), erreurs non corrigibles (ID 198) — chaque valeur > 0 → WARN, −1 pt
+- Utilisation des partitions via `df -P` : ≥ 90% → WARN, −1 pt ; ≥ 80% → INFO ; pseudo-systèmes de fichiers (tmpfs, squashfs, overlay, etc.) ignorés
+- `smartctl` absent → INFO avec commande d'installation ; `lsblk` utilisé pour détecter les disques
+- Nouveau domaine **`disk`** dans `domain_scores.py` (6e domaine, entre Hardening et Firewall & Services)
+- 22 clés de locale ajoutées dans `en.json` + `fr.json`
+
+### CHECK 23 — Mémoire & Swap (`checks/memory.py`)
+
+- `MemorySnapshot` + `check_memory()` — lit `/proc/meminfo` + `/proc/sys/vm/swappiness` + `/sys/block/*/queue/rotational`
+- Pas de swap configuré → INFO, aucune déduction
+- Swap sur SSD avec `swappiness > 30` → WARN, −1 pt ; valeur recommandée selon le profil (server : 1, workstation : 10)
+- Swap actif alors que la RAM est libre à > 50% → WARN (swap injustifié), aucune déduction
+- `swappiness=60` par défaut → INFO suggestion de baisser ; valeur optimale → OK
+- Statistiques swap toujours affichées quand un swap est présent
+- Les résultats mémoire/swap sont rattachés au domaine **`hardening`**
+- 9 clés de locale ajoutées dans `en.json` + `fr.json` ; `sections.memory` + `sections.disk` ajoutés
+
+### Support NVMe & robustesse (`checks/disk.py`)
+
+- `_parse_nvme_attrs()` — mappe les compteurs de santé NVMe : Media and Data Integrity Errors → `uncorrectable_errors`, Error Information Log Entries → `pending_sectors`
+- L'analyse de santé SMART cible désormais uniquement la ligne "SMART overall-health" (évite les faux positifs)
+- Code mort `device != "overlay"` supprimé (déjà couvert par `_SKIP_TYPES_RE`)
+- Commande `du` : `du -x -h --max-depth=1` (était `du -sh *`)
+
+### Robustesse mémoire & swap (`checks/memory.py`)
+
+- Le swap injustifié requiert désormais 3 conditions : swap ≥ 32 Mo ET RAM libre > 50% ET `swappiness > recommandé` (évite les faux positifs liés au vieillissement LRU par kswapd)
+- `swapon --show=NAME --noheadings --raw` — colonne explicite, indépendante de l'ordre des colonnes
+- Tous les accès `/proc` utilisent `errors="ignore"` pour la robustesse au niveau octet
+
+### Tableau des partitions (`display.py`)
+
+- `display_disk_partitions()` — la section ÉTAT DES DISQUES affiche un tableau par partition avec appareil, taille et barre de progression colorée (vert < 70%, jaune < 90%, rouge ≥ 90%)
+- Taille formatée `< 1 Go` pour les volumes inférieurs à 1 Go
+
+### Conseils d'analyse SMART approfondie
+
+- Finding INFO `disk.smart_tips` ajouté quand `smartctl` est disponible : liste `smartctl -a` par disque + commandes guidées pour lancer des tests court/long, surveiller la progression (`watch`), interrompre (`-X`) et consulter l'historique (`-l selftest`)
+
+### `--explain` étendu (33 → 63 clés, 15 groupes)
+
+- `EXPLAIN_KEYS` étendu de 33 à 63 clés ; 30 nouvelles clés couvrant les clés SSH autorisées, la config client SSH, les règles pare-feu, IPv6, la politique de mots de passe, disque et mémoire
+- `--explain list` affiche désormais les clés organisées en 15 groupes étiquetés avec des en-têtes
+- `tests/test_explain.py` mis à jour : `test_has_sixty_three_keys` vérifie `len(EXPLAIN_KEYS) == 63`
+
+### Tests
+
+- `tests/test_disk.py` : 60 tests sur 9 classes (+3 tests NVMe)
+- `tests/test_memory.py` : 37 tests sur 8 classes (+6 tests robustesse)
+- **Total : 1890/1890** (+187 vs v1.12.0)
 
 ---
 

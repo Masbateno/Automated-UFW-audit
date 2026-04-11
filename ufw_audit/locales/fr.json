@@ -43,7 +43,9 @@
     "cron_audit": "AUDIT DES TÂCHES CRON",
     "services_state": "AUDIT DE L'ÉTAT DES SERVICES",
     "user_accounts": "AUDIT DES COMPTES UTILISATEURS",
-    "password_policy": "AUDIT DE LA POLITIQUE DES MOTS DE PASSE"
+    "password_policy": "AUDIT DE LA POLITIQUE DES MOTS DE PASSE",
+    "memory": "MÉMOIRE & SWAP",
+    "disk": "ÉTAT DES DISQUES"
   },
   "status": {
     "ok": "OK",
@@ -505,6 +507,47 @@
     "icmp_broadcast_ok": "L'écho de diffusion ICMP est ignoré",
     "icmp_broadcast_enabled": "Écho de diffusion ICMP non ignoré — risque d'amplification smurf"
   },
+  "disk": {
+    "ok": "Tous les disques ont passé le contrôle SMART — aucun attribut critique détecté",
+    "smartctl_missing": "smartctl non installé — vérification SMART ignorée",
+    "smartctl_missing_detail": "smartmontools permet la surveillance de l'état des disques via SMART. Sans lui, les disques défaillants ne peuvent pas être détectés à l'avance.",
+    "smart_ok": "{device} ({model}) — SMART : PASSÉ",
+    "smart_failed": "{device} ({model}) — SMART : ÉCHEC — panne imminente du disque",
+    "smart_failed_detail": "Ce disque a signalé un échec SMART. Sauvegardez vos données immédiatement et planifiez le remplacement du disque.",
+    "smart_failed_reason": "SMART ÉCHEC sur {device} — panne imminente",
+    "smart_virtual": "{device} — SMART non applicable (équipement virtualisé ou non supporté)",
+    "smart_unknown": "{device} — État SMART inconnu (le périphérique ne supporte peut-être pas SMART)",
+    "reallocated_sectors": "{device} — {count} secteur(s) réalloué(s) détecté(s)",
+    "reallocated_sectors_detail": "Les secteurs réalloués indiquent des blocs défectueux remappés par le firmware du disque. Un compte non nul signifie que des secteurs ont déjà échoué.",
+    "reallocated_sectors_reason": "Secteurs réalloués sur {device}",
+    "pending_sectors": "{device} — {count} secteur(s) en attente (candidats à la réallocation)",
+    "pending_sectors_detail": "Les secteurs en attente sont instables — le disque tente de les remapper. Peut indiquer une panne imminente.",
+    "pending_sectors_reason": "Secteurs en attente sur {device}",
+    "uncorrectable_errors": "{device} — {count} erreur(s) non corrigeable(s) détectée(s)",
+    "uncorrectable_errors_detail": "Les erreurs non corrigeables n'ont pas pu être remappées. Les données dans les secteurs affectés sont illisibles.",
+    "uncorrectable_errors_reason": "Erreurs non corrigeables sur {device}",
+    "partition_critical": "La partition {mountpoint} est remplie à {pct}%",
+    "partition_critical_detail": "La partition {mountpoint} est critique. Un manque d'espace disque provoque des pannes de services et une corruption des données.",
+    "partition_critical_reason": "Partition {mountpoint} remplie à {pct}%",
+    "partition_warn": "La partition {mountpoint} est remplie à {pct}% — approche de la saturation",
+    "col_mountpoint": "POINT DE MONTAGE",
+    "col_device": "PÉRIPHÉRIQUE",
+    "col_size": "TAILLE",
+    "col_used": "UTILISÉ",
+    "col_free": "LIBRE",
+    "smart_tips": "Analyse SMART approfondie disponible via smartmontools",
+    "smart_tips_detail": "Chaque commande -a affiche le rapport SMART complet (attributs + santé) d'un disque. Les tests se lancent un disque à la fois — les commandes ci-dessous ciblent le premier disque à titre d'exemple."
+  },
+  "memory": {
+    "no_swap": "Aucun espace swap configuré",
+    "swap_stats": "Swap : {used_mb} Mo utilisés / {total_mb} Mo au total ({pct}% utilisé)",
+    "swappiness_ok": "swappiness={value} — bien réglé pour ce système",
+    "swappiness_ssd_wear": "Swap sur SSD avec swappiness={value} — usure SSD inutile",
+    "swappiness_ssd_detail": "Une swappiness élevée sur SSD provoque une usure prématurée. Valeur recommandée : vm.swappiness={recommended}",
+    "swappiness_unjustified": "Swap actif ({swap_pct}%) alors que {ram_pct}% de la RAM est encore disponible — swappiness={value} trop agressive",
+    "swappiness_unjustified_detail": "Le noyau écrit en swap malgré de la RAM disponible. Réduire la swappiness diminue les I/O inutiles. Recommandé : vm.swappiness={recommended}",
+    "swappiness_suboptimal": "swappiness={value} (valeur système par défaut) — envisagez de réduire à {recommended} pour limiter le swap inutile"
+  },
   "compare": {
     "section_title": "CHANGEMENTS DEPUIS LE DERNIER AUDIT",
     "previous_run": "Audit précédent : {timestamp}",
@@ -756,6 +799,76 @@
         "title": "Algorithmes d'échange de clés SSH faibles en usage",
         "why": "Les algorithmes KEX faibles (diffie-hellman-group1-sha1 utilise un groupe 1024 bits ; diffie-hellman-group14-sha1 utilise SHA-1 déprécié) offrent une confidentialité persistante insuffisante. Des acteurs étatiques ont démontré des attaques de précalcul contre les groupes DH 1024 bits standards (attaque Logjam). Un KEX compromis permet de récupérer la clé de session après coup.",
         "how": "1. Restreignez aux algorithmes KEX forts :\n   sudo nano /etc/ssh/sshd_config\n   KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512\n2. Redémarrez SSH :\n   sudo systemctl restart ssh"
+      },
+      "rsa_weak": {
+        "title": "Clé hôte RSA trop courte (< 4096 bits)",
+        "why": "Les clés RSA inférieures à 4096 bits sont considérées comme faibles par les standards cryptographiques modernes. À mesure que la puissance de calcul augmente et que les attaques de factorisation progressent, les clés courtes deviennent factorisables. Les clés inférieures à 2048 bits sont déjà pratiquement compromises.",
+        "how": "1. Générez une nouvelle clé hôte RSA 4096 bits :\n   sudo ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N ''\n2. Ou préférez Ed25519 (plus court mais plus solide) :\n   sudo ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N ''\n3. Redémarrez SSH :\n   sudo systemctl restart ssh\n4. Supprimez les anciennes empreintes chez les clients :\n   ssh-keygen -R <nom_hôte>"
+      },
+      "login_grace_time": {
+        "title": "LoginGraceTime trop long (> 60s)",
+        "why": "Un délai de grâce élevé maintient ouvertes les connexions TCP non authentifiées plus longtemps que nécessaire. Un attaquant peut maintenir de nombreuses connexions SSH parallèles sans compléter l'authentification, épuisant potentiellement les limites de connexion et dégradant le service pour les utilisateurs légitimes.",
+        "how": "1. Réduisez LoginGraceTime :\n   sudo nano /etc/ssh/sshd_config  →  LoginGraceTime 30\n2. Redémarrez SSH :\n   sudo systemctl restart ssh"
+      },
+      "no_allow_users": {
+        "title": "Aucune restriction AllowUsers / AllowGroups dans la configuration SSH",
+        "why": "Sans AllowUsers ou AllowGroups, tout compte système disposant d'un identifiant valide peut tenter une connexion SSH — y compris les comptes de service, les démons et les comptes legacy non destinés à l'accès distant. Restreindre SSH à des utilisateurs spécifiques réduit drastiquement la surface d'attaque.",
+        "how": "1. Identifiez les utilisateurs qui ont besoin d'un accès SSH\n2. Ajoutez une directive AllowUsers :\n   sudo nano /etc/ssh/sshd_config  →  AllowUsers alice bob deploy\n3. Ou restreignez par groupe :\n   AllowGroups sshusers\n   sudo addgroup sshusers && sudo adduser alice sshusers\n4. Redémarrez SSH :\n   sudo systemctl restart ssh"
+      },
+      "private_key_perms": {
+        "title": "Permissions du fichier de clé privée SSH trop ouvertes",
+        "why": "Les clés privées doivent être lisibles uniquement par leur propriétaire (mode 0600). Si elles sont lisibles par le groupe ou par tous, tout utilisateur partageant le même groupe — ou tout utilisateur du système — peut lire la clé et usurper l'identité de son propriétaire sur chaque serveur qui lui fait confiance.",
+        "how": "1. Restreignez les permissions :\n   chmod 600 <chemin_clé>\n2. Vérifiez la propriété :\n   ls -la <chemin_clé>  →  -rw------- propriétaire propriétaire\n3. Pour les clés hôtes root :\n   sudo chmod 600 /etc/ssh/ssh_host_*_key"
+      },
+      "authorized_keys_perms": {
+        "title": "Permissions du fichier authorized_keys trop ouvertes",
+        "why": "Un fichier authorized_keys modifiable par d'autres permet à quiconque pouvant y écrire d'injecter sa propre clé publique et d'obtenir un accès SSH à ce compte. Un accès en lecture par d'autres révèle quelles identités sont autorisées et depuis quels hôtes.",
+        "how": "1. Restreignez les permissions :\n   chmod 600 ~/.ssh/authorized_keys\n2. Vérifiez que la propriété correspond au compte :\n   ls -la ~/.ssh/authorized_keys\n3. Activez StrictModes dans sshd_config pour forcer ces vérifications automatiquement :\n   sudo nano /etc/ssh/sshd_config  →  StrictModes yes"
+      },
+      "authorized_keys_dsa": {
+        "title": "Clé DSA dans authorized_keys",
+        "why": "Les clés DSA utilisent un algorithme cryptographiquement obsolète, déprécié depuis OpenSSH 7.0+. Elles n'offrent qu'une sécurité de 1024 bits et l'authentification via une clé DSA offre des garanties bien inférieures à toute alternative moderne.",
+        "how": "1. Identifiez la ligne de clé DSA (commence par 'ssh-dss')\n2. Supprimez-la de ~/.ssh/authorized_keys\n3. Demandez au propriétaire de générer une nouvelle clé :\n   ssh-keygen -t ed25519\n4. Ajoutez la nouvelle clé publique à authorized_keys\n5. Confirmez la suppression :\n   grep 'ssh-dss' ~/.ssh/authorized_keys  # ne doit rien retourner"
+      },
+      "authorized_keys_weak_key": {
+        "title": "Clé RSA faible dans authorized_keys (< 4096 bits)",
+        "why": "Les clés RSA courtes dans authorized_keys sont aussi dangereuses que les clés hôtes faibles : un attaquant qui factorise la clé privée obtient un accès permanent à ce compte sur chaque serveur qui lui fait confiance — y compris celui-ci.",
+        "how": "1. Identifiez les clés RSA faibles (entrées ssh-rsa avec un modulus court)\n2. Demandez au propriétaire de générer une clé plus robuste :\n   ssh-keygen -t ed25519  # ou : ssh-keygen -t rsa -b 4096\n3. Remplacez l'entrée faible dans authorized_keys\n4. Révoquez l'ancienne clé sur tous les serveurs où elle était utilisée"
+      },
+      "authorized_keys_no_restrictions": {
+        "title": "Entrées authorized_keys sans restriction de commande ou d'hôte",
+        "why": "authorized_keys supporte des options (command=, from=, restrict) qui limitent ce qu'une clé peut faire et depuis où. Sans restrictions, une clé compromise donne un accès shell illimité depuis n'importe quelle IP. Pour les clés de service ou de déploiement, c'est une violation du principe du moindre privilège.",
+        "how": "1. Pour les clés de service, ajoutez une restriction command= :\n   command=\"/usr/bin/rsync --server ...\",no-pty,no-agent-forwarding ssh-ed25519 AAAA...\n2. Pour les clés d'origines connues, ajoutez from= :\n   from=\"192.168.1.0/24\" ssh-ed25519 AAAA...\n3. Utilisez restrict pour désactiver toutes les fonctions optionnelles :\n   restrict,command=\"...\" ssh-ed25519 AAAA..."
+      },
+      "authorized_keys_duplicate": {
+        "title": "Entrées en double dans authorized_keys",
+        "why": "Des clés en double indiquent que le fichier a été modifié sans rigueur — probablement par automatisation ou par un utilisateur qui a perdu le fil de ce qui avait été ajouté. Les doublons peuvent appartenir à des utilisateurs révoqués ou à des identifiants compromis jamais nettoyés.",
+        "how": "1. Dédoublonnez authorized_keys :\n   sort -u ~/.ssh/authorized_keys > /tmp/ak_clean && mv /tmp/ak_clean ~/.ssh/authorized_keys\n2. Vérifiez chaque commentaire de clé pour confirmer qu'elle appartient à un utilisateur actif et autorisé\n3. Supprimez toute clé dont le propriétaire n'est plus autorisé"
+      },
+      "dir_perms": {
+        "title": "Permissions du répertoire ~/.ssh trop ouvertes",
+        "why": "Le répertoire ~/.ssh doit être en mode 0700 (propriétaire uniquement). S'il est lisible par le groupe ou par tous, n'importe quel utilisateur du système peut énumérer authorized_keys, known_hosts et découvrir quels systèmes ce compte peut atteindre. S'il est modifiable, il peut y injecter sa propre clé publique.",
+        "how": "1. Corrigez les permissions du répertoire :\n   chmod 700 ~/.ssh\n2. Corrigez tous les fichiers à l'intérieur :\n   chmod 600 ~/.ssh/*\n   chmod 644 ~/.ssh/*.pub 2>/dev/null; true\n3. Vérifiez :\n   ls -la ~ | grep .ssh  →  drwx------"
+      },
+      "client_forward_agent": {
+        "title": "Transfert d'agent SSH activé dans la configuration client (ForwardAgent yes)",
+        "why": "Le transfert d'agent transmet vos identifiants d'authentification SSH au serveur distant. Si ce serveur est compromis, root sur ce serveur peut utiliser votre agent pour s'authentifier en tant que vous sur n'importe quel autre serveur auquel votre clé donne accès — sans jamais voir votre clé privée.",
+        "how": "1. Désactivez le transfert d'agent globalement :\n   nano ~/.ssh/config  →  ForwardAgent no\n2. Activez-le uniquement pour les hôtes de rebond de confiance strictement nécessaires :\n   Host jump.trusted.example.com\n       ForwardAgent yes\n3. Préférez ProxyJump pour les connexions SSH en chaîne"
+      },
+      "client_known_hosts_devnull": {
+        "title": "known_hosts du client SSH pointé vers /dev/null",
+        "why": "Pointer known_hosts vers /dev/null désactive entièrement la vérification des clés hôtes. Chaque connexion SSH accepte silencieusement n'importe quelle clé hôte — y compris celle d'un attaquant en position d'homme du milieu. C'est l'équivalent de ne jamais vérifier l'identité du serveur.",
+        "how": "1. Supprimez la ligne UserKnownHostsFile /dev/null de ~/.ssh/config\n2. Laissez SSH utiliser son fichier par défaut : ~/.ssh/known_hosts\n3. À la première connexion à chaque hôte, vérifiez l'empreinte hors bande avant d'accepter"
+      },
+      "known_hosts_deprecated": {
+        "title": "Type de clé déprécié dans known_hosts",
+        "why": "Les entrées de known_hosts utilisant des algorithmes dépréciés (DSA, RSA court) offrent de faibles garanties d'intégrité pour la vérification de l'hôte. Si un attaquant peut forger une clé de ce type, il peut usurper l'identité de l'hôte cible sans déclencher d'avertissement.",
+        "how": "1. Supprimez l'entrée dépréciée :\n   ssh-keygen -R <nom_hôte>\n2. Reconnectez-vous au serveur — SSH le routera avec son type de clé actuel\n3. Demandez à l'administrateur du serveur de n'activer que des clés hôtes Ed25519 ou RSA-4096"
+      },
+      "known_hosts_duplicate": {
+        "title": "Entrées en double dans known_hosts",
+        "why": "Plusieurs entrées pour le même hôte avec des clés différentes peuvent créer de la confusion et permettre à SSH d'accepter silencieusement une clé obsolète ou compromise. Cela indique également que le fichier n'a pas été maintenu.",
+        "how": "1. Supprimez toutes les entrées pour l'hôte concerné :\n   ssh-keygen -R <nom_hôte>\n2. Reconnectez-vous pour ajouter une entrée propre\n3. Nettoyez périodiquement known_hosts des entrées obsolètes"
       }
     },
     "file_perms": {
@@ -849,6 +962,96 @@
         "why": "Un service configuré pour démarrer au boot mais actuellement arrêté peut avoir planté, être mal configuré, ou avoir été délibérément désactivé. Si ce service est un contrôle de sécurité (pare-feu, détection d'intrusion, démon de logs), son absence crée une fenêtre pendant laquelle les menaces ne sont ni détectées ni bloquées. Le système semble protégé au démarrage mais ne l'est pas en runtime.",
         "how": "1. Vérifiez pourquoi le service s'est arrêté :\n   sudo journalctl -u <service> -n 50\n2. Redémarrez et vérifiez :\n   sudo systemctl start <service>\n   sudo systemctl status <service>\n3. Si le service plante au démarrage, examinez la configuration :\n   sudo systemctl status <service> --no-pager -l\n4. Assurez-vous qu'il reste activé :\n   sudo systemctl enable <service>"
       }
+    },
+    "rules": {
+      "duplicate_found": {
+        "title": "Règles UFW en double ou redondantes",
+        "why": "Les règles de pare-feu en double n'améliorent pas la sécurité mais ajoutent de la confusion et une charge de maintenance. Les règles redondantes rendent la politique difficile à auditer et peuvent provoquer des comportements inattendus lors de modifications ultérieures, car UFW traite les règles dans l'ordre.",
+        "how": "1. Listez les règles avec leurs numéros :\n   sudo ufw status numbered\n2. Identifiez et supprimez la règle redondante :\n   sudo ufw delete <numéro>\n3. Vérifiez l'ensemble des règles restantes :\n   sudo ufw status verbose"
+      },
+      "open_any_found": {
+        "title": "Règle générique ouverte (ALLOW de n'importe où vers n'importe où)",
+        "why": "Une règle autorisant tout le trafic de n'importe où vers n'importe où annule l'intégralité du pare-feu pour le port ou protocole concerné. C'est l'équivalent de ne pas avoir de pare-feu du tout — n'importe quel hôte externe peut atteindre n'importe quel service ouvert.",
+        "how": "1. Identifiez la règle générique :\n   sudo ufw status numbered\n2. Supprimez-la :\n   sudo ufw delete <numéro>\n3. Remplacez par des règles spécifiques couvrant uniquement les sources et ports requis :\n   sudo ufw allow from 192.168.1.0/24 to any port 22\n4. Confirmez que la politique par défaut est deny :\n   sudo ufw default deny incoming"
+      },
+      "ipv6_missing": {
+        "title": "Règles IPv4 présentes mais pas d'équivalent IPv6",
+        "why": "Si un service est accessible en IPv4 et IPv6 mais que seul l'IPv4 est couvert, le chemin IPv6 est entièrement non filtré. Un attaquant utilisant IPv6 contourne toutes les règles de pare-feu qui semblent protéger le service. Cette asymétrie est un angle mort courant.",
+        "how": "1. Vérifiez que /etc/default/ufw contient IPV6=yes\n2. Les règles UFW ajoutées sans préciser le protocole s'appliquent automatiquement à IPv4 et IPv6 :\n   sudo ufw allow 22/tcp  # crée des règles v4 et v6\n3. Vérifiez quels services écoutent en IPv6 :\n   sudo ss -tlnp | grep ':::'\n4. Rechargez UFW :\n   sudo ufw reload"
+      }
+    },
+    "ipv6": {
+      "ufw_disabled_listeners_present": {
+        "title": "Services en écoute sur IPv6 mais le support UFW IPv6 est désactivé",
+        "why": "Avec UFW IPv6 désactivé (IPV6=no dans /etc/default/ufw), aucune règle ip6tables n'est chargée. Tout service en écoute sur une adresse dual-stack (::) est accessible depuis le réseau en IPv6 sans aucun filtrage pare-feu, indépendamment de ce qu'UFW affiche pour IPv4.",
+        "how": "1. Activez le support IPv6 d'UFW :\n   sudo nano /etc/default/ufw  →  IPV6=yes\n2. Rechargez UFW pour appliquer les règles ip6tables :\n   sudo ufw reload\n3. Vérifiez que les règles ip6tables sont maintenant actives :\n   sudo ip6tables -L INPUT -n | head -20"
+      },
+      "port_no_v6_rule": {
+        "title": "Service en écoute sur IPv6 sans règle UFW IPv6 correspondante",
+        "why": "Un service lié à une adresse IPv6 sans règle UFW correspondante ne s'appuie que sur la politique par défaut. Si cette politique est permissive ou non définie, le service est accessible depuis n'importe quelle source IPv6 sans filtrage. Les politiques de pare-feu doivent être explicites pour toutes les adresses en écoute.",
+        "how": "1. Identifiez quel service écoute :\n   sudo ss -tlnp | grep ':::'\n2. Ajoutez une règle UFW explicite (s'applique à IPv4 et IPv6 par défaut) :\n   sudo ufw allow <port>/tcp\n3. Ou refusez-le explicitement si le service ne doit pas être accessible :\n   sudo ufw deny <port>/tcp\n4. Rechargez :\n   sudo ufw reload"
+      },
+      "ufw_enabled_kernel_disabled": {
+        "title": "UFW IPv6 activé mais le support IPv6 du noyau est désactivé",
+        "why": "Si UFW est configuré pour gérer IPv6 (IPV6=yes) mais que le noyau a IPv6 désactivé (net.ipv6.conf.all.disable_ipv6=1), les règles ip6tables prévues ne sont silencieusement jamais chargées. Le système présente une configuration incohérente pouvant donner une fausse impression de protection IPv6.",
+        "how": "1. Option A — activez IPv6 dans le noyau :\n   sudo sysctl -w net.ipv6.conf.all.disable_ipv6=0\n   echo 'net.ipv6.conf.all.disable_ipv6=0' | sudo tee /etc/sysctl.d/99-ipv6.conf\n   sudo sysctl --system\n2. Option B — désactivez UFW IPv6 pour correspondre au réglage noyau :\n   sudo nano /etc/default/ufw  →  IPV6=no\n   sudo ufw reload"
+      }
+    },
+    "password_policy": {
+      "no_quality_module": {
+        "title": "Aucun module de qualité des mots de passe configuré (pam_pwquality / pam_cracklib)",
+        "why": "Sans module PAM de qualité, le système n'impose aucune exigence de complexité sur les mots de passe locaux. Les utilisateurs peuvent définir des mots de passe trivialement devinables (mots du dictionnaire, 'motdepasse123', un seul caractère) facilement crackables si /etc/shadow venait à fuiter.",
+        "how": "1. Installez pam_pwquality :\n   sudo apt install libpam-pwquality\n2. Configurez les exigences minimales dans /etc/security/pwquality.conf :\n   minlen = 12\n   dcredit = -1\n   ucredit = -1\n   lcredit = -1\n   ocredit = -1\n3. Vérifiez que PAM inclut pwquality :\n   grep pam_pwquality /etc/pam.d/common-password"
+      },
+      "weak_minlen": {
+        "title": "Longueur minimale des mots de passe trop courte (< 8 caractères)",
+        "why": "Les mots de passe courts réduisent drastiquement l'espace de recherche pour les attaques par force brute et dictionnaire. Un mot de passe de 6 caractères avec des jeux de caractères courants peut être entièrement cracké en quelques minutes avec du matériel moderne. NIST SP 800-63B recommande au moins 8 caractères ; CIS recommande 14.",
+        "how": "1. Augmentez minlen dans /etc/security/pwquality.conf :\n   sudo nano /etc/security/pwquality.conf  →  minlen = 12\n2. Testez la politique de manière interactive :\n   pwscore\n3. Les mots de passe existants ne sont pas affectés — imposez un cycle de réinitialisation si la conformité l'exige"
+      },
+      "no_expiry": {
+        "title": "Aucune politique d'expiration des mots de passe configurée",
+        "why": "Sans expiration, des identifiants compromis restent valides indéfiniment. Si un attaquant obtient silencieusement un mot de passe (hameçonnage, fuite de base de données, keylogger), il conserve l'accès jusqu'à ce que l'utilisateur le change volontairement. L'expiration force une rotation périodique et limite la fenêtre d'exposition.",
+        "how": "1. Définissez une politique d'expiration globale dans /etc/login.defs :\n   PASS_MAX_DAYS 90\n   PASS_MIN_DAYS 1\n   PASS_WARN_AGE 14\n2. Appliquez aux comptes existants :\n   sudo chage -M 90 <utilisateur>\n3. Vérifiez les paramètres actuels :\n   sudo chage -l <utilisateur>\nNote : NIST SP 800-63B recommande désormais des mots de passe longs et complexes sans expiration forcée. Adaptez selon vos exigences de conformité."
+      }
+    },
+    "disk": {
+      "smart_failed": {
+        "title": "Le contrôle de santé SMART global a ÉCHOUÉ",
+        "why": "Un échec SMART signifie que le firmware du disque lui-même prédit une défaillance imminente. La perte de données est probable. C'est l'avertissement disque le plus critique — le disque doit être considéré comme non fiable immédiatement et remplacé.",
+        "how": "1. Sauvegardez toutes les données immédiatement — n'attendez pas\n2. Obtenez le rapport SMART complet :\n   sudo smartctl -a <périphérique>\n3. Lancez un test court pour confirmer :\n   sudo smartctl -t short <périphérique>\n   sudo smartctl -l selftest <périphérique>  # après ~2 min\n4. Remplacez le disque\n5. Restaurez depuis la sauvegarde sur le disque de remplacement"
+      },
+      "reallocated_sectors": {
+        "title": "Secteurs réalloués détectés (attribut SMART 5)",
+        "why": "Les secteurs réalloués signifient que le disque a trouvé des zones qui ne pouvaient pas être écrites de manière fiable et les a remappées sur des secteurs de spare. Un nombre croissant indique une défaillance progressive — le disque cache activement des zones défectueuses et d'autres peuvent tomber en panne sans avertissement.",
+        "how": "1. Obtenez le rapport SMART complet pour voir le nombre et la tendance :\n   sudo smartctl -a <périphérique>\n2. Lancez un test long :\n   sudo smartctl -t long <périphérique>\n3. Surveillez : si le nombre augmente sur plusieurs semaines, remplacez le disque\n4. Assurez-vous que les sauvegardes sont à jour"
+      },
+      "pending_sectors": {
+        "title": "Secteurs en attente détectés (attribut SMART 197)",
+        "why": "Les secteurs en attente sont des zones que le disque a signalées pour réallocation mais n'a pas encore remappées. Ils peuvent déjà être illisibles. C'est un risque de perte de données active — les fichiers stockés sur ces secteurs peuvent être irrécupérables.",
+        "how": "1. Sauvegardez immédiatement — les fichiers sur les secteurs en attente peuvent déjà être corrompus\n2. Vérifiez les données SMART complètes :\n   sudo smartctl -a <périphérique>\n3. Lancez une vérification du système de fichiers après démontage :\n   sudo fsck -f <périphérique>\n4. Si le nombre persiste ou augmente, remplacez le disque"
+      },
+      "uncorrectable_errors": {
+        "title": "Erreurs non corrigeables détectées (attribut SMART 198)",
+        "why": "Les erreurs non corrigeables sont des secteurs qui n'ont pas pu être lus même après plusieurs tentatives. Les données dans ces secteurs sont définitivement perdues. Contrairement aux secteurs en attente, ceux-ci ont déjà échoué — il n'y a pas de récupération sans sauvegarde préalable.",
+        "how": "1. Sauvegardez immédiatement — les données dans les secteurs affectés sont définitivement perdues\n2. Vérifiez le rapport SMART complet :\n   sudo smartctl -a <périphérique>\n3. Lancez une vérification du système de fichiers :\n   sudo fsck -f <périphérique>  # lorsque démonté\n4. Remplacez le disque — les erreurs non corrigeables indiquent des dommages physiques"
+      },
+      "partition_critical": {
+        "title": "Partition critique : ≥ 90% utilisé",
+        "why": "Une partition pleine provoque des pannes de services : les bases de données plantent, les serveurs web retournent des erreurs 500, les logs cessent d'être écrits (masquant les incidents de sécurité), et les processus nécessitant des fichiers temporaires échouent de manière imprévisible. À 100%, le système peut devenir non réactif.",
+        "how": "1. Trouvez ce qui consomme de l'espace :\n   du -sh <point_montage>/* 2>/dev/null | sort -rh | head -20\n2. Causes courantes :\n   - Logs : sudo journalctl --vacuum-size=500M\n   - Anciens noyaux : sudo apt autoremove\n   - Docker : docker system prune\n3. Déplacez ou supprimez les fichiers volumineux inutiles\n4. Si le problème est récurrent, étendez la partition ou ajoutez du stockage"
+      }
+    },
+    "memory": {
+      "swappiness_ssd_wear": {
+        "title": "Swappiness élevé sur SSD — amplification d'écriture inutile",
+        "why": "Une valeur de swappiness élevée pousse le noyau à swapper des pages en mémoire de façon agressive même lorsque la RAM est disponible. Sur les SSD, chaque écriture de swap compte dans l'endurance totale en écriture du disque (TBW). Un swap agressif soutenu peut réduire significativement la durée de vie du SSD.",
+        "how": "1. Vérifiez la valeur actuelle :\n   cat /proc/sys/vm/swappiness\n2. Définissez une valeur plus basse immédiatement :\n   sudo sysctl vm.swappiness=10  # poste de travail\n   sudo sysctl vm.swappiness=1   # serveur\n3. Rendez-le permanent :\n   echo 'vm.swappiness=1' | sudo tee /etc/sysctl.d/99-swappiness.conf\n   sudo sysctl --system"
+      },
+      "swappiness_unjustified": {
+        "title": "Swap utilisé malgré une RAM abondante",
+        "why": "Le noyau déplace la mémoire des processus vers le swap alors que la RAM est largement disponible. Cela gaspille des cycles d'écriture du swap (particulièrement dommageable sur les SSD), augmente la latence I/O pour les processus concernés, et peut indiquer une valeur de swappiness trop élevée ou une fuite mémoire dans un processus en cours.",
+        "how": "1. Identifiez les processus avec de la mémoire swappée :\n   sudo smem -rs swap 2>/dev/null | head -15\n2. Réduisez la swappiness pour diminuer la tendance à swapper :\n   sudo sysctl vm.swappiness=10\n3. Si un processus spécifique fuit de la mémoire, examinez-le :\n   sudo top  # surveillez les colonnes RES/VIRT\n4. Rendez swappiness permanent :\n   echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-swappiness.conf"
+      }
     }
   },
   "explain_cis": {
@@ -869,7 +1072,21 @@
       "permit_user_env": "CIS Ubuntu 22.04 L1 — 5.2.11 — Ensure SSH PermitUserEnvironment is disabled",
       "weak_ciphers": "CIS Ubuntu 22.04 L1 — 5.2.15 — Ensure only strong cipher suites are used",
       "weak_macs": "CIS Ubuntu 22.04 L1 — 5.2.16 — Ensure only strong MAC algorithms are used",
-      "weak_kex": "CIS Ubuntu 22.04 L1 — 5.2.17 — Ensure only strong key exchange algorithms are used"
+      "weak_kex": "CIS Ubuntu 22.04 L1 — 5.2.17 — Ensure only strong key exchange algorithms are used",
+      "rsa_weak": "CIS Ubuntu 22.04 L1 — 5.2.2 — Force des algorithmes de clé hôte SSH (RSA < 4096 bits)",
+      "login_grace_time": "CIS Ubuntu 22.04 L1 — 5.2.18 — LoginGraceTime SSH ≤ 60 secondes",
+      "no_allow_users": "CIS Ubuntu 22.04 N2 — 5.2.23 — Restreindre l'accès SSH (AllowUsers/AllowGroups)",
+      "private_key_perms": "CIS Ubuntu 22.04 L1 — 5.2.2 — Permissions sur les fichiers de clé privée SSH",
+      "authorized_keys_perms": "CIS Ubuntu 22.04 L1 — 6.3.3 — Permissions sur les fichiers authorized_keys SSH",
+      "authorized_keys_dsa": "CIS Ubuntu 22.04 L1 — 5.2.2 — Algorithme déprécié (DSA) dans authorized_keys",
+      "authorized_keys_weak_key": "CIS Ubuntu 22.04 — Bonne pratique de robustesse des clés SSH (NIST SP 800-57)",
+      "authorized_keys_no_restrictions": "CIS Ubuntu 22.04 N2 — 5.2 — Moindre privilège pour les entrées authorized_keys",
+      "authorized_keys_duplicate": "CIS Ubuntu 22.04 — Hygiène de gestion des accès (suppression des identifiants obsolètes)",
+      "dir_perms": "CIS Ubuntu 22.04 L1 — 6.3.2 — Permissions sur le répertoire .ssh",
+      "client_forward_agent": "CIS Ubuntu 22.04 N2 — Bonne pratique client SSH (risque de transfert d'identifiants)",
+      "client_known_hosts_devnull": "CIS Ubuntu 22.04 — Prévention MITM client SSH (vérification des clés hôtes)",
+      "known_hosts_deprecated": "CIS Ubuntu 22.04 — Type de clé déprécié dans known_hosts (hygiène algorithmique)",
+      "known_hosts_duplicate": "CIS Ubuntu 22.04 — Hygiène de gestion des accès (propreté du known_hosts)"
     },
     "file_perms": {
       "world_writable": "CIS Ubuntu 22.04 N1 — 6.1.10 — Aucun fichier accessible en écriture par tous",
@@ -897,7 +1114,33 @@
       "pipe_to_shell": "CIS Ubuntu 22.04 L1 — 5.1 — Configure cron (script integrity: verify sources before execution)"
     },
     "services_state": {
-      "enabled_inactive": "CIS Ubuntu 22.04 — security service availability best practice (ensure critical services remain active after boot)"
+      "enabled_inactive": "CIS Ubuntu 22.04 — Bonne pratique de disponibilité des services de sécurité (services critiques actifs après le boot)"
+    },
+    "rules": {
+      "duplicate_found": "CIS Ubuntu 22.04 L1 — 3.5 — Configurer le pare-feu (hygiène et auditabilité des règles)",
+      "open_any_found": "CIS Ubuntu 22.04 L1 — 3.5.1 — UFW installé et configuré avec politique par défaut restrictive",
+      "ipv6_missing": "CIS Ubuntu 22.04 L1 — 3.5.1.4 — Règles UFW présentes pour tous les ports ouverts (parité IPv4/IPv6)"
+    },
+    "ipv6": {
+      "ufw_disabled_listeners_present": "CIS Ubuntu 22.04 L1 — 3.5.1.4 — Règles pare-feu IPv6 pour tous les ports ouverts",
+      "port_no_v6_rule": "CIS Ubuntu 22.04 L1 — 3.5.1.4 — Règles pare-feu IPv6 pour tous les ports ouverts",
+      "ufw_enabled_kernel_disabled": "CIS Ubuntu 22.04 L1 — 3.5.1.4 — Cohérence de la configuration pare-feu IPv6"
+    },
+    "password_policy": {
+      "no_quality_module": "CIS Ubuntu 22.04 L1 — 5.4.1 — Exigences de création des mots de passe configurées",
+      "weak_minlen": "CIS Ubuntu 22.04 L1 — 5.4.1 — Longueur minimale des mots de passe (minlen ≥ 14)",
+      "no_expiry": "CIS Ubuntu 22.04 L1 — 5.4.2 — Expiration des mots de passe ≤ 365 jours"
+    },
+    "disk": {
+      "smart_failed": "CIS Ubuntu 22.04 — Bonne pratique de surveillance de la santé des disques (prévention des défaillances)",
+      "reallocated_sectors": "CIS Ubuntu 22.04 — Surveillance SMART (attribut 5 — secteurs réalloués)",
+      "pending_sectors": "CIS Ubuntu 22.04 — Surveillance SMART (attribut 197 — secteurs en attente)",
+      "uncorrectable_errors": "CIS Ubuntu 22.04 — Surveillance SMART (attribut 198 — erreurs non corrigeables)",
+      "partition_critical": "CIS Ubuntu 22.04 — Stabilité et disponibilité du système (gestion de l'espace disque)"
+    },
+    "memory": {
+      "swappiness_ssd_wear": "CIS Ubuntu 22.04 — Optimisation des paramètres noyau (vm.swappiness pour la longévité SSD)",
+      "swappiness_unjustified": "CIS Ubuntu 22.04 — Optimisation des paramètres noyau (vm.swappiness)"
     }
   },
   "user_accounts": {

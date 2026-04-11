@@ -1,9 +1,9 @@
 *[Read in English](README_TECH.md)* · *[Vue d'ensemble](../README_FR.md)*
 
-# ufw-audit v1.11.0
+# ufw-audit v1.13.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.11.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.13.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -46,7 +46,7 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 - **Audit de sécurité SSH** — analyse complète de `sshd_config` (15 directives + Ciphers/MACs/KEX faibles) ; audit des clés privées (type, taille, passphrase) ; inspection `authorized_keys` ; vérification côté client `~/.ssh/config` ; comptage des entrées `known_hosts` ; cible le home de `SUDO_USER` ; suggestions d'installation adaptées à la distro
 - **Fichiers sensibles & sudoers** — audit des permissions de `/etc/passwd`, `/etc/shadow`, `/etc/gshadow`, `/etc/group`, `/etc/sudoers` (modifiable par tous → ALERT, trop permissif → WARN) ; permissions des clés hôtes privées SSH sous `/etc/ssh/` ; détection de `NOPASSWD:ALL` dans sudoers et sudoers.d
 - **Audit des mises à jour système** — détecte les paquets de sécurité en attente via `apt-get -s upgrade` (−2 pts fixe) ; absence de `unattended-upgrades` combinée à des mises à jour de sécurité en attente (−1 pt composé) ; mises à jour régulières → INFO uniquement
-- **`--explain KEY`** — explication structurée par constat (POURQUOI C'EST UN RISQUE / COMMENT CORRIGER / référence CIS Ubuntu 22.04) ; 20 clés explicables ; `--explain list` liste toutes les clés avec leurs titres ; normalisation des clés `file_perms.*` ; sans droit root
+- **`--explain KEY`** — explication structurée par constat (POURQUOI C'EST UN RISQUE / COMMENT CORRIGER / référence CIS Ubuntu 22.04) ; 63 clés explicables dans 15 groupes ; `--explain list` affiche toutes les clés avec en-têtes de groupes ; normalisation des clés `file_perms.*` ; sans droit root
 - **Scores par domaine** — sous-scores de sécurité par domaine (SSH / Fichiers & Accès / Mises à jour / Durcissement / Pare-feu & Services) ; affichés en barre █/░ après l'audit ; inclus dans la sortie JSON et le payload webhook
 - **Webhooks** — `--webhook URL` envoie le résultat d'audit en JSON après chaque audit ; formats générique (Grafana/automation) et Slack (auto-détecté) ; non-fatal ; `--webhook-format=auto|generic|slack`
 - **Mode `--diff`** — lance l'audit silencieusement et affiche uniquement le delta comparatif (changements depuis le dernier audit)
@@ -477,7 +477,11 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v1.10.0** — Suggestion `--explain` dans le résumé (Phase A1) ; audit modules noyau (CHECK 14 : cramfs/hfs/squashfs/usb_storage/dccp/sctp/rds/tipc, −1 pt/catégorie) ; audit tâches cron (CHECK 15 : pipe-to-shell −2 pts, scripts accessibles en écriture −1 pt ; /etc/cron.d parsé en format crontab) ; audit état des services (CHECK 16 : requête systemctl en deux étapes, services de sécurité inactifs, −1 pt/service max −3) ; passage qualité (shlex.quote dans les cmds de correction, key= sur tous les findings firewall.py, 9 fichiers de tests étendus) ; 1541/1541
 
-**v1.11.0** *(actuel)* — `--explain` A2 (20→33 clés : 11 SSH + fail2ban + 2 modules noyau + pipe_to_shell + enabled_inactive) ; audit comptes utilisateurs (CHECK 17 : UID 0 −3 pts, mot de passe vide −2 pts, expirés INFO) ; audit politique de mots de passe (CHECK 18 : absence module PAM −1 pt, minlen faible −1 pt, PASS_MAX_DAYS≥365 INFO) ; passage qualité ; 1675/1675
+**v1.11.0** — `--explain` A2 (20→33 clés : 11 SSH + fail2ban + 2 modules noyau + pipe_to_shell + enabled_inactive) ; audit comptes utilisateurs (CHECK 17 : UID 0 −3 pts, mot de passe vide −2 pts, expirés INFO) ; audit politique de mots de passe (CHECK 18 : absence module PAM −1 pt, minlen faible −1 pt, PASS_MAX_DAYS≥365 INFO) ; passage qualité ; 1675/1675
+
+**v1.12.0** — Refonte `--help` (7 sections) ; 6 nouvelles options courtes (-J -C -p -e -D -w) ; correctifs autocomplétion bash ; 4 correctifs Debian VM (contexte risque tous services, GeoIP mkdir, unattended workstation, dates expiration avec filtre UID) ; 1703/1703
+
+**v1.13.0** *(actuel)* — audit santé disques (CHECK 22 : SMART + partitions, support NVMe, nouveau domaine `disk`) ; audit mémoire & swap (CHECK 23 : usure SSD, swap injustifié 3 conditions, swappiness adapté au profil) ; tableau partitions avec barres de progression colorées ; conseils SMART ; `--explain` 33→63 clés (15 groupes) ; passages qualité (disk.py + memory.py) ; 1890/1890
 - `--diff` — comparer l'audit courant avec un précédent export `--json` pour détecter les nouveaux ports/services (dérive d'audit)
 - `--fix --safe` — mode auto-fix restreint aux findings LOW/MEDIUM uniquement ; les findings CRITICAL/HIGH ne sont jamais appliqués sans confirmation explicite
 

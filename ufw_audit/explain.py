@@ -20,53 +20,110 @@ from __future__ import annotations
 import re
 
 # ---------------------------------------------------------------------------
-# Available explain keys (canonical list)
+# Available explain keys — organised by group
 # ---------------------------------------------------------------------------
 
-EXPLAIN_KEYS: list[str] = [
-    # SSH — authentication
-    "ssh.password_auth",
-    "ssh.permit_root_login",
-    "ssh.permit_empty_passwords",
-    "ssh.pubkey_auth_disabled",
-    "ssh.no_passphrase",
-    "ssh.dsa_key",
-    # SSH — access control
-    "ssh.max_auth_tries",
-    "ssh.allow_tcp_forwarding",
-    "ssh.x11_forwarding",
-    "ssh.permit_user_env",
-    "ssh.ignore_rhosts_disabled",
-    "ssh.host_based_auth",
-    "ssh.strict_modes_disabled",
-    "ssh.client_strict_host_no",
-    # SSH — cryptography
-    "ssh.weak_ciphers",
-    "ssh.weak_macs",
-    "ssh.weak_kex",
-    # Files & access
-    "file_perms.world_writable",
-    "file_perms.too_permissive",
-    "file_perms.sudoers_nopasswd_all",
-    "file_perms.ssh_host_key_perms",
-    # Updates
-    "updates.security_pending",
-    "updates.unattended_not_configured",
-    # Hardening
-    "hardening.rp_filter_disabled",
-    "hardening.rp_filter_loose",
-    "hardening.redirects_enabled",
-    "hardening.log_martians_disabled",
-    "hardening.fail2ban_missing",
-    # Kernel modules
-    "kernel_modules.risky_fs",
-    "kernel_modules.risky_net",
-    # Cron
-    "cron_audit.pipe_to_shell",
-    "cron_audit.world_writable",
-    # Services
-    "services_state.enabled_inactive",
+# Each entry: (group label, [keys])
+_EXPLAIN_GROUPS: list[tuple[str, list[str]]] = [
+    ("SSH — Authentication", [
+        "ssh.password_auth",
+        "ssh.permit_root_login",
+        "ssh.permit_empty_passwords",
+        "ssh.pubkey_auth_disabled",
+        "ssh.no_passphrase",
+        "ssh.dsa_key",
+        "ssh.rsa_weak",
+        "ssh.login_grace_time",
+        "ssh.no_allow_users",
+        "ssh.private_key_perms",
+    ]),
+    ("SSH — Access Control", [
+        "ssh.max_auth_tries",
+        "ssh.allow_tcp_forwarding",
+        "ssh.x11_forwarding",
+        "ssh.permit_user_env",
+        "ssh.ignore_rhosts_disabled",
+        "ssh.host_based_auth",
+        "ssh.strict_modes_disabled",
+        "ssh.client_strict_host_no",
+    ]),
+    ("SSH — Cryptography", [
+        "ssh.weak_ciphers",
+        "ssh.weak_macs",
+        "ssh.weak_kex",
+    ]),
+    ("SSH — Authorized Keys", [
+        "ssh.authorized_keys_perms",
+        "ssh.authorized_keys_dsa",
+        "ssh.authorized_keys_weak_key",
+        "ssh.authorized_keys_no_restrictions",
+        "ssh.authorized_keys_duplicate",
+    ]),
+    ("SSH — Client Config", [
+        "ssh.dir_perms",
+        "ssh.client_forward_agent",
+        "ssh.client_known_hosts_devnull",
+        "ssh.known_hosts_deprecated",
+        "ssh.known_hosts_duplicate",
+    ]),
+    ("Files & Access", [
+        "file_perms.world_writable",
+        "file_perms.too_permissive",
+        "file_perms.sudoers_nopasswd_all",
+        "file_perms.ssh_host_key_perms",
+    ]),
+    ("Updates", [
+        "updates.security_pending",
+        "updates.unattended_not_configured",
+    ]),
+    ("Hardening", [
+        "hardening.rp_filter_disabled",
+        "hardening.rp_filter_loose",
+        "hardening.redirects_enabled",
+        "hardening.log_martians_disabled",
+        "hardening.fail2ban_missing",
+    ]),
+    ("Kernel Modules", [
+        "kernel_modules.risky_fs",
+        "kernel_modules.risky_net",
+    ]),
+    ("Firewall Rules", [
+        "rules.duplicate_found",
+        "rules.open_any_found",
+        "rules.ipv6_missing",
+    ]),
+    ("IPv6", [
+        "ipv6.ufw_disabled_listeners_present",
+        "ipv6.port_no_v6_rule",
+        "ipv6.ufw_enabled_kernel_disabled",
+    ]),
+    ("Password Policy", [
+        "password_policy.no_quality_module",
+        "password_policy.weak_minlen",
+        "password_policy.no_expiry",
+    ]),
+    ("Cron", [
+        "cron_audit.pipe_to_shell",
+        "cron_audit.world_writable",
+    ]),
+    ("Services", [
+        "services_state.enabled_inactive",
+    ]),
+    ("Disk", [
+        "disk.smart_failed",
+        "disk.reallocated_sectors",
+        "disk.pending_sectors",
+        "disk.uncorrectable_errors",
+        "disk.partition_critical",
+    ]),
+    ("Memory", [
+        "memory.swappiness_ssd_wear",
+        "memory.swappiness_unjustified",
+    ]),
 ]
+
+# Flat list derived from groups — used externally and for key lookup
+EXPLAIN_KEYS: list[str] = [k for _, keys in _EXPLAIN_GROUPS for k in keys]
 
 # ---------------------------------------------------------------------------
 # Key normalisation
@@ -118,10 +175,12 @@ def run_explain(key: str, t) -> None:
     # ---- list mode ---------------------------------------------------------
     if key == "list":
         print("Available --explain keys:")
-        print()
-        for k in EXPLAIN_KEYS:
-            title = t(f"explain.{k}.title")
-            print(f"  {k:<42}  {title}")
+        for group_label, keys in _EXPLAIN_GROUPS:
+            print()
+            print(f"  ── {group_label} {'─' * max(0, 46 - len(group_label))}─")
+            for k in keys:
+                title = t(f"explain.{k}.title")
+                print(f"    {k:<42}  {title}")
         print()
         return
 

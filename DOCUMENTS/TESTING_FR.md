@@ -29,8 +29,35 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v1.7.0  | 966   | +38 tests — `test_profiles.py` (36), `test_compare.py` (+2 filtre ports éphémères), `test_ipv6.py` (+2 entrées malformées) |
 | v1.8.0  | 1104  | +138 tests — `test_ssh.py` (93) + `test_file_perms.py` (45) : modifiable-par-tous (7), trop-permissif (5), clés-hôtes-SSH (4), NOPASSWD-ALL (5), NOPASSWD-spécifique (4), combinés (5), _is_nopasswd_all (8), dataclass (2), tout-correct (4) |
 | v1.9.0  | 1332  | +228 tests — `test_updates.py` (34), `test_explain.py` (~94), `test_domain_scores.py` (~48), `test_webhook.py` (~54) ; passages qualité sur `test_hardening.py` + `test_profiles.py` |
+| v1.13.0 | 1890  | +187 tests — `test_disk.py` (60), `test_memory.py` (37) ; `test_explain.py` mis à jour (assertion 33→63 clés) |
+| v1.12.0 | 1703  | +28 tests — profil workstation, assertions de dates, fixtures dict dans les fichiers existants |
 | v1.11.0 | 1675  | +134 tests — `test_user_accounts.py` (51), `test_password_policy.py` (51) ; clés A2 `--explain` dans `test_explain.py` (+13 assertions) ; passage qualité sur les deux nouveaux fichiers |
 | v1.10.0 | 1541  | +209 tests — `test_display_explain_hint.py` (25), `test_kernel_modules.py` (48), `test_cron_audit.py` (47), `test_services_state.py` (35) ; passage qualité : `test_check_rules.py` (+10), `test_cli.py` (+38), `test_compare.py` (+7), `test_cron.py` (+10), `test_ddns.py` (+5), `test_degraded.py` (+3) |
+
+### v1.13.0 — 1890/1890 (2026-04-10)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+1890 passed in 1.75s
+```
+
+#### Nouveaux tests (+187)
+
+| Fichier | Nb | Couverture |
+|---------|-----|------------|
+| `tests/test_disk.py` | 60 | Défauts snapshot ; smartctl absent (INFO, sans déduction, clé, détail) ; SMART virtuel (INFO, pas OK) ; SMART inconnu ; SMART PASSED (OK, clé, modèle dans message) ; SMART FAILED (ALERT, −3 pts, clé, cmd, nature=action) ; attributs critiques (réalloués/en attente/non corrigibles >0 → WARN −1 pt chacun) ; attributs NVMe (media_errors→uncorrectable, log_entries→pending) ; disques multiples ; partition ≥90% (WARN −1 pt), ≥80% (INFO) ; tout-correct OK ; parse_smart_attr ; cas limites |
+| `tests/test_memory.py` | 37 | Défauts snapshot ; pas de swap (INFO, retour anticipé, sans déduction) ; usure SSD (WARN, −1 pt, clé, recommandé adapté au profil, cmd, server vs workstation) ; swap injustifié (WARN, sans déduction, garde 3 conditions : pas de WARN si ram<50%, swap<32Mo, swappiness≤recommandé) ; swappiness sous-optimal (INFO, cmd) ; profil-adapté (server→1, workstation→10) ; stats swap toujours affichées ; cas limites |
+| `tests/test_explain.py` | +1 | `test_has_sixty_three_keys` — `len(EXPLAIN_KEYS) == 63` |
+
+#### Nouveaux modules
+
+- **`checks/disk.py`** — `DiskSnapshot.from_system()`, `check_disk()`, `_detect_block_devices()`, `_query_smart()`, `_parse_nvme_attrs()`, `_parse_smart_attr()`, `_read_partition_usage()`
+- **`checks/memory.py`** — `MemorySnapshot.from_system()`, `check_memory()`, `_read_meminfo()`, `_read_swappiness()`, `_read_swap_devices()`, `_detect_swap_on_ssd()`
+- **`display.py`** — `display_disk_partitions()`, `_disk_bar()`, `_gb_str()` ajoutés
+
+---
 
 ### v1.11.0 — 1675/1675 (2026-04-07)
 

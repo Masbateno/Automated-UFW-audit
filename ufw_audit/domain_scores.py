@@ -9,6 +9,7 @@ Domains:
   file_perms — Sensitive file permissions and sudoers (checks/file_perms.py)
   updates    — System package updates (checks/updates.py)
   hardening  — Kernel hardening and security tools (checks/hardening.py)
+  disk       — Disk health: SMART + partition usage (checks/disk.py)
   firewall   — Firewall rules, ports, services, logs (everything else)
 
 Usage:
@@ -34,7 +35,7 @@ from ufw_audit.scoring import MAX_SCORE
 # ---------------------------------------------------------------------------
 
 # Ordered list of canonical domain identifiers (display order).
-DOMAINS: list[str] = ["ssh", "file_perms", "updates", "hardening", "firewall"]
+DOMAINS: list[str] = ["ssh", "file_perms", "updates", "hardening", "disk", "firewall"]
 
 # Human-readable English labels for each domain.
 _LABELS: dict[str, str] = {
@@ -42,6 +43,7 @@ _LABELS: dict[str, str] = {
     "file_perms": "Files & Access",
     "updates":    "Updates",
     "hardening":  "Hardening",
+    "disk":       "Disk Health",
     "firewall":   "Firewall & Services",
 }
 
@@ -57,6 +59,8 @@ _PREFIX_TO_DOMAIN: dict[str, str] = {
     "services_state":  "hardening",
     "user_accounts":    "file_perms",
     "password_policy":  "hardening",
+    "memory":           "hardening",
+    "disk":             "disk",
 }
 
 

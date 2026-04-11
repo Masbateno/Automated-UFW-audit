@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.13.0](#v1130) | 2026-04-10 | Disk health audit (CHECK 22, SMART + partitions, new `disk` domain); Memory & Swap (CHECK 23, SSD wear, swappiness); NVMe support; partition progress bar; `--explain` 33→63 keys (15 groups); quality pass; 1890/1890 tests |
 | [v1.12.0](#v1120) | 2026-04-10 | CLI pass + 4 Debian VM fixes (risk context all services, GeoIP mkdir, unattended workstation, expired dates); 1703/1703 tests |
 | [v1.11.0](#v1110) | 2026-04-07 | `--explain` A2 (+13 keys, 20→33); user account audit (CHECK 17); password policy audit (CHECK 18); quality pass; 1675/1675 tests |
 | [v1.10.0](#v1100) | 2026-04-07 | `--explain` hint in summary box; kernel module audit (CHECK 14); cron job audit (CHECK 15); service state audit (CHECK 16); quality pass (source + 9 test files); 1541/1541 tests |
@@ -45,6 +46,67 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.13.0
+
+**2026-04-10**
+
+### CHECK 22 — Disk Health (`checks/disk.py`)
+
+- `DiskSnapshot` + `check_disk()` — pure snapshot/logic separation
+- SMART health via `smartctl -H`: PASSED → OK; FAILED → ALERT, −3 pts; virtual/unsupported → INFO
+- Critical SMART attributes via `smartctl -A`: reallocated sectors (ID 5), pending sectors (ID 197), uncorrectable errors (ID 198) — each non-zero → WARN, −1 pt
+- Partition usage via `df -P`: ≥ 90% → WARN, −1 pt; ≥ 80% → INFO; pseudo-filesystems (tmpfs, squashfs, overlay, etc.) skipped
+- `smartctl` not installed → INFO with install hint; `lsblk` used for disk detection
+- New **`disk`** domain added to `domain_scores.py` (6th domain, between Hardening and Firewall & Services)
+- 22 locale keys added to `en.json` + `fr.json`
+
+### CHECK 23 — Memory & Swap (`checks/memory.py`)
+
+- `MemorySnapshot` + `check_memory()` — reads `/proc/meminfo` + `/proc/sys/vm/swappiness` + `/sys/block/*/queue/rotational`
+- No swap configured → INFO, no deduction
+- Swap on SSD with `swappiness > 30` → WARN, −1 pt; profile-aware recommended value (server: 1, workstation: 10)
+- Swap in use while RAM > 50% free → WARN (unjustified swap), no deduction
+- Default `swappiness=60` → INFO suggestion to lower; optimal → OK
+- Swap statistics always shown when swap is present
+- Memory/swap findings route to the **`hardening`** domain
+- 9 locale keys added to `en.json` + `fr.json`; `sections.memory` + `sections.disk` added
+
+### NVMe support & robustness (`checks/disk.py`)
+
+- `_parse_nvme_attrs()` — maps NVMe health counters: Media and Data Integrity Errors → `uncorrectable_errors`, Error Information Log Entries → `pending_sectors`
+- SMART health parsing now matches the specific "SMART overall-health" line only (avoids false positives from other lines containing "passed"/"failed")
+- Dead `device != "overlay"` condition removed (already covered by `_SKIP_TYPES_RE`)
+- `du` command: `du -x -h --max-depth=1` (was `du -sh *`)
+
+### Memory & Swap robustness (`checks/memory.py`)
+
+- Unjustified swap now requires 3 conditions: swap ≥ 32 MB AND RAM > 50% free AND `swappiness > recommended` (prevents false positives from kswapd LRU aging)
+- `swapon --show=NAME --noheadings --raw` — explicit column, independent of column-order changes
+- All `/proc` reads use `errors="ignore"` for byte-level robustness
+
+### Partition table display (`display.py`)
+
+- `display_disk_partitions()` — DISK HEALTH section shows a per-partition table with device, size, and colored progress bar (green < 70%, yellow < 90%, red ≥ 90%)
+- Size formatted as `< 1 GB` for sub-1 GB volumes
+
+### SMART deeper analysis tips
+
+- `disk.smart_tips` INFO finding appended when `smartctl` is present: lists `smartctl -a` per disk + guided commands for running short/long tests, monitoring progress (`watch`), aborting (`-X`), and consulting history (`-l selftest`)
+
+### `--explain` expanded (33 → 63 keys, 15 groups)
+
+- `EXPLAIN_KEYS` expanded from 33 to 63 keys; 30 new keys across SSH authorized keys, SSH client config, firewall rules, IPv6, password policy, disk, and memory
+- `--explain list` now displays keys organized into 15 labeled groups with headers
+- `tests/test_explain.py` updated: `test_has_sixty_three_keys` asserts `len(EXPLAIN_KEYS) == 63`
+
+### Tests
+
+- `tests/test_disk.py`: 60 tests across 9 test classes (+3 NVMe tests)
+- `tests/test_memory.py`: 37 tests across 8 test classes (+6 robustness tests)
+- **Total: 1890/1890** (+187 vs v1.12.0)
 
 ---
 

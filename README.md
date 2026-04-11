@@ -156,13 +156,29 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Quality & reliability
 
-- ✅ 1675 unit tests
+- ✅ 1890 unit tests
 - 🧱 Modular architecture (snapshot / check separated)
 - 🧪 Tested on Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.11.0
+## 🆕 v1.13.0
+
+- 💽 **Disk Health Audit** (CHECK 22) — SMART health (PASSED/FAILED, −3 pts), critical attributes (reallocated sectors, pending sectors, uncorrectable errors, −1 pt each), partition usage (≥ 90% WARN −1 pt, ≥ 80% INFO); new **`disk`** domain (6th); NVMe supported
+- 📊 **Partition table** — DISK HEALTH section shows per-partition usage with colored progress bars (green/yellow/red)
+- 🔍 **SMART tips** — verbose finding with guided `smartctl` commands (full report, short/long tests, watch, abort, history)
+- 🧠 **Memory & Swap Audit** (CHECK 23) — SSD wear detection (swappiness > 30, −1 pt), unjustified swap warning, profile-aware recommendations (server: 1, workstation: 10)
+- 📖 **`--explain` 33 → 63 keys** — 30 new keys across 7 new groups; `--explain list` now displays labeled group headers
+- ✅ 1890/1890 unit tests (+187)
+
+## v1.12.0
+
+- 🖥️ **`--help` redesign** — 7 named sections (AUDIT / OUTPUT / FIXES / INTEGRATIONS / CONFIGURATION / MAINTENANCE / STANDALONE); EXIT CODES section for scripting
+- ⌨️ **6 new short options** — `-J` (--json-full), `-C` (--manage-cron), `-p` (--profile), `-e` (--explain), `-D` (--diff), `-w` (--webhook)
+- 🔧 **4 Debian VM fixes** — risk context shown for all active services; GeoIP `mkdir -p` prefix; unattended-upgrades → INFO on workstation; expired accounts with ISO dates, UID < 1000 excluded
+- ✅ 1703/1703 unit tests (+16)
+
+## v1.11.0
 
 - 📖 **`--explain` Phase A2** — 20→33 explainable keys (11 new SSH directives, fail2ban, kernel modules, pipe_to_shell, enabled_inactive)
 - 👤 **User Account Audit** (CHECK 17) — UID 0 non-root accounts (ALERT, −3 pts), empty passwords on login-capable accounts (ALERT, −2 pts), expired accounts (INFO)

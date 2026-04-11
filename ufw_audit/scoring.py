@@ -189,9 +189,9 @@ class CheckResult:
         """Shorthand for adding an OK finding."""
         self.add_finding(FindingLevel.OK, message, detail, key=key)
 
-    def info(self, message: str, detail: str = "", key: str = "") -> None:
+    def info(self, message: str, detail: str = "", cmd: str = "", key: str = "") -> None:
         """Shorthand for adding an INFO finding."""
-        self.add_finding(FindingLevel.INFO, message, detail, key=key)
+        self.add_finding(FindingLevel.INFO, message, detail, cmd=cmd, key=key)
 
     def warn(self, message: str, detail: str = "", nature: str = "improvement", cmd: str = "", note: str = "", key: str = "") -> None:
         """Shorthand for adding a WARN finding."""

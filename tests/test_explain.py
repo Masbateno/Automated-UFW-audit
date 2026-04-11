@@ -70,8 +70,8 @@ class TestNormalizeKey:
 # ---------------------------------------------------------------------------
 
 class TestExplainKeysList:
-    def test_has_thirty_three_keys(self):
-        assert len(EXPLAIN_KEYS) == 33
+    def test_has_sixty_three_keys(self):
+        assert len(EXPLAIN_KEYS) == 63
 
     def test_all_keys_are_strings(self):
         for k in EXPLAIN_KEYS:

@@ -156,13 +156,29 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Qualité & fiabilité
 
-- ✅ 1675 tests unitaires
+- ✅ 1890 tests unitaires
 - 🧱 Architecture modulaire (snapshot / check séparés)
 - 🧪 Testé sur Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.11.0
+## 🆕 v1.13.0
+
+- 💽 **Audit santé disques** (CHECK 22) — santé SMART (PASSED/FAILED, −3 pts), attributs critiques (secteurs réalloués, en attente, erreurs non corrigibles, −1 pt chacun), utilisation partitions (≥ 90% WARN −1 pt, ≥ 80% INFO) ; nouveau domaine **`disk`** (6e) ; support NVMe
+- 📊 **Tableau des partitions** — la section ÉTAT DES DISQUES affiche l'usage par partition avec des barres de progression colorées (vert/jaune/rouge)
+- 🔍 **Conseils SMART** — finding verbose avec commandes `smartctl` guidées (rapport complet, tests court/long, watch, interrompre, historique)
+- 🧠 **Audit mémoire & swap** (CHECK 23) — détection usure SSD (swappiness > 30, −1 pt), avertissement swap injustifié, recommandations selon profil (server : 1, workstation : 10)
+- 📖 **`--explain` 33 → 63 clés** — 30 nouvelles clés dans 7 nouveaux groupes ; `--explain list` affiche désormais les en-têtes de groupes
+- ✅ 1890/1890 tests unitaires (+187)
+
+## v1.12.0
+
+- 🖥️ **Refonte `--help`** — 7 sections nommées (AUDIT / OUTPUT / FIXES / INTEGRATIONS / CONFIGURATION / MAINTENANCE / STANDALONE) ; section EXIT CODES pour l'usage en scripts
+- ⌨️ **6 nouvelles options courtes** — `-J` (--json-full), `-C` (--manage-cron), `-p` (--profile), `-e` (--explain), `-D` (--diff), `-w` (--webhook)
+- 🔧 **4 correctifs Debian VM** — contexte risque pour tous les services actifs ; GeoIP `mkdir -p` ; unattended-upgrades → INFO sur workstation ; comptes expirés avec dates ISO, UID < 1000 exclus
+- ✅ 1703/1703 tests unitaires (+16)
+
+## v1.11.0
 
 - 📖 **`--explain` Phase A2** — 20→33 clés explicables (11 nouvelles directives SSH, fail2ban, modules noyau, pipe_to_shell, enabled_inactive)
 - 👤 **Audit des comptes utilisateurs** (CHECK 17) — comptes UID 0 non-root (ALERT, −3 pts), mots de passe vides sur comptes avec shell (ALERT, −2 pts), comptes expirés (INFO)
