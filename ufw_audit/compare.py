@@ -56,6 +56,7 @@ class AuditBaseline:
         score:           Final score (0–10).
         alert_count:     Number of ALERT findings.
         warn_count:      Number of WARN findings.
+        info_count:      Number of INFO findings.
         open_ports:      Sorted list of 'port/proto' strings listening on all
                          interfaces (0.0.0.0 or ::) at audit time.
         active_services: Sorted list of service labels that were active.
@@ -64,6 +65,7 @@ class AuditBaseline:
     score:           int
     alert_count:     int
     warn_count:      int
+    info_count:      int = 0
     open_ports:      list[str] = field(default_factory=list)
     active_services: list[str] = field(default_factory=list)
 
@@ -74,12 +76,13 @@ class AuditDelta:
     Differences between two consecutive audit baselines.
 
     Positive score_delta means improvement (score went up).
-    Positive alert_delta / warn_delta means more findings (regression).
+    Positive alert_delta / warn_delta / info_delta means more findings (regression).
     """
     prev_timestamp:   str
     score_delta:      int         # current - previous
     alert_delta:      int         # current - previous
     warn_delta:       int         # current - previous
+    info_delta:       int         # current - previous
     new_ports:        list[str]   # appeared since last audit
     closed_ports:     list[str]   # gone since last audit
     new_services:     list[str]   # became active
@@ -91,6 +94,7 @@ class AuditDelta:
             self.score_delta == 0
             and self.alert_delta == 0
             and self.warn_delta == 0
+            and self.info_delta == 0
             and not self.new_ports
             and not self.closed_ports
             and not self.new_services
@@ -137,6 +141,7 @@ def build_baseline(
         score=engine.score,
         alert_count=engine.alert_count,
         warn_count=engine.warn_count,
+        info_count=engine.info_count,
         open_ports=open_ports,
         active_services=active_services,
     )
@@ -175,6 +180,7 @@ def load_baseline(path: Path | None = None) -> AuditBaseline | None:
             score=int(raw.get("score", 0)),
             alert_count=int(raw.get("alert_count", 0)),
             warn_count=int(raw.get("warn_count", 0)),
+            info_count=int(raw.get("info_count", 0)),
             open_ports=list(raw.get("open_ports", [])),
             active_services=list(raw.get("active_services", [])),
         )
@@ -209,6 +215,7 @@ def compute_delta(prev: AuditBaseline, curr: AuditBaseline) -> AuditDelta:
         score_delta=curr.score - prev.score,
         alert_delta=curr.alert_count - prev.alert_count,
         warn_delta=curr.warn_count - prev.warn_count,
+        info_delta=curr.info_count - prev.info_count,
         new_ports=sorted(curr_ports - prev_ports),
         closed_ports=sorted(prev_ports - curr_ports),
         new_services=sorted(curr_svcs - prev_svcs),
@@ -255,6 +262,12 @@ def display_delta(delta: AuditDelta, t, output_mod) -> None:
         output_mod.print_warn(t("compare.warns_increased", delta=delta.warn_delta))
     elif delta.warn_delta < 0:
         output_mod.print_ok(t("compare.warns_decreased", delta=abs(delta.warn_delta)))
+
+    # --- Info findings ---
+    if delta.info_delta < 0:
+        output_mod.print_ok(t("compare.info_decreased", delta=abs(delta.info_delta)))
+    elif delta.info_delta > 0:
+        output_mod.print_info(t("compare.info_increased", delta=delta.info_delta))
 
     # --- Ports ---
     for port in delta.new_ports:

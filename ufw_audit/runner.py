@@ -44,6 +44,8 @@ from ufw_audit.checks.user_accounts import UserAccountsSnapshot, check_user_acco
 from ufw_audit.checks.password_policy import PasswordPolicySnapshot, check_password_policy
 from ufw_audit.checks.memory import MemorySnapshot, check_memory
 from ufw_audit.checks.disk import DiskSnapshot, check_disk
+from ufw_audit.checks.samba import SambaSnapshot, check_samba
+from ufw_audit.checks.clamav import ClamAVSnapshot, check_clamav
 from ufw_audit.plugin_checks import load_plugin_checks
 
 
@@ -279,6 +281,20 @@ def run_checks(
         if not config.quiet:
             print()
 
+    # ---- CHECK 24 — Samba security audit ----
+    samba_snapshot = SambaSnapshot.from_system()
+    if samba_snapshot.installed and (profile is None or not profile.should_skip_section("samba")):
+        if not config.quiet:
+            print_section(t("sections.samba"))
+        report.write_section(t("sections.samba"))
+        samba_result = check_samba(samba_snapshot, t=t)
+        if profile is not None:
+            apply_profile(samba_result, profile)
+        engine.apply(samba_result)
+        display_result(samba_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
     # ---- CHECK 12 — Sensitive file permissions + sudoers ----
     file_perms_snapshot = FilePermsSnapshot.from_system()
     if profile is None or not profile.should_skip_section("file_perms"):
@@ -410,6 +426,20 @@ def run_checks(
         display_result(disk_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:
             display_disk_partitions(disk_snapshot, t, output)
+            print()
+
+    # ---- CHECK 25 — ClamAV antivirus audit ----
+    clamav_snapshot = ClamAVSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("clamav"):
+        if not config.quiet:
+            print_section(t("sections.clamav"))
+        report.write_section(t("sections.clamav"))
+        clamav_result = check_clamav(clamav_snapshot, t=t)
+        if profile is not None:
+            apply_profile(clamav_result, profile)
+        engine.apply(clamav_result)
+        display_result(clamav_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
             print()
 
     # ---- Plugin checks (user-defined, checks.d/) ----

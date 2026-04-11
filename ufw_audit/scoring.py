@@ -335,6 +335,11 @@ class ScoreEngine:
         return sum(1 for f in self.findings if f.level == FindingLevel.WARN)
 
     @property
+    def info_count(self) -> int:
+        """Number of INFO-level findings."""
+        return sum(1 for f in self.findings if f.level == FindingLevel.INFO)
+
+    @property
     def ok_count(self) -> int:
         """Number of OK-level findings."""
         return sum(1 for f in self.findings if f.level == FindingLevel.OK)

@@ -40,7 +40,7 @@ def _make_delta(**overrides) -> AuditDelta:
     """Build an AuditDelta with all-zero/empty defaults for focused testing."""
     defaults = dict(
         prev_timestamp="2026-01-01T00:00:00+00:00",
-        score_delta=0, alert_delta=0, warn_delta=0,
+        score_delta=0, alert_delta=0, warn_delta=0, info_delta=0,
         new_ports=[], closed_ports=[],
         new_services=[], stopped_services=[],
     )
@@ -54,6 +54,7 @@ def make_baseline(**overrides) -> AuditBaseline:
         score=9,
         alert_count=0,
         warn_count=1,
+        info_count=2,
         open_ports=["22/tcp", "80/tcp"],
         active_services=["sshd", "nginx"],
     )
@@ -61,11 +62,12 @@ def make_baseline(**overrides) -> AuditBaseline:
     return AuditBaseline(**defaults)
 
 
-def make_engine(score=9, alert_count=0, warn_count=1):
+def make_engine(score=9, alert_count=0, warn_count=1, info_count=0):
     return SimpleNamespace(
         score=score,
         alert_count=alert_count,
         warn_count=warn_count,
+        info_count=info_count,
         findings=[],
         breakdown=[],
     )
@@ -454,3 +456,23 @@ class TestDisplayDelta:
     def test_warns_decreased_uses_ok(self):
         calls = self._run(_make_delta(warn_delta=-1))
         assert any("compare.warns_decreased" in m for m in calls["ok"])
+
+    def test_info_decreased_uses_ok(self):
+        calls = self._run(_make_delta(info_delta=-2))
+        assert any("compare.info_decreased" in m for m in calls["ok"])
+
+    def test_info_increased_uses_info(self):
+        calls = self._run(_make_delta(info_delta=3))
+        assert any("compare.info_increased" in m for m in calls["info"])
+
+    def test_info_unchanged_no_output(self):
+        calls = self._run(_make_delta(info_delta=0))
+        assert not any("compare.info_" in m for m in calls.get("ok", []) + calls.get("info", []))
+
+    def test_is_empty_includes_info_delta(self):
+        delta = _make_delta(info_delta=-1)
+        assert not delta.is_empty()
+
+    def test_is_empty_true_when_all_zero(self):
+        delta = _make_delta()
+        assert delta.is_empty()

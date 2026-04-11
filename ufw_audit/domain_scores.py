@@ -6,6 +6,7 @@ computes a score (0–10) for each domain independently.
 
 Domains:
   ssh        — SSH server/client configuration (checks/ssh.py)
+  samba      — Samba security audit (checks/samba.py)
   file_perms — Sensitive file permissions and sudoers (checks/file_perms.py)
   updates    — System package updates (checks/updates.py)
   hardening  — Kernel hardening and security tools (checks/hardening.py)
@@ -35,11 +36,12 @@ from ufw_audit.scoring import MAX_SCORE
 # ---------------------------------------------------------------------------
 
 # Ordered list of canonical domain identifiers (display order).
-DOMAINS: list[str] = ["ssh", "file_perms", "updates", "hardening", "disk", "firewall"]
+DOMAINS: list[str] = ["ssh", "samba", "file_perms", "updates", "hardening", "disk", "firewall"]
 
 # Human-readable English labels for each domain.
 _LABELS: dict[str, str] = {
     "ssh":        "SSH",
+    "samba":      "Samba Security",
     "file_perms": "Files & Access",
     "updates":    "Updates",
     "hardening":  "Hardening",
@@ -51,6 +53,7 @@ _LABELS: dict[str, str] = {
 # Any prefix not listed here → "firewall" (catch-all).
 _PREFIX_TO_DOMAIN: dict[str, str] = {
     "ssh":             "ssh",
+    "samba":           "samba",
     "file_perms":      "file_perms",
     "updates":         "updates",
     "hardening":       "hardening",
@@ -60,6 +63,7 @@ _PREFIX_TO_DOMAIN: dict[str, str] = {
     "user_accounts":    "file_perms",
     "password_policy":  "hardening",
     "memory":           "hardening",
+    "clamav":           "hardening",
     "disk":             "disk",
 }
 

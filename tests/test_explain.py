@@ -70,8 +70,8 @@ class TestNormalizeKey:
 # ---------------------------------------------------------------------------
 
 class TestExplainKeysList:
-    def test_has_sixty_three_keys(self):
-        assert len(EXPLAIN_KEYS) == 63
+    def test_has_seventy_three_keys(self):
+        assert len(EXPLAIN_KEYS) == 73
 
     def test_all_keys_are_strings(self):
         for k in EXPLAIN_KEYS:
@@ -101,6 +101,18 @@ class TestExplainKeysList:
         assert "cron_audit.pipe_to_shell" in EXPLAIN_KEYS
         assert "cron_audit.world_writable" in EXPLAIN_KEYS
         assert "services_state.enabled_inactive" in EXPLAIN_KEYS
+        # ClamAV keys (v1.14.0)
+        assert "clamav.db_very_outdated" in EXPLAIN_KEYS
+        assert "clamav.db_outdated" in EXPLAIN_KEYS
+        assert "clamav.scan_very_old" in EXPLAIN_KEYS
+        assert "clamav.scan_old" in EXPLAIN_KEYS
+        # Samba keys (v1.14.0)
+        assert "samba.smb1_enabled" in EXPLAIN_KEYS
+        assert "samba.null_passwords" in EXPLAIN_KEYS
+        assert "samba.guest_writable" in EXPLAIN_KEYS
+        assert "samba.guest_readonly" in EXPLAIN_KEYS
+        assert "samba.server_signing_disabled" in EXPLAIN_KEYS
+        assert "samba.map_to_guest" in EXPLAIN_KEYS
 
 
 # ---------------------------------------------------------------------------

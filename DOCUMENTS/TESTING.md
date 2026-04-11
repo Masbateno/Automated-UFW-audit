@@ -29,10 +29,43 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v1.7.0  | 966   | +38 tests — `test_profiles.py` (36), `test_compare.py` (+2 ephemeral port filter), `test_ipv6.py` (+2 malformed input) |
 | v1.8.0  | 1104  | +138 tests — `test_ssh.py` (93) + `test_file_perms.py` (45): world-writable (7), too-permissive (5), SSH host keys (4), NOPASSWD ALL (5), NOPASSWD specific (4), combined (5), _is_nopasswd_all (9), dataclass (2), all-ok (4) |
 | v1.9.0  | 1332  | +228 tests — `test_updates.py` (34), `test_explain.py` (~94), `test_domain_scores.py` (~48), `test_webhook.py` (~54); quality passes on `test_hardening.py` + `test_profiles.py` |
-| v1.13.0 | 1890  | +187 tests — `test_disk.py` (60), `test_memory.py` (37); `test_explain.py` updated (33→63 keys assertion) |
-| v1.12.0 | 1703  | +28 tests — workstation profile, date assertions, dict fixtures across existing test files |
-| v1.11.0 | 1675  | +134 tests — `test_user_accounts.py` (51), `test_password_policy.py` (51); `--explain` A2 keys in `test_explain.py` (+13 assertions); quality pass on both new test files |
 | v1.10.0 | 1541  | +209 tests — `test_display_explain_hint.py` (25), `test_kernel_modules.py` (48), `test_cron_audit.py` (47), `test_services_state.py` (35); quality pass: `test_check_rules.py` (+10), `test_cli.py` (+38), `test_compare.py` (+7), `test_cron.py` (+10), `test_ddns.py` (+5), `test_degraded.py` (+3) |
+| v1.11.0 | 1675  | +134 tests — `test_user_accounts.py` (51), `test_password_policy.py` (51); `--explain` A2 keys in `test_explain.py` (+13 assertions); quality pass on both new test files |
+| v1.12.0 | 1703  | +28 tests — workstation profile, date assertions, dict fixtures across existing test files |
+| v1.13.0 | 1890  | +187 tests — `test_disk.py` (60), `test_memory.py` (37); `test_explain.py` updated (33→63 keys assertion) |
+| v1.14.0 | 2045  | +155 tests — `test_samba.py` (68), `test_clamav.py` (52); `test_explain.py` updated (63→73 keys); `test_compare.py` info_delta tests (+5) |
+
+### v1.14.0 — 2045/2045 (2026-04-11)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+2045 passed in 2.46s
+```
+
+#### New tests added (+155)
+
+| File | New | Coverage |
+|------|-----|----------|
+| `tests/test_samba.py` | 68 | Snapshot defaults; not installed (INFO, no deduction, key, only one finding); installed ok finding; SMB1 detected (ALERT, −2 pts, key, deduction key, protocol in message, multiple protocols single deduction, nature=action, cmd); null passwords (ALERT, −3 pts, key, deduction key, nature=action, cmd); server signing disabled (WARN, −1 pt, key, nature=improvement, cmd); server signing auto (INFO, no deduction); server signing empty (INFO, no deduction); map_to_guest bad user (WARN, −1 pt, key, nature=improvement); map_to_guest ok values (no finding); guest writable (ALERT, −2 pts/share, key, deduction key, share name in message, multiple shares cumulative, nature=action, cmd); guest readable (WARN, −1 pt/share, key, multiple shares cumulative, nature=improvement); combined deductions; bind interfaces (INFO, no deduction); edge cases (empty snapshot, no_t, constants) |
+| `tests/test_clamav.py` | 52 | Not installed (INFO, 0 pts, key, only one finding); installed OK finding; freshclam missing (WARN, −1 pt, key); db_not_found (WARN, −1 pt, key); db_very_outdated ALERT (−2 pts, key, threshold exact, alert overrides warn); db_outdated WARN (−1 pt, key, threshold exact); db_fresh OK; clamd inactive (INFO, 0 pts, key, no deduction); clamd active (no finding); no scan log (INFO, 0 pts); scan_very_old (WARN, −1 pt, key, threshold exact, overrides scan_old); scan_old (WARN, −1 pt, key); scan_recent OK; cumulative (worst case 4 pts, perfect 0 pts); `_scan_age_days` (today=0, yesterday=1, 30 days, invalid→None, empty→None); `_tail_lines` (last n lines, fewer lines, empty file); `_find_last_scan_date` (parses end date, no logs→None, most recent across logs, multiple summaries picks latest, no summary→None); `from_system` (no binary→not installed, clamscan→installed, freshclam-only→installed, socket fallback→clamd_active, no socket→inactive, db_age computed) |
+| `tests/test_explain.py` | +3 | `test_has_seventy_three_keys` — `len(EXPLAIN_KEYS) == 73`; ClamAV key assertions (4 keys); Samba key assertions (6 keys) |
+| `tests/test_compare.py` | +5 | `info_count` in `AuditBaseline` (default 0, build_baseline, load_baseline backward-compat); `info_delta` in `AuditDelta` (is_empty when 0, info_delta computed, display decreased, display increased) |
+
+#### New modules
+
+- **`checks/samba.py`** — `GuestShare`, `SambaSnapshot.from_system()`, `check_samba()`, `_read_smb_conf()`, `_section_get()`, `_is_yes()`
+- **`checks/clamav.py`** — `ClamAVSnapshot.from_system()`, `check_clamav()`, `_find_last_scan_date()`, `_tail_lines()`, `_scan_age_days()`
+
+#### Quality changes
+
+- `scoring.py` — `info_count` property added to `CheckEngine`
+- `compare.py` — `AuditBaseline.info_count`, `AuditDelta.info_delta`, `build_baseline()`, `load_baseline()`, `compute_delta()`, `display_delta()` updated
+- `domain_scores.py` — `samba` domain (7th); `_PREFIX_TO_DOMAIN["clamav"] = "hardening"`
+- `explain.py` — ClamAV group (4 keys) + Samba group (6 keys); 63 → 73 keys
+
+---
 
 ### v1.13.0 — 1890/1890 (2026-04-10)
 
@@ -56,6 +89,34 @@ pytest tests/ -q
 - **`checks/disk.py`** — `DiskSnapshot.from_system()`, `check_disk()`, `_detect_block_devices()`, `_query_smart()`, `_parse_nvme_attrs()`, `_parse_smart_attr()`, `_read_partition_usage()`
 - **`checks/memory.py`** — `MemorySnapshot.from_system()`, `check_memory()`, `_read_meminfo()`, `_read_swappiness()`, `_read_swap_devices()`, `_detect_swap_on_ssd()`
 - **`display.py`** — `display_disk_partitions()`, `_disk_bar()`, `_gb_str()` added
+
+---
+
+### v1.12.0 — 1703/1703 (2026-04-10)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+1703 passed in 1.50s
+```
+
+#### New tests added (+28)
+
+Quality pass distributed across existing test files — no new test modules.
+
+| File | New | Coverage |
+|------|-----|----------|
+| Various existing test files | +28 | Workstation profile override coverage; expired account date-format assertions; dict-based fixture patterns across `test_user_accounts.py`, `test_password_policy.py`, `test_ssh.py`, `test_compare.py` |
+
+#### Quality changes
+
+- `cli.py` — `--help` redesigned into 7 named sections (AUDIT / OUTPUT / FIXES / INTEGRATIONS / CONFIGURATION / MAINTENANCE / STANDALONE); EXIT CODES section added; 6 new short options (`-J` `--json-full`, `-C` `--manage-cron`, `-p` `--profile`, `-e` `--explain`, `-D` `--diff`, `-w` `--webhook`)
+- `data/ufw-audit.bash-completion` — 7 missing long options added; smart completions
+- `checks/services.py` — `service_risk` entries for 11 medium/low services; risk context block shown for all active services (not just critical/high)
+- `checks/logs.py` — GeoIP `wget` command uses `sudo mkdir -p /usr/share/GeoIP` prefix (Debian fix)
+- `checks/updates.py` — unattended-upgrades compound risk → INFO on workstation profile
+- `checks/user_accounts.py` — `expired_accounts` now stored as `Dict[str, str]` with ISO dates; accounts with UID < 1000 excluded
 
 ---
 

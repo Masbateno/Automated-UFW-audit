@@ -66,6 +66,20 @@ _EXPLAIN_GROUPS: list[tuple[str, list[str]]] = [
         "ssh.known_hosts_deprecated",
         "ssh.known_hosts_duplicate",
     ]),
+    ("ClamAV", [
+        "clamav.db_very_outdated",
+        "clamav.db_outdated",
+        "clamav.scan_very_old",
+        "clamav.scan_old",
+    ]),
+    ("Samba", [
+        "samba.smb1_enabled",
+        "samba.null_passwords",
+        "samba.guest_writable",
+        "samba.guest_readonly",
+        "samba.server_signing_disabled",
+        "samba.map_to_guest",
+    ]),
     ("Files & Access", [
         "file_perms.world_writable",
         "file_perms.too_permissive",

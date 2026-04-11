@@ -45,7 +45,9 @@
     "user_accounts": "USER ACCOUNT AUDIT",
     "password_policy": "PASSWORD POLICY AUDIT",
     "memory": "MEMORY & SWAP",
-    "disk": "DISK HEALTH"
+    "disk": "DISK HEALTH",
+    "samba": "SAMBA SECURITY AUDIT",
+    "clamav": "CLAMAV ANTIVIRUS AUDIT"
   },
   "status": {
     "ok": "OK",
@@ -562,7 +564,9 @@
     "port_closed": "Port no longer open: {port}",
     "service_appeared": "Service became active: {service}",
     "service_stopped": "Service became inactive: {service}",
-    "no_changes": "No changes detected since last audit"
+    "no_changes": "No changes detected since last audit",
+    "info_decreased": "{delta} info notice(s) resolved since last audit",
+    "info_increased": "{delta} new info notice(s) since last audit"
   },
   "ipv6": {
     "config_ok": "UFW IPv6 configuration matches kernel IPv6 state",
@@ -1052,6 +1056,60 @@
         "why": "The kernel is moving process memory to swap while RAM is largely available. This wastes swap write cycles (particularly damaging on SSDs), increases I/O latency for affected processes, and may indicate either a swappiness value that is too high for the workload or a memory leak in a running process.",
         "how": "1. Identify processes with swapped-out memory:\n   sudo smem -rs swap 2>/dev/null | head -15\n2. Lower swappiness to reduce the tendency to swap:\n   sudo sysctl vm.swappiness=10\n3. If a specific process is leaking memory, investigate:\n   sudo top  # watch the RES/VIRT columns\n4. Make swappiness permanent:\n   echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-swappiness.conf"
       }
+    },
+    "samba": {
+      "smb1_enabled": {
+        "title": "SMBv1 is enabled (EternalBlue / WannaCry vector)",
+        "why": "SMBv1 is a 1990s protocol with multiple critical vulnerabilities. The NSA-developed EternalBlue exploit (leaked in 2017) targets SMBv1 and was used by WannaCry ransomware to infect over 200,000 systems in 150 countries in a single day. Microsoft deprecated SMBv1 in 2013. There is no legitimate reason to run SMBv1 today.",
+        "how": "1. Edit /etc/samba/smb.conf\n2. In the [global] section add:\n   min protocol = SMB2\n3. Restart Samba:\n   sudo systemctl restart smbd"
+      },
+      "null_passwords": {
+        "title": "Null passwords allowed (null passwords = yes)",
+        "why": "Allows any account with no password set to authenticate to Samba with a blank password. An attacker only needs to know the username. Combined with guest or misconfigured accounts this grants immediate file system access with no credentials.",
+        "how": "1. Edit /etc/samba/smb.conf\n2. In the [global] section set:\n   null passwords = no\n3. Ensure all accounts have passwords:\n   sudo smbpasswd -a <user>\n4. Restart Samba:\n   sudo systemctl restart smbd"
+      },
+      "guest_writable": {
+        "title": "Guest-writable share (anonymous write access)",
+        "why": "Any unauthenticated user on the network can upload, modify, or delete files in this share. This can be used to plant malware, exfiltrate data, or corrupt backups. Even on a trusted network, accidental or malicious modification without authentication creates serious integrity risks.",
+        "how": "1. Remove guest access entirely:\n   [global] → map to guest = never\n   [sharename] → remove 'guest ok = yes'\n2. Or restrict to read-only:\n   [sharename] → read only = yes\n3. Restart Samba:\n   sudo systemctl restart smbd"
+      },
+      "guest_readonly": {
+        "title": "Guest read-only share (anonymous read access)",
+        "why": "Any unauthenticated user on the network can read files from this share without providing credentials. While read-only access does not allow modification, it can be used for data exfiltration. Verify that all files in this share are intentionally public.",
+        "how": "1. If anonymous access is not needed, remove guest access:\n   [sharename] → remove 'guest ok = yes'\n2. If read-only anonymous access is intentional, document it and ensure no sensitive data is in the share.\n3. Restart Samba:\n   sudo systemctl restart smbd"
+      },
+      "server_signing_disabled": {
+        "title": "Server signing disabled (NTLM relay attack vector)",
+        "why": "Without SMB signing, an attacker performing a man-in-the-middle attack can intercept and modify SMB traffic undetected, or relay NTLM authentication to other services. NTLM relay attacks are a standard technique in Active Directory penetration testing and real-world attacks (e.g. Responder, ntlmrelayx).",
+        "how": "1. Edit /etc/samba/smb.conf\n2. In the [global] section set:\n   server signing = mandatory\n3. Note: clients must also support signing (all modern clients do)\n4. Restart Samba:\n   sudo systemctl restart smbd"
+      },
+      "map_to_guest": {
+        "title": "map to guest = bad user (failed logins fall back to guest)",
+        "why": "When a user provides an invalid username, Samba silently logs them in as the guest account instead of returning an authentication error. This means an attacker who does not know a valid username still gets network access to all guest-accessible shares.",
+        "how": "1. Edit /etc/samba/smb.conf\n2. In the [global] section set:\n   map to guest = never\n3. Restart Samba:\n   sudo systemctl restart smbd"
+      }
+    },
+    "clamav": {
+      "db_very_outdated": {
+        "title": "Virus database critically outdated (> 30 days)",
+        "why": "ClamAV's detection ability depends entirely on its signature database. An outdated database cannot detect malware discovered after the last update. Ransomware, trojans, and rootkits released in the past month would be completely invisible to the scanner.",
+        "how": "1. Update the database immediately:\n   sudo freshclam\n2. Enable automatic updates via the freshclam service:\n   sudo systemctl enable --now clamav-freshclam\n3. Verify cron or systemd timer is scheduling daily updates"
+      },
+      "db_outdated": {
+        "title": "Virus database is outdated (> 7 days)",
+        "why": "ClamAV releases new signature updates multiple times per day. After 7 days, hundreds of new malware signatures are missing from your database. This significantly reduces detection rates for recent threats.",
+        "how": "1. Update the database:\n   sudo freshclam\n2. Enable automatic daily updates:\n   sudo systemctl enable --now clamav-freshclam\n3. Check the freshclam timer:\n   systemctl status clamav-freshclam"
+      },
+      "scan_very_old": {
+        "title": "Last scan is very old (> 90 days)",
+        "why": "Without regular scanning, infections can persist undetected for months. Linux systems are increasingly targeted by malware — web shells, crypto miners, backdoors, and rootkits do not announce themselves. Quarterly scans at minimum are needed to detect dormant infections.",
+        "how": "1. Run an immediate scan of home directories:\n   sudo clamscan -r /home --infected --log=/var/log/clamav/clamscan.log\n2. Schedule weekly scans via cron:\n   echo '0 2 * * 0 root clamscan -r /home --infected --log=/var/log/clamav/clamscan.log' | sudo tee /etc/cron.d/clamav-scan"
+      },
+      "scan_old": {
+        "title": "Last scan is over 30 days old",
+        "why": "Monthly scans leave a large window during which infections can establish persistence, exfiltrate data, or spread to other systems. On a server exposed to the internet, monthly scanning is insufficient.",
+        "how": "1. Run a new scan:\n   sudo clamscan -r /home --infected --log=/var/log/clamav/clamscan.log\n2. Schedule weekly scans:\n   echo '0 2 * * 0 root clamscan -r /home --infected --log=/var/log/clamav/clamscan.log' | sudo tee /etc/cron.d/clamav-scan"
+      }
     }
   },
   "explain_cis": {
@@ -1141,6 +1199,20 @@
     "memory": {
       "swappiness_ssd_wear": "CIS Ubuntu 22.04 — kernel parameter tuning best practice (vm.swappiness for SSD longevity)",
       "swappiness_unjustified": "CIS Ubuntu 22.04 — kernel parameter tuning best practice (vm.swappiness optimisation)"
+    },
+    "samba": {
+      "smb1_enabled": "CIS Ubuntu 22.04 L1 — Samba hardening best practice — Disable SMBv1 (deprecated, EternalBlue CVE-2017-0144)",
+      "null_passwords": "CIS Ubuntu 22.04 — Samba security best practice — Ensure null passwords are disabled",
+      "guest_writable": "CIS Ubuntu 22.04 — Samba security best practice — Ensure no shares allow anonymous write access",
+      "guest_readonly": "CIS Ubuntu 22.04 — Samba security best practice — Verify anonymous read-only shares are intentional",
+      "server_signing_disabled": "CIS Ubuntu 22.04 L1 — Samba hardening — Ensure SMB signing is enabled (NTLM relay prevention)",
+      "map_to_guest": "CIS Ubuntu 22.04 — Samba security best practice — Ensure map to guest is set to never"
+    },
+    "clamav": {
+      "db_very_outdated": "CIS Ubuntu 22.04 — ClamAV hardening best practice — Ensure virus database is updated daily (freshclam service enabled)",
+      "db_outdated": "CIS Ubuntu 22.04 — ClamAV hardening best practice — Ensure virus database is updated at least weekly",
+      "scan_very_old": "CIS Ubuntu 22.04 — ClamAV hardening best practice — Ensure regular full system scans are scheduled (recommended: weekly)",
+      "scan_old": "CIS Ubuntu 22.04 — ClamAV hardening best practice — Ensure regular full system scans are scheduled (recommended: weekly)"
     }
   },
   "user_accounts": {
@@ -1165,5 +1237,51 @@
     "no_expiry": "Password expiry not enforced (PASS_MAX_DAYS = {days})",
     "no_expiry_detail": "Passwords never expire. Consider setting PASS_MAX_DAYS to a reasonable value (e.g. 365) if your policy requires periodic rotation. Note: NIST SP 800-63B no longer mandates expiration unless compromise is suspected.",
     "ok": "Password policy is adequately configured"
+  },
+  "samba": {
+    "conf_unreadable": "Samba is installed but /etc/samba/smb.conf is not readable",
+    "conf_unreadable_detail": "Run: sudo chmod 644 /etc/samba/smb.conf",
+    "smb1_enabled": "SMBv1 is enabled — EternalBlue / WannaCry attack vector",
+    "smb1_enabled_detail": "SMBv1 is a deprecated and critically insecure protocol. Add 'min protocol = SMB2' to [global] in /etc/samba/smb.conf and restart Samba.",
+    "smb1_disabled": "SMBv1 is disabled (min protocol ≥ SMB2)",
+    "null_passwords": "Null passwords are allowed (null passwords = yes)",
+    "null_passwords_detail": "Any account without a password can authenticate to Samba. Set 'null passwords = no' in [global].",
+    "null_passwords_ok": "Null passwords are not allowed",
+    "server_signing_disabled": "Server signing is disabled — MITM / relay attack vector",
+    "server_signing_disabled_detail": "Samba will accept unsigned connections, enabling NTLM relay attacks. Set 'server signing = mandatory' in [global].",
+    "server_signing_mandatory": "Server signing is mandatory",
+    "server_signing_auto": "Server signing is set to auto — signing negotiated but not enforced",
+    "server_signing_auto_detail": "Consider setting 'server signing = mandatory' to prevent NTLM relay attacks.",
+    "map_to_guest": "map to guest = bad user — failed logins silently fall back to guest",
+    "map_to_guest_detail": "Users who authenticate with an invalid username are silently mapped to the guest account. Set 'map to guest = never' in [global].",
+    "guest_writable": "Guest-writable share: [{share}]",
+    "guest_writable_detail": "Share [{share}] ({path}) allows anonymous write access. Remove 'guest ok = yes' or set 'read only = yes'.",
+    "guest_readonly": "Guest read-only share: [{share}]",
+    "guest_readonly_detail": "Share [{share}] ({path}) allows anonymous read access. Verify this is intentional.",
+    "bind_interfaces_not_set": "bind interfaces only is not set — Samba may listen on all interfaces",
+    "bind_interfaces_not_set_detail": "Add 'bind interfaces only = yes' and 'interfaces = lo eth0' in [global] to restrict which network interfaces Samba listens on."
+  },
+  "clamav": {
+    "not_installed": "ClamAV is not installed — no antivirus protection",
+    "not_installed_detail": "ClamAV provides malware detection for files, shares, and email attachments. On Linux it is especially useful for scanning files shared with Windows users and for mail server integration (Postfix/Amavis).",
+    "installed": "ClamAV is installed",
+    "freshclam_missing": "freshclam is missing — virus database cannot be updated automatically",
+    "freshclam_missing_detail": "freshclam downloads and keeps ClamAV’s virus signature database current. Without it, the database cannot be updated and the scanner gradually becomes blind to new threats.",
+    "db_not_found": "ClamAV is installed but no virus database found",
+    "db_not_found_detail": "ClamAV is installed but no signature database was found in /var/lib/clamav/. Without signatures the scanner cannot detect any threat — it would report ‘no infections’ even on a fully compromised system.",
+    "db_very_outdated": "Virus database is {days} day(s) old — critically outdated",
+    "db_very_outdated_detail": "ClamAV publishes signature updates multiple times per day. After 30 days, thousands of new malware variants are completely invisible to the scanner. Ransomware, trojans, and rootkits discovered last month cannot be detected.",
+    "db_outdated": "Virus database is {days} day(s) old — consider updating",
+    "db_outdated_detail": "Virus signatures are released several times per day. After 7 days, hundreds of new variants are missing from the database, significantly reducing detection rates for recent threats.",
+    "db_ok": "Virus database is up to date ({days} day(s) old)",
+    "clamd_inactive": "ClamAV daemon (clamav-daemon) is not running",
+    "clamd_inactive_detail": "The clamav-daemon service enables on-access scanning and is required for integration with mail servers (Postfix, Amavis, etc.). Without the daemon, only manual on-demand scans are possible.",
+    "no_scan_log": "No ClamAV scan log found — last scan date unknown",
+    "no_scan_log_detail": "No scan log found in standard paths (/var/log/clamav/). -r = recursive scan, --infected = show only infected files (reduces output noise), --log = save results for audit trail and future diff comparisons.",
+    "scan_very_old": "Last scan was {days} day(s) ago ({date}) — very overdue",
+    "scan_very_old_detail": "Crypto miners, backdoors, and web shells do not announce themselves. Without regular scanning, infections can establish persistence and persist for months undetected. -r = recursive, --infected = infected files only, --log = save results.",
+    "scan_old": "Last scan was {days} day(s) ago ({date}) — consider running a new scan",
+    "scan_old_detail": "Monthly scans leave a large detection window. Weekly scanning is recommended for systems that handle files from external sources or are exposed to the internet. -r = recursive, --infected = infected files only, --log = save results.",
+    "scan_recent": "Last scan: {date}"
   }
 }

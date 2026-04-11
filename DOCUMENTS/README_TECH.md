@@ -1,9 +1,9 @@
 *[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
-# ufw-audit v1.13.0
+# ufw-audit v1.14.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.13.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.14.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -46,10 +46,12 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **SSH security audit** — full `sshd_config` analysis (15 directives + weak Ciphers/MACs/KEX); private key audit (type, size, passphrase); `authorized_keys` inspection; `~/.ssh/config` client-side check; `known_hosts` entry count; targets `SUDO_USER`'s home; distro-aware install hints
 - **Sensitive files & sudoers** — permissions audit on `/etc/passwd`, `/etc/shadow`, `/etc/gshadow`, `/etc/group`, `/etc/sudoers` (world-writable → ALERT, too-permissive → WARN); SSH host private key permissions under `/etc/ssh/`; `NOPASSWD:ALL` detection across sudoers and sudoers.d
 - **System updates audit** — detects pending security packages via `apt-get -s upgrade` (−2 pts flat); absent `unattended-upgrades` combined with pending security updates (−1 pt compound); regular updates → INFO only
-- **`--explain KEY`** — structured per-finding explanation (WHY IT IS A RISK / HOW TO FIX / CIS Ubuntu 22.04 reference); 63 explainable keys in 15 groups; `--explain list` shows all keys with group headers; key normalisation handles `file_perms.*` middle segments; no root required
-- **Domain scores** — per-domain security sub-scores (SSH / Files & Access / Updates / Hardening / Disk Health / Firewall & Services); 6 domains; displayed as bar chart after audit; included in JSON output and webhook payload
+- **`--explain KEY`** — structured per-finding explanation (WHY IT IS A RISK / HOW TO FIX / CIS Ubuntu 22.04 reference); 73 explainable keys in 17 groups; `--explain list` shows all keys with group headers; key normalisation handles `file_perms.*` middle segments; no root required
+- **Domain scores** — per-domain security sub-scores (SSH / Samba Security / Files & Access / Updates / Hardening / Disk Health / Firewall & Services); 7 domains; displayed as bar chart after audit; included in JSON output and webhook payload
 - **Webhooks** — `--webhook URL` POSTs audit result as JSON after each audit; generic (Grafana/automation) and Slack formats (auto-detected by URL); non-fatal; `--webhook-format=auto|generic|slack`
-- **`--diff` mode** — runs audit silently and displays only the comparative delta (what changed since last audit)
+- **Samba security audit** — full `smb.conf` analysis: SMB1 protocol detection (ALERT, −2 pts); null passwords enabled (ALERT, −3 pts); server signing disabled (WARN, −1 pt); guest-writable shares (ALERT, −2 pts/share); guest-readable shares (WARN, −1 pt/share); `map to guest = bad user` (WARN, −1 pt); bind interfaces check (INFO); dedicated **samba** domain
+- **ClamAV antivirus audit** — installation detection (`clamscan`/`clamdscan`/`freshclam`); virus database freshness via mtime (WARN −1 pt > 7 days, ALERT −2 pts > 30 days); clamd daemon status with socket-file fallback for containers; last scan date parsed from standard log paths (WARN −1 pt > 30 days, −1 pt > 90 days); deductions route to **hardening** domain
+- **`--diff` mode** — runs audit silently and displays only the comparative delta (what changed since last audit); tracks score, alert count, warn count, and info count (so INFO-level changes are detected)
 
 ---
 
@@ -220,7 +222,7 @@ sudo ufw-audit --reconfigure
 ║ ╚██████╔╝ ██║      ╚███╔███╔╝     ██║  ██║ ╚██████╔╝ ██████╔╝ ██║    ██║     ║
 ║  ╚═════╝  ╚═╝       ╚══╝╚══╝      ╚═╝  ╚═╝  ╚═════╝  ╚═════╝  ╚═╝    ╚═╝     ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
-║  UFW-AUDIT v1.3.0  │  UFW firewall audit                                     ║
+║  UFW-AUDIT v1.14.0  │  UFW firewall audit                                    ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║  System        : Ubuntu 24.04 LTS                                            ║
 ║  Host          : my-machine                                                  ║
@@ -404,88 +406,6 @@ Example cron job — daily audit at 6am, email on issues:
 ## Important note
 
 ufw-audit is an audit and diagnostic tool, not a security shield. It analyses your configuration and flags problems — but it does not apply corrections automatically without your consent, and it cannot detect everything. Some software like Docker can bypass UFW by manipulating iptables directly: ufw-audit detects this specific case and flags it, but other similar vectors exist that fall outside the current scope of the project. In short: ufw-audit helps you see more clearly — it does not replace good general security hygiene.
-
----
-
-## Roadmap
-
-**v0.9** — Complete Python rewrite, 421 unit tests, transparent installer with manifest, bash completion, bilingual EN/FR, 22 services with two-axis risk context
-
-**v0.10** — Optional GeoIP2 geolocation, whois removal, short CLI flags, bash completion for install.sh, score scope disclaimer
-
-**v0.11** — CLI consolidation & field testing (Mint/Debian/Kali), non-interactive mode (`--quiet`, exit codes 0-3), `check_virtualization()`, port deduplication, scoring fixes
-
-**v0.11.1** — Security hardening patch: 20 vulnerabilities fixed (shell injection, ANSI injection, path traversal, symlink attacks, ReDoS, JSON bomb, file permission hardening)
-
-**v0.11.2** — Output & UX pass: banner redesigned (full "UFW-AUDIT" block art, 80-char width, version étage), log verdict line, report file section consistency fixes, locale grammar fixes
-
-**v0.11.3** — Log location prompt, services panorama, `--manage-logs`, `--install-cron` / `--remove-cron`, ASCII art header in report files, auto-fix banner and command summary, `AUTOMATION.md`
-
-**v0.11.4** — Bug fix patch: open-any wildcard detection (trailing spaces, `/tcp`/`/udp` variants), semantic duplicate detection (`PORT/proto` vs `PORT`), comment stripping, critical/high services exposure → alert, DDNS bare port rule support, `TESTING.md`
-
-**v0.12** — Markdown email reporting: zero-dependency HTML conversion, MIME multipart emails (plaintext + HTML), nightly script HTML rendering, UTF-8 box stripping
-
-**v0.13** — Multi-cron scheduler: named cron jobs, 4-step schedule wizard (daily / week days / month days / custom expression), `--manage-cron` TUI, `--remove-cron` with explicit selection, `cron.py` isolated module
-
-**v0.14** — Refactoring: `__main__.py` reduced from ~1820 to ~481 lines; new dedicated modules: `display.py`, `fixes.py`, `manage_logs.py`, `panorama.py`, `sysinfo.py`; `check_rules()` moved to `checks/firewall.py`; pure orchestrator with no business logic
-
-**v0.14.1** *(stable)* — Post-release corrections: false positive ALERT for loopback-bound services (Redis/6379), DDNS false positives (system ports, dangling rules, bare proto rules), `--remove-cron` not removed on release, VERSION banner showing `v0.13.0b`
-
-**v0.15** — Security hardening (input validation, file permissions, shell surfaces, error handling); DRY refactoring (`checks/_run.py`, `_paths.py`, `_truncate`); install script fixes (missing `__init__.py`, Python version check, glob-based locale/doc copy, new modules); IPv6 wildcard detection bug fix (`open_any_pattern` now matches `Anywhere (v6)` lines); loopback port message fix (`ports.uncovered_local` locale key); full live regression test suite validated
-
-**v0.15.1** — Install script robustness: trap + rollback on partial failure, `do_copy_dir` dead code removed; bug fix: open-any without `[N]` index no longer produces invalid fix command; fix UI output cleanup (`capture_output`); locale `_meta.version` corrected; installation design documented in README_TECH
-
-**v0.16** — Two panorama false-positive fixes: `Exposure.NOT_LISTENING` (registry port not actively listening → panorama ✔, no message) and `Exposure.LOOPBACK_NO_RULE` (loopback port with no UFW rule → panorama ✔, INFO message); full live regression suite (C6 × 9 services, C8 OPEN_LOCAL, E1 loopback)
-
-**v0.17** — Unit test suite fully green: 505/505; 15 pre-existing failures fixed across 6 test files; two code fixes (`_extract_duckdns_domain` query-param parsing, `cron_to_human` DOW range guard)
-
-**v0.18** — 26 new unit tests for `fixes.py` (`run_fixes()`): item classification, UFW delete sort order, subprocess paths, interactive mode, auto mode (`--yes`), auto summary; suite reaches 531/531
-
-**v0.19** — GitHub Actions CI: pytest on every push/PR, Python 3.8 / 3.10 / 3.12 matrix
-
-**v0.20** — 17 degraded-mode tests (`tests/test_degraded.py`): ss absent, empty UFW rules, missing log file, combined multi-module degradation; suite reaches 548/548
-
-**v0.21** — Pre-v1.0 quality pass: 78 new tests + 3 bug fixes; `virtualization.py` fully covered; CGNAT/IPv6 false-positive fixed; commented config lines no longer mis-detected; CLI mode exclusion enforced; `--manage-cron` email address book (add/delete/clear); suite reaches 619/619
-
-**v0.22** — Internal quality pass: 5 modules refactored (`__main__`, `firewall`, `services`, `scoring`, `output`); box-border alignment fixed across all UI frames; `meta: dict` removed from `CheckResult` → typed `open_ports: List[str]`
-
-**v0.22.1** — Hotfix: UFW detected as inactive on non-English locales; `LANGUAGE` env var now cleared alongside `LC_ALL=C`
-
-**v1.0** — Stable release; `pipx install ufw-audit` as primary install method; `--install-completion` creates bash completion and sudo PATH symlink; Python 3.9 minimum; CI matrix updated (3.9 / 3.10 / 3.12); `not_listening` locale key added; install.sh deprecated
-
-**v1.2.0** — Code quality pass: 12 defensive fixes across 8 modules; private IPv4 `172.x` regex corrected; `Deduction.context` validated; cap visible in score breakdown; 639/639
-
-**v1.2.1** — Packaging cleanup: `install.sh` removed; `pyproject.toml` fixes (LICENSE, classifier, Issues URL)
-
-**v1.3.0** — i18n completeness: all deduction reasons translated via `t()`; `--offline`/`-o` flag; IPv6 public address detection; 3-provider IP fallback chain; 652/652
-
-**v1.4.0** — Plugin system (`services.d/*.json`); process-aware port findings (WARN + note instead of ALERT for identified processes); `--json` / `--json-full` SIEM output; GeoIP2 crash fix (`AddressNotFoundError`); enriched cron email subject with hostname + score; UFW default deny awareness (uncovered ports downgraded to INFO when default policy = deny/reject); 676/676
-
-**v1.4.1** — Hotfix: `--install-completion` missing from bash completion TAB suggestions (`long_opts` list updated)
-
-**v1.4.2** — Hotfix: NetBIOS ports 137/138 still warned despite explicit UFW rule; `_is_covered_by_ufw()` moved before NetBIOS branch in `_categorize_port()`; 677/677
-
-**v1.5.0** — Enriched banner (kernel, iptables version + backend, nftables version); new FIREWALL STACK ANALYSIS section (raw iptables bypass, nftables parallel, ip_forward); new NETWORK CONTEXT section (interfaces table, established connections); 766/766
-
-**v1.6.0** — New HARDENING section (fail2ban, auto-updates, AppArmor, rp_filter, ICMP redirects, log_martians, ICMP broadcast); new IPv6 CONSISTENCY section; comparative report (baseline delta); plugin check API; 928/928
-
-**v1.7.0** — Audit profiles (`server`/`workstation`/`container`, INI format, `extends` inheritance, `--profile=NAME`); `Deduction.key` for deterministic profile override matching; multi-email cron notifications; bulk cron delete (`d:1,3` / `d:1-3` / `d:all`); ephemeral port filter in comparative report; `--reset-baseline`; 966/966
-
-**v1.8.0** — SSH security audit (15 directives, private keys, authorized_keys, known_hosts); sensitive files & sudoers (world-writable, too-permissive, NOPASSWD:ALL); `SUDO_USER` home targeting; distro-aware install hints; i18n fix (`recommendation_label`); INFO detail in verbose mode; 1104/1104
-
-**v1.9.0** — System updates audit (CHECK 13: apt pending, unattended-upgrades, −2/−1 pts compound); `--explain KEY` with WHY/HOW/CIS Ubuntu 22.04 refs (20 keys); webhooks (`--webhook`, generic + Slack, non-fatal); domain scores (5 domains, bar chart, JSON/webhook); `--diff` mode; code quality pass; 1332/1332
-
-**v1.10.0** — `--explain` hint in summary box (Phase A1); kernel module audit (CHECK 14: cramfs/hfs/squashfs/usb_storage/dccp/sctp/rds/tipc, −1 pt/category); cron job audit (CHECK 15: pipe-to-shell −2 pts, world-writable −1 pt; /etc/cron.d parsed as crontab format); service state audit (CHECK 16: two-step systemctl query, enabled-but-inactive security services, −1 pt/service max −3); quality pass (shlex.quote in fix cmds, firewall.py key= on all rule findings, 9 test files expanded); 1541/1541
-
-**v1.11.0** — `--explain` A2 (20→33 keys: 11 SSH + fail2ban + 2 kernel + pipe_to_shell + enabled_inactive); user account audit (CHECK 17: UID 0 −3 pts, empty password −2 pts, expired INFO); password policy audit (CHECK 18: no PAM quality module −1 pt, weak minlen −1 pt, PASS_MAX_DAYS≥365 INFO); quality pass; 1675/1675
-
-**v1.12.0** — `--help` redesign (7 sections); 6 new short options (-J -C -p -e -D -w); bash completion fixes; 4 Debian VM fixes (risk context all services, GeoIP mkdir, unattended workstation, expired dates with UID filter); 1703/1703
-
-**v1.13.0** *(current)* — disk health audit (CHECK 22: SMART + partition usage, NVMe support, new `disk` domain); memory & swap audit (CHECK 23: SSD wear, 3-condition unjustified swap, profile-aware swappiness); partition table with colored progress bars; SMART tips; `--explain` 33→63 keys (15 groups); quality passes (disk.py + memory.py); 1890/1890
-
-**Post v1.0**
-- Web UI (`--gui`) — graphical interface for non-technical users, pedagogical approach, simplified scope
-- Launchpad PPA / `.deb` package — plugin directory will move to `/etc/ufw-audit/services.d/`
 
 ---
 

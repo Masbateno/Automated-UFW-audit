@@ -45,7 +45,9 @@
     "user_accounts": "AUDIT DES COMPTES UTILISATEURS",
     "password_policy": "AUDIT DE LA POLITIQUE DES MOTS DE PASSE",
     "memory": "MÉMOIRE & SWAP",
-    "disk": "ÉTAT DES DISQUES"
+    "disk": "ÉTAT DES DISQUES",
+    "samba": "AUDIT DE SÉCURITÉ SAMBA",
+    "clamav": "AUDIT ANTIVIRUS CLAMAV"
   },
   "status": {
     "ok": "OK",
@@ -562,7 +564,9 @@
     "port_closed": "Port fermé depuis le dernier audit : {port}",
     "service_appeared": "Service devenu actif : {service}",
     "service_stopped": "Service devenu inactif : {service}",
-    "no_changes": "Aucun changement détecté depuis le dernier audit"
+    "no_changes": "Aucun changement détecté depuis le dernier audit",
+    "info_decreased": "{delta} notice(s) informative(s) résolu(e)(s) depuis le dernier audit",
+    "info_increased": "{delta} nouvelle(s) notice(s) informative(s) depuis le dernier audit"
   },
   "ipv6": {
     "config_ok": "La configuration IPv6 d'UFW correspond à l'état IPv6 du noyau",
@@ -1052,6 +1056,60 @@
         "why": "Le noyau déplace la mémoire des processus vers le swap alors que la RAM est largement disponible. Cela gaspille des cycles d'écriture du swap (particulièrement dommageable sur les SSD), augmente la latence I/O pour les processus concernés, et peut indiquer une valeur de swappiness trop élevée ou une fuite mémoire dans un processus en cours.",
         "how": "1. Identifiez les processus avec de la mémoire swappée :\n   sudo smem -rs swap 2>/dev/null | head -15\n2. Réduisez la swappiness pour diminuer la tendance à swapper :\n   sudo sysctl vm.swappiness=10\n3. Si un processus spécifique fuit de la mémoire, examinez-le :\n   sudo top  # surveillez les colonnes RES/VIRT\n4. Rendez swappiness permanent :\n   echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-swappiness.conf"
       }
+    },
+    "samba": {
+      "smb1_enabled": {
+        "title": "SMBv1 activé (vecteur EternalBlue / WannaCry)",
+        "why": "SMBv1 est un protocole des années 1990 avec de multiples vulnérabilités critiques. L'exploit EternalBlue (développé par la NSA, divulgué en 2017) cible SMBv1 et a été utilisé par le ransomware WannaCry pour infecter plus de 200 000 systèmes dans 150 pays en une seule journée. Microsoft a déprécié SMBv1 en 2013. Il n'existe aucune raison légitime d'utiliser SMBv1 aujourd'hui.",
+        "how": "1. Éditer /etc/samba/smb.conf\n2. Dans la section [global] ajouter :\n   min protocol = SMB2\n3. Redémarrer Samba :\n   sudo systemctl restart smbd"
+      },
+      "null_passwords": {
+        "title": "Mots de passe vides autorisés (null passwords = yes)",
+        "why": "Permet à tout compte sans mot de passe de s'authentifier sur Samba avec un mot de passe vide. Un attaquant n'a besoin que du nom d'utilisateur. Combiné à des comptes invité ou mal configurés, cela donne un accès immédiat au système de fichiers sans aucun identifiant.",
+        "how": "1. Éditer /etc/samba/smb.conf\n2. Dans la section [global] définir :\n   null passwords = no\n3. S'assurer que tous les comptes ont un mot de passe :\n   sudo smbpasswd -a <utilisateur>\n4. Redémarrer Samba :\n   sudo systemctl restart smbd"
+      },
+      "guest_writable": {
+        "title": "Partage invité en écriture (accès anonyme en écriture)",
+        "why": "Tout utilisateur non authentifié sur le réseau peut télécharger, modifier ou supprimer des fichiers dans ce partage. Cela peut être utilisé pour déposer des malwares, exfiltrer des données ou corrompre des sauvegardes. Même sur un réseau de confiance, des modifications accidentelles ou malveillantes sans authentification créent de sérieux risques d'intégrité.",
+        "how": "1. Supprimer l'accès invité complètement :\n   [global] → map to guest = never\n   [nompartage] → supprimer 'guest ok = yes'\n2. Ou restreindre en lecture seule :\n   [nompartage] → read only = yes\n3. Redémarrer Samba :\n   sudo systemctl restart smbd"
+      },
+      "guest_readonly": {
+        "title": "Partage invité en lecture seule (accès anonyme en lecture)",
+        "why": "Tout utilisateur non authentifié sur le réseau peut lire les fichiers de ce partage sans fournir d'identifiants. Bien que l'accès en lecture seule n'autorise pas la modification, il peut être utilisé pour l'exfiltration de données. Vérifier que tous les fichiers de ce partage sont intentionnellement publics.",
+        "how": "1. Si l'accès anonyme n'est pas nécessaire, supprimer l'accès invité :\n   [nompartage] → supprimer 'guest ok = yes'\n2. Si l'accès anonyme en lecture seule est intentionnel, le documenter et s'assurer qu'aucune donnée sensible n'est dans le partage.\n3. Redémarrer Samba :\n   sudo systemctl restart smbd"
+      },
+      "server_signing_disabled": {
+        "title": "Signature du serveur désactivée (vecteur d'attaque NTLM relay)",
+        "why": "Sans signature SMB, un attaquant effectuant une attaque man-in-the-middle peut intercepter et modifier le trafic SMB sans être détecté, ou relayer l'authentification NTLM vers d'autres services. Les attaques NTLM relay sont une technique standard en test d'intrusion Active Directory et dans les attaques réelles (ex. Responder, ntlmrelayx).",
+        "how": "1. Éditer /etc/samba/smb.conf\n2. Dans la section [global] définir :\n   server signing = mandatory\n3. Note : les clients doivent aussi supporter la signature (tous les clients modernes le font)\n4. Redémarrer Samba :\n   sudo systemctl restart smbd"
+      },
+      "map_to_guest": {
+        "title": "map to guest = bad user (échecs de connexion → accès invité)",
+        "why": "Lorsqu'un utilisateur fournit un nom d'utilisateur invalide, Samba le connecte silencieusement en tant qu'invité au lieu de retourner une erreur d'authentification. Cela signifie qu'un attaquant qui ne connaît pas de nom d'utilisateur valide obtient quand même un accès réseau à tous les partages accessibles aux invités.",
+        "how": "1. Éditer /etc/samba/smb.conf\n2. Dans la section [global] définir :\n   map to guest = never\n3. Redémarrer Samba :\n   sudo systemctl restart smbd"
+      }
+    },
+    "clamav": {
+      "db_very_outdated": {
+        "title": "Base de données virale dangereusement obsolète (> 30 jours)",
+        "why": "La capacité de détection de ClamAV dépend entièrement de sa base de signatures. Une base obsolète est incapable de détecter les malwares découverts après la dernière mise à jour. Les ransomwares, trojans et rootkits publiés le mois dernier seraient complètement invisibles.",
+        "how": "1. Mettre à jour la base immédiatement :\n   sudo freshclam\n2. Activer les mises à jour automatiques :\n   sudo systemctl enable --now clamav-freshclam\n3. Vérifier que le timer systemd planifie des mises à jour quotidiennes"
+      },
+      "db_outdated": {
+        "title": "Base de données virale obsolète (> 7 jours)",
+        "why": "ClamAV publie plusieurs mises à jour de signatures par jour. Après 7 jours, des centaines de nouvelles signatures manquent dans votre base. Cela réduit significativement les taux de détection des menaces récentes.",
+        "how": "1. Mettre à jour la base :\n   sudo freshclam\n2. Activer les mises à jour automatiques :\n   sudo systemctl enable --now clamav-freshclam"
+      },
+      "scan_very_old": {
+        "title": "Dernière analyse très ancienne (> 90 jours)",
+        "why": "Sans analyses régulières, des infections peuvent persister des mois sans être détectées. Les systèmes Linux sont de plus en plus ciblés par des web shells, miners de cryptomonnaie, backdoors et rootkits qui ne se signalent pas.",
+        "how": "1. Lancer une analyse immédiate :\n   sudo clamscan -r /home --infected --log=/var/log/clamav/clamscan.log\n2. Planifier des analyses hebdomadaires via cron :\n   echo '0 2 * * 0 root clamscan -r /home --infected --log=/var/log/clamav/clamscan.log' | sudo tee /etc/cron.d/clamav-scan"
+      },
+      "scan_old": {
+        "title": "Dernière analyse il y a plus de 30 jours",
+        "why": "Des analyses mensuelles laissent une large fenêtre pendant laquelle une infection peut s'établir, exfiltrer des données ou se propager. Sur un serveur exposé à internet, des analyses mensuelles sont insuffisantes.",
+        "how": "1. Lancer une nouvelle analyse :\n   sudo clamscan -r /home --infected --log=/var/log/clamav/clamscan.log\n2. Planifier des analyses hebdomadaires :\n   echo '0 2 * * 0 root clamscan -r /home --infected --log=/var/log/clamav/clamscan.log' | sudo tee /etc/cron.d/clamav-scan"
+      }
     }
   },
   "explain_cis": {
@@ -1141,6 +1199,20 @@
     "memory": {
       "swappiness_ssd_wear": "CIS Ubuntu 22.04 — Optimisation des paramètres noyau (vm.swappiness pour la longévité SSD)",
       "swappiness_unjustified": "CIS Ubuntu 22.04 — Optimisation des paramètres noyau (vm.swappiness)"
+    },
+    "samba": {
+      "smb1_enabled": "CIS Ubuntu 22.04 L1 — Durcissement Samba — Désactiver SMBv1 (déprécié, EternalBlue CVE-2017-0144)",
+      "null_passwords": "CIS Ubuntu 22.04 — Bonne pratique Samba — S'assurer que les mots de passe vides sont désactivés",
+      "guest_writable": "CIS Ubuntu 22.04 — Bonne pratique Samba — S'assurer qu'aucun partage n'autorise l'écriture anonyme",
+      "guest_readonly": "CIS Ubuntu 22.04 — Bonne pratique Samba — Vérifier que les partages anonymes en lecture sont intentionnels",
+      "server_signing_disabled": "CIS Ubuntu 22.04 L1 — Durcissement Samba — S'assurer que la signature SMB est activée (prévention NTLM relay)",
+      "map_to_guest": "CIS Ubuntu 22.04 — Bonne pratique Samba — S'assurer que map to guest est défini à never"
+    },
+    "clamav": {
+      "db_very_outdated": "CIS Ubuntu 22.04 — Durcissement ClamAV — S'assurer que la base virale est mise à jour quotidiennement (service freshclam activé)",
+      "db_outdated": "CIS Ubuntu 22.04 — Durcissement ClamAV — S'assurer que la base virale est mise à jour au moins hebdomadairement",
+      "scan_very_old": "CIS Ubuntu 22.04 — Durcissement ClamAV — S'assurer que des analyses complètes régulières sont planifiées (recommandé : hebdomadaire)",
+      "scan_old": "CIS Ubuntu 22.04 — Durcissement ClamAV — S'assurer que des analyses complètes régulières sont planifiées (recommandé : hebdomadaire)"
     }
   },
   "user_accounts": {
@@ -1165,5 +1237,51 @@
     "no_expiry": "Expiration des mots de passe non appliquée (PASS_MAX_DAYS = {days})",
     "no_expiry_detail": "Les mots de passe n'expirent jamais. Envisagez de définir PASS_MAX_DAYS à une valeur raisonnable (ex : 365) si votre politique l'exige. Note : NIST SP 800-63B ne recommande plus l'expiration périodique sauf en cas de compromission suspectée.",
     "ok": "La politique de mots de passe est correctement configurée"
+  },
+  "samba": {
+    "conf_unreadable": "Samba est installé mais /etc/samba/smb.conf n'est pas lisible",
+    "conf_unreadable_detail": "Exécuter : sudo chmod 644 /etc/samba/smb.conf",
+    "smb1_enabled": "SMBv1 est activé — vecteur d'attaque EternalBlue / WannaCry",
+    "smb1_enabled_detail": "SMBv1 est un protocole obsolète et critiquement vulnérable. Ajouter 'min protocol = SMB2' dans [global] de /etc/samba/smb.conf et redémarrer Samba.",
+    "smb1_disabled": "SMBv1 est désactivé (min protocol ≥ SMB2)",
+    "null_passwords": "Les mots de passe vides sont autorisés (null passwords = yes)",
+    "null_passwords_detail": "Tout compte sans mot de passe peut s'authentifier sur Samba avec un mot de passe vide. Définir 'null passwords = no' dans [global].",
+    "null_passwords_ok": "Les mots de passe vides ne sont pas autorisés",
+    "server_signing_disabled": "La signature du serveur est désactivée — vecteur d'attaque MITM / relay",
+    "server_signing_disabled_detail": "Samba accepte les connexions non signées, permettant les attaques NTLM relay. Définir 'server signing = mandatory' dans [global].",
+    "server_signing_mandatory": "La signature du serveur est obligatoire",
+    "server_signing_auto": "La signature du serveur est en mode auto — négociée mais non imposée",
+    "server_signing_auto_detail": "Envisager 'server signing = mandatory' pour prévenir les attaques NTLM relay.",
+    "map_to_guest": "map to guest = bad user — les échecs de connexion tombent silencieusement en accès invité",
+    "map_to_guest_detail": "Les utilisateurs avec un nom d'utilisateur invalide sont silencieusement mappés au compte invité. Définir 'map to guest = never' dans [global].",
+    "guest_writable": "Partage invité accessible en écriture : [{share}]",
+    "guest_writable_detail": "Le partage [{share}] ({path}) autorise l'écriture anonyme. Supprimer 'guest ok = yes' ou définir 'read only = yes'.",
+    "guest_readonly": "Partage invité en lecture seule : [{share}]",
+    "guest_readonly_detail": "Le partage [{share}] ({path}) autorise la lecture anonyme. Vérifier que c'est intentionnel.",
+    "bind_interfaces_not_set": "bind interfaces only n'est pas défini — Samba peut écouter sur toutes les interfaces",
+    "bind_interfaces_not_set_detail": "Ajouter 'bind interfaces only = yes' et 'interfaces = lo eth0' dans [global] pour restreindre les interfaces réseau."
+  },
+  "clamav": {
+    "not_installed": "ClamAV n'est pas installé — aucune protection antivirus",
+    "not_installed_detail": "ClamAV détecte les malwares dans les fichiers, partages et pièces jointes. Sur Linux, il est particulièrement utile pour les fichiers partagés avec des utilisateurs Windows et pour l’intégration aux serveurs mail (Postfix/Amavis).",
+    "installed": "ClamAV est installé",
+    "freshclam_missing": "freshclam est absent — la base de données virale ne peut pas être mise à jour automatiquement",
+    "freshclam_missing_detail": "freshclam télécharge et maintient à jour la base de signatures de ClamAV. Sans lui, la base ne peut pas être mise à jour et le scanner devient progressivement aveugle aux nouvelles menaces.",
+    "db_not_found": "ClamAV est installé mais aucune base de données virale trouvée",
+    "db_not_found_detail": "ClamAV est installé mais aucune base de signatures n’a été trouvée dans /var/lib/clamav/. Sans signatures, le scanner ne peut détecter aucune menace — il signalerait « aucune infection » même sur un système compromis.",
+    "db_very_outdated": "La base de données virale a {days} jour(s) — dangereusement obsolète",
+    "db_very_outdated_detail": "ClamAV publie plusieurs mises à jour par jour. Après 30 jours, des milliers de nouveaux variants sont complètement invisibles. Ransomwares, trojans et rootkits découverts le mois dernier ne peuvent pas être détectés.",
+    "db_outdated": "La base de données virale a {days} jour(s) — mise à jour recommandée",
+    "db_outdated_detail": "Les signatures sont publiées plusieurs fois par jour. Après 7 jours, des centaines de nouveaux variants manquent dans la base, réduisant significativement les taux de détection des menaces récentes.",
+    "db_ok": "La base de données virale est à jour ({days} jour(s))",
+    "clamd_inactive": "Le démon ClamAV (clamav-daemon) n'est pas en cours d'exécution",
+    "clamd_inactive_detail": "Le service clamav-daemon permet la surveillance en temps réel et est requis pour l’intégration aux serveurs mail (Postfix, Amavis, etc.). Sans le démon, seules les analyses manuelles à la demande sont possibles.",
+    "no_scan_log": "Aucun journal d'analyse ClamAV trouvé — date de dernière analyse inconnue",
+    "no_scan_log_detail": "Aucun journal trouvé dans les chemins standards (/var/log/clamav/). -r = analyse récursive, --infected = affiche uniquement les fichiers infectés (réduit le bruit), --log = sauvegarde les résultats pour traçabilité.",
+    "scan_very_old": "Dernière analyse il y a {days} jour(s) ({date}) — très en retard",
+    "scan_very_old_detail": "Les miners, backdoors et web shells ne se signalent pas d’eux-mêmes. Sans analyses régulières, des infections peuvent persister des mois inaperçues. -r = récursif, --infected = fichiers infectés seulement, --log = sauvegarde.",
+    "scan_old": "Dernière analyse il y a {days} jour(s) ({date}) — une nouvelle analyse est recommandée",
+    "scan_old_detail": "Des analyses mensuelles laissent une large fenêtre de détection. Des analyses hebdomadaires sont recommandées pour les systèmes exposés ou traitant des fichiers externes. -r = récursif, --infected = infectés, --log = sauvegarde.",
+    "scan_recent": "Dernière analyse : {date}"
   }
 }
