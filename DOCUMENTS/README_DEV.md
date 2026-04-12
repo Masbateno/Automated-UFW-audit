@@ -53,7 +53,7 @@ This separation allows the entire business logic to be tested by instantiating s
 | `sysinfo.py` | System info — `collect_system_info()`, `detect_network_context()`, `get_user_home()` |
 | `compare.py` | Comparative report — `AuditBaseline`, `AuditDelta`, `build_baseline()`, `save_baseline()`, `load_baseline()`, `compute_delta()`, `display_delta()` |
 | `plugin_checks.py` | Plugin loader — `PluginCheck`, `load_plugin_checks()`, ANSI sanitization |
-| `explain.py` | `--explain KEY` — `normalize_key()`, `run_explain()`, 63-key canonical list in 15 groups, CIS reference lookup |
+| `explain.py` | `--explain KEY` — `normalize_key()`, `run_explain()`, 76-key canonical list in 19 groups, CIS reference lookup |
 | `domain_scores.py` | Per-domain sub-scores — `compute_domain_scores()`, `render_domain_scores()`, 6-domain attribution |
 | `webhook.py` | Webhook delivery — `build_generic_payload()`, `build_slack_payload()`, `send_webhook()`, format auto-detection |
 
@@ -76,7 +76,7 @@ This separation allows the entire business logic to be tested by instantiating s
 | `virtualization.py` | Active hypervisors (libvirt/KVM, VirtualBox, VMware, LXD/LXC) and Snap network packages |
 | `firewall_stack.py` | Raw iptables bypass, nftables parallel rules, ip_forward detection |
 | `network_context.py` | Network interfaces table, established TCP connections, sensitive remote ports |
-| `hardening.py` | System hardening: fail2ban, auto-updates, AppArmor, rp_filter, ICMP redirects, log_martians, broadcast |
+| `hardening.py` | System hardening: auto-updates, AppArmor, rp_filter, ICMP redirects, log_martians, broadcast |
 | `ipv6.py` | IPv6 listener/UFW-rule consistency check |
 | `updates.py` | System update status: apt pending security/regular packages, unattended-upgrades detection |
 | `ssh.py` | SSH security audit: sshd_config directives, private keys, authorized_keys, known_hosts |
@@ -88,6 +88,10 @@ This separation allows the entire business logic to be tested by instantiating s
 | `services_state.py` | Service state: security services enabled at boot but currently inactive |
 | `disk.py` | Disk health: SMART health (smartctl), critical SMART attributes, partition usage; NVMe support |
 | `memory.py` | Memory & swap: SSD wear detection, unjustified swap, swappiness tuning |
+| `desktop_apps.py` | Desktop application detection: known GUI apps running as processes (Steam, Discord, Zoom…) |
+| `ntp.py` | NTP time synchronisation: systemd-timesyncd/chronyd/ntpd active and synchronised |
+| `fail2ban.py` | Fail2ban intrusion prevention: service state, active jails, SSH jail detection |
+| `rootkit.py` | Rootkit & integrity scan: rkhunter/chkrootkit installation, DB freshness, last scan age |
 
 ---
 
@@ -135,10 +139,14 @@ ufw_audit/
 │   ├── cron_audit.py    # CronAuditSnapshot + check_cron_audit()
 │   ├── services_state.py # ServicesStateSnapshot + check_services_state()
 │   ├── disk.py          # DiskSnapshot + check_disk() — SMART, partitions, NVMe
-│   └── memory.py        # MemorySnapshot + check_memory() — SSD wear, swappiness
+│   ├── memory.py        # MemorySnapshot + check_memory() — SSD wear, swappiness
+│   ├── desktop_apps.py  # DesktopAppsSnapshot + check_desktop_apps() — GUI app detection
+│   ├── ntp.py           # NtpSnapshot + check_ntp() — time sync status
+│   ├── fail2ban.py      # Fail2banSnapshot + check_fail2ban() — service, jails, SSH jail
+│   └── rootkit.py       # RootkitSnapshot + check_rootkit() — rkhunter/chkrootkit
 ├── compare.py           # AuditBaseline + AuditDelta + comparative report
 ├── plugin_checks.py     # PluginCheck + load_plugin_checks()
-├── explain.py           # run_explain(), normalize_key(), EXPLAIN_KEYS
+├── explain.py           # run_explain(), normalize_key(), EXPLAIN_KEYS — 76 keys in 19 groups
 ├── domain_scores.py     # compute_domain_scores(), render_domain_scores()
 ├── webhook.py           # build_generic_payload(), build_slack_payload(), send_webhook()
 ├── data/
@@ -183,7 +191,12 @@ tests/
 ├── test_password_policy.py
 ├── test_display_explain_hint.py
 ├── test_disk.py
-└── test_memory.py
+├── test_memory.py
+├── test_desktop_apps.py
+├── test_ntp.py
+├── test_fail2ban.py
+├── test_rootkit.py
+└── test_exit_codes.py
 
 pyproject.toml           # Build config (setuptools, pip/pipx install)
 README.md / README_FR.md           # User documentation (EN/FR)

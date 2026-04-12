@@ -19,7 +19,7 @@ from ufw_audit.display import (
     display_risk_context,
     display_services_panorama,
 )
-from ufw_audit.output import print_section, print_service_header
+from ufw_audit.output import print_group, print_section, print_service_header
 from ufw_audit.registry import ServiceRegistry
 from ufw_audit.report import AuditReport
 from ufw_audit.scoring import ScoreEngine
@@ -47,6 +47,10 @@ from ufw_audit.checks.disk import DiskSnapshot, check_disk
 from ufw_audit.checks.samba import SambaSnapshot, check_samba
 from ufw_audit.checks.clamav import ClamAVSnapshot, check_clamav
 from ufw_audit.checks.smtp import SmtpSnapshot, check_smtp
+from ufw_audit.checks.desktop_apps import DesktopAppsSnapshot, check_desktop_apps
+from ufw_audit.checks.ntp import NtpSnapshot, check_ntp
+from ufw_audit.checks.fail2ban import Fail2banSnapshot, check_fail2ban
+from ufw_audit.checks.rootkit import RootkitSnapshot, check_rootkit
 from ufw_audit.plugin_checks import load_plugin_checks
 
 
@@ -82,6 +86,13 @@ def run_checks(
     profile: AuditProfile | None = None,
 ) -> ChecksResult:
     """Run all audit checks in sequence."""
+
+    # =========================================================================
+    # GROUP 1 — FIREWALL & RÉSEAU
+    # =========================================================================
+    if not config.quiet:
+        print_group(t("groups.firewall_network"))
+    report.write_group(t("groups.firewall_network"))
 
     # ---- CHECK 1 — Firewall status ----
     if not config.quiet:
@@ -132,6 +143,27 @@ def run_checks(
     display_result(net_result, report, config.verbose, quiet=config.quiet)
     if not config.quiet:
         display_network_context(net_snapshot, t, output)
+
+    # ---- CHECK 10 — IPv6 consistency ----
+    ipv6_snapshot = IPv6Snapshot.from_system()
+    if profile is None or not profile.should_skip_section("ipv6"):
+        if not config.quiet:
+            print_section(t("sections.ipv6"))
+        report.write_section(t("sections.ipv6"))
+        ipv6_result = check_ipv6(ipv6_snapshot, t=t)
+        if profile is not None:
+            apply_profile(ipv6_result, profile)
+        engine.apply(ipv6_result)
+        display_result(ipv6_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # =========================================================================
+    # GROUP 2 — EXPOSITION & SERVICES
+    # =========================================================================
+    if not config.quiet:
+        print_group(t("groups.exposure_services"))
+    report.write_group(t("groups.exposure_services"))
 
     # ---- CHECK 3 — Network services ----
     ports_snapshot        = PortsSnapshot.from_system()
@@ -240,33 +272,40 @@ def run_checks(
     if not config.quiet:
         print()
 
-    # ---- CHECK 9 — System hardening ----
-    hardening_snapshot = HardeningSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("hardening"):
+    # ---- CHECK 24 — Samba security audit ----
+    samba_snapshot = SambaSnapshot.from_system()
+    if samba_snapshot.installed and (profile is None or not profile.should_skip_section("samba")):
         if not config.quiet:
-            print_section(t("sections.hardening"))
-        report.write_section(t("sections.hardening"))
-        hardening_result = check_hardening(hardening_snapshot, t=t)
+            print_section(t("sections.samba"))
+        report.write_section(t("sections.samba"))
+        samba_result = check_samba(samba_snapshot, t=t)
         if profile is not None:
-            apply_profile(hardening_result, profile)
-        engine.apply(hardening_result)
-        display_result(hardening_result, report, config.verbose, quiet=config.quiet)
+            apply_profile(samba_result, profile)
+        engine.apply(samba_result)
+        display_result(samba_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:
             print()
 
-    # ---- CHECK 10 — IPv6 consistency ----
-    ipv6_snapshot = IPv6Snapshot.from_system()
-    if profile is None or not profile.should_skip_section("ipv6"):
+    # ---- CHECK 26 — SMTP local exposure ----
+    smtp_snapshot = SmtpSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("smtp"):
         if not config.quiet:
-            print_section(t("sections.ipv6"))
-        report.write_section(t("sections.ipv6"))
-        ipv6_result = check_ipv6(ipv6_snapshot, t=t)
+            print_section(t("sections.smtp"))
+        report.write_section(t("sections.smtp"))
+        smtp_result = check_smtp(smtp_snapshot, t=t)
         if profile is not None:
-            apply_profile(ipv6_result, profile)
-        engine.apply(ipv6_result)
-        display_result(ipv6_result, report, config.verbose, quiet=config.quiet)
+            apply_profile(smtp_result, profile)
+        engine.apply(smtp_result)
+        display_result(smtp_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:
             print()
+
+    # =========================================================================
+    # GROUP 3 — CONTRÔLE D'ACCÈS
+    # =========================================================================
+    if not config.quiet:
+        print_group(t("groups.access_control"))
+    report.write_group(t("groups.access_control"))
 
     # ---- CHECK 11 — SSH security ----
     ssh_snapshot = SSHSnapshot.from_system()
@@ -282,17 +321,31 @@ def run_checks(
         if not config.quiet:
             print()
 
-    # ---- CHECK 24 — Samba security audit ----
-    samba_snapshot = SambaSnapshot.from_system()
-    if samba_snapshot.installed and (profile is None or not profile.should_skip_section("samba")):
+    # ---- CHECK 17 — User account audit ----
+    user_accounts_snapshot = UserAccountsSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("user_accounts"):
         if not config.quiet:
-            print_section(t("sections.samba"))
-        report.write_section(t("sections.samba"))
-        samba_result = check_samba(samba_snapshot, t=t)
+            print_section(t("sections.user_accounts"))
+        report.write_section(t("sections.user_accounts"))
+        user_accounts_result = check_user_accounts(user_accounts_snapshot, t=t)
         if profile is not None:
-            apply_profile(samba_result, profile)
-        engine.apply(samba_result)
-        display_result(samba_result, report, config.verbose, quiet=config.quiet)
+            apply_profile(user_accounts_result, profile)
+        engine.apply(user_accounts_result)
+        display_result(user_accounts_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 18 — Password policy audit ----
+    password_policy_snapshot = PasswordPolicySnapshot.from_system()
+    if profile is None or not profile.should_skip_section("password_policy"):
+        if not config.quiet:
+            print_section(t("sections.password_policy"))
+        report.write_section(t("sections.password_policy"))
+        password_policy_result = check_password_policy(password_policy_snapshot, t=t)
+        if profile is not None:
+            apply_profile(password_policy_result, profile)
+        engine.apply(password_policy_result)
+        display_result(password_policy_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:
             print()
 
@@ -310,20 +363,24 @@ def run_checks(
         if not config.quiet:
             print()
 
-    # ---- CHECK 13 — System updates ----
-    updates_snapshot = UpdatesSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("updates"):
+    # =========================================================================
+    # GROUP 4 — DURCISSEMENT SYSTÈME
+    # =========================================================================
+    if not config.quiet:
+        print_group(t("groups.system_hardening"))
+    report.write_group(t("groups.system_hardening"))
+
+    # ---- CHECK 9 — System hardening ----
+    hardening_snapshot = HardeningSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("hardening"):
         if not config.quiet:
-            print_section(t("sections.updates"))
-        report.write_section(t("sections.updates"))
-        updates_result = check_updates(
-            updates_snapshot, t=t,
-            profile_name=profile.name if profile is not None else "server",
-        )
+            print_section(t("sections.hardening"))
+        report.write_section(t("sections.hardening"))
+        hardening_result = check_hardening(hardening_snapshot, t=t)
         if profile is not None:
-            apply_profile(updates_result, profile)
-        engine.apply(updates_result)
-        display_result(updates_result, report, config.verbose, quiet=config.quiet)
+            apply_profile(hardening_result, profile)
+        engine.apply(hardening_result)
+        display_result(hardening_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:
             print()
 
@@ -369,31 +426,83 @@ def run_checks(
         if not config.quiet:
             print()
 
-    # ---- CHECK 17 — User account audit ----
-    user_accounts_snapshot = UserAccountsSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("user_accounts"):
+    # ---- CHECK 13 — System updates ----
+    updates_snapshot = UpdatesSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("updates"):
         if not config.quiet:
-            print_section(t("sections.user_accounts"))
-        report.write_section(t("sections.user_accounts"))
-        user_accounts_result = check_user_accounts(user_accounts_snapshot, t=t)
+            print_section(t("sections.updates"))
+        report.write_section(t("sections.updates"))
+        updates_result = check_updates(
+            updates_snapshot, t=t,
+            profile_name=profile.name if profile is not None else "server",
+        )
         if profile is not None:
-            apply_profile(user_accounts_result, profile)
-        engine.apply(user_accounts_result)
-        display_result(user_accounts_result, report, config.verbose, quiet=config.quiet)
+            apply_profile(updates_result, profile)
+        engine.apply(updates_result)
+        display_result(updates_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:
             print()
 
-    # ---- CHECK 18 — Password policy audit ----
-    password_policy_snapshot = PasswordPolicySnapshot.from_system()
-    if profile is None or not profile.should_skip_section("password_policy"):
+    # =========================================================================
+    # GROUP 5 — DÉTECTION & SANTÉ
+    # =========================================================================
+    if not config.quiet:
+        print_group(t("groups.detection_health"))
+    report.write_group(t("groups.detection_health"))
+
+    # ---- CHECK 29 — Fail2ban intrusion prevention ----
+    fail2ban_snapshot = Fail2banSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("fail2ban"):
         if not config.quiet:
-            print_section(t("sections.password_policy"))
-        report.write_section(t("sections.password_policy"))
-        password_policy_result = check_password_policy(password_policy_snapshot, t=t)
+            print_section(t("sections.fail2ban"))
+        report.write_section(t("sections.fail2ban"))
+        fail2ban_result = check_fail2ban(fail2ban_snapshot, t=t)
         if profile is not None:
-            apply_profile(password_policy_result, profile)
-        engine.apply(password_policy_result)
-        display_result(password_policy_result, report, config.verbose, quiet=config.quiet)
+            apply_profile(fail2ban_result, profile)
+        engine.apply(fail2ban_result)
+        display_result(fail2ban_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 25 — ClamAV antivirus audit ----
+    clamav_snapshot = ClamAVSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("clamav"):
+        if not config.quiet:
+            print_section(t("sections.clamav"))
+        report.write_section(t("sections.clamav"))
+        clamav_result = check_clamav(clamav_snapshot, t=t)
+        if profile is not None:
+            apply_profile(clamav_result, profile)
+        engine.apply(clamav_result)
+        display_result(clamav_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 30 — Rootkit & integrity scan ----
+    rootkit_snapshot = RootkitSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("rootkit"):
+        if not config.quiet:
+            print_section(t("sections.rootkit"))
+        report.write_section(t("sections.rootkit"))
+        rootkit_result = check_rootkit(rootkit_snapshot, t=t)
+        if profile is not None:
+            apply_profile(rootkit_result, profile)
+        engine.apply(rootkit_result)
+        display_result(rootkit_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 28 — NTP time synchronisation ----
+    ntp_snapshot = NtpSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("ntp"):
+        if not config.quiet:
+            print_section(t("sections.ntp"))
+        report.write_section(t("sections.ntp"))
+        ntp_result = check_ntp(ntp_snapshot, t=t)
+        if profile is not None:
+            apply_profile(ntp_result, profile)
+        engine.apply(ntp_result)
+        display_result(ntp_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:
             print()
 
@@ -429,31 +538,17 @@ def run_checks(
             display_disk_partitions(disk_snapshot, t, output)
             print()
 
-    # ---- CHECK 25 — ClamAV antivirus audit ----
-    clamav_snapshot = ClamAVSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("clamav"):
+    # ---- CHECK 19 — Desktop application audit ----
+    desktop_snapshot = DesktopAppsSnapshot.from_system()
+    if desktop_snapshot.detected and (profile is None or not profile.should_skip_section("desktop_apps")):
         if not config.quiet:
-            print_section(t("sections.clamav"))
-        report.write_section(t("sections.clamav"))
-        clamav_result = check_clamav(clamav_snapshot, t=t)
+            print_section(t("sections.desktop_apps"))
+        report.write_section(t("sections.desktop_apps"))
+        desktop_result = check_desktop_apps(desktop_snapshot, t=t)
         if profile is not None:
-            apply_profile(clamav_result, profile)
-        engine.apply(clamav_result)
-        display_result(clamav_result, report, config.verbose, quiet=config.quiet)
-        if not config.quiet:
-            print()
-
-    # ---- CHECK 26 — SMTP local exposure ----
-    smtp_snapshot = SmtpSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("smtp"):
-        if not config.quiet:
-            print_section(t("sections.smtp"))
-        report.write_section(t("sections.smtp"))
-        smtp_result = check_smtp(smtp_snapshot, t=t)
-        if profile is not None:
-            apply_profile(smtp_result, profile)
-        engine.apply(smtp_result)
-        display_result(smtp_result, report, config.verbose, quiet=config.quiet)
+            apply_profile(desktop_result, profile)
+        engine.apply(desktop_result)
+        display_result(desktop_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:
             print()
 

@@ -1,7 +1,7 @@
 """
 System hardening check for ufw-audit.
 
-Detects common hardening gaps: automatic updates, fail2ban, AppArmor,
+Detects common hardening gaps: AppArmor,
 and kernel network parameters (rp_filter, ICMP redirects, log_martians).
 
 The check is split into two parts:
@@ -41,7 +41,6 @@ class HardeningSnapshot:
     Raw snapshot of system hardening state collected from the system.
 
     Args:
-        fail2ban_active:              True if fail2ban service is running.
         apparmor_loaded:              True if AppArmor module is loaded.
         apparmor_mode:                "enforce"|"permissive"|"inactive"|"not_installed".
         apparmor_enforced:            Number of profiles in enforce mode.
@@ -51,7 +50,6 @@ class HardeningSnapshot:
         log_martians:                 True if net.ipv4.conf.all.log_martians == 1.
         icmp_echo_ignore_broadcasts:  True if net.ipv4.icmp_echo_ignore_broadcasts == 1.
     """
-    fail2ban_active:             bool = False
     apparmor_loaded:             bool = False
     apparmor_mode:               str  = "not_installed"
     apparmor_enforced:           int  = 0
@@ -70,17 +68,6 @@ class HardeningSnapshot:
             Populated HardeningSnapshot. Never raises — errors are
             reflected as safe/default values.
         """
-        # --- fail2ban ---
-        # Primary: systemctl is-active is locale-independent and reliable.
-        # Fallback: fail2ban-client status for non-systemd systems.
-        fail2ban_active = False
-        if _command_exists("systemctl"):
-            out = _run("systemctl", "is-active", "fail2ban")
-            fail2ban_active = out.strip() == "active"
-        if not fail2ban_active and _command_exists("fail2ban-client"):
-            out = _run("fail2ban-client", "status")
-            fail2ban_active = bool(out and "Number of jail" in out)
-
         # --- AppArmor ---
         apparmor_loaded  = False
         apparmor_mode    = "not_installed"
@@ -105,7 +92,6 @@ class HardeningSnapshot:
         icmp_echo_ignore_broadcasts = _read_sysctl_bool("net.ipv4.icmp_echo_ignore_broadcasts", default=True)
 
         return cls(
-            fail2ban_active=fail2ban_active,
             apparmor_loaded=apparmor_loaded,
             apparmor_mode=apparmor_mode,
             apparmor_enforced=apparmor_enforced,
@@ -135,14 +121,6 @@ def check_hardening(snapshot: HardeningSnapshot, t=None) -> CheckResult:
     _t = t if t is not None else _identity_t
     result = CheckResult()
     found_issue = False  # tracks deduction-worthy (warn-level) issues only
-
-    # --- fail2ban ---
-    if snapshot.fail2ban_active:
-        result.ok(message=_t("hardening.fail2ban_ok"),
-                  key="hardening.fail2ban_ok")
-    else:
-        result.info(message=_t("hardening.fail2ban_missing"),
-                    key="hardening.fail2ban_missing")
 
     # --- AppArmor ---
     mode = snapshot.apparmor_mode

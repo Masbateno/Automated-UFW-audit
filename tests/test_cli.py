@@ -295,6 +295,32 @@ class TestWebhook:
         with pytest.raises(CLIError, match="webhook-format"):
             parse_args(["--webhook-format=discord"])
 
+    def test_webhook_empty_value_raises(self):
+        with pytest.raises(CLIError, match="URL"):
+            parse_args(["--webhook="])
+
+
+class TestEmptyValues:
+    def test_explain_empty_value_raises(self):
+        with pytest.raises(CLIError, match="--explain="):
+            parse_args(["--explain="])
+
+    def test_profile_empty_value_raises(self):
+        with pytest.raises(CLIError, match="--profile="):
+            parse_args(["--profile="])
+
+    def test_lang_empty_value_raises(self):
+        with pytest.raises(CLIError, match="--lang="):
+            parse_args(["--lang="])
+
+    def test_log_days_empty_value_raises(self):
+        with pytest.raises(CLIError, match="--log-days"):
+            parse_args(["--log-days="])
+
+    def test_target_empty_value_raises(self):
+        with pytest.raises(CLIError, match="--target"):
+            parse_args(["--target="])
+
 
 class TestExplain:
     def test_explain_key_default_empty(self):

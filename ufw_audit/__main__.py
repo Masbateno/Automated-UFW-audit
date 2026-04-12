@@ -29,10 +29,11 @@ from ufw_audit.runner import init_report, run_checks
 from ufw_audit.scoring import ScoreEngine
 from ufw_audit.sysinfo import collect_system_info, detect_network_context
 
-EXIT_OK       = 0  # clean audit — no alerts, no warnings
-EXIT_WARNINGS = 1  # warnings detected
-EXIT_ALERTS   = 2  # alerts detected (action required)
-EXIT_ERROR    = 3  # technical error
+EXIT_OK           = 0  # clean audit — no alerts, no warnings
+EXIT_WARNINGS     = 1  # warnings detected
+EXIT_ALERTS       = 2  # alerts detected (action required)
+EXIT_ERROR        = 3  # technical error
+EXIT_TARGET_MISSED = 4  # --target N specified and score < N
 
 
 def require_root() -> None:
@@ -245,6 +246,8 @@ def _run(argv=None) -> int:
             )
             print(_json.dumps(data, ensure_ascii=False, indent=2))
 
+        if config.target > 0 and engine.score < config.target:
+            return EXIT_TARGET_MISSED
         if engine.alert_count > 0:
             return EXIT_ALERTS
         if engine.warn_count > 0:

@@ -30,11 +30,35 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v1.8.0  | 1104  | +138 tests — `test_ssh.py` (93) + `test_file_perms.py` (45) : modifiable-par-tous (7), trop-permissif (5), clés-hôtes-SSH (4), NOPASSWD-ALL (5), NOPASSWD-spécifique (4), combinés (5), _is_nopasswd_all (8), dataclass (2), tout-correct (4) |
 | v1.9.0  | 1332  | +228 tests — `test_updates.py` (34), `test_explain.py` (~94), `test_domain_scores.py` (~48), `test_webhook.py` (~54) ; passages qualité sur `test_hardening.py` + `test_profiles.py` |
 | v1.15.0 | 2139  | +93 tests — `test_smtp.py` (31 + 9 passage qualité), `TestDominantLocalSource` (13), `TestApplyFlag` (12), `TestTargetFlag` (10), `TestDryRun` (8), `test_explain.py` mis à jour (73→77 clés), `test_cli.py` mis à jour (sémantique `--apply`) |
+| v1.16.0 | 2292  | +153 tests — `test_desktop_apps.py` (nouveau), `test_ntp.py` (nouveau), `test_fail2ban.py` (42), `test_rootkit.py` (38), `test_exit_codes.py` (18) ; `test_hardening.py` −3 (fail2ban retiré) ; `test_explain.py` 77→76 clés |
 | v1.14.0 | 2045  | +155 tests — `test_samba.py` (68), `test_clamav.py` (52) ; `test_explain.py` mis à jour (63→73 clés) ; `test_compare.py` tests info_delta (+5) |
 | v1.13.0 | 1890  | +187 tests — `test_disk.py` (60), `test_memory.py` (37) ; `test_explain.py` mis à jour (assertion 33→63 clés) |
 | v1.12.0 | 1703  | +28 tests — profil workstation, assertions de dates, fixtures dict dans les fichiers existants |
 | v1.11.0 | 1675  | +134 tests — `test_user_accounts.py` (51), `test_password_policy.py` (51) ; clés A2 `--explain` dans `test_explain.py` (+13 assertions) ; passage qualité sur les deux nouveaux fichiers |
 | v1.10.0 | 1541  | +209 tests — `test_display_explain_hint.py` (25), `test_kernel_modules.py` (48), `test_cron_audit.py` (47), `test_services_state.py` (35) ; passage qualité : `test_check_rules.py` (+10), `test_cli.py` (+38), `test_compare.py` (+7), `test_cron.py` (+10), `test_ddns.py` (+5), `test_degraded.py` (+3) |
+
+### v1.16.0 — 2292/2292 (2026-04-12)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+2292 passed in 2.21s
+```
+
+#### Nouveaux tests / modifiés (+153)
+
+| Fichier | Modification | Couverture |
+|---------|-------------|------------|
+| `tests/test_desktop_apps.py` | Nouveau | Défauts `DesktopAppsSnapshot` ; clés `_KNOWN_APPS` en minuscules ; `from_system()` avec/sans applis en cours ; `check_desktop_apps()` — aucune appli (OK, pas de section), appli détectée (INFO par appli, clé section) ; sans déduction ; lookup nom d'affichage |
+| `tests/test_ntp.py` | Nouveau | Défauts `NtpSnapshot` ; parsing `timedatectl show` ; détection service (timesyncd/chronyd/ntpd) ; `check_ntp()` — non installé (INFO), actif+synchronisé (OK), actif+non synchronisé (WARN −1 pt), inactif (WARN −1 pt) |
+| `tests/test_fail2ban.py` | Nouveau — 42 tests | `_parse_jails()` — sortie vide, ligne "Jail list:", séparés par virgules ; défauts `Fail2banSnapshot` ; `from_system()` — chemin systemctl, repli ping, non installé ; `check_fail2ban()` — non installé (INFO), inactif (WARN −1 pt), sans jails (WARN −1 pt), jails actifs (OK), jail SSH détecté |
+| `tests/test_rootkit.py` | Nouveau — 38 tests | Défauts `RootkitSnapshot` ; aucun outil installé (INFO) ; rkhunter installé — BDD fraîche (OK), BDD obsolète (WARN −1 pt) ; pas de scan (WARN −1 pt) ; scan trop ancien ≥30j (WARN −1 pt) ; scan récent (OK) ; repli chkrootkit |
+| `tests/test_exit_codes.py` | Nouveau — 18 tests | `EXIT_OK=0`, `EXIT_WARNINGS=1`, `EXIT_ALERTS=2`, `EXIT_ERROR=3`, `EXIT_TARGET_MISSED=4` ; `_decide_exit()` — propre, avertissements seuls, alertes seules, target manquée prioritaire sur alertes/avertissements, target 0 désactivé |
+| `tests/test_hardening.py` | −3 tests (fail2ban retiré) | Classe `TestFail2ban` supprimée ; tests composites mis à jour avec `log_martians=False` |
+| `tests/test_explain.py` | 77→76 clés | `test_has_seventy_six_keys` ; `hardening.fail2ban_missing` retiré des assertions |
+
+---
 
 ### v1.15.0 — 2139/2139 (2026-04-12)
 

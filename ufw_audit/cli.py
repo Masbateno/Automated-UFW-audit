@@ -172,7 +172,10 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
             config.lang = "fr"
 
         elif arg.startswith("--lang="):
-            config.lang = arg.split("=", 1)[1]
+            value = arg.split("=", 1)[1]
+            if not value:
+                raise CLIError("--lang= requires a language code (e.g. en, fr)")
+            config.lang = value
 
         elif arg in ("-l", "--log-days") and i + 1 < len(argv):
             i += 1
@@ -213,7 +216,10 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
             config.offline = True
 
         elif arg.startswith("--profile="):
-            config.profile = arg.split("=", 1)[1].strip()
+            value = arg.split("=", 1)[1].strip()
+            if not value:
+                raise CLIError("--profile= requires a profile name (e.g. server, workstation, container)")
+            config.profile = value
 
         elif arg in ("-p", "--profile") and i + 1 < len(argv):
             i += 1
@@ -223,7 +229,10 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
             config.reset_baseline = True
 
         elif arg.startswith("--explain="):
-            config.explain_key = arg.split("=", 1)[1].strip()
+            value = arg.split("=", 1)[1].strip()
+            if not value:
+                raise CLIError("--explain= requires a key (e.g. ssh.password_auth) — use --explain alone for interactive mode")
+            config.explain_key = value
 
         elif arg in ("-e", "--explain") and i + 1 < len(argv) and not argv[i + 1].startswith("-"):
             i += 1
@@ -237,7 +246,10 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
             config.diff_mode = True
 
         elif arg.startswith("--webhook="):
-            config.webhook_url = arg.split("=", 1)[1].strip()
+            value = arg.split("=", 1)[1].strip()
+            if not value:
+                raise CLIError("--webhook= requires a URL")
+            config.webhook_url = value
 
         elif arg in ("-w", "--webhook") and i + 1 < len(argv):
             i += 1

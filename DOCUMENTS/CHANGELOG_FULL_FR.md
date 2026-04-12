@@ -6,6 +6,95 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.16.0] — 2026-04-12
+
+### Résumé
+- **CHECK 19** — Détection d'applications de bureau : 30+ applis GUI (Steam, Discord, Zoom, Signal, RustDesk, Wireshark, Betterbird, virt-manager…) en cours d'exécution → INFO, sans déduction
+- **CHECK 28** — Synchronisation NTP : systemd-timesyncd/chronyd/ntpd actif et synchronisé → WARN −1 pt si non
+- **CHECK 29** — Prévention d'intrusion Fail2ban (autonome) : état service, jails actifs, jail SSH → WARN −1 pt si inactif ou sans jails
+- **CHECK 30** — Scan rootkit & intégrité : fraîcheur BDD rkhunter/chkrootkit et date dernier scan → WARN −1 pt chaque
+- **`--target N` code de sortie 4** — retourne `EXIT_TARGET_MISSED = 4` quand score < cible ; prioritaire sur les codes 1/2
+- **Validation CLI** — `--explain=`, `--profile=`, `--lang=`, `--webhook=`, `--target=` avec valeur vide lèvent une `CLIError`
+- **5 en-têtes de groupes thématiques** — sortie réorganisée en 5 groupes ; `print_group()` avec séparateur `━` cyan pleine largeur
+- **Fail2ban retiré du durcissement** — check autonome dédié dans le GROUPE 5 (DÉTECTION & SANTÉ)
+- **Passage qualité** — `desktop_apps.py` : clés `_KNOWN_APPS` en minuscules, doublon supprimé, lookup simplifié
+- **2292/2292 tests** (+153 vs v1.15.1)
+
+### Modifications
+
+**`checks/desktop_apps.py`** (CHECK 19 — nouveau fichier)
+- `_KNOWN_APPS` : dict `{comm_minuscule: nom_affichage}` pour 30+ applications GUI connues réparties en 7 catégories : gaming (Steam), navigateurs (Firefox, Brave, Chromium), communication (Discord, Zoom, Teams, Slack, Skype, Telegram, Signal, WhatSie, Element, Nheko, Fractal), messagerie (Betterbird, Thunderbird), sync fichiers (kDrive), médias (Spotify, VLC, OBS, Transmission), accès distant/sécurité (RustDesk, Wireshark), virtualisation (virt-manager) ; toutes les clés ≤ 15 chars (troncature `comm` Linux)
+- `DesktopAppsSnapshot` : `detected: List[Tuple[str, str]]` (nom d'affichage, nom du processus)
+- `DesktopAppsSnapshot.from_system()` : lit la sortie de `ps -eo comm` ; déduplique par nom d'affichage (plusieurs noms de processus peuvent pointer vers la même appli)
+- `check_desktop_apps()` : aucune appli → résultat vide (section non émise) ; appli détectée → finding INFO ; sans déduction
+
+**`checks/ntp.py`** (CHECK 28 — nouveau fichier)
+- `NtpSnapshot` : `ntp_service`, `ntp_active`, `ntp_synced`
+- `NtpSnapshot.from_system()` : détecte systemd-timesyncd/chronyd/ntpd via `systemctl is-active` ; parse `timedatectl show` clé=valeur pour `NTP=yes` et `NTPSynchronized=yes`
+- `check_ntp()` : non installé → INFO ; actif+synchronisé → OK ; actif+non synchronisé → WARN −1 pt `ntp.not_synced` ; inactif → WARN −1 pt `ntp.inactive`
+
+**`checks/fail2ban.py`** (CHECK 29 — nouveau fichier)
+- `_SSH_JAIL_PATTERNS = ("sshd", "ssh")`
+- `Fail2banSnapshot` : `installed`, `service_active`, `active_jails`, `ssh_jail`
+- `Fail2banSnapshot.from_system()` : `shutil.which("fail2ban-client")` → installed ; `systemctl is-active` → service_active ; repli : `fail2ban-client ping` → "pong" ; `fail2ban-client status` → `_parse_jails()` ; jail SSH via `next(generator, "")`
+- `_parse_jails(status_output)` : cherche la ligne "Jail list:" (insensible à la casse), découpe sur `,`
+- `check_fail2ban()` : non installé → INFO ; inactif → WARN −1 pt `fail2ban.service_inactive` ; sans jails → WARN −1 pt `fail2ban.no_jails` ; jails actifs → OK `fail2ban.active` ; jail SSH → OK supplémentaire `fail2ban.ssh_jail_active`
+
+**`checks/rootkit.py`** (CHECK 30 — nouveau fichier)
+- Constantes : `_DB_WARN_DAYS = 7`, `_SCAN_WARN_DAYS = 30`
+- `RootkitSnapshot` : `rkhunter_installed`, `chkrootkit_installed`, `tool`, `db_age_days`, `last_scan_date`
+- `RootkitSnapshot.from_system()` : `shutil.which()` pour les deux outils ; âge BDD rkhunter via mtime de `_RKHUNTER_DB` ; date dernier scan : lit les 100 derniers Ko de `/var/log/rkhunter.log` (un scan complet génère 130 Ko+), confirme la présence d'un scan terminé via `_RKHUNTER_SCAN_RE`, retourne le mtime du fichier comme date (robuste face à rkhunter 1.4.x qui ne journalise que `[HH:MM:SS]`, sans date sur les lignes de contenu) ; chkrootkit via mtime de `/var/log/chkrootkit/log.today`
+- `check_rootkit()` : aucun outil → INFO ; BDD obsolète → WARN −1 pt `rootkit.db_outdated` ; pas de scan → WARN −1 pt `rootkit.no_scan` ; scan trop ancien → WARN −1 pt `rootkit.scan_old` ; tout OK → OK `rootkit.ok`
+
+**`checks/hardening.py`**
+- Supprimé : champ `fail2ban_active: bool` dans `HardeningSnapshot`
+- Supprimé : bloc de détection fail2ban dans `from_system()`
+- Supprimé : bloc de vérification fail2ban dans `check_hardening()` (clés `hardening.fail2ban_ok` / `hardening.fail2ban_missing`)
+
+**`__main__.py`**
+- Constante `EXIT_TARGET_MISSED = 4` ajoutée
+- Logique de sortie : `if config.target > 0 and engine.score < config.target: return EXIT_TARGET_MISSED` — vérifié avant `EXIT_ALERTS`/`EXIT_WARNINGS`
+
+**`output.py`**
+- `print_group(title)` : affiche une barre `━` pleine largeur + titre en gras cyan ; appelé une fois par groupe thématique dans `runner.py`
+
+**`report.py`** (`AuditReport`)
+- `write_group(title)` : écrit un bloc séparateur `=== TITRE ===` dans le fichier rapport
+
+**`report_markdown.py`** (`MarkdownReport`)
+- `write_group(title)` : écrit un titre Markdown `# TITRE` (pour la cohérence)
+
+**`runner.py`**
+- Tous les checks réorganisés en 5 groupes thématiques avec appels `print_group()` + `report.write_group()` :
+  - GROUPE 1 — FIREWALL & RÉSEAU : statut firewall, règles, IPv6, ports, logs, DDNS, docker, virtualisation
+  - GROUPE 2 — EXPOSITION & SERVICES : services, stack firewall, contexte réseau
+  - GROUPE 3 — CONTRÔLE D'ACCÈS : SSH, permissions fichiers, comptes utilisateurs, politique mots de passe
+  - GROUPE 4 — DURCISSEMENT SYSTÈME : durcissement, mises à jour, modules noyau, cron, état services, disque, mémoire, Samba, ClamAV, SMTP, dominance IoT
+  - GROUPE 5 — DÉTECTION & SANTÉ : applications de bureau, NTP, fail2ban, rootkit
+- Ajout des imports `Fail2banSnapshot`, `check_fail2ban`, `RootkitSnapshot`, `check_rootkit`, `print_group`
+
+**Locales (`en.json` + `fr.json`)**
+- Ajouté : section `"groups"` avec 5 clés (`groups.firewall_network`, `groups.exposure_services`, `groups.access_control`, `groups.system_hardening`, `groups.detection_health`)
+- Ajouté : `"sections.ntp"`, `"sections.fail2ban"`, `"sections.rootkit"`, `"sections.desktop_apps"`
+- Ajouté : `"ntp.*"` (4 clés), `"fail2ban.*"` (5 clés), `"rootkit.*"` (4 clés), `"desktop_apps.*"` (3 clés)
+- Supprimé : `hardening.fail2ban_ok`, `hardening.fail2ban_missing`
+
+**`explain.py`**
+- Supprimé : `"hardening.fail2ban_missing"` du groupe Hardening dans `_EXPLAIN_GROUPS`
+- Nombre de clés : 77 → 76 ; groupes : 17 → 19
+
+**Tests**
+- `test_desktop_apps.py` : nouveau — défauts snapshot, clés `_KNOWN_APPS`, `from_system()`, toutes les branches `check_desktop_apps()`
+- `test_ntp.py` : nouveau — défauts snapshot, parsing `timedatectl`, détection service, toutes les branches `check_ntp()`
+- `test_fail2ban.py` : nouveau — 42 tests ; `_parse_jails()`, snapshot, chemins `from_system()`, toutes les branches `check_fail2ban()`
+- `test_rootkit.py` : nouveau — 38 tests ; snapshot, deux outils, toutes les branches `check_rootkit()`
+- `test_exit_codes.py` : nouveau — 18 tests ; constantes, logique de priorité `_decide_exit()`
+- `test_hardening.py` : `TestFail2ban` supprimé (−3) ; tests composites avec `log_martians=False`
+- `test_explain.py` : nombre de clés 77→76 ; `hardening.fail2ban_missing` supprimé
+- **2292 tests** (tous passants)
+
+---
+
 ## [v1.15.1] — 2026-04-12
 
 ### Hotfix — autocomplétion bash

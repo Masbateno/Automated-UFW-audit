@@ -28,7 +28,6 @@ def _t(key, **kwargs):
 def make_snapshot(**overrides) -> HardeningSnapshot:
     """Return a fully-hardened HardeningSnapshot with optional overrides."""
     defaults = dict(
-        fail2ban_active=True,
         apparmor_loaded=True,
         apparmor_mode="enforce",
         apparmor_enforced=5,
@@ -74,29 +73,6 @@ class TestCleanSystem:
     def test_no_alert_when_fully_hardened(self):
         result = check_hardening(make_snapshot(), t=_t)
         assert not has_level(result, "alert")
-
-
-# ---------------------------------------------------------------------------
-# fail2ban
-# ---------------------------------------------------------------------------
-
-class TestFail2ban:
-    def test_ok_when_fail2ban_active(self):
-        result = check_hardening(make_snapshot(fail2ban_active=True), t=_t)
-        assert has_level(result, "ok")
-
-    def test_info_when_fail2ban_missing(self):
-        result = check_hardening(make_snapshot(fail2ban_active=False), t=_t)
-        assert has_level(result, "info")
-
-    def test_no_deduction_when_fail2ban_missing(self):
-        """fail2ban absence is INFO only — no score impact."""
-        result = check_hardening(
-            make_snapshot(fail2ban_active=False),
-            t=_t,
-        )
-        fail2ban_deductions = [d for d in result.deductions if "fail2ban" in d.reason]
-        assert len(fail2ban_deductions) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -267,9 +243,8 @@ class TestCumulativeDeductions:
         assert total_deductions(result) == 2
 
     def test_no_deductions_for_info_only_fields(self):
-        """fail2ban + apparmor_mode + log_martians + icmp_broadcast = 0 deductions."""
+        """apparmor_mode + log_martians + icmp_broadcast = 0 deductions."""
         snap = make_snapshot(
-            fail2ban_active=False,
             apparmor_mode="not_installed",
             log_martians=False,
             icmp_echo_ignore_broadcasts=False,
@@ -278,10 +253,10 @@ class TestCumulativeDeductions:
         assert total_deductions(result) == 0
 
     def test_mixed_warn_and_info_coexist(self):
-        """rp_filter=0 (WARN) + fail2ban=False (INFO) must both appear."""
+        """rp_filter=0 (WARN) + log_martians=False (INFO) must both appear."""
         snap = make_snapshot(
             rp_filter=0,
-            fail2ban_active=False,
+            log_martians=False,
         )
         result = check_hardening(snap, t=_t)
         assert has_level(result, "warn")
@@ -291,8 +266,8 @@ class TestCumulativeDeductions:
     def test_mixed_ok_info_warn_all_present(self):
         """Verify all three levels can coexist in one result."""
         snap = make_snapshot(
-            rp_filter=0,           # WARN
-            fail2ban_active=False, # INFO
+            rp_filter=0,          # WARN
+            log_martians=False,   # INFO
         )
         result = check_hardening(snap, t=_t)
         assert has_level(result, "ok")

@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.16.0](#v1160) | 2026-04-12 | CHECK 19 (desktop app detection); CHECK 28 (NTP sync); CHECK 29 (Fail2ban standalone); CHECK 30 (rootkit/integrity scan); `--target N` → exit code 4; CLI validation for empty values; 5 thematic group headers; fail2ban moved out of hardening; 2292/2292 tests |
 | [v1.15.1](#v1151) | 2026-04-12 | Hotfix: bash-completion — `--explain` no longer gets trailing `=`; `compopt -o nospace` for value options |
 | [v1.15.0](#v1150) | 2026-04-12 | CHECK 26 (IoT/local source dominance in UFW logs); CHECK 27 (SMTP local exposure); `--fix` dry-run by default, `--apply` to execute; `--target N` score cible; `--explain` TUI: clamped nav, in-curses detail screen, ESC/q fix; `--explain` 73→77 keys; quality pass `smtp.py`; 2139/2139 tests |
 | [v1.14.0](#v1140) | 2026-04-10 | Samba Security Audit (CHECK 24, 6 findings); ClamAV Antivirus Audit (CHECK 25, DB freshness + scan age); `--diff` info_count fix; `--explain` 63→73 keys (17 groups); quality pass; 2045/2045 tests |

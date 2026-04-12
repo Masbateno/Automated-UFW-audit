@@ -16,6 +16,13 @@
     "date": "Date",
     "not_installed": "non installé"
   },
+  "groups": {
+    "firewall_network":   "PARE-FEU & RÉSEAU",
+    "exposure_services":  "EXPOSITION & SERVICES",
+    "access_control":     "CONTRÔLE D'ACCÈS",
+    "system_hardening":   "DURCISSEMENT SYSTÈME",
+    "detection_health":   "DÉTECTION & SANTÉ"
+  },
   "sections": {
     "prerequisites": "VÉRIFICATION DES PRÉREQUIS",
     "firewall": "ÉTAT DU PARE-FEU",
@@ -48,7 +55,11 @@
     "disk": "ÉTAT DES DISQUES",
     "samba": "AUDIT DE SÉCURITÉ SAMBA",
     "clamav": "AUDIT ANTIVIRUS CLAMAV",
-    "smtp": "EXPOSITION SMTP LOCALE"
+    "smtp": "EXPOSITION SMTP LOCALE",
+    "desktop_apps": "AUDIT APPLICATIONS BUREAU",
+    "ntp": "SYNCHRONISATION NTP",
+    "fail2ban": "PRÉVENTION D'INTRUSION FAIL2BAN",
+    "rootkit": "DÉTECTION ROOTKIT & INTÉGRITÉ"
   },
   "status": {
     "ok": "OK",
@@ -505,8 +516,6 @@
   },
   "hardening": {
     "no_issues": "Les paramètres de durcissement système sont corrects",
-    "fail2ban_ok": "fail2ban est actif et protège contre les attaques par force brute",
-    "fail2ban_missing": "fail2ban non détecté — envisagez de l'installer pour bloquer les tentatives de connexion",
     "apparmor_not_installed": "AppArmor non détecté — envisagez de l'activer pour le contrôle d'accès obligatoire",
     "apparmor_enforce": "AppArmor actif — {enforced} profil(s) en mode enforce, {complain} en mode complain",
     "apparmor_not_enforce": "AppArmor chargé mais en mode {mode} — envisagez de passer en mode enforce",
@@ -931,11 +940,6 @@
         "why": "Les messages de redirection ICMP peuvent ordonner au noyau de modifier ses tables de routage. Un attaquant sur le réseau local peut envoyer de fausses redirections ICMP pour réacheminer le trafic via une machine qu'il contrôle, permettant un détournement de routage ou une attaque de l'homme du milieu.",
         "how": "1. Désactivez immédiatement (prend effet maintenant) :\n   sudo sysctl -w net.ipv4.conf.all.accept_redirects=0\n2. Rendez le changement permanent :\n   echo 'net.ipv4.conf.all.accept_redirects=0' | sudo tee -a /etc/sysctl.d/99-redirects.conf\n3. Appliquez tous les paramètres sysctl :\n   sudo sysctl --system"
       },
-      "fail2ban_missing": {
-        "title": "fail2ban non installé",
-        "why": "Sans fail2ban, les attaques par force brute contre SSH et d'autres services ne font face à aucun bannissement automatique d'IP. Même avec l'authentification par clé activée, les tentatives répétées inondent les logs et consomment des ressources. fail2ban bannit les IP après un nombre configurable d'échecs, stoppant les campagnes automatisées dès le début.",
-        "how": "1. Installez fail2ban :\n   sudo apt install fail2ban\n2. Activez et démarrez :\n   sudo systemctl enable --now fail2ban\n3. Vérifiez que la prison SSH est active :\n   sudo fail2ban-client status sshd\n4. Configuration personnalisée dans /etc/fail2ban/jail.local :\n   [sshd]\n   bantime  = 1h\n   maxretry = 5"
-      },
       "log_martians_disabled": {
         "title": "Journalisation des paquets martiens désactivée (log_martians = 0)",
         "why": "Les paquets martiens ont des adresses sources impossibles selon la table de routage — indicateur fort d'usurpation d'IP, de paquets forgés ou de scan. Sans les journaliser, la reconnaissance précoce et les attaques par usurpation ne laissent aucune trace. Activer cette journalisation est peu coûteux et fournit des données forensiques précieuses.",
@@ -1193,8 +1197,7 @@
       "rp_filter_disabled": "CIS Ubuntu 22.04 N1 — 3.3.1 — Ne pas accepter les paquets à routage source",
       "redirects_enabled": "CIS Ubuntu 22.04 N1 — 3.3.2 — Ne pas accepter les redirections ICMP",
       "log_martians_disabled": "CIS Ubuntu 22.04 L1 — 3.3.12 — Ensure suspicious packets are logged",
-      "rp_filter_loose": "CIS Ubuntu 22.04 L1 — 3.3.1 — Ensure source routed packets are not accepted (strict mode recommended)",
-      "fail2ban_missing": "CIS Ubuntu 22.04 — SSH brute-force protection best practice (login rate-limiting via fail2ban or pam_faillock)"
+      "rp_filter_loose": "CIS Ubuntu 22.04 L1 — 3.3.1 — Ensure source routed packets are not accepted (strict mode recommended)"
     },
     "kernel_modules": {
       "risky_fs": "CIS Ubuntu 22.04 L1 — 1.1.1.x — Ensure mounting of legacy/rare filesystems is disabled",
@@ -1323,6 +1326,18 @@
     "scan_old_detail": "Des analyses mensuelles laissent une large fenêtre de détection. Des analyses hebdomadaires sont recommandées pour les systèmes exposés ou traitant des fichiers externes. -r = récursif, --infected = infectés, --log = sauvegarde.",
     "scan_recent": "Dernière analyse : {date}"
   },
+  "desktop_apps": {
+    "detected": "{app} détecté (processus : {proc})"
+  },
+  "ntp": {
+    "synchronized": "Synchronisation NTP active ({service})",
+    "not_enabled": "La synchronisation NTP n'est pas activée",
+    "not_enabled_detail": "Sans NTP, l'horloge système dérive. Cela casse la validation des certificats TLS, corrompt les horodatages des journaux (rendant l'analyse d'incidents peu fiable) et provoque des échecs d'authentification dans les protocoles dépendants de l'heure (Kerberos, TOTP/2FA). Activez systemd-timesyncd (léger, intégré) ou chrony (plus précis, recommandé pour les serveurs).",
+    "not_enabled_reason": "NTP désactivé — risque de dérive horaire",
+    "not_synchronized": "NTP est activé mais l'horloge n'est pas encore synchronisée",
+    "not_synchronized_detail": "Le service NTP fonctionne mais n'a pas encore terminé sa première synchronisation. C'est normal juste après le démarrage ou sur un système fraîchement installé. Si cela persiste, vérifiez la connectivité vers le pool NTP et consultez : journalctl -u systemd-timesyncd ou chronyc tracking.",
+    "not_synchronized_reason": "NTP activé mais pas encore synchronisé"
+  },
   "smtp": {
     "not_installed": "Aucun MTA détecté (Postfix/Exim/Sendmail) — pas de serveur mail local",
     "installed_not_listening": "{mta} est installé mais n'écoute pas sur le port 25",
@@ -1331,5 +1346,31 @@
     "exposed_detail": "Le port 25 ouvert sur toutes les interfaces signifie que n'importe quel hôte du réseau (ou d'internet, si non filtré) peut tenter des connexions SMTP. Sur un poste de travail ou un serveur interne, c'est presque toujours involontaire et permet des tentatives de relais, l'énumération VRFY et des tentatives d'envoi de spam.",
     "exposed_reason": "Port SMTP 25 lié à {bind} — accessible depuis le réseau",
     "exposed_restart_postfix": "Puis redémarrer Postfix : sudo systemctl restart postfix"
+  },
+  "fail2ban": {
+    "not_installed": "Fail2ban n'est pas installé",
+    "not_installed_detail": "Fail2ban surveille les fichiers de logs pour détecter les échecs d'authentification répétés et bannit temporairement les IP offensantes via des règles de pare-feu. Sans lui, les attaques par force brute contre SSH, les applications web et autres services sont sans contrainte. Installez-le et configurez au minimum le jail sshd.",
+    "service_inactive": "Fail2ban est installé mais le service n'est pas actif",
+    "service_inactive_detail": "Fail2ban est installé mais inactif — le bannissement d'IP n'est pas en vigueur. Activez-le pour protéger les services exposés contre les attaques par force brute.",
+    "service_inactive_reason": "Fail2ban inactif — aucune protection contre la force brute",
+    "no_jails": "Fail2ban fonctionne mais aucun jail n'est actif",
+    "no_jails_detail": "Fail2ban fonctionne mais n'a aucun jail actif configuré. Activez au minimum le jail sshd dans /etc/fail2ban/jail.local pour protéger SSH des attaques par force brute.",
+    "no_jails_reason": "Fail2ban actif sans aucun jail configuré",
+    "active": "Fail2ban actif — {count} jail(s) activé(s)",
+    "ssh_jail_active": "Protection SSH contre la force brute active (jail : {jail})"
+  },
+  "rootkit": {
+    "not_installed": "Aucun scanner de rootkit installé (rkhunter / chkrootkit)",
+    "not_installed_detail": "Les scanners de rootkit détectent les rootkits connus, les backdoors et les modifications suspectes du système. Sans l'un d'eux, des binaires compromis ou des processus cachés peuvent passer inaperçus. Installez rkhunter (recommandé) ou chkrootkit et planifiez des scans réguliers via cron.",
+    "db_outdated": "La base de signatures {tool} a {days} jour(s)",
+    "db_outdated_detail": "Une base de signatures obsolète réduit la couverture de détection. Les nouveaux rootkits et variantes de malwares ne seront pas reconnus. Exécutez : sudo rkhunter --update pour actualiser.",
+    "db_outdated_reason": "Base {tool} obsolète ({days} jours) — couverture de détection réduite",
+    "no_scan": "Aucun scan {tool} complété trouvé dans les logs",
+    "no_scan_detail": "Aucun enregistrement de scan n'a été trouvé dans le fichier de log. Planifiez un scan régulier via cron (par exemple quotidien) afin qu'une infection rootkit soit détectée rapidement.",
+    "no_scan_reason": "Aucun scan {tool} enregistré",
+    "scan_old": "Dernier scan {tool} il y a {days} jour(s) ({date})",
+    "scan_old_detail": "Le scan de rootkit date de plus de 30 jours. Une compromission non détectée dans l'intervalle resterait ignorée. Planifiez des scans hebdomadaires ou quotidiens via cron.",
+    "scan_old_reason": "Dernier scan {tool} il y a {days} jours — couverture obsolète",
+    "ok": "Scan {tool} à jour (dernier passage : {date})"
   }
 }

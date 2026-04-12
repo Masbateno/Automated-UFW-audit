@@ -40,6 +40,12 @@ _ufw_audit() {
         return 0
     fi
 
+    # Handle --target=N — suggest common score targets
+    if [[ "${cur}" == --target* ]]; then
+        COMPREPLY=( "--target=6" "--target=7" "--target=8" "--target=9" "--target=10" )
+        return 0
+    fi
+
     # All short options
     local short_opts="-v -d -q -f -y -r -n -j -J -l -m -c -C -o -p -e -D -w -V -h"
 

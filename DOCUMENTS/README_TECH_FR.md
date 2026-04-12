@@ -1,9 +1,9 @@
 *[Read in English](README_TECH.md)* · *[Vue d'ensemble](../README_FR.md)*
 
-# ufw-audit v1.15.1
+# ufw-audit v1.16.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.15.1-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.16.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -39,14 +39,18 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 - **`--manage-logs`** — interface interactive pour lister les rapports sauvegardés (nom, taille, date) et les supprimer par index ou en totalité
 - **`--install-cron`** — wizard de planification : nommer le cron, choisir le type de schedule (tous les jours / certains jours de la semaine / certains jours du mois / expression cron personnalisée), définir l'heure et un email de notification optionnel ; aperçu en langage naturel avant confirmation ; crons nommés (`/etc/cron.d/ufw-audit-{nom}`)
 - **`--manage-cron`** — TUI en boucle : lister les crons installés, modifier le planning ou l'email de notification, supprimer ; la commande `m` ouvre le carnet d'adresses email (ajout / suppression d'adresses enregistrées), accessible même sans cron installé
-- **Vérification durcissement** — audit du durcissement système : fail2ban, unattended-upgrades, mode AppArmor, rp_filter, redirections ICMP, log_martians, broadcast ICMP ; déductions scorées pour les paramètres les plus impactants
+- **Vérification durcissement** — audit du durcissement système : unattended-upgrades, mode AppArmor, rp_filter, redirections ICMP, log_martians, broadcast ICMP ; déductions scorées pour les paramètres les plus impactants
 - **Cohérence IPv6** — détecte les ports IPv6 actifs sans règle UFW v6 correspondante ; détection de conflit quand IPv6 est désactivé globalement mais des ports en écoute sont présents
 - **Rapport comparatif** — baseline enregistrée après chaque audit (`~/.config/ufw-audit/last_baseline.json`) ; au prochain lancement, affiche le delta de score, les variations d'alertes/avertissements, les ports apparus/fermés, les services démarrés/arrêtés
 - **API Plugin** — déposer un fichier Python dans `~/.config/ufw-audit/checks.d/` pour ajouter une vérification personnalisée ; les plugins sont fail-safe (les exceptions n'interrompent jamais l'audit) et les séquences ANSI sont nettoyées
 - **Audit de sécurité SSH** — analyse complète de `sshd_config` (15 directives + Ciphers/MACs/KEX faibles) ; audit des clés privées (type, taille, passphrase) ; inspection `authorized_keys` ; vérification côté client `~/.ssh/config` ; comptage des entrées `known_hosts` ; cible le home de `SUDO_USER` ; suggestions d'installation adaptées à la distro
 - **Fichiers sensibles & sudoers** — audit des permissions de `/etc/passwd`, `/etc/shadow`, `/etc/gshadow`, `/etc/group`, `/etc/sudoers` (modifiable par tous → ALERT, trop permissif → WARN) ; permissions des clés hôtes privées SSH sous `/etc/ssh/` ; détection de `NOPASSWD:ALL` dans sudoers et sudoers.d
 - **Audit des mises à jour système** — détecte les paquets de sécurité en attente via `apt-get -s upgrade` (−2 pts fixe) ; absence de `unattended-upgrades` combinée à des mises à jour de sécurité en attente (−1 pt composé) ; mises à jour régulières → INFO uniquement
-- **`--explain KEY`** — explication structurée par constat (POURQUOI C'EST UN RISQUE / COMMENT CORRIGER / référence CIS Ubuntu 22.04) ; 77 clés explicables dans 17 groupes ; `--explain list` affiche toutes les clés avec en-têtes de groupes ; TUI interactif : navigation bloquée (pas de wrap), écran détail in-curses (ESC pour revenir) ; normalisation des clés `file_perms.*` ; sans droit root
+- **Détection d'applications de bureau** — détecte les applications GUI connues (Steam, Discord, Zoom, Signal, VLC, Spotify, Slack, Telegram, Chrome, Firefox…) en cours d'exécution ; findings INFO, sans déduction ; section affichée uniquement si au moins une appli est détectée
+- **Synchronisation NTP** — vérifie si systemd-timesyncd, chronyd ou ntpd est actif et synchronisé ; WARN −1 pt si NTP est désactivé ou l'horloge pas encore synchronisée
+- **Prévention d'intrusion Fail2ban** — check autonome dédié ; détecte l'installation, l'état du service, les jails actifs et la présence d'un jail SSH ; WARN −1 pt si service inactif ou aucun jail configuré
+- **Scan rootkit & intégrité** — détection rkhunter/chkrootkit ; WARN −1 pt pour base de données rkhunter obsolète (≥7 jours), scan absent ou dernier scan trop ancien (>30 jours)
+- **`--explain KEY`** — explication structurée par constat (POURQUOI C'EST UN RISQUE / COMMENT CORRIGER / référence CIS Ubuntu 22.04) ; 76 clés explicables dans 19 groupes ; `--explain list` affiche toutes les clés avec en-têtes de groupes ; TUI interactif : navigation bloquée (pas de wrap), écran détail in-curses (ESC pour revenir) ; normalisation des clés `file_perms.*` ; sans droit root
 - **Scores par domaine** — sous-scores de sécurité par domaine (SSH / Sécurité Samba / Fichiers & Accès / Mises à jour / Durcissement / Santé Disque / Pare-feu & Services) ; 7 domaines ; affichés en barre █/░ après l'audit ; inclus dans la sortie JSON et le payload webhook
 - **Webhooks** — `--webhook URL` envoie le résultat d'audit en JSON après chaque audit ; formats générique (Grafana/automation) et Slack (auto-détecté) ; non-fatal ; `--webhook-format=auto|generic|slack`
 - **Mode `--diff`** — lance l'audit silencieusement et affiche uniquement le delta comparatif (changements depuis le dernier audit) ; suit le score, le nombre d'alertes/avertissements et le nombre d'INFO (les changements de niveau INFO sont donc détectés)
@@ -55,7 +59,8 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 - **Dominance source locale IoT** — détecte quand une seule IP privée représente ≥ 70 % du trafic UFW bloqué sur ≥ 50 entrées de log (WARN, −1 pt, `logs.local_dominance`) ; typique des appareils IoT qui scannent le LAN ou des serveurs mal configurés
 - **Exposition SMTP locale** — détecte les MTA (Postfix, Exim, Sendmail) en écoute sur toutes les interfaces (`0.0.0.0:25` ou `:::25`) vs localhost uniquement ; `SmtpSnapshot.from_system()` utilise `ps -eo comm` + `ss -tlnp`/repli `netstat` ; WARN −1 pt si exposition publique
 - **`--fix` aperçu par défaut** — `--fix` seul affiche un aperçu de toutes les corrections disponibles avec `→ cmd` sans exécuter ; `--fix --apply` active le flux d'application interactif ; `--fix --apply --yes` confirme tout automatiquement avec journal d'audit
-- **`--target N`** — objectif de score (1–10) ; affiché dans la boîte de synthèse comme `✔ atteint` (vert) ou `▲ +N pt(s) manquant(s)` (jaune)
+- **`--target N`** — objectif de score (1–10) ; affiché dans la boîte de synthèse comme `✔ atteint` (vert) ou `▲ +N pt(s) manquant(s)` (jaune) ; retourne le code de sortie 4 si le score < cible (intégration CI, prioritaire sur les codes 1/2)
+- **5 en-têtes de groupes thématiques** — sortie de l'audit réorganisée en cinq groupes nommés : FIREWALL & RÉSEAU / EXPOSITION & SERVICES / CONTRÔLE D'ACCÈS / DURCISSEMENT SYSTÈME / DÉTECTION & SANTÉ ; chaque groupe introduit par un séparateur `━` cyan pleine largeur avant la première boîte de section
 
 ---
 
@@ -398,6 +403,7 @@ En mode `--quiet`, le code de retour indique le résultat de l'audit :
 | `1`  | Avertissements détectés |
 | `2`  | Alertes détectées — action requise |
 | `3`  | Erreur technique |
+| `4`  | Score inférieur au seuil `--target N` |
 
 Exemple cron — audit quotidien à 6h, mail en cas de problème :
 

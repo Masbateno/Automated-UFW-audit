@@ -106,6 +106,11 @@ class MarkdownReport:
         self._writeln(f"- **Config:** {info.config_path}")
         self._writeln("")
 
+    def write_group(self, title: str) -> None:
+        """Write a markdown group header (#)."""
+        self._writeln(f"# {title}")
+        self._writeln("")
+
     def write_section(self, title: str) -> None:
         """Write a markdown section header (##)."""
         self._writeln(f"## {title}")

@@ -96,7 +96,6 @@ _EXPLAIN_GROUPS: list[tuple[str, list[str]]] = [
         "hardening.rp_filter_loose",
         "hardening.redirects_enabled",
         "hardening.log_martians_disabled",
-        "hardening.fail2ban_missing",
     ]),
     ("Kernel Modules", [
         "kernel_modules.risky_fs",

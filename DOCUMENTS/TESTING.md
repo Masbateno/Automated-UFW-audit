@@ -35,6 +35,30 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v1.13.0 | 1890  | +187 tests — `test_disk.py` (60), `test_memory.py` (37); `test_explain.py` updated (33→63 keys assertion) |
 | v1.14.0 | 2045  | +155 tests — `test_samba.py` (68), `test_clamav.py` (52); `test_explain.py` updated (63→73 keys); `test_compare.py` info_delta tests (+5) |
 | v1.15.0 | 2139  | +93 tests — `test_smtp.py` (31 + 9 quality pass), `TestDominantLocalSource` (13), `TestApplyFlag` (12), `TestTargetFlag` (10), `TestDryRun` (8), `test_explain.py` updated (73→77 keys), `test_cli.py` updated (`--apply` semantics) |
+| v1.16.0 | 2292  | +153 tests — `test_desktop_apps.py` (new), `test_ntp.py` (new), `test_fail2ban.py` (42), `test_rootkit.py` (38), `test_exit_codes.py` (18); `test_hardening.py` −3 (fail2ban removed); `test_explain.py` 77→76 keys |
+
+### v1.16.0 — 2292/2292 (2026-04-12)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+2292 passed in 2.21s
+```
+
+#### New / modified tests (+153)
+
+| File | Change | Coverage |
+|------|--------|----------|
+| `tests/test_desktop_apps.py` | New | `DesktopAppsSnapshot` defaults; `_KNOWN_APPS` lowercase keys; `from_system()` with running/no apps; `check_desktop_apps()` — not running (OK, no section), running (INFO per app, section key); no deduction; display name lookup |
+| `tests/test_ntp.py` | New | `NtpSnapshot` defaults; `timedatectl show` parsing; service detection (timesyncd/chronyd/ntpd); `check_ntp()` — not installed (INFO), active+synced (OK), active+not synced (WARN −1 pt), inactive (WARN −1 pt) |
+| `tests/test_fail2ban.py` | New — 42 tests | `_parse_jails()` — empty output, "Jail list:" line, comma-separated; `Fail2banSnapshot` defaults; `from_system()` — systemctl path, ping fallback, not installed; `check_fail2ban()` — not installed (INFO), inactive (WARN −1 pt), no jails (WARN −1 pt), jails active (OK), SSH jail detected |
+| `tests/test_rootkit.py` | New — 38 tests | `RootkitSnapshot` defaults; neither installed (INFO); rkhunter installed — DB fresh (OK), DB outdated (WARN −1 pt); no scan (WARN −1 pt); scan old ≥30d (WARN −1 pt); scan recent (OK); chkrootkit fallback |
+| `tests/test_exit_codes.py` | New — 18 tests | `EXIT_OK=0`, `EXIT_WARNINGS=1`, `EXIT_ALERTS=2`, `EXIT_ERROR=3`, `EXIT_TARGET_MISSED=4`; `_decide_exit()` — clean, warnings only, alerts only, target missed takes priority over warnings/alerts, target 0 disables |
+| `tests/test_hardening.py` | −3 tests (fail2ban removed) | `TestFail2ban` class removed; composite tests updated to use `log_martians=False` instead of `fail2ban_active=False` |
+| `tests/test_explain.py` | 77→76 keys | `test_has_seventy_six_keys`; `hardening.fail2ban_missing` removed from assertions |
+
+---
 
 ### v1.15.0 — 2139/2139 (2026-04-12)
 

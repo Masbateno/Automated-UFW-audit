@@ -70,8 +70,8 @@ class TestNormalizeKey:
 # ---------------------------------------------------------------------------
 
 class TestExplainKeysList:
-    def test_has_seventy_seven_keys(self):
-        assert len(EXPLAIN_KEYS) == 77
+    def test_has_seventy_six_keys(self):
+        assert len(EXPLAIN_KEYS) == 76
 
     def test_all_keys_are_strings(self):
         for k in EXPLAIN_KEYS:
@@ -92,7 +92,6 @@ class TestExplainKeysList:
         assert "ssh.weak_macs" in EXPLAIN_KEYS
         assert "ssh.weak_kex" in EXPLAIN_KEYS
         # Phase A2 additions — hardening
-        assert "hardening.fail2ban_missing" in EXPLAIN_KEYS
         assert "hardening.log_martians_disabled" in EXPLAIN_KEYS
         assert "hardening.rp_filter_loose" in EXPLAIN_KEYS
         # Phase A2 additions — new checks

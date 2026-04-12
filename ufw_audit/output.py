@@ -163,6 +163,21 @@ def _print_status(
 # Structural display
 # ---------------------------------------------------------------------------
 
+def print_group(title: str) -> None:
+    """Print a thematic group header — visually above section boxes.
+
+    Example:
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          FIREWALL & RÉSEAU
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    """
+    bar = "━" * _TERM_WIDTH
+    _p()
+    _p(f"{_c.cyan}{bar}{_c.reset}")
+    _p(f"  {_c.cyan_bold}{title}{_c.reset}")
+    _p(f"{_c.cyan}{bar}{_c.reset}")
+
+
 def print_section(title: str) -> None:
     """Print a section header box.
 

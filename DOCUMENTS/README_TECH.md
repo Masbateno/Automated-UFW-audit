@@ -1,9 +1,9 @@
 *[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
-# ufw-audit v1.15.0
+# ufw-audit v1.16.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.15.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.16.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -39,14 +39,18 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **`--manage-logs`** — interactive UI to list saved reports (name, size, date) and delete them by index or all at once
 - **`--install-cron`** — schedule wizard: name the job, choose schedule type (daily / specific week days / specific month days / custom cron expression), set time, set optional notification email; preview in natural language before confirmation; named cron jobs (`/etc/cron.d/ufw-audit-{name}`)
 - **`--manage-cron`** — looping TUI: list installed cron jobs, edit schedule or notification email, delete; `m` command opens the email address book (add / delete saved addresses) accessible even without any cron installed
-- **Hardening check** — system hardening audit: fail2ban, unattended-upgrades, AppArmor mode, rp_filter, ICMP redirects, log_martians, ICMP broadcast echo; scored deductions for the most impactful settings
+- **Hardening check** — system hardening audit: unattended-upgrades, AppArmor mode, rp_filter, ICMP redirects, log_martians, ICMP broadcast echo; scored deductions for the most impactful settings
 - **IPv6 consistency check** — detects IPv6 listeners not covered by a matching UFW v6 rule; conflict detection when IPv6 is disabled globally but listeners are present
 - **Comparative report** — baseline saved after each audit (`~/.config/ufw-audit/last_baseline.json`); next run displays score delta, alert/warn changes, new/closed ports, started/stopped services
 - **Plugin check API** — drop a Python file in `~/.config/ufw-audit/checks.d/` to add a custom audit check; plugins are fail-safe (exceptions never abort the audit) and ANSI-sanitized
 - **SSH security audit** — full `sshd_config` analysis (15 directives + weak Ciphers/MACs/KEX); private key audit (type, size, passphrase); `authorized_keys` inspection; `~/.ssh/config` client-side check; `known_hosts` entry count; targets `SUDO_USER`'s home; distro-aware install hints
 - **Sensitive files & sudoers** — permissions audit on `/etc/passwd`, `/etc/shadow`, `/etc/gshadow`, `/etc/group`, `/etc/sudoers` (world-writable → ALERT, too-permissive → WARN); SSH host private key permissions under `/etc/ssh/`; `NOPASSWD:ALL` detection across sudoers and sudoers.d
 - **System updates audit** — detects pending security packages via `apt-get -s upgrade` (−2 pts flat); absent `unattended-upgrades` combined with pending security updates (−1 pt compound); regular updates → INFO only
-- **`--explain KEY`** — structured per-finding explanation (WHY IT IS A RISK / HOW TO FIX / CIS Ubuntu 22.04 reference); 73 explainable keys in 17 groups; `--explain list` shows all keys with group headers; key normalisation handles `file_perms.*` middle segments; no root required
+- **Desktop application detection** — detects known GUI applications (Steam, Discord, Zoom, Signal, VLC, Spotify, Slack, Telegram, Chrome, Firefox…) running as processes; INFO findings, no deduction; section only shown when at least one app is detected
+- **NTP time synchronisation** — checks whether systemd-timesyncd, chronyd, or ntpd is active and synchronised; WARN −1 pt if NTP is disabled or the clock is not yet synchronised
+- **Fail2ban intrusion prevention** — dedicated standalone check; detects installation, service status, active jails, and presence of an SSH jail; WARN −1 pt if service inactive or no jails configured
+- **Rootkit & integrity scan** — rkhunter/chkrootkit detection; WARN −1 pt for outdated rkhunter database (≥7 days), missing scan, or stale last scan (>30 days)
+- **`--explain KEY`** — structured per-finding explanation (WHY IT IS A RISK / HOW TO FIX / CIS Ubuntu 22.04 reference); 76 explainable keys in 19 groups; `--explain list` shows all keys with group headers; key normalisation handles `file_perms.*` middle segments; no root required
 - **Domain scores** — per-domain security sub-scores (SSH / Samba Security / Files & Access / Updates / Hardening / Disk Health / Firewall & Services); 7 domains; displayed as bar chart after audit; included in JSON output and webhook payload
 - **Webhooks** — `--webhook URL` POSTs audit result as JSON after each audit; generic (Grafana/automation) and Slack formats (auto-detected by URL); non-fatal; `--webhook-format=auto|generic|slack`
 - **Samba security audit** — full `smb.conf` analysis: SMB1 protocol detection (ALERT, −2 pts); null passwords enabled (ALERT, −3 pts); server signing disabled (WARN, −1 pt); guest-writable shares (ALERT, −2 pts/share); guest-readable shares (WARN, −1 pt/share); `map to guest = bad user` (WARN, −1 pt); bind interfaces check (INFO); dedicated **samba** domain
@@ -54,7 +58,8 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **IoT/local source dominance** — detects when a single private IP accounts for ≥ 70% of all blocked UFW traffic over ≥ 50 log entries (WARN, −1 pt, `logs.local_dominance`); typical of LAN-scanning IoT devices or misconfigured servers
 - **SMTP local exposure** — detects MTA (Postfix, Exim, Sendmail) listening on all interfaces (`0.0.0.0:25` or `:::25`) vs. localhost only; `SmtpSnapshot.from_system()` uses `ps -eo comm` + `ss -tlnp`/`netstat` fallback; WARN −1 pt when publicly exposed
 - **`--fix` dry-run** — `--fix` alone shows a preview of all available corrections with `→ cmd` without executing; `--fix --apply` enables the interactive apply flow; `--fix --apply --yes` auto-confirms all with audit trail
-- **`--target N`** — score target (1–10); shown in the summary box as `✔ reached` (green) or `▲ +N pt(s) needed` (yellow)
+- **`--target N`** — score target (1–10); shown in the summary box as `✔ reached` (green) or `▲ +N pt(s) needed` (yellow); returns exit code 4 when score < target (CI-ready, takes priority over codes 1/2)
+- **5 thematic group headers** — audit output reorganised into five named groups: FIREWALL & NETWORK / EXPOSURE & SERVICES / ACCESS CONTROL / SYSTEM HARDENING / DETECTION & HEALTH; each group introduced by a full-width `━` cyan separator printed before the first section box
 - **`--diff` mode** — runs audit silently and displays only the comparative delta (what changed since last audit); tracks score, alert count, warn count, and info count (so INFO-level changes are detected)
 
 ---
@@ -398,6 +403,7 @@ When using `--quiet`, the exit code tells you the audit result:
 | `1`  | Warnings detected |
 | `2`  | Alerts detected — action required |
 | `3`  | Technical error |
+| `4`  | Score below `--target N` threshold |
 
 Example cron job — daily audit at 6am, email on issues:
 

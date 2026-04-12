@@ -16,6 +16,13 @@
     "date": "Date",
     "not_installed": "not installed"
   },
+  "groups": {
+    "firewall_network":   "FIREWALL & NETWORK",
+    "exposure_services":  "EXPOSURE & SERVICES",
+    "access_control":     "ACCESS CONTROL",
+    "system_hardening":   "SYSTEM HARDENING",
+    "detection_health":   "DETECTION & HEALTH"
+  },
   "sections": {
     "prerequisites": "PREREQUISITES CHECK",
     "firewall": "FIREWALL STATUS",
@@ -48,7 +55,11 @@
     "disk": "DISK HEALTH",
     "samba": "SAMBA SECURITY AUDIT",
     "clamav": "CLAMAV ANTIVIRUS AUDIT",
-    "smtp": "SMTP LOCAL EXPOSURE"
+    "smtp": "SMTP LOCAL EXPOSURE",
+    "desktop_apps": "DESKTOP APPLICATION AUDIT",
+    "ntp": "NTP TIME SYNCHRONISATION",
+    "fail2ban": "FAIL2BAN INTRUSION PREVENTION",
+    "rootkit": "ROOTKIT & INTEGRITY SCAN"
   },
   "status": {
     "ok": "OK",
@@ -505,8 +516,6 @@
   },
   "hardening": {
     "no_issues": "System hardening parameters look good",
-    "fail2ban_ok": "fail2ban is active and protecting against brute-force attacks",
-    "fail2ban_missing": "fail2ban not detected — consider installing it to block brute-force attacks",
     "apparmor_not_installed": "AppArmor not detected — consider enabling it for mandatory access control",
     "apparmor_enforce": "AppArmor active — {enforced} profile(s) in enforce mode, {complain} in complain mode",
     "apparmor_not_enforce": "AppArmor loaded but in {mode} mode — consider switching to enforce",
@@ -931,11 +940,6 @@
         "why": "ICMP redirect messages can instruct the kernel to change its routing tables. An attacker on the local network can send forged ICMP redirects to reroute traffic through a machine they control, enabling a routing hijack or man-in-the-middle attack.",
         "how": "1. Disable immediately (takes effect now):\n   sudo sysctl -w net.ipv4.conf.all.accept_redirects=0\n2. Make it permanent:\n   echo 'net.ipv4.conf.all.accept_redirects=0' | sudo tee -a /etc/sysctl.d/99-redirects.conf\n3. Apply all sysctl settings:\n   sudo sysctl --system"
       },
-      "fail2ban_missing": {
-        "title": "fail2ban not installed",
-        "why": "Without fail2ban, brute-force attacks against SSH and other services face no automatic IP banning. Even with key-based authentication, repeated failed attempts flood logs, consume resources, and may indicate active reconnaissance. fail2ban bans IPs after a configurable number of failures, stopping automated campaigns early.",
-        "how": "1. Install fail2ban:\n   sudo apt install fail2ban\n2. Enable and start:\n   sudo systemctl enable --now fail2ban\n3. Verify the SSH jail is active:\n   sudo fail2ban-client status sshd\n4. Optional — custom config in /etc/fail2ban/jail.local:\n   [sshd]\n   bantime  = 1h\n   maxretry = 5"
-      },
       "log_martians_disabled": {
         "title": "Martian packet logging disabled (log_martians = 0)",
         "why": "Martian packets have source addresses that are impossible given the routing table — a strong indicator of IP spoofing, forged packets, or scanning. Without logging them, early-stage reconnaissance and spoofing attacks leave no trace. Enabling this logging is low-cost and provides valuable forensic data.",
@@ -1193,8 +1197,7 @@
       "rp_filter_disabled": "CIS Ubuntu 22.04 L1 — 3.3.1 — Ensure source routed packets are not accepted",
       "redirects_enabled": "CIS Ubuntu 22.04 L1 — 3.3.2 — Ensure ICMP redirects are not accepted",
       "log_martians_disabled": "CIS Ubuntu 22.04 L1 — 3.3.12 — Ensure suspicious packets are logged",
-      "rp_filter_loose": "CIS Ubuntu 22.04 L1 — 3.3.1 — Ensure source routed packets are not accepted (strict mode recommended)",
-      "fail2ban_missing": "CIS Ubuntu 22.04 — SSH brute-force protection best practice (login rate-limiting via fail2ban or pam_faillock)"
+      "rp_filter_loose": "CIS Ubuntu 22.04 L1 — 3.3.1 — Ensure source routed packets are not accepted (strict mode recommended)"
     },
     "kernel_modules": {
       "risky_fs": "CIS Ubuntu 22.04 L1 — 1.1.1.x — Ensure mounting of legacy/rare filesystems is disabled",
@@ -1323,6 +1326,18 @@
     "scan_old_detail": "Monthly scans leave a large detection window. Weekly scanning is recommended for systems that handle files from external sources or are exposed to the internet. -r = recursive, --infected = infected files only, --log = save results.",
     "scan_recent": "Last scan: {date}"
   },
+  "desktop_apps": {
+    "detected": "{app} detected (process: {proc})"
+  },
+  "ntp": {
+    "synchronized": "NTP time synchronisation active ({service})",
+    "not_enabled": "NTP time synchronisation is not enabled",
+    "not_enabled_detail": "Without NTP, the system clock drifts over time. This breaks TLS certificate validation, corrupts log timestamps (making incident analysis unreliable), and causes authentication failures in protocols that depend on time (Kerberos, TOTP/2FA). Enable systemd-timesyncd (lightweight, built-in) or chrony (more accurate, recommended for servers).",
+    "not_enabled_reason": "NTP disabled — clock drift risk",
+    "not_synchronized": "NTP is enabled but the clock is not yet synchronised",
+    "not_synchronized_detail": "The NTP service is running but has not completed its first synchronisation. This is normal immediately after boot or on a freshly installed system. If it persists, check connectivity to the NTP pool and review: journalctl -u systemd-timesyncd or chronyc tracking.",
+    "not_synchronized_reason": "NTP enabled but not yet synchronised"
+  },
   "smtp": {
     "not_installed": "No MTA detected (Postfix/Exim/Sendmail) — no local mail server",
     "installed_not_listening": "{mta} is installed but not listening on port 25",
@@ -1331,5 +1346,31 @@
     "exposed_detail": "Port 25 open on all interfaces means any host on the network (or internet, if not firewalled) can attempt SMTP connections. On a workstation or internal server this is almost always unintentional and allows relay testing, VRFY enumeration, and spam delivery attempts.",
     "exposed_reason": "SMTP port 25 bound to {bind} — reachable from the network",
     "exposed_restart_postfix": "Then restart Postfix: sudo systemctl restart postfix"
+  },
+  "fail2ban": {
+    "not_installed": "Fail2ban is not installed",
+    "not_installed_detail": "Fail2ban monitors log files for repeated authentication failures and temporarily bans offending IPs via firewall rules. Without it, brute-force attacks against SSH, web applications, and other services are unconstrained. Install and configure at minimum the sshd jail.",
+    "service_inactive": "Fail2ban is installed but the service is not running",
+    "service_inactive_detail": "Fail2ban is installed but inactive — IP banning is not in effect. Enable it to protect exposed services against brute-force attacks.",
+    "service_inactive_reason": "Fail2ban inactive — no brute-force protection",
+    "no_jails": "Fail2ban is running but no jails are active",
+    "no_jails_detail": "Fail2ban is running but has no active jails configured. At minimum, enable the sshd jail in /etc/fail2ban/jail.local to protect SSH from brute-force attacks.",
+    "no_jails_reason": "Fail2ban running with no active jails",
+    "active": "Fail2ban active — {count} jail(s) enabled",
+    "ssh_jail_active": "SSH brute-force protection active (jail: {jail})"
+  },
+  "rootkit": {
+    "not_installed": "No rootkit scanner installed (rkhunter / chkrootkit)",
+    "not_installed_detail": "Rootkit scanners detect known rootkits, backdoors, and suspicious system modifications. Without one, compromised binaries or hidden processes may go undetected. Install rkhunter (recommended) or chkrootkit and schedule regular scans via cron.",
+    "db_outdated": "{tool} signature database is {days} day(s) old",
+    "db_outdated_detail": "An outdated signature database reduces detection coverage. New rootkits and malware variants will not be recognised. Run: sudo rkhunter --update to refresh.",
+    "db_outdated_reason": "{tool} database outdated ({days} days) — reduced detection coverage",
+    "no_scan": "No completed {tool} scan found in the logs",
+    "no_scan_detail": "No scan record was found in the log file. Schedule a regular scan via cron (e.g. daily) so any rootkit infection is detected promptly.",
+    "no_scan_reason": "No {tool} scan on record",
+    "scan_old": "Last {tool} scan was {days} day(s) ago ({date})",
+    "scan_old_detail": "The rootkit scan is more than 30 days old. An undetected compromise in the interim would remain unnoticed. Schedule weekly or daily cron scans.",
+    "scan_old_reason": "Last {tool} scan {days} days ago — stale coverage",
+    "ok": "{tool} scan is up to date (last run: {date})"
   }
 }

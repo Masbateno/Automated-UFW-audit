@@ -156,13 +156,24 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Quality & reliability
 
-- ✅ 2139 unit tests
+- ✅ 2292 unit tests
 - 🧱 Modular architecture (snapshot / check separated)
 - 🧪 Tested on Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.15.1
+## 🆕 v1.16.0
+
+- 🖥 **CHECK 19 — Desktop application detection** — detects known GUI apps (Steam, Discord, Zoom, Signal…) running as processes; INFO findings, no deduction; section shown only when apps detected
+- 🕐 **CHECK 28 — NTP time synchronisation** — checks systemd-timesyncd/chronyd/ntpd; WARN −1 pt if disabled or not yet synchronised
+- 🛡 **CHECK 29 — Fail2ban intrusion prevention** — dedicated standalone check; WARN −1 pt if service inactive or no jails configured; detects active SSH jail
+- 🔍 **CHECK 30 — Rootkit & integrity scan** — rkhunter/chkrootkit detection; WARN −1 pt for outdated DB, missing scan, or stale scan (>30 days)
+- 🎯 **`--target N` exit code 4** — returns exit code 4 when score < target (CI-ready); takes priority over codes 1/2
+- 🚨 **CLI validation** — `--explain=`, `--profile=`, `--lang=`, `--webhook=`, `--target=` with empty value now raise a clear error
+- 📐 **5 thematic group headers** — output reorganised into FIREWALL & NETWORK / EXPOSURE & SERVICES / ACCESS CONTROL / SYSTEM HARDENING / DETECTION & HEALTH; thick `━` cyan separator
+- ✅ 2292/2292 unit tests (+153)
+
+## v1.15.1
 
 - 🔧 **Hotfix bash-completion** — `--explain` no longer gets a trailing `=`; value options (`--target=`, `--log-days=`, `--profile=`) no longer add a space after `=`
 
@@ -210,7 +221,7 @@ Automated-UFW-audit/
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 2139 unit tests
+└── tests/                          # 2292 unit tests
 ```
 
 ---

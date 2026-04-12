@@ -156,13 +156,24 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Qualité & fiabilité
 
-- ✅ 2139 tests unitaires
+- ✅ 2292 tests unitaires
 - 🧱 Architecture modulaire (snapshot / check séparés)
 - 🧪 Testé sur Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.15.1
+## 🆕 v1.16.0
+
+- 🖥 **CHECK 19 — Détection d'applications de bureau** — détecte les applications GUI connues (Steam, Discord, Zoom, Signal…) en cours d'exécution ; findings INFO, sans déduction ; section affichée uniquement si des applis sont détectées
+- 🕐 **CHECK 28 — Synchronisation NTP** — vérifie systemd-timesyncd/chronyd/ntpd ; WARN −1 pt si désactivé ou pas encore synchronisé
+- 🛡 **CHECK 29 — Prévention d'intrusion Fail2ban** — check dédié indépendant ; WARN −1 pt si service inactif ou aucun jail configuré ; détecte le jail SSH actif
+- 🔍 **CHECK 30 — Scan rootkit & intégrité** — détection rkhunter/chkrootkit ; WARN −1 pt pour base de données obsolète, scan absent ou scan trop ancien (>30 jours)
+- 🎯 **`--target N` code de sortie 4** — retourne le code de sortie 4 si le score < cible (intégration CI) ; prioritaire sur les codes 1/2
+- 🚨 **Validation CLI** — `--explain=`, `--profile=`, `--lang=`, `--webhook=`, `--target=` avec valeur vide lèvent maintenant une erreur explicite
+- 📐 **5 en-têtes de groupes thématiques** — sortie réorganisée en FIREWALL & RÉSEAU / EXPOSITION & SERVICES / CONTRÔLE D'ACCÈS / DURCISSEMENT SYSTÈME / DÉTECTION & SANTÉ ; séparateur `━` cyan épais
+- ✅ 2292/2292 tests unitaires (+153)
+
+## v1.15.1
 
 - 🔧 **Hotfix autocomplétion bash** — `--explain` n'obtient plus de `=` parasite ; les options à valeur (`--target=`, `--log-days=`, `--profile=`) n'ajoutent plus d'espace après le `=`
 
@@ -210,7 +221,7 @@ Automated-UFW-audit/
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 966 tests unitaires
+└── tests/                          # 2292 tests unitaires
 ```
 
 ---

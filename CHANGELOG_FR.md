@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.16.0](#v1160) | 2026-04-12 | CHECK 19 (détection applis bureau) ; CHECK 28 (sync NTP) ; CHECK 29 (Fail2ban autonome) ; CHECK 30 (scan rootkit/intégrité) ; `--target N` → code de sortie 4 ; validation CLI valeurs vides ; 5 en-têtes de groupes thématiques ; fail2ban sorti du durcissement ; 2292/2292 tests |
 | [v1.15.1](#v1151) | 2026-04-12 | Hotfix : autocomplétion bash — `--explain` n'obtient plus de `=` parasite ; `compopt -o nospace` pour les options à valeur |
 | [v1.15.0](#v1150) | 2026-04-12 | CHECK 26 (dominance source locale IoT dans les logs UFW) ; CHECK 27 (exposition SMTP locale) ; `--fix` aperçu par défaut, `--apply` pour exécuter ; `--target N` objectif de score ; TUI `--explain` : navigation bloquée, écran détail in-curses, correction ESC/q ; `--explain` 73→77 clés ; passage qualité `smtp.py` ; 2139/2139 tests |
 | [v1.14.0](#v1140) | 2026-04-10 | Audit sécurité Samba (CHECK 24, 6 findings) ; Audit antivirus ClamAV (CHECK 25, fraîcheur BD + âge scan) ; correctif `--diff` info_count ; `--explain` 63→73 clés (17 groupes) ; passage qualité ; 2045/2045 tests |

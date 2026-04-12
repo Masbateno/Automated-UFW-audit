@@ -203,6 +203,10 @@ class AuditReport:
         self._writeln(_SEPARATOR)
         self._writeln("")
 
+    def write_group(self, title: str) -> None:
+        """Write a group header (above sections)."""
+        self._writeln(f"\n{'=' * 80}\n  {title}\n{'=' * 80}\n")
+
     def write_section(self, title: str) -> None:
         """Write a section header."""
         self._writeln(f"\n=== {title} ===\n")
