@@ -156,11 +156,33 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Qualité & fiabilité
 
-- ✅ 1890 tests unitaires
+- ✅ 2139 tests unitaires
 - 🧱 Architecture modulaire (snapshot / check séparés)
 - 🧪 Testé sur Debian, Ubuntu, Kali, Mint
 
 ---
+
+## 🆕 v1.15.1
+
+- 🔧 **Hotfix autocomplétion bash** — `--explain` n'obtient plus de `=` parasite ; les options à valeur (`--target=`, `--log-days=`, `--profile=`) n'ajoutent plus d'espace après le `=`
+
+## v1.15.0
+
+- 🌐 **CHECK 26 — Dominance source locale IoT** — détecte quand une seule IP privée représente ≥ 70 % du trafic UFW bloqué (typique des appareils IoT qui scannent le LAN)
+- 📧 **CHECK 27 — Exposition SMTP locale** — détecte Postfix/Exim/Sendmail en écoute sur toutes les interfaces (0.0.0.0:25) vs localhost uniquement ; WARN −1 pt si accessible publiquement
+- 🔧 **`--fix` aperçu par défaut** — `--fix` seul prévisualise les corrections sans les exécuter ; `--fix --apply` pour exécuter de manière interactive ; `--fix --apply --yes` pour confirmer automatiquement avec journal d'audit
+- 🎯 **`--target N` objectif de score** — affiche une ligne cible dans la boîte de synthèse : `✔` vert si atteint, `▲` jaune avec l'écart sinon
+- 🎛 **TUI `--explain`** — navigation bloquée (pas de wrap), écran détail in-curses (ESC pour revenir), correction ESC/q, en-têtes de groupes restaurés au scroll-up ; 73→77 clés
+- ❌ **Annulation à chaque étape des wizards** — `q` quitte proprement dans `--install-cron`, `--manage-cron`, `--manage-logs`
+- ✅ 2139/2139 tests unitaires (+93)
+
+## v1.14.0
+
+- 🛡️ **Audit sécurité Samba** (CHECK 24) — SMB1 ALERT −2 pts, mots de passe nuls ALERT −3 pts, signature serveur désactivée WARN −1 pt, partage invité accessible en écriture ALERT −2 pts/partage, lecture invité WARN −1 pt/partage, `map to guest` WARN −1 pt ; nouveau domaine **samba**
+- 🦠 **Audit antivirus ClamAV** (CHECK 25) — détection installation, fraîcheur base de données (WARN/ALERT), statut démon clamd, âge du dernier scan
+- 🔄 **Correctif `--diff` info_count** — les changements de niveau INFO (ex. swappiness) sont désormais correctement détectés entre deux audits
+- 📖 **`--explain` 63→73 clés** — 4 clés ClamAV + 6 clés Samba, 17 groupes au total
+- ✅ 2045/2045 tests unitaires (+155)
 
 ## 🆕 v1.13.0
 

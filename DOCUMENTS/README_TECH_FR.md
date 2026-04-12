@@ -1,9 +1,9 @@
 *[Read in English](README_TECH.md)* · *[Vue d'ensemble](../README_FR.md)*
 
-# ufw-audit v1.13.0
+# ufw-audit v1.15.1
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.13.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.15.1-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -46,10 +46,16 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 - **Audit de sécurité SSH** — analyse complète de `sshd_config` (15 directives + Ciphers/MACs/KEX faibles) ; audit des clés privées (type, taille, passphrase) ; inspection `authorized_keys` ; vérification côté client `~/.ssh/config` ; comptage des entrées `known_hosts` ; cible le home de `SUDO_USER` ; suggestions d'installation adaptées à la distro
 - **Fichiers sensibles & sudoers** — audit des permissions de `/etc/passwd`, `/etc/shadow`, `/etc/gshadow`, `/etc/group`, `/etc/sudoers` (modifiable par tous → ALERT, trop permissif → WARN) ; permissions des clés hôtes privées SSH sous `/etc/ssh/` ; détection de `NOPASSWD:ALL` dans sudoers et sudoers.d
 - **Audit des mises à jour système** — détecte les paquets de sécurité en attente via `apt-get -s upgrade` (−2 pts fixe) ; absence de `unattended-upgrades` combinée à des mises à jour de sécurité en attente (−1 pt composé) ; mises à jour régulières → INFO uniquement
-- **`--explain KEY`** — explication structurée par constat (POURQUOI C'EST UN RISQUE / COMMENT CORRIGER / référence CIS Ubuntu 22.04) ; 63 clés explicables dans 15 groupes ; `--explain list` affiche toutes les clés avec en-têtes de groupes ; normalisation des clés `file_perms.*` ; sans droit root
-- **Scores par domaine** — sous-scores de sécurité par domaine (SSH / Fichiers & Accès / Mises à jour / Durcissement / Pare-feu & Services) ; affichés en barre █/░ après l'audit ; inclus dans la sortie JSON et le payload webhook
+- **`--explain KEY`** — explication structurée par constat (POURQUOI C'EST UN RISQUE / COMMENT CORRIGER / référence CIS Ubuntu 22.04) ; 77 clés explicables dans 17 groupes ; `--explain list` affiche toutes les clés avec en-têtes de groupes ; TUI interactif : navigation bloquée (pas de wrap), écran détail in-curses (ESC pour revenir) ; normalisation des clés `file_perms.*` ; sans droit root
+- **Scores par domaine** — sous-scores de sécurité par domaine (SSH / Sécurité Samba / Fichiers & Accès / Mises à jour / Durcissement / Santé Disque / Pare-feu & Services) ; 7 domaines ; affichés en barre █/░ après l'audit ; inclus dans la sortie JSON et le payload webhook
 - **Webhooks** — `--webhook URL` envoie le résultat d'audit en JSON après chaque audit ; formats générique (Grafana/automation) et Slack (auto-détecté) ; non-fatal ; `--webhook-format=auto|generic|slack`
-- **Mode `--diff`** — lance l'audit silencieusement et affiche uniquement le delta comparatif (changements depuis le dernier audit)
+- **Mode `--diff`** — lance l'audit silencieusement et affiche uniquement le delta comparatif (changements depuis le dernier audit) ; suit le score, le nombre d'alertes/avertissements et le nombre d'INFO (les changements de niveau INFO sont donc détectés)
+- **Audit sécurité Samba** — analyse complète de `smb.conf` : détection protocole SMB1 (ALERT, −2 pts) ; mots de passe nuls activés (ALERT, −3 pts) ; signature serveur désactivée (WARN, −1 pt) ; partages accessibles en écriture par l'invité (ALERT, −2 pts/partage) ; partages lisibles par l'invité (WARN, −1 pt/partage) ; `map to guest = bad user` (WARN, −1 pt) ; vérification bind interfaces (INFO) ; domaine **samba** dédié
+- **Audit antivirus ClamAV** — détection installation (`clamscan`/`clamdscan`/`freshclam`) ; fraîcheur de la base de données virus via mtime (WARN −1 pt > 7 jours, ALERT −2 pts > 30 jours) ; statut démon clamd avec repli sur le fichier socket pour les containers ; date du dernier scan parsée depuis les chemins de logs standards (WARN −1 pt > 30 jours, −1 pt > 90 jours) ; déductions routées vers le domaine **hardening**
+- **Dominance source locale IoT** — détecte quand une seule IP privée représente ≥ 70 % du trafic UFW bloqué sur ≥ 50 entrées de log (WARN, −1 pt, `logs.local_dominance`) ; typique des appareils IoT qui scannent le LAN ou des serveurs mal configurés
+- **Exposition SMTP locale** — détecte les MTA (Postfix, Exim, Sendmail) en écoute sur toutes les interfaces (`0.0.0.0:25` ou `:::25`) vs localhost uniquement ; `SmtpSnapshot.from_system()` utilise `ps -eo comm` + `ss -tlnp`/repli `netstat` ; WARN −1 pt si exposition publique
+- **`--fix` aperçu par défaut** — `--fix` seul affiche un aperçu de toutes les corrections disponibles avec `→ cmd` sans exécuter ; `--fix --apply` active le flux d'application interactif ; `--fix --apply --yes` confirme tout automatiquement avec journal d'audit
+- **`--target N`** — objectif de score (1–10) ; affiché dans la boîte de synthèse comme `✔ atteint` (vert) ou `▲ +N pt(s) manquant(s)` (jaune)
 
 ---
 
@@ -481,7 +487,13 @@ ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. 
 
 **v1.12.0** — Refonte `--help` (7 sections) ; 6 nouvelles options courtes (-J -C -p -e -D -w) ; correctifs autocomplétion bash ; 4 correctifs Debian VM (contexte risque tous services, GeoIP mkdir, unattended workstation, dates expiration avec filtre UID) ; 1703/1703
 
-**v1.13.0** *(actuel)* — audit santé disques (CHECK 22 : SMART + partitions, support NVMe, nouveau domaine `disk`) ; audit mémoire & swap (CHECK 23 : usure SSD, swap injustifié 3 conditions, swappiness adapté au profil) ; tableau partitions avec barres de progression colorées ; conseils SMART ; `--explain` 33→63 clés (15 groupes) ; passages qualité (disk.py + memory.py) ; 1890/1890
+**v1.13.0** — audit santé disques (CHECK 22 : SMART + partitions, support NVMe, nouveau domaine `disk`) ; audit mémoire & swap (CHECK 23 : usure SSD, swap injustifié 3 conditions, swappiness adapté au profil) ; tableau partitions avec barres de progression colorées ; conseils SMART ; `--explain` 33→63 clés (15 groupes) ; passages qualité (disk.py + memory.py) ; 1890/1890
+
+**v1.14.0** — audit sécurité Samba (CHECK 24 : SMB1 −2, mots de passe nuls −3, signature serveur −1, partage invité écriture −2/partage, lecture −1/partage, map_to_guest −1 ; domaine samba) ; audit antivirus ClamAV (CHECK 25 : fraîcheur BD, statut démon, âge dernier scan) ; correctif `--diff` info_count ; `--explain` 63→73 clés (17 groupes) ; 2045/2045
+
+**v1.15.0** — CHECK 26 dominance source locale IoT (≥ 70 % trafic bloqué depuis une IP privée, WARN −1 pt) ; CHECK 27 exposition SMTP locale (Postfix/Exim/Sendmail sur 0.0.0.0:25, WARN −1 pt) ; `--fix` aperçu par défaut + `--apply` pour exécuter ; `--target N` objectif de score dans la boîte de synthèse ; TUI `--explain` navigation bloquée + écran détail in-curses ; annulation wizard avec `q` ; `--explain` 73→77 clés ; passage qualité smtp.py ; 2139/2139
+
+**v1.15.1** *(actuel)* — Hotfix autocomplétion bash : `--explain` sans `=` parasite ; `compopt -o nospace` pour les options à valeur
 - `--diff` — comparer l'audit courant avec un précédent export `--json` pour détecter les nouveaux ports/services (dérive d'audit)
 - `--fix --safe` — mode auto-fix restreint aux findings LOW/MEDIUM uniquement ; les findings CRITICAL/HIGH ne sont jamais appliqués sans confirmation explicite
 

@@ -29,10 +29,65 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v1.7.0  | 966   | +38 tests — `test_profiles.py` (36), `test_compare.py` (+2 filtre ports éphémères), `test_ipv6.py` (+2 entrées malformées) |
 | v1.8.0  | 1104  | +138 tests — `test_ssh.py` (93) + `test_file_perms.py` (45) : modifiable-par-tous (7), trop-permissif (5), clés-hôtes-SSH (4), NOPASSWD-ALL (5), NOPASSWD-spécifique (4), combinés (5), _is_nopasswd_all (8), dataclass (2), tout-correct (4) |
 | v1.9.0  | 1332  | +228 tests — `test_updates.py` (34), `test_explain.py` (~94), `test_domain_scores.py` (~48), `test_webhook.py` (~54) ; passages qualité sur `test_hardening.py` + `test_profiles.py` |
+| v1.15.0 | 2139  | +93 tests — `test_smtp.py` (31 + 9 passage qualité), `TestDominantLocalSource` (13), `TestApplyFlag` (12), `TestTargetFlag` (10), `TestDryRun` (8), `test_explain.py` mis à jour (73→77 clés), `test_cli.py` mis à jour (sémantique `--apply`) |
+| v1.14.0 | 2045  | +155 tests — `test_samba.py` (68), `test_clamav.py` (52) ; `test_explain.py` mis à jour (63→73 clés) ; `test_compare.py` tests info_delta (+5) |
 | v1.13.0 | 1890  | +187 tests — `test_disk.py` (60), `test_memory.py` (37) ; `test_explain.py` mis à jour (assertion 33→63 clés) |
 | v1.12.0 | 1703  | +28 tests — profil workstation, assertions de dates, fixtures dict dans les fichiers existants |
 | v1.11.0 | 1675  | +134 tests — `test_user_accounts.py` (51), `test_password_policy.py` (51) ; clés A2 `--explain` dans `test_explain.py` (+13 assertions) ; passage qualité sur les deux nouveaux fichiers |
 | v1.10.0 | 1541  | +209 tests — `test_display_explain_hint.py` (25), `test_kernel_modules.py` (48), `test_cron_audit.py` (47), `test_services_state.py` (35) ; passage qualité : `test_check_rules.py` (+10), `test_cli.py` (+38), `test_compare.py` (+7), `test_cron.py` (+10), `test_ddns.py` (+5), `test_degraded.py` (+3) |
+
+### v1.15.0 — 2139/2139 (2026-04-12)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+2139 passed in 1.98s
+```
+
+#### Nouveaux tests / modifiés (+93)
+
+| Fichier | Modification | Couverture |
+|---------|-------------|------------|
+| `tests/test_smtp.py` | Nouveau — 31 tests ; passage qualité +9 | Défauts `SmtpSnapshot` ; `_LOCAL_BIND_RE` (loopback IPv4/IPv6, **`*` est exposé**, localhost, toutes interfaces, IPv6 entre crochets) ; non installé (OK, clé, sans déduction) ; installé non en écoute (INFO, clé, sans déduction, mta_name) ; localhost uniquement (INFO, clé, sans déduction) ; exposé (WARN, clé, déduction −1 pt, contexte=public, nature=improvement) ; `TestSmtpCmd` — postfix a `postconf` cmd + note redémarrage, exim/inconnu sans cmd ; `TestSmtpWildcardExposed` — `*`/`::` exposé, `::1` local |
+| `tests/test_logs.py` | `TestDominantLocalSource` — 13 tests | Sous le seuil minimum → pas de détection ; que des IPs publiques → pas de détection ; seuil non atteint → pas de détection ; exactement 70% → détection ; au-dessus 70% → détection ; IP du top retournée ; count et pct retournés ; sources mixtes ; entrées vides |
+| `tests/test_cli.py` | `TestApplyFlag` (12), `TestTargetFlag` (10), assertions mises à jour | `--apply` défaut False ; `--apply` sans `--fix` → erreur ; `--fix` seul = dry-run ; `--fix --apply` positionne les deux ; `--yes` requiert `--fix --apply` ; `--json --fix` dry-run OK ; `--quiet --fix` dry-run OK ; ordre indépendant ; `--target=N` valide 1–10 ; 0/11/float/non-numérique → erreur ; combiné avec `--profile` |
+| `tests/test_fixes.py` | `TestDryRun` — 8 tests ; `make_config` gagne `apply=True` par défaut | Dry-run affiche le hint ; pas d'appel subprocess ; pas d'appel input ; aperçu cmd affiché ; message affiché ; éléments manuels affichés ; pas de sortie `applied` ; pas de sortie `done_summary` |
+| `tests/test_explain.py` | Comptage clés 73→77 ; assertions user_accounts | `len(EXPLAIN_KEYS) == 77` ; `user_accounts.uid_zero`, `empty_password`, `expired_account`, `no_shadow` présents |
+
+---
+
+### v1.14.0 — 2045/2045 (2026-04-11)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+2045 passed in 2.46s
+```
+
+#### Nouveaux tests (+155)
+
+| Fichier | Nb | Couverture |
+|---------|-----|------------|
+| `tests/test_samba.py` | 68 | Défauts snapshot ; non installé (INFO, sans déduction, clé, un seul finding) ; finding installé OK ; SMB1 détecté (ALERT, −2 pts, clé, clé déduction, protocole dans message, déduction unique pour plusieurs protocoles, nature=action, cmd) ; mots de passe nuls (ALERT, −3 pts, clé, nature=action, cmd) ; signature serveur désactivée (WARN, −1 pt, clé, nature=improvement, cmd) ; signature serveur auto (INFO, sans déduction) ; map_to_guest bad user (WARN, −1 pt, clé, nature=improvement) ; valeurs map_to_guest OK (sans finding) ; partage invité écriture (ALERT, −2 pts/partage, clé, nom partage dans message, plusieurs partages cumulatifs, nature=action, cmd) ; partage invité lecture (WARN, −1 pt/partage, cumulatif, nature=improvement) ; déductions combinées ; bind interfaces (INFO, sans déduction) ; cas limites (snapshot vide, no_t, constantes) |
+| `tests/test_clamav.py` | 52 | Non installé (INFO, 0 pts, clé, un seul finding) ; finding installé OK ; freshclam absent (WARN, −1 pt) ; bd introuvable (WARN, −1 pt) ; bd très obsolète ALERT (−2 pts, seuil exact) ; bd obsolète WARN (−1 pt, seuil exact) ; bd fraîche OK ; clamd inactif (INFO, 0 pts, sans déduction) ; clamd actif (sans finding) ; pas de log scan (INFO) ; scan très ancien (WARN, −1 pt, seuil exact) ; scan ancien (WARN, −1 pt) ; scan récent OK ; cumulatif (pire cas 4 pts, parfait 0 pts) ; `_scan_age_days` (aujourd'hui=0, hier=1, 30 jours, invalide→None, vide→None) ; `_tail_lines` (n dernières lignes, moins de lignes, fichier vide) ; `_find_last_scan_date` (parse date fin, pas de logs→None, plus récent sur plusieurs logs) ; `from_system` (pas de binaire→non installé, socket→clamd actif, âge bd calculé) |
+| `tests/test_explain.py` | +3 | `test_has_seventy_three_keys` — `len(EXPLAIN_KEYS) == 73` ; assertions clés ClamAV (4 clés) ; assertions clés Samba (6 clés) |
+| `tests/test_compare.py` | +5 | `info_count` dans `AuditBaseline` (défaut 0, build_baseline, load_baseline rétro-compatible) ; `info_delta` dans `AuditDelta` (is_empty quand 0, info_delta calculé, affichage diminution, affichage augmentation) |
+
+#### Nouveaux modules
+
+- **`checks/samba.py`** — `GuestShare`, `SambaSnapshot.from_system()`, `check_samba()`, `_read_smb_conf()`, `_section_get()`, `_is_yes()`
+- **`checks/clamav.py`** — `ClamAVSnapshot.from_system()`, `check_clamav()`, `_find_last_scan_date()`, `_tail_lines()`, `_scan_age_days()`
+
+#### Modifications qualité
+
+- `scoring.py` — propriété `info_count` ajoutée à `CheckEngine`
+- `compare.py` — `AuditBaseline.info_count`, `AuditDelta.info_delta`, `build_baseline()`, `load_baseline()`, `compute_delta()`, `display_delta()` mis à jour
+- `domain_scores.py` — domaine `samba` (7e) ; `_PREFIX_TO_DOMAIN["clamav"] = "hardening"`
+- `explain.py` — groupe ClamAV (4 clés) + groupe Samba (6 clés) ; 63 → 73 clés
+
+---
 
 ### v1.13.0 — 1890/1890 (2026-04-10)
 
