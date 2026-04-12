@@ -6,6 +6,15 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.15.1] — 2026-04-12
+
+### Hotfix — bash-completion
+
+- `--explain` was listed as `--explain=` in `long_opts` → trailing `=` removed; now completes correctly without `=`
+- `compopt -o nospace` added: suppresses trailing space when the single completion result ends with `=` (e.g. `--target=`, `--log-days=`, `--profile=`)
+
+---
+
 ## [v1.15.0] — 2026-04-12
 
 ### TL;DR

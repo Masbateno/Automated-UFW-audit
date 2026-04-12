@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.15.1](#v1151) | 2026-04-12 | Hotfix : autocomplétion bash — `--explain` n'obtient plus de `=` parasite ; `compopt -o nospace` pour les options à valeur |
 | [v1.15.0](#v1150) | 2026-04-12 | CHECK 26 (dominance source locale IoT dans les logs UFW) ; CHECK 27 (exposition SMTP locale) ; `--fix` aperçu par défaut, `--apply` pour exécuter ; `--target N` objectif de score ; TUI `--explain` : navigation bloquée, écran détail in-curses, correction ESC/q ; `--explain` 73→77 clés ; passage qualité `smtp.py` ; 2139/2139 tests |
 | [v1.14.0](#v1140) | 2026-04-10 | Audit sécurité Samba (CHECK 24, 6 findings) ; Audit antivirus ClamAV (CHECK 25, fraîcheur BD + âge scan) ; correctif `--diff` info_count ; `--explain` 63→73 clés (17 groupes) ; passage qualité ; 2045/2045 tests |
 | [v1.13.0](#v1130) | 2026-04-10 | Audit santé disques (CHECK 22, SMART + partitions, nouveau domaine `disk`) ; Mémoire & Swap (CHECK 23, usure SSD, swappiness) ; support NVMe ; tableau partitions avec barre de progression ; `--explain` 33→63 clés (15 groupes) ; passage qualité ; 1890/1890 tests |
@@ -48,6 +49,17 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.15.1
+
+**2026-04-12**
+
+### Hotfix — autocomplétion bash
+
+- `--explain` était listé comme `--explain=` dans `long_opts` → `=` parasite supprimé ; complétion correcte sans `=`
+- `compopt -o nospace` ajouté : supprime l'espace parasite quand l'unique résultat de complétion se termine par `=` (ex. `--target=`, `--log-days=`, `--profile=`)
 
 ---
 

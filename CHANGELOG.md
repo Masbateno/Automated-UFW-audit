@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.15.1](#v1151) | 2026-04-12 | Hotfix: bash-completion — `--explain` no longer gets trailing `=`; `compopt -o nospace` for value options |
 | [v1.15.0](#v1150) | 2026-04-12 | CHECK 26 (IoT/local source dominance in UFW logs); CHECK 27 (SMTP local exposure); `--fix` dry-run by default, `--apply` to execute; `--target N` score cible; `--explain` TUI: clamped nav, in-curses detail screen, ESC/q fix; `--explain` 73→77 keys; quality pass `smtp.py`; 2139/2139 tests |
 | [v1.14.0](#v1140) | 2026-04-10 | Samba Security Audit (CHECK 24, 6 findings); ClamAV Antivirus Audit (CHECK 25, DB freshness + scan age); `--diff` info_count fix; `--explain` 63→73 keys (17 groups); quality pass; 2045/2045 tests |
 | [v1.13.0](#v1130) | 2026-04-10 | Disk health audit (CHECK 22, SMART + partitions, new `disk` domain); Memory & Swap (CHECK 23, SSD wear, swappiness); NVMe support; partition progress bar; `--explain` 33→63 keys (15 groups); quality pass; 1890/1890 tests |
@@ -48,6 +49,17 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.15.1
+
+**2026-04-12**
+
+### Hotfix — bash-completion
+
+- `--explain` was listed as `--explain=` in `long_opts` → trailing `=` removed; now completes correctly without `=`
+- `compopt -o nospace` added: suppresses trailing space when the single completion result ends with `=` (e.g. `--target=`, `--log-days=`, `--profile=`)
 
 ---
 

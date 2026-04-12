@@ -162,7 +162,11 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ---
 
-## 🆕 v1.15.0
+## 🆕 v1.15.1
+
+- 🔧 **Hotfix bash-completion** — `--explain` no longer gets a trailing `=`; value options (`--target=`, `--log-days=`, `--profile=`) no longer add a space after `=`
+
+## v1.15.0
 
 - 🌐 **CHECK 26 — IoT/local source dominance** — detects when a single private IP accounts for ≥ 70% of all blocked UFW traffic (typical of LAN-scanning IoT devices)
 - 📧 **CHECK 27 — SMTP local exposure** — detects Postfix/Exim/Sendmail listening on all interfaces (0.0.0.0:25) vs. localhost only; WARN −1 pt when publicly reachable

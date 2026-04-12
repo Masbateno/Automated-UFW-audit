@@ -6,6 +6,15 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.15.1] — 2026-04-12
+
+### Hotfix — autocomplétion bash
+
+- `--explain` était listé comme `--explain=` dans `long_opts` → `=` parasite supprimé ; complétion correcte sans `=`
+- `compopt -o nospace` ajouté : supprime l'espace parasite quand l'unique résultat de complétion se termine par `=` (ex. `--target=`, `--log-days=`, `--profile=`)
+
+---
+
 ## [v1.15.0] — 2026-04-12
 
 ### Résumé
