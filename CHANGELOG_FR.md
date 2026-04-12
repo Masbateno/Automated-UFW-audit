@@ -4,6 +4,8 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.15.0](#v1150) | 2026-04-12 | CHECK 26 (dominance source locale IoT dans les logs UFW) ; CHECK 27 (exposition SMTP locale) ; `--fix` aperçu par défaut, `--apply` pour exécuter ; `--target N` objectif de score ; TUI `--explain` : navigation bloquée, écran détail in-curses, correction ESC/q ; `--explain` 73→77 clés ; passage qualité `smtp.py` ; 2139/2139 tests |
+| [v1.14.0](#v1140) | 2026-04-10 | Audit sécurité Samba (CHECK 24, 6 findings) ; Audit antivirus ClamAV (CHECK 25, fraîcheur BD + âge scan) ; correctif `--diff` info_count ; `--explain` 63→73 clés (17 groupes) ; passage qualité ; 2045/2045 tests |
 | [v1.13.0](#v1130) | 2026-04-10 | Audit santé disques (CHECK 22, SMART + partitions, nouveau domaine `disk`) ; Mémoire & Swap (CHECK 23, usure SSD, swappiness) ; support NVMe ; tableau partitions avec barre de progression ; `--explain` 33→63 clés (15 groupes) ; passage qualité ; 1890/1890 tests |
 | [v1.12.0](#v1120) | 2026-04-10 | Refonte `--help` + 6 nouvelles options courtes + autocomplétion + 4 correctifs Debian VM ; 1703/1703 tests |
 | [v1.11.0](#v1110) | 2026-04-07 | `--explain` A2 (+13 clés, 20→33) ; audit comptes utilisateurs (CHECK 17) ; audit politique de mots de passe (CHECK 18) ; passage qualité ; 1675/1675 tests |
@@ -46,6 +48,77 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.15.0
+
+**2026-04-12**
+
+### CHECK 26 — Dominance source locale IoT (`checks/logs.py`)
+
+- `_dominant_local_source()` : détecte quand une seule IP privée représente ≥ 70 % du trafic bloqué sur ≥ 50 entrées de log
+- Clé `logs.local_dominance` — WARN, −1 pt (contexte `local`) — typique d'appareils IoT faisant des scans LAN
+- Constantes `_LOCAL_DOMINANCE_THRESHOLD = 0.70` et `_LOCAL_DOMINANCE_MIN_COUNT = 50`
+
+### CHECK 27 — Exposition SMTP locale (`checks/smtp.py`)
+
+- `SmtpSnapshot.from_system()` : détecte le MTA installé (Postfix, Exim, Sendmail) via `ps -eo comm` ; vérifie l'adresse de liaison du port 25 via `ss -tlnp` / `netstat -tlnp`
+- `check_smtp()` : non installé → OK ; installé non en écoute → INFO ; en écoute sur localhost uniquement → INFO ; en écoute sur toutes les interfaces → WARN −1 pt
+- 5 clés de locale dans `en.json` et `fr.json`
+
+### C1 — `--fix` aperçu par défaut ; `--apply` pour exécuter
+
+- `--fix` seul affiche désormais un aperçu de toutes les corrections disponibles sans rien exécuter (mode aperçu)
+- `--fix --apply` déclenche le flux d'application interactif (comportement précédent)
+- `--fix --apply --yes` confirme automatiquement toutes les corrections (journal d'audit affiché)
+- Clé `fixes.dry_run_hint` ajoutée dans `en.json` + `fr.json`
+- `--apply` ajouté à l'autocomplétion bash
+
+### C2 — `--target N` objectif de score
+
+- `--target=N` (1–10) : ajoute une ligne **Objectif** dans la boîte de synthèse
+  - Score ≥ objectif : `✔ objectif atteint` (vert)
+  - Score < objectif : `▲ +N pt(s) à gagner` (jaune)
+- Clés `scoring.target_label`, `scoring.target_reached`, `scoring.target_gap` dans `en.json` + `fr.json`
+- `--target=` ajouté à l'autocomplétion bash et `--help` (section AUDIT)
+
+### UX — Corrections TUI `--explain`
+
+- ↑ sur le premier élément ne revient plus en fin de liste ; ↓ sur le dernier ne revient plus au début (navigation bloquée)
+- Sélectionner une clé ouvre maintenant un écran de détail dans curses — ESC pour revenir au sélecteur
+- ESC ne quitte plus le sélecteur (seuls `q` / `Q` quittent)
+- `q` ne ferme plus l'écran de détail (seul ESC revient au sélecteur)
+- Les en-têtes de groupe réapparaissent correctement lors du défilement vers le haut
+- `--explain` 73→77 clés (+4) : groupe `user_accounts` ajouté (`uid_zero`, `empty_password`, `expired_account`, `no_shadow`)
+
+### UX — Annulation de l'assistant (`q` à n'importe quelle étape)
+
+- **`--install-cron`** : hint d'abandon affiché au démarrage ; `q` accepté à chaque invite → « Wizard cancelled. »
+- **`--manage-cron` modifier email** : `q` dans `prompt_emails()` → « Cancelled. » sans modification ; regex NOTIFY_EMAILS corrigé ; `q. Annuler — retour au menu` désormais visible dans la liste du sélecteur email (clé `email_prompt.cancel`)
+- **`--manage-cron` modifier planning** : `q` accepté à chaque étape → « Cancelled. »
+- **`--manage-logs` changer l'emplacement** : `prompt_path()` gère `allow_cancel=True` ; `q` → « Cancelled. »
+- `--manage-cron` affiche désormais une ligne par adresse email dans la liste
+
+### Tests
+
+- `test_explain_flag_without_value_raises` → `test_explain_flag_without_value_launches_interactive`
+- `test_yes` / `test_json_and_fix_raises` / `test_quiet_and_fix_raises` mis à jour pour la nouvelle sémantique `--apply`
+- `TestApplyFlag` : 12 nouveaux tests
+- `TestTargetFlag` : 10 nouveaux tests
+- `TestDryRun` : 8 nouveaux tests
+- `TestDominantLocalSource` : 13 nouveaux tests (CHECK 26)
+- `test_smtp.py` : 31 nouveaux tests (CHECK 27)
+- **2130/2130 tests** (+84 vs v1.14.0)
+
+### Passage qualité — `checks/smtp.py`
+
+- `_LOCAL_BIND_RE` : suppression de `\*$` — `*` dans la sortie de `ss` signifie toutes les interfaces (était traité à tort comme local, causant des faux négatifs)
+- `_check_port_25()` : collecte tous les binds du port 25 ; supprime les crochets IPv6 (`[::1]` → `::1`) ; retourne l'adresse la plus exposée en cas de multi-bind (ex. `127.0.0.1:25` + `0.0.0.0:25` → retourne `0.0.0.0`)
+- `check_smtp()` : commande de correction spécifique Postfix (`sudo postconf -e 'inet_interfaces = loopback-only'`) avec note de redémarrage ; `cmd` vide pour Exim/autres MTA (correction manuelle, MTA-spécifique)
+- Clé `smtp.exposed_restart_postfix` ajoutée dans `en.json` + `fr.json`
+- `test_smtp.py` : `test_wildcard_star` → `test_wildcard_star_is_exposed` ; +2 tests `_LOCAL_BIND_RE`, `TestSmtpCmd` 4 tests, `TestSmtpWildcardExposed` 3 tests
+- **2139/2139 tests** (+9)
 
 ---
 

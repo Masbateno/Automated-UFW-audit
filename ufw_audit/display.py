@@ -337,6 +337,16 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
         (t("scoring.network_context"), ctx_str),
     ]
 
+    target = getattr(config, "target", 0)
+    if target:
+        from ufw_audit.output import _c
+        gap = target - score
+        if gap <= 0:
+            target_val = f"{_c.green}✔ {t('scoring.target_reached', target=target)}{_c.reset}"
+        else:
+            target_val = f"{_c.yellow}▲ {t('scoring.target_gap', target=target, gap=gap)}{_c.reset}"
+        lines.append((t("scoring.target_label"), target_val))
+
     action_items      = [f for f in engine.findings if f.nature == "action"]
     improvement_items = [f for f in engine.findings if f.nature == "improvement"]
     structural_items  = [f for f in engine.findings if f.nature == "structural"]

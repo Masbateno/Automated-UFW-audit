@@ -15,6 +15,7 @@ from ufw_audit.checks.logs import (
     LogsSnapshot,
     _count_available_days,
     _detect_bruteforce,
+    _dominant_local_source,
     _max_in_window,
     _parse_log,
     _parse_timestamp,
@@ -457,3 +458,125 @@ class TestCheckLogs:
         snap = make_snapshot(entries=entries)
         result = check_logs(snap, t=my_t)
         assert any("T:" in f.message for f in result.findings)
+
+
+class TestDominantLocalSource:
+    """Tests for _dominant_local_source and check_logs IoT detection."""
+
+    def _entries(self, local_ip, local_count, other_count):
+        """Build a list with local_count entries from local_ip + other_count from a public IP."""
+        base = datetime(2026, 3, 19, 10, 0, 0)
+        entries = [
+            make_entry(local_ip, 5353, "UDP", base)
+            for _ in range(local_count)
+        ]
+        entries += [
+            make_entry("8.8.8.8", 22, "TCP", base)
+            for _ in range(other_count)
+        ]
+        return entries
+
+    def test_dominant_local_triggers(self):
+        # 80% from 192.168.1.50, total 100
+        ip, count, pct = _dominant_local_source(
+            self._entries("192.168.1.50", 80, 20)
+        )
+        assert ip == "192.168.1.50"
+        assert count == 80
+        assert pct == 80
+
+    def test_exact_threshold_triggers(self):
+        # exactly 70% from local IP
+        ip, count, pct = _dominant_local_source(
+            self._entries("10.0.0.5", 70, 30)
+        )
+        assert ip == "10.0.0.5"
+        assert pct == 70
+
+    def test_below_threshold_no_trigger(self):
+        # 69% — just below threshold
+        ip, count, pct = _dominant_local_source(
+            self._entries("192.168.0.1", 69, 31)
+        )
+        assert ip is None
+
+    def test_too_few_entries_no_trigger(self):
+        # Only 49 entries total — below minimum
+        ip, count, pct = _dominant_local_source(
+            self._entries("192.168.1.1", 40, 9)
+        )
+        assert ip is None
+
+    def test_minimum_entry_count_triggers(self):
+        # Exactly 50 entries — minimum met
+        ip, count, pct = _dominant_local_source(
+            self._entries("192.168.1.1", 40, 10)
+        )
+        assert ip == "192.168.1.1"
+
+    def test_public_ip_dominant_no_trigger(self):
+        # Public IP dominates — not an IoT finding
+        entries = (
+            [make_entry("1.2.3.4", 22, "TCP") for _ in range(80)]
+            + [make_entry("192.168.1.1", 5353, "UDP") for _ in range(20)]
+        )
+        ip, _, _ = _dominant_local_source(entries)
+        assert ip is None
+
+    def test_no_local_ip_no_trigger(self):
+        entries = [make_entry("8.8.8.8", 22, "TCP") for _ in range(100)]
+        ip, _, _ = _dominant_local_source(entries)
+        assert ip is None
+
+    def test_empty_entries(self):
+        ip, count, pct = _dominant_local_source([])
+        assert ip is None
+        assert count == 0
+        assert pct == 0
+
+    def test_real_world_scenario(self):
+        # Mirrors the documented case: 2988/3258 from 192.168.1.50
+        base = datetime(2026, 3, 19, 10, 0, 0)
+        entries = (
+            [make_entry("192.168.1.50", 5353, "UDP", base) for _ in range(2988)]
+            + [make_entry("5.6.7.8", 22, "TCP", base) for _ in range(270)]
+        )
+        ip, count, pct = _dominant_local_source(entries)
+        assert ip == "192.168.1.50"
+        assert count == 2988
+        assert pct >= 90
+
+    def test_check_logs_emits_info_finding(self):
+        entries = self._entries("192.168.1.50", 80, 20)
+        snap = make_snapshot(entries=entries)
+        result = check_logs(snap)
+        keys = [f.key for f in result.findings if f.key]
+        assert "logs.local_dominance" in keys
+
+    def test_check_logs_no_finding_when_below_threshold(self):
+        entries = self._entries("192.168.1.50", 60, 40)
+        snap = make_snapshot(entries=entries)
+        result = check_logs(snap)
+        keys = [f.key for f in result.findings if f.key]
+        assert "logs.local_dominance" not in keys
+
+    def test_finding_is_info_level(self):
+        entries = self._entries("192.168.1.50", 80, 20)
+        snap = make_snapshot(entries=entries)
+        result = check_logs(snap)
+        local_findings = [f for f in result.findings if f.key == "logs.local_dominance"]
+        assert local_findings
+        assert local_findings[0].level == FindingLevel.INFO
+
+    def test_no_score_deduction(self):
+        # Spread public entries across many different IPs to avoid triggering bruteforce
+        base = datetime(2026, 3, 19, 10, 0, 0)
+        entries = [make_entry("192.168.1.50", 5353, "UDP", base) for _ in range(80)]
+        entries += [
+            make_entry(f"1.2.3.{i}", 80, "TCP", base) for i in range(20)
+        ]
+        snap = make_snapshot(entries=entries)
+        result = check_logs(snap)
+        # IoT finding is INFO — no point deduction from it
+        local_deductions = [d for d in result.deductions if "IoT" in d.reason or "local" in d.reason.lower()]
+        assert local_deductions == []

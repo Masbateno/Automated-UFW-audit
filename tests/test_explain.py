@@ -70,8 +70,8 @@ class TestNormalizeKey:
 # ---------------------------------------------------------------------------
 
 class TestExplainKeysList:
-    def test_has_seventy_three_keys(self):
-        assert len(EXPLAIN_KEYS) == 73
+    def test_has_seventy_seven_keys(self):
+        assert len(EXPLAIN_KEYS) == 77
 
     def test_all_keys_are_strings(self):
         for k in EXPLAIN_KEYS:
@@ -113,6 +113,11 @@ class TestExplainKeysList:
         assert "samba.guest_readonly" in EXPLAIN_KEYS
         assert "samba.server_signing_disabled" in EXPLAIN_KEYS
         assert "samba.map_to_guest" in EXPLAIN_KEYS
+
+        assert "user_accounts.uid_zero" in EXPLAIN_KEYS
+        assert "user_accounts.empty_password" in EXPLAIN_KEYS
+        assert "user_accounts.expired_account" in EXPLAIN_KEYS
+        assert "user_accounts.no_shadow" in EXPLAIN_KEYS
 
 
 # ---------------------------------------------------------------------------
@@ -283,8 +288,14 @@ class TestCLIExplainParsing:
         cfg = parse_args([])
         assert cfg.explain_key == ""
 
-    def test_explain_flag_without_value_raises(self):
-        """--explain with no following argument must raise CLIError, not crash."""
-        from ufw_audit.cli import parse_args, CLIError
-        with pytest.raises(CLIError):
-            parse_args(["--explain"])
+    def test_explain_flag_without_value_launches_interactive(self):
+        """--explain with no following argument sets __interactive__ sentinel."""
+        from ufw_audit.cli import parse_args
+        cfg = parse_args(["--explain"])
+        assert cfg.explain_key == "__interactive__"
+
+    def test_explain_short_flag_without_value_launches_interactive(self):
+        """-e with no following argument sets __interactive__ sentinel."""
+        from ufw_audit.cli import parse_args
+        cfg = parse_args(["-e"])
+        assert cfg.explain_key == "__interactive__"

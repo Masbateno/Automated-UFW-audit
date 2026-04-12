@@ -35,6 +35,8 @@ class TestDefaults:
         assert config.diff_mode is False
         assert config.webhook_url == ""
         assert config.webhook_format == "auto"
+        assert config.apply is False
+        assert config.target == 0
 
 
 class TestFlags:
@@ -49,7 +51,7 @@ class TestFlags:
     def test_fix(self):
         assert parse_args(["--fix"]).fix is True
 
-    @pytest.mark.parametrize("argv", [["-y", "--fix"], ["--yes", "--fix"]])
+    @pytest.mark.parametrize("argv", [["-y", "--fix", "--apply"], ["--yes", "--fix", "--apply"]])
     def test_yes(self, argv):
         assert parse_args(argv).yes is True
 
@@ -250,20 +252,20 @@ class TestMutuallyExclusiveModes:
         with pytest.raises(CLIError, match="--yes requires --fix"):
             parse_args(["--yes"])
 
-    def test_json_and_fix_raises(self):
-        """--json and --fix are incompatible (fix mode is interactive)."""
+    def test_json_and_fix_apply_raises(self):
+        """--json and --fix --apply are incompatible (fix mode is interactive)."""
         with pytest.raises(CLIError):
-            parse_args(["--json", "--fix"])
+            parse_args(["--json", "--fix", "--apply"])
 
     def test_quiet_and_json_raises(self):
         """--quiet and --json are incompatible (JSON requires stdout)."""
         with pytest.raises(CLIError):
             parse_args(["--quiet", "--json"])
 
-    def test_quiet_and_fix_raises(self):
-        """--quiet and --fix are incompatible (fix mode requires prompts)."""
+    def test_quiet_and_fix_apply_raises(self):
+        """--quiet and --fix --apply are incompatible (fix mode requires prompts)."""
         with pytest.raises(CLIError):
-            parse_args(["--quiet", "--fix"])
+            parse_args(["--quiet", "--fix", "--apply"])
 
 
 class TestWebhook:
@@ -309,3 +311,96 @@ class TestExplain:
 
     def test_explain_short_list(self):
         assert parse_args(["-e", "list"]).explain_key == "list"
+
+
+class TestApplyFlag:
+    def test_apply_default_false(self):
+        assert parse_args([]).apply is False
+
+    def test_apply_without_fix_raises(self):
+        with pytest.raises(CLIError, match="--apply requires --fix"):
+            parse_args(["--apply"])
+
+    def test_fix_alone_sets_dry_run(self):
+        """--fix without --apply sets fix=True, apply=False (dry-run mode)."""
+        config = parse_args(["--fix"])
+        assert config.fix is True
+        assert config.apply is False
+
+    def test_fix_apply_sets_both(self):
+        config = parse_args(["--fix", "--apply"])
+        assert config.fix is True
+        assert config.apply is True
+
+    def test_fix_apply_yes_sets_all(self):
+        config = parse_args(["--fix", "--apply", "--yes"])
+        assert config.fix is True
+        assert config.apply is True
+        assert config.yes is True
+
+    def test_yes_without_apply_raises(self):
+        with pytest.raises(CLIError, match="--yes requires --fix --apply"):
+            parse_args(["--yes", "--fix"])
+
+    def test_yes_without_fix_raises(self):
+        with pytest.raises(CLIError, match="--yes requires --fix --apply"):
+            parse_args(["--yes"])
+
+    def test_json_fix_dry_run_ok(self):
+        """--json --fix (dry run, no --apply) must NOT raise."""
+        config = parse_args(["--json", "--fix"])
+        assert config.json_mode is True
+        assert config.fix is True
+        assert config.apply is False
+
+    def test_quiet_fix_dry_run_ok(self):
+        """--quiet --fix (dry run, no --apply) must NOT raise."""
+        config = parse_args(["--quiet", "--fix"])
+        assert config.quiet is True
+        assert config.fix is True
+        assert config.apply is False
+
+    def test_fix_apply_order_independent(self):
+        """--apply --fix and --fix --apply produce the same config."""
+        c1 = parse_args(["--apply", "--fix"])
+        c2 = parse_args(["--fix", "--apply"])
+        assert c1.fix is True and c1.apply is True
+        assert c2.fix is True and c2.apply is True
+
+
+class TestTargetFlag:
+    def test_target_default_zero(self):
+        assert parse_args([]).target == 0
+
+    def test_target_with_equals(self):
+        assert parse_args(["--target=8"]).target == 8
+
+    def test_target_with_space(self):
+        assert parse_args(["--target", "9"]).target == 9
+
+    def test_target_one(self):
+        assert parse_args(["--target=1"]).target == 1
+
+    def test_target_ten(self):
+        assert parse_args(["--target=10"]).target == 10
+
+    def test_target_zero_raises(self):
+        with pytest.raises(CLIError, match="1 and 10"):
+            parse_args(["--target=0"])
+
+    def test_target_eleven_raises(self):
+        with pytest.raises(CLIError, match="1 and 10"):
+            parse_args(["--target=11"])
+
+    def test_target_non_numeric_raises(self):
+        with pytest.raises(CLIError):
+            parse_args(["--target=high"])
+
+    def test_target_float_raises(self):
+        with pytest.raises(CLIError):
+            parse_args(["--target=7.5"])
+
+    def test_target_combined_with_profile(self):
+        config = parse_args(["--target=9", "--profile=server"])
+        assert config.target == 9
+        assert config.profile == "server"

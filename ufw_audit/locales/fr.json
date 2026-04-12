@@ -47,7 +47,8 @@
     "memory": "MÉMOIRE & SWAP",
     "disk": "ÉTAT DES DISQUES",
     "samba": "AUDIT DE SÉCURITÉ SAMBA",
-    "clamav": "AUDIT ANTIVIRUS CLAMAV"
+    "clamav": "AUDIT ANTIVIRUS CLAMAV",
+    "smtp": "EXPOSITION SMTP LOCALE"
   },
   "status": {
     "ok": "OK",
@@ -167,7 +168,8 @@
     "geoip2_unavailable": "Bibliothèque GeoIP2 introuvable dans l'environnement ufw-audit — géolocalisation IP désactivée",
     "geoip2_unavailable_cmd": "pipx inject ufw-audit geoip2",
     "geoip2_no_db": "GeoIP2 installé mais aucune base GeoLite2-Country trouvée — géolocalisation IP désactivée",
-    "geoip2_no_db_cmd": "sudo mkdir -p /usr/share/GeoIP && sudo wget -O /usr/share/GeoIP/GeoLite2-Country.mmdb https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb"
+    "geoip2_no_db_cmd": "sudo mkdir -p /usr/share/GeoIP && sudo wget -O /usr/share/GeoIP/GeoLite2-Country.mmdb https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb",
+    "local_dominance": "La source locale {ip} représente {count}/{total} blocages ({pct}%) — probablement du trafic de découverte IoT (mDNS/SSDP/UPnP), pas une attaque"
   },
   "ddns": {
     "none": "Aucun client DDNS détecté — pas d'exposition externe via DDNS identifiée",
@@ -209,7 +211,10 @@
       "public": "IP publique directe"
     },
     "breakdown_title": "Détail du score",
-    "cap_note": "Score plafonné à {max} (pare-feu inactif)"
+    "cap_note": "Score plafonné à {max} (pare-feu inactif)",
+    "target_label": "Objectif",
+    "target_reached": "{target}/10 — objectif atteint",
+    "target_gap": "{target}/10 — +{gap} pt(s) à gagner"
   },
   "summary": {
     "clean": "Votre configuration est saine. Aucune action requise.",
@@ -235,7 +240,8 @@
     "auto_mode_banner": "MODE AUTO-FIX — {count} correction(s) seront appliquées automatiquement",
     "auto_summary_title": "RÉCAPITULATIF AUTO-FIX",
     "manual_items_title": "Actions manuelles requises (aucune correction automatique disponible) :",
-    "done_summary": "{applied} correction(s) sur {total} appliquée(s)."
+    "done_summary": "{applied} correction(s) sur {total} appliquée(s).",
+    "dry_run_hint": "Aperçu uniquement — utilisez --fix --apply pour exécuter les corrections"
   },
   "risk_context": {
     "title": "Contexte de risque",
@@ -256,8 +262,9 @@
     "stored_in": "Rapports dans : {path}",
     "size_label": "Ko",
     "prompt": "Numéro(s) (ex : 1,3 ou 2-4), 'all', 'c' pour changer l'emplacement, Entrée pour quitter",
-    "change_prompt": "Nouveau chemin de stockage des rapports",
+    "change_prompt": "Nouveau chemin de stockage des rapports (q pour annuler)",
     "location_updated": "Emplacement mis à jour : {path}",
+    "cancelled": "Annulé.",
     "deleted_one": "{name} supprimé",
     "confirm_all": "Supprimer les {count} rapport(s) ?",
     "deleted_all": "{count} rapport(s) supprimé(s)",
@@ -266,6 +273,8 @@
   },
   "install_cron": {
     "title": "INSTALLATION CRON UFW-AUDIT",
+    "quit_hint": "Entrez 'q' à n'importe quelle invite pour annuler.",
+    "cancelled": "Assistant annulé.",
     "prompt_name": "Nom de ce cron (Entrée pour '{suggestion}')",
     "invalid_name": "Nom invalide — utilisez des lettres, chiffres ou tirets",
     "prompt_schedule": "Planification :",
@@ -320,7 +329,8 @@
     "email_store_added": "Adresse ajoutée : {email}",
     "email_store_removed": "Adresse supprimée : {email}",
     "email_store_cleared": "Toutes les adresses supprimées ({count})",
-    "email_store_invalid_sel": "Sélection invalide"
+    "email_store_invalid_sel": "Sélection invalide",
+    "cancelled": "Annulé."
   },
   "email_prompt": {
     "title": "Email(s) de notification :",
@@ -330,7 +340,8 @@
     "invalid": "Adresse email invalide — ignorée",
     "save": "Sauvegarder '{email}' pour les prochaines fois ? [y/N]",
     "selected": "Sélectionnés jusqu'ici : {emails}",
-    "add_another": "Ajouter une autre adresse email ? [o/N]"
+    "add_another": "Ajouter une autre adresse email ? [o/N]",
+    "cancel": "Annuler — retour au menu"
   },
   "config": {
     "found": "Configuration trouvée : {path}",
@@ -1018,6 +1029,28 @@
         "how": "1. Définissez une politique d'expiration globale dans /etc/login.defs :\n   PASS_MAX_DAYS 90\n   PASS_MIN_DAYS 1\n   PASS_WARN_AGE 14\n2. Appliquez aux comptes existants :\n   sudo chage -M 90 <utilisateur>\n3. Vérifiez les paramètres actuels :\n   sudo chage -l <utilisateur>\nNote : NIST SP 800-63B recommande désormais des mots de passe longs et complexes sans expiration forcée. Adaptez selon vos exigences de conformité."
       }
     },
+    "user_accounts": {
+      "uid_zero": {
+        "title": "Compte non-root avec UID 0 détecté",
+        "why": "L'UID 0 est l'identifiant du superutilisateur. Tout compte avec l'UID 0 dispose d'un accès root illimité à l'ensemble du système — contournant les permissions de fichiers, les règles sudo et les pistes d'audit. Un second compte UID 0 est une porte dérobée courante laissée par des attaquants ou issue d'une mauvaise configuration. Seul 'root' lui-même doit jamais avoir l'UID 0.",
+        "how": "1. Listez tous les comptes UID 0 :\n   awk -F: '($3 == 0) {print $1}' /etc/passwd\n2. Verrouillez ou supprimez tout compte non-root avec UID 0 :\n   sudo passwd -l <utilisateur>   # verrouiller (recommandé)\n   sudo userdel <utilisateur>     # supprimer si inutile\n3. Vérifiez qu'il ne reste que root :\n   awk -F: '($3 == 0) {print $1}' /etc/passwd  →  root"
+      },
+      "empty_password": {
+        "title": "Compte avec mot de passe vide (sans authentification) détecté",
+        "why": "Un compte sans mot de passe peut être utilisé par n'importe qui sans identifiants — localement, via SSH (si PermitEmptyPasswords est activé) ou via su. Même avec une authentification par clé SSH uniquement, une seule mauvaise configuration peut ouvrir un accès non authentifié. Les mots de passe vides ne sont jamais intentionnels en production.",
+        "how": "1. Listez les comptes avec un mot de passe vide :\n   sudo awk -F: '($2 == \"\") {print $1}' /etc/shadow\n2. Définissez immédiatement un mot de passe fort :\n   sudo passwd <utilisateur>\n3. Si c'est un compte de service qui ne doit pas se connecter :\n   sudo passwd -l <utilisateur>   # le verrouiller\n4. Vérifiez la config SSH : assurez-vous que PermitEmptyPasswords no est dans /etc/ssh/sshd_config"
+      },
+      "expired_account": {
+        "title": "Compte utilisateur avec mot de passe expiré détecté",
+        "why": "Les comptes expirés peuvent toujours être utilisables selon la configuration PAM et la valeur INACTIVE dans /etc/shadow. Surtout, ils indiquent des comptes qui ne sont plus activement maintenus — les comptes oubliés s'accumulent et représentent une surface d'attaque persistante si des identifiants sont un jour divulgués.",
+        "how": "1. Vérifiez les comptes expirés :\n   sudo chage -l <utilisateur>  →  vérifiez 'Password expired'\n2. Renouvelez le mot de passe si le compte est actif :\n   sudo passwd <utilisateur>\n3. Verrouillez le compte s'il n'est plus utilisé :\n   sudo passwd -l <utilisateur>  # ou : sudo usermod -e 1 <utilisateur>\n4. Auditez régulièrement tous les comptes :\n   sudo chage --list <utilisateur> pour chaque utilisateur actif"
+      },
+      "no_shadow": {
+        "title": "/etc/shadow non lisible — vérifications de sécurité des comptes incomplètes",
+        "why": "/etc/shadow contient les mots de passe hachés et les données d'expiration des comptes. Sans accès en lecture, ufw-audit ne peut pas vérifier les mots de passe vides, les politiques d'expiration ni les anomalies UID 0. Ce résultat est purement informatif et signifie que l'audit tourne sans privilège complet pour les vérifications de comptes.",
+        "how": "1. Ce n'est pas un problème de configuration — lancez l'audit complet en root :\n   sudo ufw-audit\n2. Vérifiez que /etc/shadow a les bonnes permissions (640, root:shadow) :\n   sudo chmod 640 /etc/shadow\n   sudo chown root:shadow /etc/shadow"
+      }
+    },
     "disk": {
       "smart_failed": {
         "title": "Le contrôle de santé SMART global a ÉCHOUÉ",
@@ -1213,6 +1246,12 @@
       "db_outdated": "CIS Ubuntu 22.04 — Durcissement ClamAV — S'assurer que la base virale est mise à jour au moins hebdomadairement",
       "scan_very_old": "CIS Ubuntu 22.04 — Durcissement ClamAV — S'assurer que des analyses complètes régulières sont planifiées (recommandé : hebdomadaire)",
       "scan_old": "CIS Ubuntu 22.04 — Durcissement ClamAV — S'assurer que des analyses complètes régulières sont planifiées (recommandé : hebdomadaire)"
+    },
+    "user_accounts": {
+      "uid_zero": "CIS Ubuntu 22.04 L1 — 6.2.2 — S'assurer qu'aucun compte UID 0 n'existe en dehors de root",
+      "empty_password": "CIS Ubuntu 22.04 L1 — 6.2.1 — S'assurer qu'aucun compte n'a de mot de passe vide",
+      "expired_account": "CIS Ubuntu 22.04 L1 — 5.4.2 — Expiration des mots de passe ≤ 365 jours (examiner les comptes expirés)",
+      "no_shadow": "CIS Ubuntu 22.04 L1 — 6.2 — Paramètres utilisateurs et groupes (nécessite un accès privilégié à /etc/shadow)"
     }
   },
   "user_accounts": {
@@ -1283,5 +1322,14 @@
     "scan_old": "Dernière analyse il y a {days} jour(s) ({date}) — une nouvelle analyse est recommandée",
     "scan_old_detail": "Des analyses mensuelles laissent une large fenêtre de détection. Des analyses hebdomadaires sont recommandées pour les systèmes exposés ou traitant des fichiers externes. -r = récursif, --infected = infectés, --log = sauvegarde.",
     "scan_recent": "Dernière analyse : {date}"
+  },
+  "smtp": {
+    "not_installed": "Aucun MTA détecté (Postfix/Exim/Sendmail) — pas de serveur mail local",
+    "installed_not_listening": "{mta} est installé mais n'écoute pas sur le port 25",
+    "local_only": "{mta} écoute sur le port 25 — livraison locale uniquement ({bind})",
+    "exposed": "{mta} écoute sur le port 25 sur toutes les interfaces ({bind}) — accessible depuis le réseau",
+    "exposed_detail": "Le port 25 ouvert sur toutes les interfaces signifie que n'importe quel hôte du réseau (ou d'internet, si non filtré) peut tenter des connexions SMTP. Sur un poste de travail ou un serveur interne, c'est presque toujours involontaire et permet des tentatives de relais, l'énumération VRFY et des tentatives d'envoi de spam.",
+    "exposed_reason": "Port SMTP 25 lié à {bind} — accessible depuis le réseau",
+    "exposed_restart_postfix": "Puis redémarrer Postfix : sudo systemctl restart postfix"
   }
 }

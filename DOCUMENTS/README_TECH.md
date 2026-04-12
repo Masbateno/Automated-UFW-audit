@@ -1,9 +1,9 @@
 *[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
-# ufw-audit v1.14.0
+# ufw-audit v1.15.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.14.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.15.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -51,6 +51,10 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **Webhooks** — `--webhook URL` POSTs audit result as JSON after each audit; generic (Grafana/automation) and Slack formats (auto-detected by URL); non-fatal; `--webhook-format=auto|generic|slack`
 - **Samba security audit** — full `smb.conf` analysis: SMB1 protocol detection (ALERT, −2 pts); null passwords enabled (ALERT, −3 pts); server signing disabled (WARN, −1 pt); guest-writable shares (ALERT, −2 pts/share); guest-readable shares (WARN, −1 pt/share); `map to guest = bad user` (WARN, −1 pt); bind interfaces check (INFO); dedicated **samba** domain
 - **ClamAV antivirus audit** — installation detection (`clamscan`/`clamdscan`/`freshclam`); virus database freshness via mtime (WARN −1 pt > 7 days, ALERT −2 pts > 30 days); clamd daemon status with socket-file fallback for containers; last scan date parsed from standard log paths (WARN −1 pt > 30 days, −1 pt > 90 days); deductions route to **hardening** domain
+- **IoT/local source dominance** — detects when a single private IP accounts for ≥ 70% of all blocked UFW traffic over ≥ 50 log entries (WARN, −1 pt, `logs.local_dominance`); typical of LAN-scanning IoT devices or misconfigured servers
+- **SMTP local exposure** — detects MTA (Postfix, Exim, Sendmail) listening on all interfaces (`0.0.0.0:25` or `:::25`) vs. localhost only; `SmtpSnapshot.from_system()` uses `ps -eo comm` + `ss -tlnp`/`netstat` fallback; WARN −1 pt when publicly exposed
+- **`--fix` dry-run** — `--fix` alone shows a preview of all available corrections with `→ cmd` without executing; `--fix --apply` enables the interactive apply flow; `--fix --apply --yes` auto-confirms all with audit trail
+- **`--target N`** — score target (1–10); shown in the summary box as `✔ reached` (green) or `▲ +N pt(s) needed` (yellow)
 - **`--diff` mode** — runs audit silently and displays only the comparative delta (what changed since last audit); tracks score, alert count, warn count, and info count (so INFO-level changes are detected)
 
 ---
@@ -222,7 +226,7 @@ sudo ufw-audit --reconfigure
 ║ ╚██████╔╝ ██║      ╚███╔███╔╝     ██║  ██║ ╚██████╔╝ ██████╔╝ ██║    ██║     ║
 ║  ╚═════╝  ╚═╝       ╚══╝╚══╝      ╚═╝  ╚═╝  ╚═════╝  ╚═════╝  ╚═╝    ╚═╝     ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
-║  UFW-AUDIT v1.14.0  │  UFW firewall audit                                    ║
+║  UFW-AUDIT v1.15.0  │  UFW firewall audit                                    ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║  System        : Ubuntu 24.04 LTS                                            ║
 ║  Host          : my-machine                                                  ║

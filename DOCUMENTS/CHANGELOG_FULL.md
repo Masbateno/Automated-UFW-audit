@@ -6,6 +6,119 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.15.0] — 2026-04-12
+
+### TL;DR
+- **CHECK 26** — IoT/local source dominance in UFW logs (≥ 70% blocked traffic from one private IP)
+- **CHECK 27** — SMTP local exposure (Postfix/Exim listening on 0.0.0.0:25 vs 127.0.0.1:25)
+- **C1** — `--fix` dry-run by default; `--fix --apply` to execute; `--fix --apply --yes` auto-confirm
+- **C2** — `--target N` score cible: shows gap or success in summary box
+- **`--explain` TUI fixes** — clamped nav, in-curses detail screen, ESC/q behavior fixed, group headers restored on scroll-up
+- **`--explain` 73→77 keys** — `user_accounts` group (+4 keys)
+- **`q` cancels wizards** — `--install-cron`, `--manage-cron`, `--manage-logs`
+- **Quality pass `smtp.py`** — `*` wildcard bug, multi-bind worst-case, IPv6 bracket stripping, Postfix-specific fix cmd
+- **2139/2139 tests** (+93 vs v1.14.0)
+
+### Changes
+
+**`checks/logs.py`** (CHECK 26)
+- `_dominant_local_source(entries)`: counts blocked entries per private source IP; returns `(ip, count, pct)` when one IP ≥ 70% and total ≥ 50
+- `check_logs()`: calls `_dominant_local_source()` after bruteforce/service checks; emits `logs.local_dominance` WARN −1 pt when triggered
+- Constants `_LOCAL_DOMINANCE_THRESHOLD = 0.70`, `_LOCAL_DOMINANCE_MIN_COUNT = 50`
+
+**`checks/smtp.py`** (CHECK 27 — new file)
+- `SmtpSnapshot`: `installed`, `mta_name`, `listening`, `bind_address`, `exposed`
+- `SmtpSnapshot.from_system()`: MTA detection via `ps -eo comm` (`_MTA_BINARIES`); port-25 check via `_check_port_25()` (ss → netstat fallback)
+- `_LOCAL_BIND_RE`: matches `127.*`, `::1`, `localhost` as safe bind addresses
+- `check_smtp()`: not installed → OK; installed not listening → INFO; local only → INFO; exposed → WARN −1 pt (context `public`)
+
+**`cli.py`**
+- New `apply: bool = False` field in `AuditConfig`
+- `--apply` flag parsed; requires `--fix`
+- `--yes` now requires `--fix --apply` (was `--fix`)
+- `--quiet`/`--json` incompatibility now scoped to `--fix --apply` (dry-run mode is compatible)
+- New `target: int = 0` field; `--target=N` / `--target N` parsed (1–10)
+- `--target` validation: non-numeric, 0, or >10 → `CLIError`
+- `--target=` added to AUDIT section of `--help`
+
+**`fixes.py`**
+- Dry-run branch: `if not getattr(config, "apply", False):` — shows `fixes.dry_run_hint` + `→ cmd` preview for each item, then returns without executing
+
+**`display.py`**
+- `print_audit_summary()`: reads `config.target`; appends target line to summary box when set; green `✔` when reached, yellow `▲` with gap when not
+
+**`explain.py`**
+- `_picker()`: clamped navigation (no wrap at list boundaries); Enter calls `_detail_screen()` inline; only `q`/`Q` quit
+- `_detail_screen()`: in-curses detail view; scrollable with ↑↓/PgUp/PgDn; only ESC closes
+- Group headers reappear on scroll-up (looks back one item to include header)
+- `user_accounts` group added: `uid_zero`, `empty_password`, `expired_account`, `no_shadow`
+
+**`cron.py`** / **`manage_logs.py`**
+- `q` cancels at any wizard step in `--install-cron`, `--manage-cron`, `--manage-logs`
+- `prompt_emails()`: `q. Cancel — back to menu` now displayed as an explicit list entry so users know they can exit without modifying anything (`email_prompt.cancel` locale key); behaviour unchanged — `q` already returned `None`
+- `--manage-cron` shows one line per email address in listing
+
+**Locales (`en.json` + `fr.json`)**
+- Added: `logs.local_dominance`, `smtp.*` (5 keys), `fixes.dry_run_hint`
+- Added: `scoring.target_label`, `scoring.target_reached`, `scoring.target_gap`
+- Added: `install_cron.quit_hint`, `install_cron.cancelled`, `manage_cron.cancelled`, `manage_logs.cancelled`
+- Added: `email_prompt.cancel`
+
+**Bash completion**
+- Added `--apply`, `--target=`
+
+**Tests**
+- `TestApplyFlag` (12 tests), `TestTargetFlag` (10 tests), `TestDryRun` (8 tests)
+- `TestDominantLocalSource` (13 tests, `test_logs.py`)
+- `test_smtp.py` (31 tests)
+- Updated `test_cli.py`: `test_yes`, `test_json_and_fix_raises`, `test_quiet_and_fix_raises` for new semantics
+- `test_explain_flag_without_value_raises` → `test_explain_flag_without_value_launches_interactive`
+- **2130 tests** (all passing)
+
+**Quality pass — `checks/smtp.py`**
+- `_LOCAL_BIND_RE`: removed `\*$` — `*` in `ss` output signals all-interface binding (was incorrectly classified as local-only, producing false negatives on `*:25` systems)
+- `_check_port_25()`: collects all bind addresses for port 25 in a single pass; strips `[` `]` brackets from IPv6 addresses before regex matching (`[::1]` → `::1`, `[::]:25` → `::` → exposed); returns the most exposed address when multiple sockets coexist (`127.0.0.1:25` + `0.0.0.0:25` → returns `0.0.0.0`)
+- `check_smtp()`: fix command is now Postfix-specific (`sudo postconf -e 'inet_interfaces = loopback-only'`); `note` field carries the restart hint; `cmd` is empty for Exim/other MTAs so the finding appears as a manual action
+- `smtp.exposed_restart_postfix` locale key added (`en.json` + `fr.json`)
+- `test_smtp.py`: `test_wildcard_star` → `test_wildcard_star_is_exposed` (inverted assertion); +2 `_LOCAL_BIND_RE` edge-case tests; `TestSmtpCmd` (4 tests — postfix has cmd, exim/unknown have no cmd); `TestSmtpWildcardExposed` (3 tests — `*`/`::` exposed, `::1` local)
+- **2139 tests** (all passing)
+
+---
+
+## [v1.14.0] — 2026-04-10
+
+### TL;DR
+- **CHECK 24 — Samba Security Audit** (`checks/samba.py`) — SMB1, null passwords, guest shares, server signing, map-to-guest; 6 findings; new Samba domain
+- **CHECK 25 — ClamAV Antivirus Audit** (`checks/clamav.py`) — installation detection, DB freshness, last scan age; local-time naive datetime for log parsing
+- **`--diff` fix** — `info_count` now tracked and included in baseline delta
+- **`--explain` 63→73 keys** (17 groups) — Samba (6) + Disk (5) added
+- **2045/2045 tests** (+155 vs v1.13.0)
+
+### Changes
+
+**`checks/samba.py`**
+- `SambaSnapshot` + `check_samba()` — pure snapshot/logic separation
+- SMB1 enabled → ALERT −2; null passwords → ALERT −3; guest writable share → WARN −1; guest read-only → INFO; server signing disabled → WARN −1; map to guest → WARN −1
+- 12 locale keys in `en.json` + `fr.json`
+
+**`checks/clamav.py`** (+ quality pass)
+- `ClamavSnapshot` + `check_clamav()` — installation via `clamav-daemon`, `freshclam`, or clamd socket (`_CLAMD_SOCKETS`)
+- DB age via `datetime.fromtimestamp(st_mtime, tz=timezone.utc)` + `.days`; ≥14 d → ALERT −2, ≥7 d → WARN −1
+- Last scan age parsed from `/var/log/clamav/clamav.log` as **naive local time** (ClamAV logs local time); ≥30 d → ALERT −2, ≥14 d → WARN −1
+- `(?i)` on `_END_DATE_RE`; `_CLAMD_SOCKETS` module-level constant for socket fallback
+
+**`compare.py`**
+- `build_baseline()` now includes `info_count`; `compute_delta()` reports `info_count` changes in diff output
+
+**`explain.py`**
+- 73 keys across 17 groups; added Samba (6) and Disk (5) keys
+
+**Tests**
+- `tests/test_samba.py`: 52 tests
+- `tests/test_clamav.py`: 52 tests; uses naive datetime for scan age; tests freshclam-only and clamd socket fallback
+
+---
+
 ## [v1.13.0] — 2026-04-10
 
 ### TL;DR

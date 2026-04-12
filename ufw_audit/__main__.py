@@ -59,8 +59,11 @@ def _run(argv=None) -> int:
 
     if config.explain_key:
         i18n.init(lang=config.lang)
-        from ufw_audit.explain import run_explain
-        run_explain(config.explain_key, i18n.t)
+        from ufw_audit.explain import run_explain, run_explain_interactive
+        if config.explain_key == "__interactive__":
+            run_explain_interactive(i18n.t)
+        else:
+            run_explain(config.explain_key, i18n.t)
         return EXIT_OK
 
     if config.install_completion:

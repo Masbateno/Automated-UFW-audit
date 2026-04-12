@@ -38,10 +38,13 @@ class AuditConfig:
     """-d / --detailed: write full report to a log file."""
 
     fix: bool = False
-    """--fix: offer automatic corrections after the audit."""
+    """--fix: preview available fixes (dry run — nothing is executed)."""
+
+    apply: bool = False
+    """--apply: execute fixes (use with --fix to actually apply corrections)."""
 
     yes: bool = False
-    """-y / --yes: auto-confirm all fixes without prompting."""
+    """-y / --yes: auto-confirm all fixes without prompting (requires --fix --apply)."""
 
     reconfigure: bool = False
     """--reconfigure: reset saved port configuration and re-ask."""
@@ -100,6 +103,9 @@ class AuditConfig:
     webhook_format: str = "auto"
     """--webhook-format=FMT: payload format — 'auto' (default), 'generic', or 'slack'."""
 
+    target: int = 0
+    """--target=N: score target (1–10); shown in summary with gap or success indicator."""
+
 
 # ---------------------------------------------------------------------------
 # Parser
@@ -140,6 +146,9 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
 
         elif arg in ("-f", "--fix"):
             config.fix = True
+
+        elif arg == "--apply":
+            config.apply = True
 
         elif arg in ("-y", "--yes"):
             config.yes = True
@@ -216,9 +225,13 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         elif arg.startswith("--explain="):
             config.explain_key = arg.split("=", 1)[1].strip()
 
-        elif arg in ("-e", "--explain") and i + 1 < len(argv):
+        elif arg in ("-e", "--explain") and i + 1 < len(argv) and not argv[i + 1].startswith("-"):
             i += 1
             config.explain_key = argv[i].strip()
+
+        elif arg in ("-e", "--explain"):
+            # No key provided → launch interactive picker
+            config.explain_key = "__interactive__"
 
         elif arg in ("-D", "--diff"):
             config.diff_mode = True
@@ -233,6 +246,23 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         elif arg.startswith("--webhook-format="):
             config.webhook_format = arg.split("=", 1)[1].strip()
 
+        elif arg.startswith("--target="):
+            value = arg.split("=", 1)[1].strip()
+            if not value.isdigit() or not (1 <= int(value) <= 10):
+                raise CLIError(
+                    f"--target requires an integer between 1 and 10, got: {value!r}"
+                )
+            config.target = int(value)
+
+        elif arg == "--target" and i + 1 < len(argv):
+            i += 1
+            value = argv[i].strip()
+            if not value.isdigit() or not (1 <= int(value) <= 10):
+                raise CLIError(
+                    f"--target requires an integer between 1 and 10, got: {value!r}"
+                )
+            config.target = int(value)
+
         else:
             raise CLIError(f"Unknown option: {arg!r}")
 
@@ -244,14 +274,16 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
             f"--webhook-format must be 'auto', 'generic', or 'slack', got: {config.webhook_format!r}"
         )
 
-    if config.yes and not config.fix:
-        raise CLIError("--yes requires --fix")
+    if config.apply and not config.fix:
+        raise CLIError("--apply requires --fix")
+    if config.yes and not (config.fix and config.apply):
+        raise CLIError("--yes requires --fix --apply")
     if config.quiet and config.json_mode:
         raise CLIError("--quiet is incompatible with --json (JSON output requires stdout)")
-    if config.quiet and config.fix:
-        raise CLIError("--quiet is incompatible with --fix (fix mode requires interactive prompts)")
-    if config.json_mode and config.fix:
-        raise CLIError("--json is incompatible with --fix (fix mode is interactive)")
+    if config.quiet and config.fix and config.apply:
+        raise CLIError("--quiet is incompatible with --fix --apply (fix mode requires interactive prompts)")
+    if config.json_mode and config.fix and config.apply:
+        raise CLIError("--json is incompatible with --fix --apply (fix mode is interactive)")
 
     # Mutually exclusive operating modes
     exclusive_modes = [
@@ -291,6 +323,7 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
     opt("-l N, --log-days=N",    "Analyse last N days of UFW logs (default: 7)")
     opt("-D, --diff",            "Show only changes since last audit baseline")
     opt("-o, --offline",         "Skip external IP lookup (no HTTP calls)")
+    opt("    --target=N",        "Score target (1–10): show gap or success in summary")
 
     section("OUTPUT — how to present results")
     opt("-v, --verbose",         "Show detailed port exposure for each service")
@@ -302,7 +335,8 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
 
     section("FIXES — apply remediation suggestions")
     opt("-f, --fix",             "Preview available fixes (dry run — nothing is executed)")
-    opt("-y, --yes",             "Auto-confirm all fixes with audit trail (use with -f)")
+    opt("    --apply",           "Execute fixes interactively (requires --fix)")
+    opt("-y, --yes",             "Auto-confirm all fixes with audit trail (requires --fix --apply)")
 
     section("INTEGRATIONS — external reporting")
     opt("-w, --webhook=URL",     "POST audit result as JSON to URL after audit")
@@ -320,7 +354,8 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
     opt("    --reset-baseline",  "Delete the stored audit baseline and exit")
 
     section("STANDALONE — no sudo required")
-    opt("-e, --explain=KEY",     "Print WHY/HOW/CIS explanation for a finding key")
+    opt("-e, --explain [KEY]",   "Interactive explain picker, or explain a specific key")
+    opt("",                      "  ufw-audit -e                      (interactive — ↑↓ navigate, Enter view, q quit)")
     opt("",                      "  ufw-audit -e list                 (list all keys)")
     opt("",                      "  ufw-audit -e ssh.password_auth    (explain a key)")
     opt("-V, --version",         "Show version and exit")
@@ -328,10 +363,16 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
 
     section("SETUP — requires sudo")
     opt("    --install-completion", "Install bash tab-completion to /etc/bash_completion.d/")
-    opt("",                      "  sudo ~/.local/bin/ufw-audit --install-completion")
+    import sys as _sys
+    from pathlib import Path as _Path
+    _self = str(_Path(_sys.argv[0]).resolve())
+    opt("",                      f"  sudo {_self} --install-completion")
 
     section("EXAMPLES")
     print("  sudo ufw-audit                        Standard audit")
+    print("  sudo ufw-audit -f                     Preview available fixes (dry run)")
+    print("  sudo ufw-audit -f --apply             Apply fixes interactively")
+    print("  sudo ufw-audit -f --apply -y          Auto-apply all fixes")
     print("  sudo ufw-audit -v -d                  Verbose + save full report")
     print("  sudo ufw-audit --french -d            French output + save report")
     print("  sudo ufw-audit -p workstation         Workstation profile")

@@ -46,6 +46,7 @@ from ufw_audit.checks.memory import MemorySnapshot, check_memory
 from ufw_audit.checks.disk import DiskSnapshot, check_disk
 from ufw_audit.checks.samba import SambaSnapshot, check_samba
 from ufw_audit.checks.clamav import ClamAVSnapshot, check_clamav
+from ufw_audit.checks.smtp import SmtpSnapshot, check_smtp
 from ufw_audit.plugin_checks import load_plugin_checks
 
 
@@ -439,6 +440,20 @@ def run_checks(
             apply_profile(clamav_result, profile)
         engine.apply(clamav_result)
         display_result(clamav_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 26 — SMTP local exposure ----
+    smtp_snapshot = SmtpSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("smtp"):
+        if not config.quiet:
+            print_section(t("sections.smtp"))
+        report.write_section(t("sections.smtp"))
+        smtp_result = check_smtp(smtp_snapshot, t=t)
+        if profile is not None:
+            apply_profile(smtp_result, profile)
+        engine.apply(smtp_result)
+        display_result(smtp_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:
             print()
 

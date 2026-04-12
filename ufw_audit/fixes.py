@@ -53,6 +53,23 @@ def run_fixes(engine, config, t) -> None:
 
     sorted_items = sorted(ufw_deletes, key=sort_key, reverse=True) + others
 
+    # ── Dry-run preview (--fix without --apply) ─────────────────────────────
+    if not getattr(config, "apply", False):
+        print()
+        print(f"  \033[2m{t('fixes.dry_run_hint')}\033[0m")
+        print()
+        for msg, cmd in sorted_items:
+            safe_cmd = cmd.replace("\n", " ").strip()
+            print(f"  ✖  {msg}")
+            print(f"     \033[2m→ {safe_cmd}\033[0m")
+            print()
+        if manual_items:
+            print(f"  \033[1;33m{t('fixes.manual_items_title')}\033[0m")
+            for msg in manual_items:
+                print(f"  • {msg}")
+        return
+
+    # ── Apply mode (--fix --apply) ───────────────────────────────────────────
     # Auto-fix mode banner — visible warning so the user knows what's happening
     if config.yes:
         auto_msg = t("fixes.auto_mode_banner", count=len(sorted_items))

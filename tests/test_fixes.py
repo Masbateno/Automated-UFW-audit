@@ -50,10 +50,10 @@ def make_engine(*findings):
     return engine
 
 
-def make_config(yes=False):
-    # type: (bool) -> AuditConfig
-    """Build an AuditConfig for fix mode."""
-    return AuditConfig(fix=True, yes=yes)
+def make_config(yes=False, apply=True):
+    # type: (bool, bool) -> AuditConfig
+    """Build an AuditConfig for fix mode (apply=True = interactive/auto mode)."""
+    return AuditConfig(fix=True, yes=yes, apply=apply)
 
 
 def _t(key, **kwargs):
@@ -69,7 +69,7 @@ def run_and_capture(engine, config, mock_proc=None, mock_input=None):
 
     Args:
         engine:      ScoreEngine with findings.
-        config:      AuditConfig (fix=True, yes=True/False).
+        config:      AuditConfig (fix=True, apply=True/False, yes=True/False).
         mock_proc:   Return value for subprocess.run (CompletedProcess or side_effect).
         mock_input:  Return value for input() — defaults to "n".
 
@@ -415,3 +415,70 @@ class TestDoneMessage:
         out = run_and_capture(engine, make_config())
         # With no items the function returns before the done message
         assert "fixes.done" not in out
+
+
+# ---------------------------------------------------------------------------
+# Dry-run mode (--fix without --apply)
+# ---------------------------------------------------------------------------
+
+class TestDryRun:
+    def _dry_config(self):
+        return AuditConfig(fix=True, apply=False)
+
+    def test_dry_run_shows_hint(self):
+        """Without --apply, the dry-run hint is shown."""
+        engine = make_engine(make_finding(cmd="sudo ufw --force delete 1"))
+        out = run_and_capture(engine, self._dry_config())
+        assert "fixes.dry_run_hint" in out
+
+    def test_dry_run_no_subprocess_call(self):
+        """Without --apply, subprocess.run is never called."""
+        engine = make_engine(make_finding(cmd="sudo ufw --force delete 1"))
+        buf = io.StringIO()
+        with patch("ufw_audit.fixes.subprocess.run") as mock_sp, \
+             patch("builtins.input") as mock_inp, \
+             redirect_stdout(buf):
+            run_fixes(engine, self._dry_config(), _t)
+        mock_sp.assert_not_called()
+
+    def test_dry_run_no_input_call(self):
+        """Without --apply, input() is never called."""
+        engine = make_engine(make_finding(cmd="sudo ufw --force delete 1"))
+        buf = io.StringIO()
+        with patch("ufw_audit.fixes.subprocess.run"), \
+             patch("builtins.input") as mock_inp, \
+             redirect_stdout(buf):
+            run_fixes(engine, self._dry_config(), _t)
+        mock_inp.assert_not_called()
+
+    def test_dry_run_shows_cmd_preview(self):
+        """Each fix command is shown with a → prefix in dry-run mode."""
+        cmd = "sudo ufw --force delete 2"
+        engine = make_engine(make_finding(cmd=cmd))
+        out = run_and_capture(engine, self._dry_config())
+        assert cmd in out
+
+    def test_dry_run_shows_message(self):
+        """The finding message is shown in dry-run output."""
+        engine = make_engine(make_finding(message="close port 25", cmd="sudo ufw --force delete 1"))
+        out = run_and_capture(engine, self._dry_config())
+        assert "close port 25" in out
+
+    def test_dry_run_shows_manual_items(self):
+        """Manual items (no cmd) are shown under their own header in dry-run mode."""
+        engine = make_engine(make_finding(nature="action", cmd="", message="do it manually"))
+        out = run_and_capture(engine, self._dry_config())
+        assert "fixes.manual_items_title" in out
+        assert "do it manually" in out
+
+    def test_dry_run_no_applied_output(self):
+        """fixes.applied is never shown in dry-run mode."""
+        engine = make_engine(make_finding(cmd="sudo ufw --force delete 1"))
+        out = run_and_capture(engine, self._dry_config())
+        assert "fixes.applied" not in out
+
+    def test_dry_run_no_done_summary(self):
+        """fixes.done_summary is not shown in dry-run mode (returns early)."""
+        engine = make_engine(make_finding(cmd="sudo ufw --force delete 1"))
+        out = run_and_capture(engine, self._dry_config())
+        assert "fixes.done_summary" not in out

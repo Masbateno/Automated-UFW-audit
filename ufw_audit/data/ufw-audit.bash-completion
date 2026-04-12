@@ -49,6 +49,7 @@ _ufw_audit() {
         --detailed
         --quiet
         --fix
+        --apply
         --yes
         --reconfigure
         --no-color
@@ -64,10 +65,11 @@ _ufw_audit() {
         --offline
         --profile=
         --reset-baseline
-        --explain=
+        --explain
         --diff
         --webhook=
         --webhook-format=
+        --target=
         --version
         --help
     "

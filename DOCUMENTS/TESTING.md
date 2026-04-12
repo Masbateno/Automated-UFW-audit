@@ -34,6 +34,26 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v1.12.0 | 1703  | +28 tests — workstation profile, date assertions, dict fixtures across existing test files |
 | v1.13.0 | 1890  | +187 tests — `test_disk.py` (60), `test_memory.py` (37); `test_explain.py` updated (33→63 keys assertion) |
 | v1.14.0 | 2045  | +155 tests — `test_samba.py` (68), `test_clamav.py` (52); `test_explain.py` updated (63→73 keys); `test_compare.py` info_delta tests (+5) |
+| v1.15.0 | 2139  | +93 tests — `test_smtp.py` (31 + 9 quality pass), `TestDominantLocalSource` (13), `TestApplyFlag` (12), `TestTargetFlag` (10), `TestDryRun` (8), `test_explain.py` updated (73→77 keys), `test_cli.py` updated (`--apply` semantics) |
+
+### v1.15.0 — 2139/2139 (2026-04-12)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+2139 passed in 1.98s
+```
+
+#### New / modified tests (+93)
+
+| File | Change | Coverage |
+|------|--------|----------|
+| `tests/test_smtp.py` | New — 31 tests; quality pass +9 | `SmtpSnapshot` defaults; `_LOCAL_BIND_RE` (loopback IPv4/IPv6, **`*` is now exposed**, localhost, all-interfaces, bracketed IPv6); not installed (OK, key, no deduction); installed not listening (INFO, key, no deduction, mta_name used); local only (INFO, key, no deduction, only one finding); exposed (WARN, key, deduction −1 pt, context=public, nature=improvement); `TestSmtpCmd` — postfix has `postconf` cmd + restart note, exim/unknown have no cmd; `TestSmtpWildcardExposed` — `*`/`::` exposed, `::1` local; fallback mta_name |
+| `tests/test_logs.py` | `TestDominantLocalSource` — 13 tests | Below min count → no detection; all public → no detection; threshold not met → no detection; exactly 70% → detection; above 70% → detection; top IP returned; count and pct returned; mixed sources; empty entries |
+| `tests/test_cli.py` | `TestApplyFlag` (12), `TestTargetFlag` (10), updated assertions | `--apply` default False; `--apply` without `--fix` raises; `--fix` alone = dry-run; `--fix --apply` sets both; `--yes` requires `--fix --apply`; `--json --fix` dry-run ok; `--quiet --fix` dry-run ok; `--apply` order-independent; `--target=N` valid 1–10; 0/11/float/non-numeric raises; combined with `--profile` |
+| `tests/test_fixes.py` | `TestDryRun` — 8 tests; `make_config` gains `apply=True` default | Dry-run shows hint; no subprocess call; no input call; cmd preview shown; message shown; manual items shown; no `applied` output; no `done_summary` |
+| `tests/test_explain.py` | Key count 73→77; user_accounts assertions | `len(EXPLAIN_KEYS) == 77`; `user_accounts.uid_zero`, `empty_password`, `expired_account`, `no_shadow` present |
 
 ### v1.14.0 — 2045/2045 (2026-04-11)
 

@@ -156,19 +156,21 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Quality & reliability
 
-- ✅ 2045 unit tests
+- ✅ 2139 unit tests
 - 🧱 Modular architecture (snapshot / check separated)
 - 🧪 Tested on Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.14.0
+## 🆕 v1.15.0
 
-- 🪟 **Samba Security Audit** (CHECK 24) — SMB1 detection (ALERT, −2 pts), null passwords (ALERT, −3 pts), server signing disabled (WARN, −1 pt), guest-writable shares (ALERT, −2 pts/share), guest-readable shares (WARN, −1 pt/share), `map to guest = bad user` (WARN, −1 pt); new **`samba`** domain (7th); bind interfaces check
-- 🦠 **ClamAV Antivirus Audit** (CHECK 25) — installation detection (`clamscan` / `clamdscan` / `freshclam`), virus database freshness (WARN −1 pt if > 7 days, ALERT −2 pts if > 30 days), clamd daemon status (INFO), last scan date from logs (WARN −1 pt if > 30 days, −1 pt if > 90 days); socket-file fallback for container environments
-- 🔄 **Diff fix** — INFO-level changes (e.g. swappiness recommendations) now correctly detected between audits (`info_count` added to baseline)
-- 📖 **`--explain` 63 → 73 keys** — +4 ClamAV keys, +6 Samba keys across 2 new groups
-- ✅ 2045/2045 unit tests (+155)
+- 🌐 **CHECK 26 — IoT/local source dominance** — detects when a single private IP accounts for ≥ 70% of all blocked UFW traffic (typical of LAN-scanning IoT devices)
+- 📧 **CHECK 27 — SMTP local exposure** — detects Postfix/Exim/Sendmail listening on all interfaces (0.0.0.0:25) vs. localhost only; WARN −1 pt when publicly reachable
+- 🔧 **`--fix` dry-run by default** — `--fix` previews corrections without executing; `--fix --apply` to execute interactively; `--fix --apply --yes` to auto-confirm with audit trail
+- 🎯 **`--target N` score cible** — shows a target line in the summary box: green `✔` when reached, yellow `▲` with gap when not
+- 🎛 **`--explain` TUI** — clamped navigation (no wrap), in-curses detail screen (ESC to return), ESC/q behavior corrected, group headers restored on scroll-up; 73→77 keys
+- ❌ **Cancel at any wizard step** — `q` exits cleanly in `--install-cron`, `--manage-cron`, `--manage-logs`
+- ✅ 2139/2139 unit tests (+93)
 
 ---
 
@@ -204,7 +206,7 @@ Automated-UFW-audit/
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 2045 unit tests
+└── tests/                          # 2139 unit tests
 ```
 
 ---

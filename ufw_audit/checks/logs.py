@@ -241,6 +241,20 @@ def check_logs(
             message=f"{count} {_t('logs.attempts')} {_t('logs.brute_on')} {port_proto}",
         )
 
+    # Dominant local source — likely IoT mDNS/SSDP/UPnP noise
+    local_ip, local_count, local_pct = _dominant_local_source(snapshot.entries)
+    if local_ip is not None:
+        result.info(
+            message=_t(
+                "logs.local_dominance",
+                ip=local_ip,
+                count=local_count,
+                total=snapshot.total,
+                pct=local_pct,
+            ),
+            key="logs.local_dominance",
+        )
+
     return result
 
 
@@ -327,6 +341,39 @@ def _service_hits(
         if entry.port_proto in audited_ports:
             counter[entry.port_proto] += 1
     return dict(counter.most_common())
+
+
+_LOCAL_DOMINANCE_THRESHOLD = 0.70   # fraction of total blocks from one local IP
+_LOCAL_DOMINANCE_MIN_COUNT = 50     # ignore very quiet logs (< 50 total blocks)
+
+
+def _dominant_local_source(
+    entries: list[LogEntry],
+) -> tuple[Optional[str], int, int]:
+    """
+    Detect whether a single private IP dominates the block log.
+
+    A dominant local source is almost always benign IoT traffic
+    (mDNS, SSDP, UPnP discovery) rather than a real attack.
+
+    Returns:
+        (ip, count, pct_int) if a dominant local IP is found, or (None, 0, 0).
+    """
+    if len(entries) < _LOCAL_DOMINANCE_MIN_COUNT:
+        return None, 0, 0
+
+    local_counts: Counter = Counter(
+        e.src_ip for e in entries if _PRIVATE_IP.match(e.src_ip)
+    )
+    if not local_counts:
+        return None, 0, 0
+
+    top_ip, top_count = local_counts.most_common(1)[0]
+    pct = top_count / len(entries)
+    if pct >= _LOCAL_DOMINANCE_THRESHOLD:
+        return top_ip, top_count, int(pct * 100)
+
+    return None, 0, 0
 
 
 def get_ip_geo(ip: str, lang: str = "en") -> str:

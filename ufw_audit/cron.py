@@ -312,9 +312,13 @@ def prompt_emails(t) -> list[str]:
             marker = " ✔" if addr in selected else ""
             print(f"    {i}. {addr}{marker}")
         print(f"    {len(saved) + 1}. {t('email_prompt.new')}")
+        print(f"    q. {t('email_prompt.cancel')}")
         print()
 
         answer = input("  > ").strip()
+
+        if answer.lower() in ("q", "quit"):
+            return None   # cancelled — caller must not modify anything
 
         if not answer or answer == "0":
             break
@@ -351,9 +355,14 @@ def prompt_emails(t) -> list[str]:
 
 
 def prompt_email(t) -> str:
-    """Backward-compatible single-email wrapper around prompt_emails."""
+    """Backward-compatible single-email wrapper around prompt_emails.
+
+    Returns "" when the user cancels (q) or selects no email.
+    """
     emails = prompt_emails(t)
-    return emails[0] if emails else ""
+    if emails is None or not emails:
+        return ""
+    return emails[0]
 
 
 def run_install_cron(user_config, config, t) -> int:
@@ -379,10 +388,16 @@ def run_install_cron(user_config, config, t) -> int:
         return 1
     log_dir = Path(log_dir_str)
 
+    print(f"  {t('install_cron.quit_hint')}")
+    print()
+
     # --- Step 1: Name ---
     existing_names = [e.name for e in list_installed_crons()]
     suggestion = suggest_name(existing_names)
     raw_name = input(f"  {t('install_cron.prompt_name', suggestion=suggestion)} : ").strip()
+    if raw_name.lower() in ("q", "quit"):
+        print(f"  {t('install_cron.cancelled')}")
+        return 0
     if not raw_name:
         raw_name = suggestion
     slug = make_slug(raw_name)
@@ -399,6 +414,9 @@ def run_install_cron(user_config, config, t) -> int:
     print(f"    4. {t('install_cron.schedule_custom')}")
     print()
     raw_choice = input("  > ").strip()
+    if raw_choice.lower() in ("q", "quit"):
+        print(f"  {t('install_cron.cancelled')}")
+        return 0
     if not raw_choice:
         raw_choice = "1"
     if raw_choice not in ("1", "2", "3", "4"):
@@ -416,6 +434,9 @@ def run_install_cron(user_config, config, t) -> int:
         print()
         print(f"  {t('install_cron.prompt_weekdays')}")
         raw_days = input("  > ").strip()
+        if raw_days.lower() in ("q", "quit"):
+            print(f"  {t('install_cron.cancelled')}")
+            return 0
         parts = re.split(r"[\s,]+", raw_days)
         week_days = [int(p) for p in parts if p.isdigit() and 1 <= int(p) <= 7]
         if not week_days:
@@ -426,6 +447,9 @@ def run_install_cron(user_config, config, t) -> int:
         print()
         print(f"  {t('install_cron.prompt_monthdays')}")
         raw_days = input("  > ").strip()
+        if raw_days.lower() in ("q", "quit"):
+            print(f"  {t('install_cron.cancelled')}")
+            return 0
         parts = re.split(r"[\s,]+", raw_days)
         month_days = [int(p) for p in parts if p.isdigit() and 1 <= int(p) <= 31]
         if not month_days:
@@ -436,6 +460,9 @@ def run_install_cron(user_config, config, t) -> int:
         print()
         print(f"  {t('install_cron.prompt_custom')}")
         custom_expr = input("  > ").strip()
+        if custom_expr.lower() in ("q", "quit"):
+            print(f"  {t('install_cron.cancelled')}")
+            return 0
         err = _validate_custom_cron(custom_expr)
         if err:
             print(f"  ✖ {t('install_cron.invalid_schedule')} ({err})")
@@ -445,6 +472,9 @@ def run_install_cron(user_config, config, t) -> int:
     if choice != 4:
         print()
         raw_time = input(f"  {t('install_cron.prompt_time')} : ").strip()
+        if raw_time.lower() in ("q", "quit"):
+            print(f"  {t('install_cron.cancelled')}")
+            return 0
         if not raw_time:
             raw_time = "03:00"
         if not re.match(r"^\d{1,2}:\d{2}$", raw_time):
@@ -466,8 +496,9 @@ def run_install_cron(user_config, config, t) -> int:
     print()
 
     # --- Step 4: Notification email(s) ---
-    notify_emails = prompt_emails(t)
-    notify_email  = ",".join(notify_emails)  # comma-separated for storage
+    notify_emails_raw = prompt_emails(t)
+    notify_emails = notify_emails_raw or []   # None (cancelled) → no email
+    notify_email  = ",".join(notify_emails)   # comma-separated for storage
     if notify_emails and not shutil.which("mail"):
         print(f"  ⚠ {t('install_cron.mail_missing')}")
 
@@ -704,7 +735,10 @@ def run_manage_cron(config, t) -> int:
             legacy_tag = f"  [{t('manage_cron.legacy_tag')}]" if entry.legacy else ""
             print(f"  {i}. {entry.name:<20} {human}{legacy_tag}")
             if entry.email:
-                print(f"     → {t('manage_cron.email_label')}: {entry.email}")
+                for addr in entry.email.split(","):
+                    addr = addr.strip()
+                    if addr:
+                        print(f"     → {t('manage_cron.email_label')}: {addr}")
 
         print()
         print(f"  {t('manage_cron.prompt')}")
@@ -825,8 +859,19 @@ def run_manage_cron(config, t) -> int:
 
 
 def edit_cron_email(entry, t) -> None:
-    """Change the notification email of an existing cron entry."""
-    new_email = prompt_email(t)
+    """Change the notification email of an existing cron entry.
+
+    Pressing 'q' at the email prompt cancels without modifying anything.
+    Pressing Enter / 0 with no selection clears the notification email.
+    """
+    new_emails = prompt_emails(t)
+
+    if new_emails is None:
+        # User cancelled with 'q'
+        print(f"  {t('manage_cron.cancelled')}")
+        return
+
+    new_email = ",".join(new_emails)
 
     try:
         lines = entry.cron_path.read_text(encoding="utf-8").splitlines()
@@ -844,7 +889,13 @@ def edit_cron_email(entry, t) -> None:
     if entry.script_path.exists():
         try:
             text = entry.script_path.read_text(encoding="utf-8")
-            text = re.sub(r"^NOTIFY_EMAIL=(['\"]).*\1", lambda _: f'NOTIFY_EMAIL={shlex.quote(new_email)}', text, flags=re.MULTILINE)
+            # Fix: script uses NOTIFY_EMAILS (plural)
+            text = re.sub(
+                r"^NOTIFY_EMAILS=.*$",
+                lambda _: f"NOTIFY_EMAILS={shlex.quote(new_email)}",
+                text,
+                flags=re.MULTILINE,
+            )
             entry.script_path.write_text(text, encoding="utf-8")
         except OSError as exc:
             print(f"  ✖ Cannot update script: {exc}")
@@ -866,6 +917,9 @@ def edit_cron_schedule(entry, config, t) -> None:
     print(f"    4. {t('install_cron.schedule_custom')}")
     print()
     raw_choice = input("  > ").strip()
+    if raw_choice.lower() in ("q", "quit"):
+        print(f"  {t('manage_cron.cancelled')}")
+        return
     if not raw_choice:
         raw_choice = "1"
     if raw_choice not in ("1", "2", "3", "4"):
@@ -883,6 +937,9 @@ def edit_cron_schedule(entry, config, t) -> None:
         print()
         print(f"  {t('install_cron.prompt_weekdays')}")
         raw_days = input("  > ").strip()
+        if raw_days.lower() in ("q", "quit"):
+            print(f"  {t('manage_cron.cancelled')}")
+            return
         parts = re.split(r"[\s,]+", raw_days)
         week_days = [int(p) for p in parts if p.isdigit() and 1 <= int(p) <= 7]
         if not week_days:
@@ -893,6 +950,9 @@ def edit_cron_schedule(entry, config, t) -> None:
         print()
         print(f"  {t('install_cron.prompt_monthdays')}")
         raw_days = input("  > ").strip()
+        if raw_days.lower() in ("q", "quit"):
+            print(f"  {t('manage_cron.cancelled')}")
+            return
         parts = re.split(r"[\s,]+", raw_days)
         month_days = [int(p) for p in parts if p.isdigit() and 1 <= int(p) <= 31]
         if not month_days:
@@ -903,6 +963,9 @@ def edit_cron_schedule(entry, config, t) -> None:
         print()
         print(f"  {t('install_cron.prompt_custom')}")
         custom_expr = input("  > ").strip()
+        if custom_expr.lower() in ("q", "quit"):
+            print(f"  {t('manage_cron.cancelled')}")
+            return
         err = _validate_custom_cron(custom_expr)
         if err:
             print(f"  ✖ {t('install_cron.invalid_schedule')} ({err})")
@@ -911,6 +974,9 @@ def edit_cron_schedule(entry, config, t) -> None:
     if choice != 4:
         print()
         raw_time = input(f"  {t('install_cron.prompt_time')} : ").strip()
+        if raw_time.lower() in ("q", "quit"):
+            print(f"  {t('manage_cron.cancelled')}")
+            return
         if not raw_time:
             raw_time = f"{entry.hour:02d}:{entry.minute:02d}"
         if not re.match(r"^\d{1,2}:\d{2}$", raw_time):

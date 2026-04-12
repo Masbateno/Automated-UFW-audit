@@ -16,8 +16,12 @@ from pathlib import Path
 # Path prompt helper
 # ---------------------------------------------------------------------------
 
-def prompt_path(prompt_label: str, default: Path) -> Path:
-    """Prompt for a filesystem path with TAB autocompletion via readline."""
+def prompt_path(prompt_label: str, default: Path, allow_cancel: bool = False) -> Path | None:
+    """Prompt for a filesystem path with TAB autocompletion via readline.
+
+    When *allow_cancel* is True, entering 'q' or 'quit' returns None so
+    the caller can abort without modifying anything.
+    """
     import glob as _glob
 
     def _path_completer(text, state):
@@ -44,6 +48,9 @@ def prompt_path(prompt_label: str, default: Path) -> Path:
             readline.set_completer(None)
         except ImportError:
             pass
+
+    if allow_cancel and raw.lower() in ("q", "quit"):
+        return None
 
     # resolve() normalises ".." components and follows symlinks,
     # preventing path traversal sequences in user-supplied paths.
@@ -170,7 +177,10 @@ def run_manage_logs(user_config, config, t) -> int:
 
     elif answer in ("c", "change"):
         default_dir = Path(log_dir_str)
-        chosen = prompt_path(t("manage_logs.change_prompt"), default_dir)
+        chosen = prompt_path(t("manage_logs.change_prompt"), default_dir, allow_cancel=True)
+        if chosen is None:
+            print(f"  {t('manage_logs.cancelled')}")
+            return 0
         try:
             chosen.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
