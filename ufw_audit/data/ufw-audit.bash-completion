@@ -80,6 +80,11 @@ _ufw_audit() {
         COMPREPLY=( $(compgen -W "${short_opts} ${long_opts}" -- "${cur}") )
     fi
 
+    # Suppress trailing space only for options that take a value (end with =)
+    if [[ ${#COMPREPLY[@]} -eq 1 && "${COMPREPLY[0]}" == *= ]]; then
+        compopt -o nospace
+    fi
+
     return 0
 }
 
