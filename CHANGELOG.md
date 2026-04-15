@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.17.0](#v1170) | 2026-04-15 | CHECK 31 (auditd); CHECK 32 (Secure Boot); CHECK 33 (file integrity AIDE/Tripwire); `--explain` profile variants (17 keys); `workstation` → `desktop` profile; Trusted Publishing; `cmd_type` fix/check; IPv6 avahi fix; journald fallback; sysctl persistence; UX improvements; 2507/2507 tests |
 | [v1.16.0](#v1160) | 2026-04-12 | CHECK 19 (desktop app detection); CHECK 28 (NTP sync); CHECK 29 (Fail2ban standalone); CHECK 30 (rootkit/integrity scan); `--target N` → exit code 4; CLI validation for empty values; 5 thematic group headers; fail2ban moved out of hardening; 2292/2292 tests |
 | [v1.15.1](#v1151) | 2026-04-12 | Hotfix: bash-completion — `--explain` no longer gets trailing `=`; `compopt -o nospace` for value options |
 | [v1.15.0](#v1150) | 2026-04-12 | CHECK 26 (IoT/local source dominance in UFW logs); CHECK 27 (SMTP local exposure); `--fix` dry-run by default, `--apply` to execute; `--target N` score cible; `--explain` TUI: clamped nav, in-curses detail screen, ESC/q fix; `--explain` 73→77 keys; quality pass `smtp.py`; 2139/2139 tests |
@@ -50,6 +51,92 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.17.0
+
+**2026-04-15**
+
+### CHECK 31 — Linux Audit Framework (`checks/auditd.py`)
+
+- `AuditdSnapshot`: `installed`, `service_active`, `rules_loaded`, `watched_files` (list of sensitive paths actually covered)
+- `from_system()`: `shutil.which("auditctl")`; `systemctl is-active auditd`; `auditctl -l` to count loaded rules and extract watched paths; sensitive targets: `/etc/passwd`, `/etc/shadow`, `/etc/sudoers`
+- `check_auditd()`: not installed → INFO; service inactive → WARN −1 pt; no rules → WARN −1 pt; sensitive files not watched → WARN −1 pt (server profile) / INFO (desktop)
+- 41 tests in `tests/test_auditd.py`
+
+### CHECK 32 — Secure Boot (`checks/secure_boot.py`)
+
+- `SecureBootSnapshot`: `state` ("enabled" / "disabled" / "no_uefi" / "unknown"), `method` ("mokutil" / "efivars" / "bootctl")
+- Detection order: `mokutil --sb-state` → `/sys/firmware/efi/efivars/SecureBoot-*` → `bootctl status`
+- `check_secure_boot()`: enabled → OK; disabled on desktop → WARN −1 pt; disabled on server (VMs/cloud) → INFO; BIOS/unknown → INFO
+- 21 tests in `tests/test_secure_boot.py`
+
+### CHECK 33 — File integrity monitoring (`checks/file_integrity.py`)
+
+- `FileIntegritySnapshot`: `tool` ("aide" / "tripwire" / ""), `db_exists`, `last_check_date` (ISO date or None)
+- `from_system()`: detects AIDE first (preference over Tripwire); db presence via path list; last check from log mtime
+- `check_file_integrity()`: not installed → INFO; no database → WARN −1 pt; no recent check → WARN −1 pt; check > 30 days → WARN −1 pt; OK if check recent
+- 33 tests in `tests/test_file_integrity.py`
+
+### `--explain` profile variants
+
+- 17 keys now show 3 dedicated sections (`[ server ]` / `[ desktop ]` / `[ container ]`) with profile-adapted WHY and HOW text
+- Keys with no meaningful profile difference display a uniform note in yellow: `ⓘ  This finding applies equally to all profiles.`
+- ESC delay in the interactive TUI reduced from ~1 s to 25 ms (`ESCDELAY=25` env var)
+- +81 tests in `test_explain.py`
+
+### Refactor — `workstation` → `desktop` profile
+
+- `data/profiles/desktop.conf` created with the same overrides as the former `workstation.conf`
+- `container.conf`: `extends = desktop`
+- `profiles.py`: `workstation` alias in `load_profile()` for backward compatibility
+- `cli.py` and bash-completion updated; `--help` references updated
+- All tests migrated to `desktop`; alias tests added
+
+### Bug fixes
+
+- **IPv6 false alarm (avahi/cups/loopback)** — `ss -tulnp` process names; `_INTERNAL_PROCESSES` frozenset filters avahi-daemon, systemd-resolve, dnsmasq, containerd, dockerd from IPv6 rule suggestions
+- **Logs journald fallback** — Debian 13 without rsyslog: `LogsSnapshot` gains `log_source` field; `from_system()` falls back to `journalctl -k --output=short-iso` when `/var/log/ufw.log` absent
+- **Hardening sysctl persistence** — `rp_filter`, `redirects_enabled`, `log_martians_disabled` commands now write to `/etc/sysctl.d/99-hardening.conf`
+- **disk.py** — `disk.smartctl_missing` finding now includes `sudo apt install smartmontools` cmd
+
+### UX
+
+- **`cmd_type`** — `Finding` dataclass gains `cmd_type: str = "fix"` / `"check"`; summary box uses a different prefix (`ℹ Check:` vs `→ Fix:`)
+- **manage_logs.py** — menu stays open after each delete action (`while True` loop)
+- **runner.py** — services sorted by severity (critical → high → medium → low → inactive)
+- **panorama.py** — rows sorted alphabetically by label
+- **display.py** — active audit profile displayed in the summary box
+- **output.py** — group header title centred in the `━` separator line; risk context entries colour-coded by tier
+- **Trusted Publishing** — `.github/workflows/publish.yml` publishes to PyPI via OIDC (no API token)
+
+### Tests
+
+- **2507/2507** (+215 vs v1.16.0)
+
+---
+
+## v1.16.0
+
+**2026-04-12**
+
+### New checks
+
+- **CHECK 19** — Desktop application detection: 30+ known GUI apps running as processes → INFO, no deduction; section not shown if no app is running
+- **CHECK 28** — NTP time synchronisation: systemd-timesyncd/chronyd/ntpd active and synchronised → WARN −1 pt if inactive or not yet synced
+- **CHECK 29** — Fail2ban intrusion prevention (standalone): service status, active jails, SSH jail detection → WARN −1 pt if inactive or no jails; moved out of hardening check
+- **CHECK 30** — Rootkit & integrity scan: rkhunter/chkrootkit DB freshness and last scan date → WARN −1 pt each
+
+### Improvements
+
+- **`--target N` exit code 4** — `EXIT_TARGET_MISSED = 4` when score < target; takes priority over codes 1/2
+- **CLI validation** — `--explain=`, `--profile=`, `--lang=`, `--webhook=`, `--target=` with empty value now raise a clear error
+- **5 thematic group headers** — output reorganised into FIREWALL & NETWORK / EXPOSURE & SERVICES / ACCESS CONTROL / SYSTEM HARDENING / DETECTION & HEALTH; full-width `━` cyan separator; fail2ban moved to GROUP 5
+
+### Tests
+
+- **2292/2292** (+153 vs v1.15.1)
 
 ---
 

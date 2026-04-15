@@ -271,3 +271,15 @@ class TestInterfacePatterns:
         snap = self._snap_from_ifaces(["virbr0", "virbr1"])
         libvirt = next(t for t in snap.technologies if t.name == "libvirt/KVM")
         assert libvirt.iface == "virbr0"
+
+
+# ---------------------------------------------------------------------------
+# cmd_type classification
+# ---------------------------------------------------------------------------
+
+class TestCmdType:
+    def test_bypass_risk_cmd_type_is_check(self):
+        snap = make_snapshot(technologies=[make_tech("libvirt/KVM", "virbr0")])
+        result = check_virtualization(snap, t=_t)
+        warn_findings = [f for f in result.findings if f.level == FindingLevel.WARN and f.cmd]
+        assert all(f.cmd_type == "check" for f in warn_findings)

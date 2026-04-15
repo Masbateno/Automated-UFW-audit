@@ -141,6 +141,7 @@ def check_disk(snapshot: DiskSnapshot, *, t=None) -> CheckResult:
         result.info(
             message=_t("disk.smartctl_missing"),
             detail=_t("disk.smartctl_missing_detail"),
+            cmd="sudo apt install smartmontools",
             key="disk.smartctl_missing",
         )
 
@@ -165,6 +166,7 @@ def check_disk(snapshot: DiskSnapshot, *, t=None) -> CheckResult:
                 message=_t("disk.smart_failed", device=sr.device, model=sr.model),
                 detail=_t("disk.smart_failed_detail"),
                 cmd=f"sudo smartctl -a {shlex.quote(sr.device)}",
+                cmd_type="check",
                 nature="action",
                 key="disk.smart_failed",
             )
@@ -191,6 +193,7 @@ def check_disk(snapshot: DiskSnapshot, *, t=None) -> CheckResult:
                 ),
                 detail=_t("disk.reallocated_sectors_detail"),
                 cmd=f"sudo smartctl -a {shlex.quote(sr.device)}",
+                cmd_type="check",
                 key="disk.reallocated_sectors",
             )
             result.add_deduction(
@@ -210,6 +213,7 @@ def check_disk(snapshot: DiskSnapshot, *, t=None) -> CheckResult:
                 ),
                 detail=_t("disk.pending_sectors_detail"),
                 cmd=f"sudo smartctl -a {shlex.quote(sr.device)}",
+                cmd_type="check",
                 key="disk.pending_sectors",
             )
             result.add_deduction(
@@ -229,6 +233,7 @@ def check_disk(snapshot: DiskSnapshot, *, t=None) -> CheckResult:
                 ),
                 detail=_t("disk.uncorrectable_errors_detail"),
                 cmd=f"sudo smartctl -a {shlex.quote(sr.device)}",
+                cmd_type="check",
                 key="disk.uncorrectable_errors",
             )
             result.add_deduction(
@@ -250,6 +255,7 @@ def check_disk(snapshot: DiskSnapshot, *, t=None) -> CheckResult:
                 ),
                 detail=_t("disk.partition_critical_detail", mountpoint=part.mountpoint),
                 cmd=f"du -x -h --max-depth=1 {shlex.quote(part.mountpoint)} 2>/dev/null | sort -rh | head -20",
+                cmd_type="check",
                 key="disk.partition_critical",
             )
             result.add_deduction(
@@ -292,6 +298,7 @@ def check_disk(snapshot: DiskSnapshot, *, t=None) -> CheckResult:
             message=_t("disk.smart_tips"),
             detail=_t("disk.smart_tips_detail"),
             cmd="\n".join(cmd_lines),
+            cmd_type="check",
             key="disk.smart_tips",
         )
 

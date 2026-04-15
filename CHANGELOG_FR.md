@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.17.0](#v1170) | 2026-04-15 | CHECK 31 (auditd) ; CHECK 32 (Secure Boot) ; CHECK 33 (intégrité fichiers AIDE/Tripwire) ; variantes `--explain` par profil (17 clés) ; `workstation` → `desktop` ; Trusted Publishing ; `cmd_type` fix/check ; correctif IPv6 avahi ; repli journald ; persistance sysctl ; améliorations UX ; 2507/2507 tests |
 | [v1.16.0](#v1160) | 2026-04-12 | CHECK 19 (détection applis bureau) ; CHECK 28 (sync NTP) ; CHECK 29 (Fail2ban autonome) ; CHECK 30 (scan rootkit/intégrité) ; `--target N` → code de sortie 4 ; validation CLI valeurs vides ; 5 en-têtes de groupes thématiques ; fail2ban sorti du durcissement ; 2292/2292 tests |
 | [v1.15.1](#v1151) | 2026-04-12 | Hotfix : autocomplétion bash — `--explain` n'obtient plus de `=` parasite ; `compopt -o nospace` pour les options à valeur |
 | [v1.15.0](#v1150) | 2026-04-12 | CHECK 26 (dominance source locale IoT dans les logs UFW) ; CHECK 27 (exposition SMTP locale) ; `--fix` aperçu par défaut, `--apply` pour exécuter ; `--target N` objectif de score ; TUI `--explain` : navigation bloquée, écran détail in-curses, correction ESC/q ; `--explain` 73→77 clés ; passage qualité `smtp.py` ; 2139/2139 tests |
@@ -50,6 +51,92 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.17.0
+
+**2026-04-15**
+
+### CHECK 31 — Linux Audit Framework (`checks/auditd.py`)
+
+- `AuditdSnapshot` : `installed`, `service_active`, `rules_loaded`, `watched_files` (liste des chemins sensibles effectivement surveillés)
+- `from_system()` : `shutil.which("auditctl")` ; `systemctl is-active auditd` ; `auditctl -l` pour compter les règles et extraire les chemins surveillés ; cibles sensibles : `/etc/passwd`, `/etc/shadow`, `/etc/sudoers`
+- `check_auditd()` : non installé → INFO ; service inactif → WARN −1 pt ; aucune règle → WARN −1 pt ; fichiers sensibles non couverts → WARN −1 pt (profil server) / INFO (desktop)
+- 41 tests dans `tests/test_auditd.py`
+
+### CHECK 32 — Secure Boot (`checks/secure_boot.py`)
+
+- `SecureBootSnapshot` : `state` ("enabled" / "disabled" / "no_uefi" / "unknown"), `method` ("mokutil" / "efivars" / "bootctl")
+- Ordre de détection : `mokutil --sb-state` → `/sys/firmware/efi/efivars/SecureBoot-*` → `bootctl status`
+- `check_secure_boot()` : activé → OK ; désactivé sur desktop → WARN −1 pt ; désactivé sur server (VMs/cloud) → INFO ; BIOS/inconnu → INFO
+- 21 tests dans `tests/test_secure_boot.py`
+
+### CHECK 33 — Intégrité des fichiers (`checks/file_integrity.py`)
+
+- `FileIntegritySnapshot` : `tool` ("aide" / "tripwire" / ""), `db_exists`, `last_check_date` (date ISO ou None)
+- `from_system()` : détecte AIDE en priorité sur Tripwire ; présence de la base via liste de chemins ; date du dernier check via mtime du log
+- `check_file_integrity()` : non installé → INFO ; base absente → WARN −1 pt ; aucun check → WARN −1 pt ; check > 30 jours → WARN −1 pt ; OK si check récent
+- 33 tests dans `tests/test_file_integrity.py`
+
+### Variantes `--explain` par profil
+
+- 17 clés affichent désormais 3 sections dédiées (`[ server ]` / `[ desktop ]` / `[ container ]`) avec des explications adaptées à chaque profil
+- Les clés sans différence significative selon le profil affichent une note uniforme en jaune : `ⓘ  This finding applies equally to all profiles.`
+- Délai de la touche ESC dans le TUI interactif réduit de ~1 s à 25 ms (variable `ESCDELAY=25`)
+- +81 tests dans `test_explain.py`
+
+### Refactoring — profil `workstation` → `desktop`
+
+- `data/profiles/desktop.conf` créé avec les mêmes surcharges que l'ancien `workstation.conf`
+- `container.conf` : `extends = desktop`
+- `profiles.py` : alias `workstation` dans `load_profile()` pour la rétrocompatibilité
+- `cli.py` et autocomplétion bash mis à jour ; références `--help` mises à jour
+- Tous les tests migrés vers `desktop` ; tests d'alias ajoutés
+
+### Correctifs
+
+- **Fausse alerte IPv6 (avahi/cups/loopback)** — noms de processus via `ss -tulnp` ; frozenset `_INTERNAL_PROCESSES` filtre avahi-daemon, systemd-resolve, dnsmasq, containerd, dockerd des suggestions de règles IPv6
+- **Repli journald dans logs.py** — Debian 13 sans rsyslog : `LogsSnapshot` gagne un champ `log_source` ; `from_system()` bascule sur `journalctl -k --output=short-iso` quand `/var/log/ufw.log` est absent
+- **Persistance sysctl dans hardening.py** — les commandes `rp_filter`, `redirects_enabled`, `log_martians_disabled` écrivent désormais dans `/etc/sysctl.d/99-hardening.conf`
+- **disk.py** — le finding `disk.smartctl_missing` inclut désormais `sudo apt install smartmontools` comme commande
+
+### UX
+
+- **`cmd_type`** — le dataclass `Finding` gagne `cmd_type: str = "fix"` / `"check"` ; la boîte de synthèse utilise un préfixe différent (`ℹ Vérifier :` vs `→ Corriger :`)
+- **manage_logs.py** — le menu reste ouvert après chaque suppression (boucle `while True`)
+- **runner.py** — services triés par gravité décroissante (critique → élevé → moyen → faible → inactif)
+- **panorama.py** — lignes triées alphabétiquement par libellé
+- **display.py** — profil d'audit actif affiché dans la boîte de synthèse
+- **output.py** — titre de l'en-tête de groupe centré dans la ligne `━` ; entrées du contexte de risque colorisées par niveau
+- **Trusted Publishing** — `.github/workflows/publish.yml` publie sur PyPI via OIDC (sans token API)
+
+### Tests
+
+- **2507/2507** (+215 vs v1.16.0)
+
+---
+
+## v1.16.0
+
+**2026-04-12**
+
+### Nouveaux checks
+
+- **CHECK 19** — Détection d'applications de bureau : 30+ applis GUI connues en cours d'exécution → INFO, sans déduction ; section non affichée si aucune appli n'est détectée
+- **CHECK 28** — Synchronisation NTP : systemd-timesyncd/chronyd/ntpd actif et synchronisé → WARN −1 pt si inactif ou pas encore synchronisé
+- **CHECK 29** — Prévention d'intrusion Fail2ban (autonome) : état du service, jails actifs, détection du jail SSH → WARN −1 pt si inactif ou sans jail ; sorti du check de durcissement
+- **CHECK 30** — Scan rootkit & intégrité : fraîcheur de la BDD rkhunter/chkrootkit et date du dernier scan → WARN −1 pt chacun
+
+### Améliorations
+
+- **`--target N` code de sortie 4** — `EXIT_TARGET_MISSED = 4` quand le score < cible ; prioritaire sur les codes 1/2
+- **Validation CLI** — `--explain=`, `--profile=`, `--lang=`, `--webhook=`, `--target=` avec valeur vide lèvent désormais une erreur claire
+- **5 en-têtes de groupes thématiques** — sortie réorganisée en FIREWALL & RÉSEAU / EXPOSITION & SERVICES / CONTRÔLE D'ACCÈS / DURCISSEMENT SYSTÈME / DÉTECTION & SANTÉ ; séparateur `━` cyan pleine largeur ; fail2ban déplacé dans le GROUPE 5
+
+### Tests
+
+- **2292/2292** (+153 vs v1.15.1)
 
 ---
 

@@ -129,6 +129,23 @@ class TestUfwDisabledWithListeners:
         result = check_ipv6(snap, t=_t)
         assert total_deductions(result) == 2
 
+    def test_listeners_listed_in_detail(self):
+        captured = {}
+
+        def _capture(key, **kwargs):
+            captured[key] = kwargs
+            return key
+
+        snap = make_snapshot(
+            kernel_ipv6_enabled=True,
+            ufw_ipv6_enabled=False,
+            ipv6_listeners=["22/tcp", "80/tcp"],
+        )
+        check_ipv6(snap, t=_capture)
+        ports = captured.get("ipv6.listeners_list", {}).get("ports", "")
+        assert "22/tcp" in ports
+        assert "80/tcp" in ports
+
     def test_count_passed_to_t(self):
         received = {}
 
@@ -266,6 +283,48 @@ class TestExtractIPv6Listeners:
         result = _extract_ipv6_listeners(self.SS_OUTPUT)
         assert "80/tcp" in result
         assert "22/tcp" in result
+
+    # --- Internal-process filtering (ss -tulnp output) ---
+
+    SS_OUTPUT_WITH_PROC = (
+        "Netid State  Recv-Q Send-Q Local Address:Port  Peer Address:Port Process\n"
+        'tcp   LISTEN 0      128    [::]:22    [::]:*    users:(("sshd",pid=972,fd=4))\n'
+        'tcp   LISTEN 0      511    [::]:80    [::]:*    users:(("nginx",pid=100,fd=5))\n'
+        'udp   UNCONN 0      0      [::]:5353  [::]:*    users:(("avahi-daemon",pid=709,fd=13))\n'
+        'udp   UNCONN 0      0      [::]:35839 [::]:*    users:(("avahi-daemon",pid=709,fd=15))\n'
+        'udp   UNCONN 0      0      [::]:53    [::]:*    users:(("systemd-resolve",pid=454,fd=17))\n'
+        'tcp   LISTEN 0      4096   [::]:44707 [::]:*    users:(("containerd",pid=962,fd=15))\n'
+    )
+
+    def test_avahi_secondary_port_filtered(self):
+        """avahi-daemon secondary ports must not appear in listeners."""
+        result = _extract_ipv6_listeners(self.SS_OUTPUT_WITH_PROC)
+        assert "35839/udp" not in result
+
+    def test_avahi_mdns_port_filtered(self):
+        """avahi-daemon is fully internal — 5353 also excluded."""
+        result = _extract_ipv6_listeners(self.SS_OUTPUT_WITH_PROC)
+        assert "5353/udp" not in result
+
+    def test_systemd_resolve_filtered(self):
+        result = _extract_ipv6_listeners(self.SS_OUTPUT_WITH_PROC)
+        assert "53/udp" not in result
+
+    def test_containerd_filtered(self):
+        result = _extract_ipv6_listeners(self.SS_OUTPUT_WITH_PROC)
+        assert "44707/tcp" not in result
+
+    def test_legitimate_services_not_filtered(self):
+        """sshd and nginx are NOT internal — must be included."""
+        result = _extract_ipv6_listeners(self.SS_OUTPUT_WITH_PROC)
+        assert "22/tcp" in result
+        assert "80/tcp" in result
+
+    def test_no_proc_info_includes_port(self):
+        """Lines without users:((…)) info are included (backward compat)."""
+        line = "udp   UNCONN 0      0      [::]:35839 [::]:*\n"
+        result = _extract_ipv6_listeners(line)
+        assert "35839/udp" in result
 
 
 # ---------------------------------------------------------------------------

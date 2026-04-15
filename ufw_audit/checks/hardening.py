@@ -154,7 +154,7 @@ def check_hardening(snapshot: HardeningSnapshot, t=None) -> CheckResult:
         result.warn(
             message=_t("hardening.rp_filter_disabled"),
             nature="improvement",
-            cmd="sudo sysctl -w net.ipv4.conf.all.rp_filter=1",
+            cmd="sudo sysctl -w net.ipv4.conf.all.rp_filter=1 && echo 'net.ipv4.conf.all.rp_filter=1' | sudo tee -a /etc/sysctl.d/99-hardening.conf",
             key="hardening.rp_filter_disabled",
         )
         result.add_deduction(
@@ -173,7 +173,7 @@ def check_hardening(snapshot: HardeningSnapshot, t=None) -> CheckResult:
         result.warn(
             message=_t("hardening.redirects_enabled"),
             nature="improvement",
-            cmd="sudo sysctl -w net.ipv4.conf.all.accept_redirects=0",
+            cmd="sudo sysctl -w net.ipv4.conf.all.accept_redirects=0 && echo 'net.ipv4.conf.all.accept_redirects=0' | sudo tee -a /etc/sysctl.d/99-hardening.conf",
             key="hardening.redirects_enabled",
         )
         result.add_deduction(
@@ -191,6 +191,7 @@ def check_hardening(snapshot: HardeningSnapshot, t=None) -> CheckResult:
     else:
         result.info(
             message=_t("hardening.log_martians_disabled"),
+            cmd="sudo sysctl -w net.ipv4.conf.all.log_martians=1 && echo 'net.ipv4.conf.all.log_martians=1' | sudo tee -a /etc/sysctl.d/99-hardening.conf",
             key="hardening.log_martians_disabled",
         )
 

@@ -156,13 +156,27 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Quality & reliability
 
-- ✅ 2292 unit tests
+- ✅ 2507 unit tests
 - 🧱 Modular architecture (snapshot / check separated)
 - 🧪 Tested on Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.16.0
+## 🆕 v1.17.0
+
+- 🔍 **CHECK 31 — Linux Audit Framework (auditd)** — detects installation, service status, loaded rules, and coverage of sensitive files (/etc/passwd, /etc/shadow, /etc/sudoers); WARN −1 pt each for inactive service, no rules, uncovered sensitive files (server profile)
+- 🔐 **CHECK 32 — Secure Boot** — UEFI Secure Boot state via mokutil/efivars/bootctl; WARN −1 pt if disabled on desktop; INFO if disabled on server/VM or unknown BIOS
+- 🗂 **CHECK 33 — File integrity monitoring (AIDE/Tripwire)** — detects installation, database initialisation, and last check date; WARN −1 pt if no database or no recent check (>30 days)
+- 🗣 **`--explain` profile variants** — 17 keys show 3 dedicated sections (server / desktop / container) with profile-adapted explanations; uniform yellow note for keys that don't differ between profiles
+- 🖥 **`workstation` → `desktop` profile** — profile renamed for clarity; `workstation` alias kept for backward compatibility
+- 🏷 **`cmd_type` on findings** — findings now distinguish `fix` from `check` commands with different prefixes in the summary
+- 🐛 **IPv6 avahi false alarm fixed** — avahi-daemon, systemd-resolve, and similar internal processes no longer trigger UFW rule suggestions
+- 📋 **Logs journald fallback** — Debian 13 without rsyslog automatically reads from `journalctl -k`
+- ⚙️ **Hardening sysctl persistence** — fix commands now write to `/etc/sysctl.d/99-hardening.conf`
+- 🚀 **Trusted Publishing** — GitHub Actions OIDC → PyPI; no API token required
+- ✅ 2507/2507 unit tests (+215)
+
+## v1.16.0
 
 - 🖥 **CHECK 19 — Desktop application detection** — detects known GUI apps (Steam, Discord, Zoom, Signal…) running as processes; INFO findings, no deduction; section shown only when apps detected
 - 🕐 **CHECK 28 — NTP time synchronisation** — checks systemd-timesyncd/chronyd/ntpd; WARN −1 pt if disabled or not yet synchronised
@@ -214,14 +228,14 @@ Automated-UFW-audit/
 │   ├── checks/                     # firewall, services, ports, logs, ddns, docker, virt, ssh
 │   ├── data/
 │   │   ├── services.json           # 22 built-in service definitions
-│   │   ├── profiles/               # built-in audit profiles (server, workstation, container)
+│   │   ├── profiles/               # built-in audit profiles (server, desktop, container)
 │   │   └── ufw-audit.bash-completion
 │   │   # ~/.config/ufw-audit/services.d/  ← user plugin directory (sudo: /root/...)
 │   │   # ~/.config/ufw-audit/profiles/    ← user-defined audit profiles
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 2292 unit tests
+└── tests/                          # 2507 unit tests
 ```
 
 ---

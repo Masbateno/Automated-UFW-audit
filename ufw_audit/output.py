@@ -52,11 +52,13 @@ class _Colours(NamedTuple):
     dim:    str
     red:    str
     yellow: str
+    orange: str
     green:  str
     cyan:   str
     blue:   str
     red_bold:    str
     yellow_bold: str
+    orange_bold: str
     green_bold:  str
     cyan_bold:   str
     blue_bold:   str
@@ -68,11 +70,13 @@ _COLOURS_ON = _Colours(
     dim          = "\033[2m",
     red          = "\033[31m",
     yellow       = "\033[33m",
+    orange       = "\033[38;5;208m",
     green        = "\033[32m",
     cyan         = "\033[36m",
     blue         = "\033[34m",
     red_bold     = "\033[1;31m",
     yellow_bold  = "\033[1;33m",
+    orange_bold  = "\033[1;38;5;208m",
     green_bold   = "\033[1;32m",
     cyan_bold    = "\033[1;36m",
     blue_bold    = "\033[1;34m",
@@ -164,18 +168,18 @@ def _print_status(
 # ---------------------------------------------------------------------------
 
 def print_group(title: str) -> None:
-    """Print a thematic group header — visually above section boxes.
+    """Print a thematic group header — title centred inside the ━ bar.
 
     Example:
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          FIREWALL & RÉSEAU
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ━━━━━━━━━━━━━━━━━━━━━━━ PARE-FEU & RÉSEAU ━━━━━━━━━━━━━━━━━━━━━━━
     """
-    bar = "━" * _TERM_WIDTH
+    label = f" {title} "
+    side = (_TERM_WIDTH - len(label)) // 2
+    extra = _TERM_WIDTH - len(label) - 2 * side   # 0 or 1 when width is odd
+    bar = "━" * side + label + "━" * (side + extra)
     _p()
     _p(f"{_c.cyan}{bar}{_c.reset}")
-    _p(f"  {_c.cyan_bold}{title}{_c.reset}")
-    _p(f"{_c.cyan}{bar}{_c.reset}")
+    _p()
 
 
 def print_section(title: str) -> None:
@@ -213,7 +217,7 @@ def print_port_detail(message: str) -> None:
 
 
 def print_recommendation(lines: str | list[str]) -> None:
-    """Print a recommendation block with arrow prefix.
+    """Print a recommendation block with arrow prefix (fix commands).
 
     Args:
         lines: Single string or list of strings. Each line is printed
@@ -228,9 +232,33 @@ def print_recommendation(lines: str | list[str]) -> None:
     _p()
 
 
+def print_check_cmd(lines: str | list[str]) -> None:
+    """Print a diagnostic command block with ℹ prefix (check commands).
+
+    Used for read-only commands that display information without making
+    any change to the system (e.g. iptables -L, smartctl -a).
+
+    Args:
+        lines: Single string or list of strings. Each line is printed
+               with a ℹ prefix on a new indented line.
+    """
+    from ufw_audit.i18n import t as _t
+    if isinstance(lines, str):
+        lines = lines.splitlines()
+    _p(f"\n    {_c.dim}{_t('output.check_label')}{_c.reset}")
+    for line in lines:
+        _p(f"    {_c.cyan}ℹ {line}{_c.reset}")
+    _p()
+
+
 def print_dim(message: str) -> None:
     """Print a dimmed informational line."""
     _p(f"  {_c.dim}{message}{_c.reset}")
+
+
+def yellow(text: str) -> str:
+    """Wrap *text* in yellow ANSI codes (respects --no-color)."""
+    return f"{_c.yellow}{text}{_c.reset}"
 
 
 def print_risk_context(
@@ -241,6 +269,7 @@ def print_risk_context(
     threat_label: str,
     threat: str,
     is_critical: bool = False,
+    risk_tier: str = "low",
 ) -> None:
     """Print the two-axis risk context block for a service.
 
@@ -251,9 +280,15 @@ def print_risk_context(
         exposure:       Exposure description text.
         threat_label:   Translated label for threat axis.
         threat:         Threat description text.
-        is_critical:    If True, level is displayed in red; otherwise yellow.
+        is_critical:    Kept for backward compatibility. Prefer risk_tier.
+        risk_tier:      "critical" → red, "medium" → orange, "low" → yellow.
     """
-    level_colour = _c.red_bold if is_critical else _c.yellow_bold
+    if risk_tier == "critical" or is_critical:
+        level_colour = _c.red_bold
+    elif risk_tier == "medium":
+        level_colour = _c.orange_bold
+    else:
+        level_colour = _c.yellow_bold
     print(f"    {_c.dim}┄ {title} — {level_colour}{level}{_c.reset}")
     print(f"    {_c.dim}{exposure_label} : {_c.reset}{_c.dim}{exposure}{_c.reset}")
     print(f"    {_c.dim}{threat_label}   : {_c.reset}{_c.dim}{threat}{_c.reset}")

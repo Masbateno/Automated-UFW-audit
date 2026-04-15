@@ -35,7 +35,29 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v1.13.0 | 1890  | +187 tests — `test_disk.py` (60), `test_memory.py` (37); `test_explain.py` updated (33→63 keys assertion) |
 | v1.14.0 | 2045  | +155 tests — `test_samba.py` (68), `test_clamav.py` (52); `test_explain.py` updated (63→73 keys); `test_compare.py` info_delta tests (+5) |
 | v1.15.0 | 2139  | +93 tests — `test_smtp.py` (31 + 9 quality pass), `TestDominantLocalSource` (13), `TestApplyFlag` (12), `TestTargetFlag` (10), `TestDryRun` (8), `test_explain.py` updated (73→77 keys), `test_cli.py` updated (`--apply` semantics) |
+| v1.17.0 | 2507  | +215 tests — `test_auditd.py` (new, 41), `test_secure_boot.py` (new, 21), `test_file_integrity.py` (new, 33), `test_explain.py` +81 (profile variants), other modified files +39 |
 | v1.16.0 | 2292  | +153 tests — `test_desktop_apps.py` (new), `test_ntp.py` (new), `test_fail2ban.py` (42), `test_rootkit.py` (38), `test_exit_codes.py` (18); `test_hardening.py` −3 (fail2ban removed); `test_explain.py` 77→76 keys |
+
+### v1.17.0 — 2507/2507 (2026-04-15)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+2507 passed in 2.47s
+```
+
+#### New / modified tests (+215)
+
+| File | Change | Coverage |
+|------|--------|----------|
+| `tests/test_auditd.py` | New — 41 tests | `AuditdSnapshot` defaults; `from_system()` paths; `check_auditd()` — not installed (INFO), service inactive (WARN −1 pt), no rules (WARN −1 pt), missing watches server (WARN −1 pt) / desktop (INFO), all ok (OK) |
+| `tests/test_secure_boot.py` | New — 21 tests | `SecureBootSnapshot` defaults; detection methods (mokutil/efivars/bootctl); `check_secure_boot()` — enabled (OK), disabled desktop (WARN −1 pt), disabled server (INFO), no_uefi (INFO), unknown (INFO) |
+| `tests/test_file_integrity.py` | New — 33 tests | `FileIntegritySnapshot` defaults; `_check_age_days()` (old date, future date, invalid, empty); `check_file_integrity()` — not installed, no db (aide/tripwire cmds), no check, check old (date+days in t()), clean (ok); `TestCleanSystemFindingCount`; `TestEdgeCases` (invalid date treated as ok, no_db priority, unknown tool fallback) |
+| `tests/test_explain.py` | +81 tests | `TestHasProfileVariants` (12 assertions); `TestRunExplainProfileVariants` (per-profile sections for 17 variant keys); `TestRunExplainUniform` (uniform yellow note, no profile sections for 8 uniform keys); `test_known_key_shows_why_and_how_headers` updated to branch on variant vs uniform |
+| Other modified test files | +39 tests | `test_cli.py`, `test_desktop_apps.py`, `test_disk.py`, `test_fail2ban.py`, `test_hardening.py`, `test_ipv6.py`, `test_logs.py`, `test_memory.py`, `test_profiles.py`, `test_updates.py`, `test_virtualization.py` |
+
+---
 
 ### v1.16.0 — 2292/2292 (2026-04-12)
 

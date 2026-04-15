@@ -113,7 +113,7 @@ class TestFlags:
         assert parse_args(["--profile=server"]).profile == "server"
 
     def test_profile_short(self):
-        assert parse_args(["-p", "workstation"]).profile == "workstation"
+        assert parse_args(["-p", "desktop"]).profile == "desktop"
 
     def test_reset_baseline(self):
         assert parse_args(["--reset-baseline"]).reset_baseline is True

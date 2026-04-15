@@ -48,6 +48,9 @@ from ufw_audit.checks.samba import SambaSnapshot, check_samba
 from ufw_audit.checks.clamav import ClamAVSnapshot, check_clamav
 from ufw_audit.checks.smtp import SmtpSnapshot, check_smtp
 from ufw_audit.checks.desktop_apps import DesktopAppsSnapshot, check_desktop_apps
+from ufw_audit.checks.auditd import AuditdSnapshot, check_auditd
+from ufw_audit.checks.secure_boot import SecureBootSnapshot, check_secure_boot
+from ufw_audit.checks.file_integrity import FileIntegritySnapshot, check_file_integrity
 from ufw_audit.checks.ntp import NtpSnapshot, check_ntp
 from ufw_audit.checks.fail2ban import Fail2banSnapshot, check_fail2ban
 from ufw_audit.checks.rootkit import RootkitSnapshot, check_rootkit
@@ -180,6 +183,21 @@ def run_checks(
         all_listening_ports=all_listening_ports,
     )
     audited_ports: set[str] = set()
+
+    _SEVERITY_ORDER = {"critical": 0, "critique": 0, "high": 1, "élevé": 1,
+                       "medium": 2, "moyen": 2, "low": 3, "faible": 3}
+
+    def _snap_severity(snap) -> int:
+        svc_id = (snap.service.label.lower()
+                  .replace(" ", "_").replace("/", "_")
+                  .replace("(", "").replace(")", ""))
+        level = t(f"service_risk.{svc_id}.level").lower()
+        for kw, rank in _SEVERITY_ORDER.items():
+            if kw in level:
+                return rank
+        return 4  # inactive / unknown → last
+
+    snapshots = sorted(snapshots, key=_snap_severity)
 
     for snap in snapshots:
         if not config.quiet:
@@ -443,69 +461,6 @@ def run_checks(
         if not config.quiet:
             print()
 
-    # =========================================================================
-    # GROUP 5 — DÉTECTION & SANTÉ
-    # =========================================================================
-    if not config.quiet:
-        print_group(t("groups.detection_health"))
-    report.write_group(t("groups.detection_health"))
-
-    # ---- CHECK 29 — Fail2ban intrusion prevention ----
-    fail2ban_snapshot = Fail2banSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("fail2ban"):
-        if not config.quiet:
-            print_section(t("sections.fail2ban"))
-        report.write_section(t("sections.fail2ban"))
-        fail2ban_result = check_fail2ban(fail2ban_snapshot, t=t)
-        if profile is not None:
-            apply_profile(fail2ban_result, profile)
-        engine.apply(fail2ban_result)
-        display_result(fail2ban_result, report, config.verbose, quiet=config.quiet)
-        if not config.quiet:
-            print()
-
-    # ---- CHECK 25 — ClamAV antivirus audit ----
-    clamav_snapshot = ClamAVSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("clamav"):
-        if not config.quiet:
-            print_section(t("sections.clamav"))
-        report.write_section(t("sections.clamav"))
-        clamav_result = check_clamav(clamav_snapshot, t=t)
-        if profile is not None:
-            apply_profile(clamav_result, profile)
-        engine.apply(clamav_result)
-        display_result(clamav_result, report, config.verbose, quiet=config.quiet)
-        if not config.quiet:
-            print()
-
-    # ---- CHECK 30 — Rootkit & integrity scan ----
-    rootkit_snapshot = RootkitSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("rootkit"):
-        if not config.quiet:
-            print_section(t("sections.rootkit"))
-        report.write_section(t("sections.rootkit"))
-        rootkit_result = check_rootkit(rootkit_snapshot, t=t)
-        if profile is not None:
-            apply_profile(rootkit_result, profile)
-        engine.apply(rootkit_result)
-        display_result(rootkit_result, report, config.verbose, quiet=config.quiet)
-        if not config.quiet:
-            print()
-
-    # ---- CHECK 28 — NTP time synchronisation ----
-    ntp_snapshot = NtpSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("ntp"):
-        if not config.quiet:
-            print_section(t("sections.ntp"))
-        report.write_section(t("sections.ntp"))
-        ntp_result = check_ntp(ntp_snapshot, t=t)
-        if profile is not None:
-            apply_profile(ntp_result, profile)
-        engine.apply(ntp_result)
-        display_result(ntp_result, report, config.verbose, quiet=config.quiet)
-        if not config.quiet:
-            print()
-
     # ---- CHECK 23 — Memory & Swap ----
     memory_snapshot = MemorySnapshot.from_system()
     if profile is None or not profile.should_skip_section("memory"):
@@ -536,6 +491,117 @@ def run_checks(
         display_result(disk_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:
             display_disk_partitions(disk_snapshot, t, output)
+            print()
+
+    # =========================================================================
+    # GROUP 5 — DÉTECTION & SANTÉ
+    # =========================================================================
+    if not config.quiet:
+        print_group(t("groups.detection_health"))
+    report.write_group(t("groups.detection_health"))
+
+    # ---- CHECK 31 — Linux Audit Framework (auditd) ----
+    auditd_snapshot = AuditdSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("auditd"):
+        if not config.quiet:
+            print_section(t("sections.auditd"))
+        report.write_section(t("sections.auditd"))
+        auditd_result = check_auditd(
+            auditd_snapshot, t=t,
+            profile_name=profile.name if profile is not None else "server",
+        )
+        if profile is not None:
+            apply_profile(auditd_result, profile)
+        engine.apply(auditd_result)
+        display_result(auditd_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 32 — Secure Boot ----
+    secure_boot_snapshot = SecureBootSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("secure_boot"):
+        if not config.quiet:
+            print_section(t("sections.secure_boot"))
+        report.write_section(t("sections.secure_boot"))
+        secure_boot_result = check_secure_boot(
+            secure_boot_snapshot, t=t,
+            profile_name=profile.name if profile is not None else "server",
+        )
+        if profile is not None:
+            apply_profile(secure_boot_result, profile)
+        engine.apply(secure_boot_result)
+        display_result(secure_boot_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 29 — Fail2ban intrusion prevention ----
+    fail2ban_snapshot = Fail2banSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("fail2ban"):
+        if not config.quiet:
+            print_section(t("sections.fail2ban"))
+        report.write_section(t("sections.fail2ban"))
+        fail2ban_result = check_fail2ban(fail2ban_snapshot, t=t)
+        if profile is not None:
+            apply_profile(fail2ban_result, profile)
+        engine.apply(fail2ban_result)
+        display_result(fail2ban_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 25 — ClamAV antivirus audit ----
+    clamav_snapshot = ClamAVSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("clamav"):
+        if not config.quiet:
+            print_section(t("sections.clamav"))
+        report.write_section(t("sections.clamav"))
+        clamav_result = check_clamav(clamav_snapshot, t=t)
+        if profile is not None:
+            apply_profile(clamav_result, profile)
+        engine.apply(clamav_result)
+        display_result(clamav_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 33 — File integrity monitoring (AIDE / Tripwire) ----
+    file_integrity_snapshot = FileIntegritySnapshot.from_system()
+    if profile is None or not profile.should_skip_section("file_integrity"):
+        if not config.quiet:
+            print_section(t("sections.file_integrity"))
+        report.write_section(t("sections.file_integrity"))
+        file_integrity_result = check_file_integrity(file_integrity_snapshot, t=t)
+        if profile is not None:
+            apply_profile(file_integrity_result, profile)
+        engine.apply(file_integrity_result)
+        display_result(file_integrity_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 30 — Rootkit & integrity scan ----
+    rootkit_snapshot = RootkitSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("rootkit"):
+        if not config.quiet:
+            print_section(t("sections.rootkit"))
+        report.write_section(t("sections.rootkit"))
+        rootkit_result = check_rootkit(rootkit_snapshot, t=t)
+        if profile is not None:
+            apply_profile(rootkit_result, profile)
+        engine.apply(rootkit_result)
+        display_result(rootkit_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 28 — NTP time synchronisation ----
+    ntp_snapshot = NtpSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("ntp"):
+        if not config.quiet:
+            print_section(t("sections.ntp"))
+        report.write_section(t("sections.ntp"))
+        ntp_result = check_ntp(ntp_snapshot, t=t)
+        if profile is not None:
+            apply_profile(ntp_result, profile)
+        engine.apply(ntp_result)
+        display_result(ntp_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
             print()
 
     # ---- CHECK 19 — Desktop application audit ----

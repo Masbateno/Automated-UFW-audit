@@ -6,6 +6,114 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.17.0] — 2026-04-15
+
+### Résumé
+- **CHECK 31** — Linux Audit Framework (auditd) : installation, service actif, règles chargées, fichiers sensibles surveillés → WARN −1 pt chacun pour service inactif / aucune règle / fichiers non couverts (profil server)
+- **CHECK 32** — Secure Boot : détection mokutil/efivars/bootctl → WARN −1 pt si désactivé sur desktop ; INFO si désactivé sur server/VM ou BIOS/inconnu
+- **CHECK 33** — Intégrité des fichiers (AIDE/Tripwire) : installé, base initialisée, dernier check ≤30 jours → WARN −1 pt chacun
+- **Variantes `--explain` par profil** : 17 clés affichent des sections `[ server ]` / `[ desktop ]` / `[ container ]` ; note uniforme jaune pour les clés sans différence entre profils ; délai ESC réduit à 25 ms
+- **Profil `workstation` → `desktop`** : renommé ; alias `workstation` conservé pour la rétrocompatibilité
+- **`cmd_type`** : `Finding` gagne `cmd_type: str = "fix"` / `"check"` ; préfixe différent dans la boîte de synthèse
+- **Correctifs** : fausse alerte IPv6 avahi, repli journald (Debian 13), persistance sysctl hardening, hint smartmontools
+- **UX** : services triés par gravité, panorama alphabétique, profil dans la boîte de synthèse, couleurs contexte de risque, titre de groupe centré
+- **Trusted Publishing** : `.github/workflows/publish.yml` — OIDC → PyPI ; aucun token API
+- **2507/2507 tests** (+215 vs v1.16.0)
+
+### Modifications
+
+**`checks/auditd.py`** (CHECK 31 — nouveau fichier)
+- `AuditdSnapshot` : `installed: bool`, `service_active: bool`, `rules_loaded: int`, `watched_files: list[str]`
+- `from_system()` : `shutil.which("auditctl")` → installed ; `systemctl is-active auditd` → service_active ; `auditctl -l` → comptage des règles et extraction des chemins surveillés ; cibles sensibles : `/etc/passwd`, `/etc/shadow`, `/etc/sudoers`
+- `check_auditd()` : non installé → INFO ; service inactif → WARN −1 pt `auditd.service_inactive` ; aucune règle → WARN −1 pt `auditd.no_rules` ; fichiers sensibles non couverts → WARN −1 pt (server) / INFO (desktop) `auditd.missing_watches` ; tout OK → OK `auditd.ok`
+
+**`checks/secure_boot.py`** (CHECK 32 — nouveau fichier)
+- `SecureBootSnapshot` : `state: str` ("enabled" / "disabled" / "no_uefi" / "unknown"), `method: str`
+- Priorité de détection : `mokutil --sb-state` → lecture octet `/sys/firmware/efi/efivars/SecureBoot-*` → grep `bootctl status`
+- `check_secure_boot()` : activé → OK ; désactivé sur desktop → WARN −1 pt `secure_boot.disabled` ; désactivé sur server → INFO ; no_uefi / inconnu → INFO
+
+**`checks/file_integrity.py`** (CHECK 33 — nouveau fichier)
+- Constantes : `_CHECK_WARN_DAYS = 30` ; chemins BDD AIDE (`/var/lib/aide/aide.db*`) ; répertoire BDD + logs Tripwire
+- `FileIntegritySnapshot` : `tool: str` ("aide" / "tripwire" / ""), `db_exists: bool`, `last_check_date: Optional[str]`
+- `from_system()` : AIDE détecté en priorité ; présence de la BDD via liste de chemins ; date du dernier check via mtime du fichier log ; Tripwire : fichier `.txt` le plus récent dans le répertoire de logs
+- `_check_age_days(iso_date)` : UTC-aware — `datetime.strptime(...).replace(tzinfo=timezone.utc)` + `datetime.now(timezone.utc)`
+- `check_file_integrity()` : non installé → INFO ; BDD absente → WARN −1 pt ; aucun check → WARN −1 pt ; check > 30 jours → WARN −1 pt ; OK si check récent
+
+**`explain.py`**
+- `_EXPLAIN_PROFILES = ("server", "desktop", "container")`
+- `_has_profile_variants(key, t)` : sonde `t(f"explain.{key}.server.why")` ; vérifie les formes brute et `[entre crochets]` (gère i18n réel vs mock t())
+- `run_explain()` : si variantes → affiche `[ profil ]` + diviseur + WHY et HOW du profil (spécifique ou repli générique) ; sinon → WHY/HOW générique + note uniforme jaune (`\033[33m...\033[0m` si `sys.stdout.isatty()`)
+- `_detail_screen._build_lines()` : même logique en mode curses ; note uniforme via `color_pair(2)` (COLOR_YELLOW)
+- `os.environ.setdefault("ESCDELAY", "25")` avant l'appel à `curses.wrapper()`
+
+**`locales/en.json` + `fr.json`**
+- Variantes par profil pour 17 clés : `updates.unattended_not_configured`, `updates.security_pending`, `hardening.rp_filter_disabled`, `hardening.rp_filter_loose`, `hardening.redirects_enabled`, `hardening.log_martians_disabled`, `ipv6.port_no_v6_rule`, `ipv6.ufw_disabled_listeners_present`, `memory.swappiness_ssd_wear`, `memory.swappiness_unjustified`, `services_state.enabled_inactive`, `clamav.db_very_outdated`, `clamav.db_outdated`, `clamav.scan_very_old`, `clamav.scan_old`, `kernel_modules.risky_fs`, `kernel_modules.risky_net`
+- Structure par clé : `explain.KEY.server.why`, `explain.KEY.desktop.why`, `explain.KEY.container.why` ; `explain.KEY.container.how` optionnel pour les clés sysctl/noyau/mémoire
+- Nouvelles sections `auditd`, `secure_boot`, `file_integrity` dans les deux langues
+
+**`scoring.py`**
+- `Finding` : champ `cmd_type: str = "fix"` ; propagé dans toutes les méthodes `result.ok/warn/alert/info()`
+
+**`output.py`**
+- `print_check_cmd()` : affiche `ℹ Vérifier : cmd` (vs `→ cmd` pour les corrections)
+- `print_group()` : titre du groupe centré dans la ligne `━` pleine largeur
+- `orange` + `orange_bold` ajoutés à `_Colours`
+- `print_risk_context()` : paramètre `risk_tier` — rouge=critique, orange=moyen, jaune=faible
+
+**`checks/ipv6.py`**
+- `ss -tuln` → `ss -tulnp` pour capturer les noms de processus
+- `_INTERNAL_PROCESSES` frozenset : avahi-daemon, systemd-resolve, dnsmasq, containerd, dockerd
+- `_extract_ipv6_listeners()` : filtre les processus internes ; plus de suggestions de règles UFW pour avahi/cups/loopback
+- Warning `ufw_disabled_listeners_present` : `detail=t("ipv6.listeners_list", ports=...)` affichant les ports concernés
+
+**`checks/logs.py`**
+- `LogsSnapshot` : nouveau champ `log_source: str` ("file" / "journald" / "none")
+- `from_system()` : bascule sur `_read_from_journald(log_days)` quand `/var/log/ufw.log` absent ; `journalctl -k --output=short-iso`
+- `check_logs()` : INFO discret si `source=journald` ; message `no_logfile` mis à jour (mentionne journald)
+
+**`checks/hardening.py`**
+- `rp_filter_disabled` / `rp_filter_loose` / `redirects_enabled` / `log_martians_disabled` : commandes de correction persistantes via `sysctl -w ... && echo ... >> /etc/sysctl.d/99-hardening.conf`
+
+**`checks/disk.py`**
+- Finding `disk.smartctl_missing` : `cmd="sudo apt install smartmontools"` ajouté
+
+**`manage_logs.py`**
+- `run_manage_logs()` refactorisé avec `while True` — menu reste ouvert après chaque suppression ; liste des logs rafraîchie à chaque itération ; quitter : Entrée ou `q`
+
+**`runner.py`**
+- `_snap_severity()` : CRITIQUE(0) → ÉLEVÉ(1) → MOYEN(2) → FAIBLE(3) → inactif(4)
+- `snapshots = sorted(snapshots, key=_snap_severity)` avant la boucle d'affichage
+- CHECK 31 inséré en tête du GROUPE 5 (DÉTECTION & SANTÉ) ; CHECK 32 avant CHECK 29 ; CHECK 33 après CHECK 30
+
+**`panorama.py`**
+- `build_panorama_rows()` : `return sorted(rows, key=lambda r: r["label"].lower())`
+
+**`display.py`**
+- `print_audit_summary()` : paramètre `profile_name: str = "server"` ; ligne du profil ajoutée dans la boîte de synthèse
+- `display_risk_context()` : détecte le niveau de risque du texte traduit → transmis à `print_risk_context()`
+
+**`profiles.py`**
+- `load_profile()` : alias `workstation` → `desktop`
+
+**`data/profiles/desktop.conf`** (nouveau fichier)
+- Mêmes surcharges que l'ancien `workstation.conf` ; `container.conf` mis à jour avec `extends = desktop`
+
+**`.github/workflows/publish.yml`** (nouveau fichier)
+- Workflow Trusted Publishing : déclenché sur les tags `v*` ; jobs : test → build → publish
+- `environment: release` ; permission `id-token: write` ; `pypa/gh-action-pypi-publish@release/v1`
+
+### Tests
+
+| Fichier | Modification | Couverture |
+|---------|-------------|------------|
+| `tests/test_auditd.py` | Nouveau — 41 tests | Défauts `AuditdSnapshot` ; chemins `from_system()` ; `check_auditd()` — non installé, inactif, sans règles, watches manquants (server/desktop), tout OK |
+| `tests/test_secure_boot.py` | Nouveau — 21 tests | Défauts `SecureBootSnapshot` ; méthodes de détection ; `check_secure_boot()` — activé, désactivé desktop (WARN), désactivé server (INFO), no_uefi (INFO), inconnu (INFO) |
+| `tests/test_file_integrity.py` | Nouveau — 33 tests | Défauts `FileIntegritySnapshot` ; cas limites `_check_age_days()` ; `check_file_integrity()` — non installé, BDD absente (aide/tripwire), sans check, check ancien, propre ; repli outil inconnu ; `TestEdgeCases` (date invalide, priorité, outil inconnu) |
+| `tests/test_explain.py` | +81 tests | `TestHasProfileVariants` (12) ; `TestRunExplainProfileVariants` (24 × sections par profil) ; `TestRunExplainUniform` (note jaune, pas de sections) ; branchement dans `test_known_key_shows_why_and_how_headers` |
+| Autres fichiers modifiés | +39 tests | `test_cli.py`, `test_desktop_apps.py`, `test_disk.py`, `test_fail2ban.py`, `test_hardening.py`, `test_ipv6.py`, `test_logs.py`, `test_memory.py`, `test_profiles.py`, `test_updates.py`, `test_virtualization.py` |
+
+---
+
 ## [v1.16.0] — 2026-04-12
 
 ### Résumé

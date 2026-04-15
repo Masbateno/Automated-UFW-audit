@@ -109,20 +109,23 @@ class Finding:
         level:   Severity level (OK, INFO, WARN, ALERT).
         message: Main finding message (already translated by caller).
         detail:  Optional secondary detail or recommendation text.
-        nature:  Category used by --fix mode: "action" | "improvement" | "structural" | "".
-        cmd:     Shell command for --fix mode. Empty string if not automatable.
-        note:    Optional disclaimer or contextual warning shown after the cmd.
-        key:     Stable i18n key linking this finding to a Deduction.reason so
-                 audit profiles can override its severity.  Empty string means
-                 the finding is not individually overridable by profiles.
+        nature:   Category used by --fix mode: "action" | "improvement" | "structural" | "".
+        cmd:      Shell command shown in the "Que faire ?" block. Empty string if none.
+        cmd_type: How the command should be rendered: "fix" (→, default) or "check" (ℹ).
+                  Use "check" for read-only diagnostic commands that do not change state.
+        note:     Optional disclaimer or contextual warning shown after the cmd.
+        key:      Stable i18n key linking this finding to a Deduction.reason so
+                  audit profiles can override its severity.  Empty string means
+                  the finding is not individually overridable by profiles.
     """
-    level:   FindingLevel
-    message: str
-    detail:  str = ""
-    nature:  str = ""
-    cmd:     str = ""
-    note:    str = ""
-    key:     str = ""
+    level:    FindingLevel
+    message:  str
+    detail:   str = ""
+    nature:   str = ""
+    cmd:      str = ""
+    cmd_type: str = "fix"
+    note:     str = ""
+    key:      str = ""
 
 
 @dataclass
@@ -176,30 +179,31 @@ class CheckResult:
         detail: str = "",
         nature: str = "",
         cmd: str = "",
+        cmd_type: str = "fix",
         note: str = "",
         key: str = "",
     ) -> None:
         """Convenience method to append a finding."""
         self.findings.append(
             Finding(level=level, message=message, detail=detail,
-                    nature=nature, cmd=cmd, note=note, key=key)
+                    nature=nature, cmd=cmd, cmd_type=cmd_type, note=note, key=key)
         )
 
     def ok(self, message: str, detail: str = "", key: str = "") -> None:
         """Shorthand for adding an OK finding."""
         self.add_finding(FindingLevel.OK, message, detail, key=key)
 
-    def info(self, message: str, detail: str = "", cmd: str = "", key: str = "") -> None:
+    def info(self, message: str, detail: str = "", cmd: str = "", cmd_type: str = "fix", key: str = "") -> None:
         """Shorthand for adding an INFO finding."""
-        self.add_finding(FindingLevel.INFO, message, detail, cmd=cmd, key=key)
+        self.add_finding(FindingLevel.INFO, message, detail, cmd=cmd, cmd_type=cmd_type, key=key)
 
-    def warn(self, message: str, detail: str = "", nature: str = "improvement", cmd: str = "", note: str = "", key: str = "") -> None:
+    def warn(self, message: str, detail: str = "", nature: str = "improvement", cmd: str = "", cmd_type: str = "fix", note: str = "", key: str = "") -> None:
         """Shorthand for adding a WARN finding."""
-        self.add_finding(FindingLevel.WARN, message, detail, nature, cmd, note, key=key)
+        self.add_finding(FindingLevel.WARN, message, detail, nature, cmd, cmd_type, note, key=key)
 
-    def alert(self, message: str, detail: str = "", nature: str = "action", cmd: str = "", note: str = "", key: str = "") -> None:
+    def alert(self, message: str, detail: str = "", nature: str = "action", cmd: str = "", cmd_type: str = "fix", note: str = "", key: str = "") -> None:
         """Shorthand for adding an ALERT finding."""
-        self.add_finding(FindingLevel.ALERT, message, detail, nature, cmd, note, key=key)
+        self.add_finding(FindingLevel.ALERT, message, detail, nature, cmd, cmd_type, note, key=key)
 
 
 # ---------------------------------------------------------------------------

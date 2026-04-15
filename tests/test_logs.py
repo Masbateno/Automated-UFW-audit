@@ -9,6 +9,8 @@ Run with: python -m pytest tests/test_logs.py -v
 
 import pytest
 from datetime import datetime, timedelta
+from unittest.mock import patch, MagicMock
+
 from ufw_audit.checks.logs import (
     BruteforceHit,
     LogEntry,
@@ -19,6 +21,7 @@ from ufw_audit.checks.logs import (
     _max_in_window,
     _parse_log,
     _parse_timestamp,
+    _read_from_journald,
     _service_hits,
     _top_ports,
     _top_sources,
@@ -47,12 +50,14 @@ def make_snapshot(
     days_available=5,
     log_days=7,
     log_found=True,
+    log_source="file",
 ) -> LogsSnapshot:
     return LogsSnapshot(
         entries=entries or [],
         days_available=days_available,
         log_days=log_days,
         log_found=log_found,
+        log_source=log_source,
     )
 
 
@@ -399,7 +404,7 @@ class TestServiceHits:
 
 class TestCheckLogs:
     def test_no_logfile_info(self):
-        snap = make_snapshot(log_found=False)
+        snap = make_snapshot(log_found=False, log_source="none")
         result = check_logs(snap)
         assert has_level(result, "info")
 
@@ -407,6 +412,18 @@ class TestCheckLogs:
         snap = make_snapshot(entries=[], log_found=True)
         result = check_logs(snap)
         assert has_level(result, "ok")
+
+    def test_journald_source_emits_info(self):
+        snap = make_snapshot(entries=[], log_found=True, log_source="journald")
+        result = check_logs(snap)
+        messages = [f.message for f in result.findings]
+        assert any("logs.source_journald" in m for m in messages)
+
+    def test_file_source_no_journald_info(self):
+        snap = make_snapshot(entries=[], log_found=True, log_source="file")
+        result = check_logs(snap)
+        messages = [f.message for f in result.findings]
+        assert not any("source_journald" in m for m in messages)
 
     def test_bruteforce_warn(self):
         base = datetime(2026, 3, 19, 10, 0, 0)
@@ -580,3 +597,72 @@ class TestDominantLocalSource:
         # IoT finding is INFO — no point deduction from it
         local_deductions = [d for d in result.deductions if "IoT" in d.reason or "local" in d.reason.lower()]
         assert local_deductions == []
+
+
+# ---------------------------------------------------------------------------
+# Journald fallback
+# ---------------------------------------------------------------------------
+
+_JOURNALD_SAMPLE = (
+    "2026-04-13T18:20:08+0200 debian13vm kernel: [UFW BLOCK] "
+    "IN=enp1s0 OUT= MAC=aa:bb:cc SRC=1.2.3.4 DST=192.168.1.20 "
+    "LEN=40 TOS=0x00 PREC=0x00 TTL=120 ID=12345 PROTO=TCP SPT=54321 DPT=22 "
+    "WINDOW=1024 RES=0x00 SYN URGP=0\n"
+)
+
+
+class TestReadFromJournald:
+    def test_returns_content_when_ufw_entries_present(self):
+        mock_result = MagicMock()
+        mock_result.stdout = _JOURNALD_SAMPLE
+        with patch("subprocess.run", return_value=mock_result):
+            content = _read_from_journald(7)
+        assert "[UFW " in content
+
+    def test_returns_empty_when_no_ufw_entries(self):
+        mock_result = MagicMock()
+        mock_result.stdout = "2026-04-13T18:00:00+0200 debian13vm kernel: some other kernel log\n"
+        with patch("subprocess.run", return_value=mock_result):
+            content = _read_from_journald(7)
+        assert content == ""
+
+    def test_returns_empty_on_exception(self):
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            content = _read_from_journald(7)
+        assert content == ""
+
+    def test_journald_entries_parsed_by_parse_log(self):
+        cutoff = datetime(2026, 1, 1)
+        entries = _parse_log(_JOURNALD_SAMPLE, cutoff)
+        assert len(entries) == 1
+        assert entries[0].src_ip == "1.2.3.4"
+        assert entries[0].dst_port == 22
+        assert entries[0].proto == "TCP"
+
+
+class TestLogsSnapshotFromSystem:
+    """Tests for from_system() journald fallback path."""
+
+    def test_journald_fallback_when_no_logfile(self, tmp_path):
+        missing = tmp_path / "ufw.log"  # does not exist
+        with patch("ufw_audit.checks.logs._read_from_journald",
+                   return_value=_JOURNALD_SAMPLE):
+            snap = LogsSnapshot.from_system(log_days=7, log_path=missing)
+        assert snap.log_found is True
+        assert snap.log_source == "journald"
+        assert len(snap.entries) == 1
+
+    def test_no_source_when_both_missing(self, tmp_path):
+        missing = tmp_path / "ufw.log"
+        with patch("ufw_audit.checks.logs._read_from_journald", return_value=""):
+            snap = LogsSnapshot.from_system(log_days=7, log_path=missing)
+        assert snap.log_found is False
+        assert snap.log_source == "none"
+
+    def test_file_source_preferred_over_journald(self, tmp_path):
+        log_file = tmp_path / "ufw.log"
+        log_file.write_text(_JOURNALD_SAMPLE, encoding="utf-8")
+        with patch("ufw_audit.checks.logs._read_from_journald") as mock_jd:
+            snap = LogsSnapshot.from_system(log_days=7, log_path=log_file)
+        mock_jd.assert_not_called()
+        assert snap.log_source == "file"

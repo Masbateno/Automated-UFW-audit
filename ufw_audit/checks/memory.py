@@ -139,7 +139,7 @@ def check_memory(
     #   server      →  1  (minimize swap writes, latency-sensitive workloads)
     #   workstation → 10  (desktop responsiveness benefits from some swap headroom)
     # These are opinionated but widely cited values (Red Hat, Arch wiki, CIS).
-    recommended_swappiness = 1 if profile_name != "workstation" else 10
+    recommended_swappiness = 1 if profile_name not in ("workstation", "desktop") else 10
 
     # --- No swap ---
     if snapshot.swap_total_kb == 0:

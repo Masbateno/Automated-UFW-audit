@@ -203,7 +203,7 @@ def check_updates(
     uu_ok = snapshot.unattended_installed and snapshot.unattended_enabled
 
     if not uu_ok:
-        if security and profile_name != "workstation":
+        if security and profile_name not in ("workstation", "desktop"):
             # Compound risk: security gap + no automation (server/default only)
             result.warn(
                 message=_t("updates.unattended_not_configured"),

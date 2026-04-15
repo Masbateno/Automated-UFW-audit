@@ -49,7 +49,7 @@ def display_result(result, report, verbose: bool, quiet: bool = False) -> None:
     """Print all findings from a CheckResult to terminal and report."""
     from ufw_audit.scoring import FindingLevel
     from ufw_audit.output import (
-        print_ok, print_warn, print_alert, print_info, print_recommendation,
+        print_ok, print_warn, print_alert, print_info, print_recommendation, print_check_cmd,
     )
 
     for finding in result.findings:
@@ -63,13 +63,20 @@ def display_result(result, report, verbose: bool, quiet: bool = False) -> None:
         elif finding.level == FindingLevel.WARN:
             print_warn(finding.message)
             report.write_finding("WARN", finding.message)
-            rec: list[str] = []
-            if finding.detail and verbose:
-                rec.extend(finding.detail.splitlines())
-            if finding.cmd and verbose:
-                rec.extend(finding.cmd.splitlines())
-            if rec:
-                print_recommendation(rec)
+            if verbose:
+                rec: list[str] = []
+                if finding.detail:
+                    rec.extend(finding.detail.splitlines())
+                if finding.cmd:
+                    if finding.cmd_type == "check":
+                        if rec:
+                            print_recommendation(rec)
+                            rec = []
+                        print_check_cmd(finding.cmd.splitlines())
+                    else:
+                        rec.extend(finding.cmd.splitlines())
+                if rec:
+                    print_recommendation(rec)
         elif finding.level == FindingLevel.ALERT:
             print_alert(finding.message)
             report.write_finding("ALERT", finding.message)
@@ -77,7 +84,13 @@ def display_result(result, report, verbose: bool, quiet: bool = False) -> None:
             if finding.detail:
                 rec.extend(finding.detail.splitlines())
             if finding.cmd and verbose:
-                rec.extend(finding.cmd.splitlines())
+                if finding.cmd_type == "check":
+                    if rec:
+                        print_recommendation(rec)
+                        rec = []
+                    print_check_cmd(finding.cmd.splitlines())
+                else:
+                    rec.extend(finding.cmd.splitlines())
             if rec:
                 print_recommendation(rec)
             if finding.note and verbose:
@@ -85,13 +98,20 @@ def display_result(result, report, verbose: bool, quiet: bool = False) -> None:
         elif finding.level == FindingLevel.INFO:
             print_info(finding.message)
             report.write_finding("INFO", finding.message)
-            rec = []
-            if finding.detail and verbose:
-                rec.extend(finding.detail.splitlines())
-            if finding.cmd and verbose:
-                rec.extend(finding.cmd.splitlines())
-            if rec:
-                print_recommendation(rec)
+            if verbose:
+                rec = []
+                if finding.detail:
+                    rec.extend(finding.detail.splitlines())
+                if finding.cmd:
+                    if finding.cmd_type == "check":
+                        if rec:
+                            print_recommendation(rec)
+                            rec = []
+                        print_check_cmd(finding.cmd.splitlines())
+                    else:
+                        rec.extend(finding.cmd.splitlines())
+                if rec:
+                    print_recommendation(rec)
 
 
 # ---------------------------------------------------------------------------
@@ -110,7 +130,13 @@ def display_risk_context(label: str, lang: str, t, report) -> None:
     if exposure.startswith("["):
         return
 
-    is_critical = "critical" in level.lower() or "critique" in level.lower()
+    level_lower = level.lower()
+    if "critical" in level_lower or "critique" in level_lower:
+        risk_tier = "critical"
+    elif "medium" in level_lower or "moyen" in level_lower:
+        risk_tier = "medium"
+    else:
+        risk_tier = "low"
     from ufw_audit.output import print_risk_context
     print_risk_context(
         title=t("risk_context.title"),
@@ -119,7 +145,7 @@ def display_risk_context(label: str, lang: str, t, report) -> None:
         exposure=exposure,
         threat_label=t("risk_context.threat"),
         threat=threat,
-        is_critical=is_critical,
+        risk_tier=risk_tier,
     )
     report.write_finding("INFO",
                          f"[{t('risk_context.title')} — {level}] {exposure}")
@@ -314,7 +340,7 @@ def display_network_context(snapshot, t, output_mod) -> None:
 # ---------------------------------------------------------------------------
 
 def print_audit_summary(engine, network_context, public_ip, config, t,
-                         report, snapshots) -> None:
+                         report, snapshots, profile_name: str = "server") -> None:
     """Print the audit summary box and write to report."""
     from ufw_audit.output import print_summary_box, _TERM_WIDTH
     from ufw_audit.scoring import RiskLevel
@@ -335,6 +361,7 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
         (t("scoring.score_label"), f"{score}/10"),
         (t("scoring.risk_label"),  f"{icon} {level_str}"),
         (t("scoring.network_context"), ctx_str),
+        (t("scoring.profile_label"), profile_name.capitalize()),
     ]
 
     target = getattr(config, "target", 0)
@@ -356,7 +383,10 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
     def _add_finding_lines(icon_prefix: str, item) -> None:
         lines.extend(_wrap_for_box(icon_prefix, item.message, inner))
         if item.cmd:
-            cmd_prefix = " " * len(icon_prefix) + "→ "
+            if item.cmd_type == "check":
+                cmd_prefix = " " * len(icon_prefix) + "ℹ "
+            else:
+                cmd_prefix = " " * len(icon_prefix) + "→ "
             lines.extend(_wrap_for_box(cmd_prefix, item.cmd, inner))
         if item.note:
             note_prefix = " " * len(icon_prefix) + "ℹ "

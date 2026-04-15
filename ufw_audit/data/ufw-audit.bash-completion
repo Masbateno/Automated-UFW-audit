@@ -20,11 +20,11 @@ _ufw_audit() {
 
     # Handle -p NAME / --profile=NAME — suggest known profiles
     if [[ "${prev}" == "-p" ]]; then
-        COMPREPLY=( $(compgen -W "server workstation container" -- "${cur}") )
+        COMPREPLY=( $(compgen -W "server desktop container" -- "${cur}") )
         return 0
     fi
     if [[ "${cur}" == --profile* ]]; then
-        COMPREPLY=( "--profile=server" "--profile=workstation" "--profile=container" )
+        COMPREPLY=( "--profile=server" "--profile=desktop" "--profile=container" )
         return 0
     fi
 

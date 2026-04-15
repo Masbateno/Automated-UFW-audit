@@ -20,6 +20,8 @@ from __future__ import annotations
 import re
 import sys
 
+from ufw_audit import output as _output
+
 # ---------------------------------------------------------------------------
 # Available explain keys — organised by group
 # ---------------------------------------------------------------------------
@@ -179,6 +181,21 @@ def normalize_key(key: str) -> str:
 _DIVIDER_WIDE  = "─" * 60
 _DIVIDER_SHORT = "─" * 10
 
+# Ordered profiles shown in the profile-variant display.
+_EXPLAIN_PROFILES: tuple = ("server", "desktop", "container")
+
+
+def _has_profile_variants(key: str, t) -> bool:
+    """Return True if *key* has at least one profile-specific 'why' translation.
+
+    Works with both the real i18n.t (returns "[key.path]" for missing keys)
+    and mock translation functions used in tests (return the key path itself).
+    """
+    probe = t(f"explain.{key}.server.why")
+    bare_key      = f"explain.{key}.server.why"
+    bracketed_key = f"[{bare_key}]"
+    return probe not in (bare_key, bracketed_key)
+
 
 def run_explain(key: str, t) -> None:
     """
@@ -230,15 +247,51 @@ def run_explain(key: str, t) -> None:
     if not cis_unknown:
         print(f"  CIS:   {cis_val}")
     print(_DIVIDER_WIDE)
-    print()
-    print("WHY IT IS A RISK")
-    print(_DIVIDER_SHORT)
-    print(why_val)
-    print()
-    print("HOW TO FIX")
-    print(_DIVIDER_SHORT)
-    print(how_val)
-    print()
+
+    if _has_profile_variants(norm, t):
+        # Profile-differentiated display — one section per profile
+        for profile in _EXPLAIN_PROFILES:
+            pwhy_key = f"explain.{norm}.{profile}.why"
+            pwhy = t(pwhy_key)
+            # Skip profiles with no translation (handles both mock and real i18n)
+            if pwhy in (pwhy_key, f"[{pwhy_key}]"):
+                continue
+
+            # Use profile-specific how if present, otherwise fall back to generic
+            phow_key = f"explain.{norm}.{profile}.how"
+            phow_candidate = t(phow_key)
+            phow = (
+                phow_candidate
+                if phow_candidate not in (phow_key, f"[{phow_key}]")
+                else how_val
+            )
+
+            print()
+            print(f"[ {profile} ]")
+            print(_DIVIDER_SHORT)
+            print(pwhy)
+            print()
+            print("HOW TO FIX")
+            print(_DIVIDER_SHORT)
+            print(phow)
+            print()
+    else:
+        # Uniform risk across all profiles
+        print()
+        print("WHY IT IS A RISK")
+        print(_DIVIDER_SHORT)
+        print(why_val)
+        print()
+        print("HOW TO FIX")
+        print(_DIVIDER_SHORT)
+        print(how_val)
+        print()
+        _note = "\u24d8  This finding applies equally to all profiles."
+        if sys.stdout.isatty():
+            print(f"  \033[33m{_note}\033[0m")
+        else:
+            print(f"  {_note}")
+        print()
 
 
 # ---------------------------------------------------------------------------
@@ -282,28 +335,61 @@ def _detail_screen(stdscr, key: str, t) -> None:
         import curses as _c
         lines: list[tuple[str, int]] = []
 
-        h_attr  = (_c.color_pair(4) | _c.A_BOLD) if has_color else _c.A_BOLD
-        dim     = _c.A_DIM
-        normal  = 0
+        h_attr      = (_c.color_pair(4) | _c.A_BOLD) if has_color else _c.A_BOLD
+        yellow_attr = _c.color_pair(2) if has_color else 0
+        dim         = _c.A_DIM
+        normal      = 0
+        bold        = _c.A_BOLD
 
         lines.append((f"  Key:   {norm}", dim))
         lines.append((f"  Title: {title_val}", h_attr))
         if cis_line:
             lines.append((cis_line, dim))
         lines.append(("  " + "─" * min(56, w - 4), dim))
-        lines.append(("", normal))
-        lines.append(("  WHY IT IS A RISK", _c.A_BOLD if not has_color else _c.A_BOLD))
-        lines.append(("  " + "─" * 10, dim))
-        for para in why_val.split("\n"):
-            for wrapped in textwrap.wrap(para, w - 4) or [""]:
-                lines.append((f"  {wrapped}", normal))
-        lines.append(("", normal))
-        lines.append(("  HOW TO FIX", _c.A_BOLD))
-        lines.append(("  " + "─" * 10, dim))
-        for para in how_val.split("\n"):
-            for wrapped in textwrap.wrap(para, w - 4) or [""]:
-                lines.append((f"  {wrapped}", normal))
-        lines.append(("", normal))
+
+        if _has_profile_variants(norm, t):
+            # One section per profile
+            for profile in _EXPLAIN_PROFILES:
+                pwhy_key = f"explain.{norm}.{profile}.why"
+                pwhy = t(pwhy_key)
+                if pwhy in (pwhy_key, f"[{pwhy_key}]"):
+                    continue
+                phow_key = f"explain.{norm}.{profile}.how"
+                phow_candidate = t(phow_key)
+                phow = (
+                    phow_candidate
+                    if phow_candidate not in (phow_key, f"[{phow_key}]")
+                    else how_val
+                )
+                lines.append(("", normal))
+                lines.append((f"  [ {profile} ]", bold))
+                lines.append(("  " + "─" * 10, dim))
+                for para in pwhy.split("\n"):
+                    for wrapped in textwrap.wrap(para, w - 4) or [""]:
+                        lines.append((f"  {wrapped}", normal))
+                lines.append(("", normal))
+                lines.append(("  HOW TO FIX", bold))
+                lines.append(("  " + "─" * 10, dim))
+                for para in phow.split("\n"):
+                    for wrapped in textwrap.wrap(para, w - 4) or [""]:
+                        lines.append((f"  {wrapped}", normal))
+                lines.append(("", normal))
+        else:
+            lines.append(("", normal))
+            lines.append(("  WHY IT IS A RISK", bold))
+            lines.append(("  " + "─" * 10, dim))
+            for para in why_val.split("\n"):
+                for wrapped in textwrap.wrap(para, w - 4) or [""]:
+                    lines.append((f"  {wrapped}", normal))
+            lines.append(("", normal))
+            lines.append(("  HOW TO FIX", bold))
+            lines.append(("  " + "─" * 10, dim))
+            for para in how_val.split("\n"):
+                for wrapped in textwrap.wrap(para, w - 4) or [""]:
+                    lines.append((f"  {wrapped}", normal))
+            lines.append(("", normal))
+            lines.append(("  \u24d8  This finding applies equally to all profiles.", yellow_attr))
+            lines.append(("", normal))
         return lines
 
     scroll = 0
@@ -496,6 +582,11 @@ def run_explain_interactive(t) -> None:
     selected = next(
         (i for i, (tp, _) in enumerate(items) if tp == "key"), 0
     )
+
+    # Reduce ESC key delay from the default 1000ms to 25ms.
+    # curses waits after ESC to distinguish escape sequences — 25ms is enough.
+    import os
+    os.environ.setdefault("ESCDELAY", "25")
 
     try:
         curses.wrapper(lambda scr: _picker(scr, items, selected, t))

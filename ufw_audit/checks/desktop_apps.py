@@ -34,6 +34,7 @@ _KNOWN_APPS: dict[str, str] = {
     "steamwebhelper":  "Steam",
     # Browsers
     "firefox":         "Firefox",
+    "firefox-bin":     "Firefox",        # snap / Ubuntu packaging
     "firefox-esr":     "Firefox",
     "brave-browser":   "Brave Browser",
     "brave":           "Brave Browser",
@@ -54,9 +55,26 @@ _KNOWN_APPS: dict[str, str] = {
     "element-desktop": "Element (Matrix)",
     "nheko":           "Nheko (Matrix)",
     "fractal":         "Fractal (Matrix)",
+    "whatsie":         "Whatsie (WhatsApp)",
+    "whatsapp-for-li": "WhatsApp for Linux",  # "whatsapp-for-linux" truncated to 15 chars
+    "zapzap":          "ZapZap (WhatsApp)",
     "betterbird":      "Betterbird",
     "betterbird-bin":  "Betterbird",
     "thunderbird":     "Thunderbird",
+    # VPN clients
+    "expressvpn-daem": "ExpressVPN",   # "expressvpn-daemon" truncated to 15 chars
+    "expressvpn-clie": "ExpressVPN",   # "expressvpn-client" truncated to 15 chars
+    "expressvpn-ligh": "ExpressVPN",   # "expressvpn-lightway" truncated to 15 chars
+    "nordvpnd":        "NordVPN",
+    "nordvpn":         "NordVPN",
+    "protonvpn-app":   "ProtonVPN",
+    "protonvpn":       "ProtonVPN",
+    "mullvad-gui":     "Mullvad VPN",
+    "mullvad-daemon":  "Mullvad VPN",
+    # Development
+    "code":            "Visual Studio Code",
+    "code-oss":        "VS Code (OSS)",
+    "codium":          "VSCodium",
     # Remote access
     "rustdesk":        "RustDesk",
     # Network analysis
@@ -68,8 +86,6 @@ _KNOWN_APPS: dict[str, str] = {
     # Downloads
     "transmission-gt": "Transmission",   # "transmission-gtk" truncated to 15 chars
     # Media / creation
-    "spotify":         "Spotify",
-    "vlc":             "VLC",
     "obs":             "OBS Studio",
     "obs-studio":      "OBS Studio",
 }

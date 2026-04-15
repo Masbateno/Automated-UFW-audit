@@ -1,9 +1,9 @@
 *[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
-# ufw-audit v1.16.0
+# ufw-audit v1.17.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.16.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.17.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -50,7 +50,10 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **NTP time synchronisation** — checks whether systemd-timesyncd, chronyd, or ntpd is active and synchronised; WARN −1 pt if NTP is disabled or the clock is not yet synchronised
 - **Fail2ban intrusion prevention** — dedicated standalone check; detects installation, service status, active jails, and presence of an SSH jail; WARN −1 pt if service inactive or no jails configured
 - **Rootkit & integrity scan** — rkhunter/chkrootkit detection; WARN −1 pt for outdated rkhunter database (≥7 days), missing scan, or stale last scan (>30 days)
-- **`--explain KEY`** — structured per-finding explanation (WHY IT IS A RISK / HOW TO FIX / CIS Ubuntu 22.04 reference); 76 explainable keys in 19 groups; `--explain list` shows all keys with group headers; key normalisation handles `file_perms.*` middle segments; no root required
+- **Linux Audit Framework (auditd)** — detects installation, service status, loaded rules, and coverage of sensitive files (/etc/passwd, /etc/shadow, /etc/sudoers); WARN −1 pt each for inactive service, no rules, uncovered sensitive files (server profile only)
+- **Secure Boot** — UEFI Secure Boot state via `mokutil --sb-state` → `/sys/firmware/efi/efivars/` → `bootctl status`; WARN −1 pt if disabled on desktop; INFO if disabled on server/VM or BIOS/unknown
+- **File integrity monitoring (AIDE/Tripwire)** — detects tool installation, database initialisation, and last check date; AIDE preferred over Tripwire; WARN −1 pt if no database or no recent check (>30 days); `_check_age_days` uses UTC-aware datetimes
+- **`--explain KEY`** — structured per-finding explanation (WHY IT IS A RISK / HOW TO FIX / CIS Ubuntu 22.04 reference); 76 explainable keys in 19 groups; 17 keys show profile-specific sections (`[ server ]` / `[ desktop ]` / `[ container ]`); keys with no profile difference show a uniform yellow note; `--explain list` shows all keys with group headers; interactive TUI with ESC delay reduced to 25 ms; no root required
 - **Domain scores** — per-domain security sub-scores (SSH / Samba Security / Files & Access / Updates / Hardening / Disk Health / Firewall & Services); 7 domains; displayed as bar chart after audit; included in JSON output and webhook payload
 - **Webhooks** — `--webhook URL` POSTs audit result as JSON after each audit; generic (Grafana/automation) and Slack formats (auto-detected by URL); non-fatal; `--webhook-format=auto|generic|slack`
 - **Samba security audit** — full `smb.conf` analysis: SMB1 protocol detection (ALERT, −2 pts); null passwords enabled (ALERT, −3 pts); server signing disabled (WARN, −1 pt); guest-writable shares (ALERT, −2 pts/share); guest-readable shares (WARN, −1 pt/share); `map to guest = bad user` (WARN, −1 pt); bind interfaces check (INFO); dedicated **samba** domain
@@ -59,8 +62,10 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **SMTP local exposure** — detects MTA (Postfix, Exim, Sendmail) listening on all interfaces (`0.0.0.0:25` or `:::25`) vs. localhost only; `SmtpSnapshot.from_system()` uses `ps -eo comm` + `ss -tlnp`/`netstat` fallback; WARN −1 pt when publicly exposed
 - **`--fix` dry-run** — `--fix` alone shows a preview of all available corrections with `→ cmd` without executing; `--fix --apply` enables the interactive apply flow; `--fix --apply --yes` auto-confirms all with audit trail
 - **`--target N`** — score target (1–10); shown in the summary box as `✔ reached` (green) or `▲ +N pt(s) needed` (yellow); returns exit code 4 when score < target (CI-ready, takes priority over codes 1/2)
-- **5 thematic group headers** — audit output reorganised into five named groups: FIREWALL & NETWORK / EXPOSURE & SERVICES / ACCESS CONTROL / SYSTEM HARDENING / DETECTION & HEALTH; each group introduced by a full-width `━` cyan separator printed before the first section box
+- **5 thematic group headers** — audit output reorganised into five named groups: FIREWALL & NETWORK / EXPOSURE & SERVICES / ACCESS CONTROL / SYSTEM HARDENING / DETECTION & HEALTH; each group introduced by a full-width `━` cyan separator with the title centred in the line
 - **`--diff` mode** — runs audit silently and displays only the comparative delta (what changed since last audit); tracks score, alert count, warn count, and info count (so INFO-level changes are detected)
+- **`cmd_type` on findings** — `Finding` dataclass has `cmd_type: str = "fix"` / `"check"`; summary box uses `→` for fix commands and `ℹ` for check commands
+- **Audit profiles** — `server` (default), `desktop` (replaces `workstation`), `container`; `workstation` alias kept for backward compatibility; active profile shown in the summary box
 
 ---
 

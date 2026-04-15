@@ -61,7 +61,7 @@ class IPv6Snapshot:
         kernel_ipv6_enabled = _read_kernel_ipv6()
         ufw_ipv6_enabled    = _read_ufw_ipv6()
 
-        ss_out = _run("ss", "-tuln") or ""
+        ss_out = _run("ss", "-tulnp") or ""
         ipv6_listeners = sorted(_extract_ipv6_listeners(ss_out))
 
         ufw_out = _run("ufw", "status", "numbered") or ""
@@ -107,9 +107,11 @@ def check_ipv6(snapshot: IPv6Snapshot, t=None) -> CheckResult:
     elif snapshot.kernel_ipv6_enabled and not snapshot.ufw_ipv6_enabled:
         if snapshot.ipv6_listeners:
             # Real gap: ports listen on :: but UFW has no IPv6 rules at all.
+            listeners_str = ", ".join(snapshot.ipv6_listeners)
             result.warn(
                 message=_t("ipv6.ufw_disabled_listeners_present",
                            count=len(snapshot.ipv6_listeners)),
+                detail=_t("ipv6.listeners_list", ports=listeners_str),
                 nature="improvement",
                 cmd="sudo nano /etc/default/ufw  # set IPV6=yes, then: sudo ufw reload",
                 key="ipv6.ufw_disabled_listeners_present",
@@ -197,13 +199,35 @@ def _read_ufw_ipv6() -> bool:
     return True
 
 
+# Processes that bind to IPv6 for internal/link-local purposes and must never
+# receive a "sudo ufw allow" recommendation.  These services handle their own
+# access control or are designed exclusively for the local network.
+_INTERNAL_PROCESSES: frozenset[str] = frozenset({
+    "avahi-daemon",    # mDNS/DNS-SD — local network only
+    "systemd-resolve", # internal stub resolver
+    "dnsmasq",         # DHCP/DNS — LAN infrastructure
+    "containerd",      # container runtime — internal IPC
+    "dockerd",         # Docker daemon — internal IPC
+})
+
+# Regex to extract the process name from ss -tulnp output.
+# Matches: users:(("process-name",pid=N,fd=N))
+_SS_PROC_RE = re.compile(r'users:\(\("([^"]+)"')
+
+
 def _extract_ipv6_listeners(ss_output: str) -> set[str]:
     """
-    Parse `ss -tuln` and return the set of 'port/proto' strings for services
-    that bind to the IPv6 wildcard address [::].
+    Parse `ss -tulnp` and return the set of 'port/proto' strings for services
+    that bind to the IPv6 wildcard address [::], excluding known internal
+    processes that do not require external UFW rules.
+
+    Process filtering: if ss was invoked with -p and a process name is
+    present in _INTERNAL_PROCESSES, the port is silently excluded so that
+    the IPv6 check never recommends opening it.  Lines without process info
+    (e.g. in tests using -tuln output) are included unchanged.
 
     Example matching line:
-        tcp   LISTEN 0  128  [::]:22  [::]:*
+        tcp   LISTEN 0  128  [::]:22  [::]:*  users:(("sshd",pid=972,fd=4))
     """
     listeners: set[str] = set()
     for line in ss_output.splitlines():
@@ -216,8 +240,14 @@ def _extract_ipv6_listeners(ss_output: str) -> set[str]:
         local_addr = parts[4]
         # IPv6 wildcard: [::]:PORT
         m = re.match(r"^\[::]:(\d+)$", local_addr)
-        if m:
-            listeners.add(f"{m.group(1)}/{proto}")
+        if not m:
+            continue
+        port_proto = f"{m.group(1)}/{proto}"
+        # Filter out known internal processes (only when -p info is present)
+        proc_m = _SS_PROC_RE.search(line)
+        if proc_m and proc_m.group(1) in _INTERNAL_PROCESSES:
+            continue
+        listeners.add(port_proto)
     return listeners
 
 

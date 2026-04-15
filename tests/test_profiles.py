@@ -82,9 +82,14 @@ class TestLoadBuiltinProfiles:
         p = load_profile("")
         assert p is _DEFAULT_PROFILE
 
-    def test_workstation_profile_loads(self):
+    def test_desktop_profile_loads(self):
+        p = load_profile("desktop")
+        assert p.name == "desktop"
+
+    def test_workstation_alias_loads_desktop(self):
+        """'workstation' is a backward-compat alias for 'desktop'."""
         p = load_profile("workstation")
-        assert p.name == "workstation"
+        assert p.name == "desktop"
 
     def test_container_profile_loads(self):
         p = load_profile("container")
@@ -102,19 +107,19 @@ class TestLoadBuiltinProfiles:
         p = load_profile("server")
         assert p.skip_sections == set()
 
-    def test_workstation_overrides_auto_updates(self):
-        p = load_profile("workstation")
+    def test_desktop_overrides_auto_updates(self):
+        p = load_profile("desktop")
         assert p.override_for("hardening.auto_updates_missing") == "info"
 
-    def test_workstation_overrides_rp_filter(self):
-        p = load_profile("workstation")
+    def test_desktop_overrides_rp_filter(self):
+        p = load_profile("desktop")
         assert p.override_for("hardening.rp_filter_disabled") == "info"
 
     def test_container_skips_hardening_section(self):
         p = load_profile("container")
         assert p.should_skip_section("hardening")
 
-    def test_container_inherits_workstation_overrides(self):
+    def test_container_inherits_desktop_overrides(self):
         p = load_profile("container")
         assert p.override_for("hardening.auto_updates_missing") == "info"
 
@@ -140,15 +145,15 @@ hardening.fail2ban_missing = skip
 
     def test_user_profile_takes_priority_over_builtin(self, tmp_path, monkeypatch):
         monkeypatch.setattr("ufw_audit.profiles._USER_PROFILES_DIR", tmp_path)
-        write_profile(tmp_path, "workstation", """
+        write_profile(tmp_path, "desktop", """
 [profile]
-name = workstation
+name = desktop
 description = custom override
 
 [overrides]
 hardening.auto_updates_missing = warn
 """)
-        p = load_profile("workstation")
+        p = load_profile("desktop")
         assert p.override_for("hardening.auto_updates_missing") == "warn"
 
     def test_extends_chain_resolved(self, tmp_path, monkeypatch):
@@ -289,7 +294,7 @@ class TestApplyProfileDowngrade:
     def test_warn_downgraded_to_info(self):
         result = make_result(key="hardening.auto_updates_missing")
         profile = AuditProfile(
-            name="workstation",
+            name="desktop",
             overrides={"hardening.auto_updates_missing": "info"},
         )
         apply_profile(result, profile)
@@ -298,7 +303,7 @@ class TestApplyProfileDowngrade:
     def test_deduction_removed_when_downgraded_to_info(self):
         result = make_result(key="hardening.auto_updates_missing", points=1)
         profile = AuditProfile(
-            name="workstation",
+            name="desktop",
             overrides={"hardening.auto_updates_missing": "info"},
         )
         apply_profile(result, profile)
@@ -360,15 +365,15 @@ class TestApplyProfileSkip:
 
 
 # ---------------------------------------------------------------------------
-# Integration — workstation profile on real hardening check
+# Integration — desktop profile on real hardening check
 # ---------------------------------------------------------------------------
 
-class TestWorkstationIntegration:
-    def test_rp_filter_warn_becomes_info_with_workstation_profile(self):
-        """Workstation profile downgrades rp_filter WARN to INFO."""
+class TestDesktopIntegration:
+    def test_rp_filter_warn_becomes_info_with_desktop_profile(self):
+        """Desktop profile downgrades rp_filter WARN to INFO."""
         snap = HardeningSnapshot(rp_filter=0)
         result = check_hardening(snap, t=_t)
-        profile = load_profile("workstation")
+        profile = load_profile("desktop")
         apply_profile(result, profile)
         rp_findings = [
             f for f in result.findings
@@ -381,19 +386,19 @@ class TestWorkstationIntegration:
         )
 
     def test_profile_reduces_deductions(self):
-        """Workstation profile removes at least one deduction vs no profile."""
+        """Desktop profile removes at least one deduction vs no profile."""
         snap = HardeningSnapshot(rp_filter=0, accept_redirects=True)
         result_raw = check_hardening(snap, t=_t)
         before_deductions = sum(d.points for d in result_raw.deductions)
 
-        result_ws = check_hardening(snap, t=_t)
-        profile = load_profile("workstation")
-        apply_profile(result_ws, profile)
-        after_deductions = sum(d.points for d in result_ws.deductions)
+        result_desktop = check_hardening(snap, t=_t)
+        profile = load_profile("desktop")
+        apply_profile(result_desktop, profile)
+        after_deductions = sum(d.points for d in result_desktop.deductions)
         # Profile may or may not override these — just verify it runs cleanly
         assert after_deductions <= before_deductions
 
-    def test_score_lower_with_workstation_profile(self):
+    def test_score_lower_with_desktop_profile(self):
         from ufw_audit.scoring import ScoreEngine
         snap = HardeningSnapshot(rp_filter=0,
                                   accept_redirects=False)
@@ -403,15 +408,15 @@ class TestWorkstationIntegration:
         engine_server.apply(result_server)
         engine_server.finalize()
 
-        # Workstation profile
-        result_ws = check_hardening(snap, t=_t)
-        profile = load_profile("workstation")
-        apply_profile(result_ws, profile)
-        engine_ws = ScoreEngine()
-        engine_ws.apply(result_ws)
-        engine_ws.finalize()
+        # Desktop profile
+        result_desktop = check_hardening(snap, t=_t)
+        profile = load_profile("desktop")
+        apply_profile(result_desktop, profile)
+        engine_desktop = ScoreEngine()
+        engine_desktop.apply(result_desktop)
+        engine_desktop.finalize()
 
-        assert engine_ws.score >= engine_server.score
+        assert engine_desktop.score >= engine_server.score
 
     def test_ipv6_uncovered_port_becomes_info(self):
         snap = IPv6Snapshot(
@@ -421,7 +426,7 @@ class TestWorkstationIntegration:
             ufw_v6_covered=[],
         )
         result = check_ipv6(snap, t=_t)
-        profile = load_profile("workstation")
+        profile = load_profile("desktop")
         apply_profile(result, profile)
         port_findings = [f for f in result.findings if f.key == "ipv6.port_no_v6_rule"]
         assert port_findings

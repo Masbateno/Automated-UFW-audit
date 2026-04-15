@@ -369,38 +369,38 @@ class TestEdgeCases:
 
 
 # ---------------------------------------------------------------------------
-# Workstation profile — unattended-upgrades demoted to INFO
+# Desktop profile — unattended-upgrades demoted to INFO
 # ---------------------------------------------------------------------------
 
-class TestWorkstationProfile:
-    def test_workstation_unattended_with_security_is_info(self):
-        """Compound risk is demoted to INFO on workstation profile."""
+class TestDesktopProfile:
+    def test_desktop_unattended_with_security_is_info(self):
+        """Compound risk is demoted to INFO on desktop profile."""
         snap = base_snapshot(
             pending_security=["libssl3"],
             unattended_installed=False,
             unattended_enabled=False,
         )
-        result = check_updates(snap, profile_name="workstation")
+        result = check_updates(snap, profile_name="desktop")
         assert _has_finding(result, "updates.unattended_not_configured", FindingLevel.INFO)
 
-    def test_workstation_unattended_with_security_no_extra_deduction(self):
-        """Workstation: compound risk produces no extra deduction beyond -2 pts."""
+    def test_desktop_unattended_with_security_no_extra_deduction(self):
+        """Desktop: compound risk produces no extra deduction beyond -2 pts."""
         snap = base_snapshot(
             pending_security=["libssl3"],
             unattended_installed=False,
             unattended_enabled=False,
         )
-        result = check_updates(snap, profile_name="workstation")
+        result = check_updates(snap, profile_name="desktop")
         assert _deduction_points(result) == 2
 
-    def test_workstation_no_warn_for_unattended(self):
-        """WARN must not be emitted for unattended on workstation profile."""
+    def test_desktop_no_warn_for_unattended(self):
+        """WARN must not be emitted for unattended on desktop profile."""
         snap = base_snapshot(
             pending_security=["libssl3"],
             unattended_installed=False,
             unattended_enabled=False,
         )
-        result = check_updates(snap, profile_name="workstation")
+        result = check_updates(snap, profile_name="desktop")
         assert not _has_finding(
             result, "updates.unattended_not_configured", FindingLevel.WARN
         )
@@ -416,9 +416,19 @@ class TestWorkstationProfile:
         assert _has_finding(result, "updates.unattended_not_configured", FindingLevel.WARN)
         assert _deduction_points(result) == 3
 
-    def test_workstation_up_to_date_unattended_still_info(self):
-        """On workstation with no security pending, unattended not configured → INFO."""
+    def test_desktop_up_to_date_unattended_still_info(self):
+        """On desktop with no security pending, unattended not configured → INFO."""
         snap = base_snapshot(unattended_installed=False, unattended_enabled=False)
-        result = check_updates(snap, profile_name="workstation")
+        result = check_updates(snap, profile_name="desktop")
         assert _has_finding(result, "updates.unattended_not_configured", FindingLevel.INFO)
         assert _deduction_points(result) == 0
+
+    def test_workstation_alias_behaves_like_desktop(self):
+        """'workstation' alias must produce same result as 'desktop'."""
+        snap = base_snapshot(
+            pending_security=["libssl3"],
+            unattended_installed=False,
+            unattended_enabled=False,
+        )
+        result = check_updates(snap, profile_name="workstation")
+        assert _has_finding(result, "updates.unattended_not_configured", FindingLevel.INFO)

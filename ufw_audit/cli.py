@@ -86,7 +86,7 @@ class AuditConfig:
     """--offline: skip all external HTTP calls (no public IP lookup)."""
 
     profile: str = ""
-    """-p / --profile=NAME: audit profile to apply (server|workstation|container or custom)."""
+    """-p / --profile=NAME: audit profile to apply (server|desktop|container or custom)."""
 
     reset_baseline: bool = False
     """--reset-baseline: delete the stored audit baseline and exit."""
@@ -218,7 +218,7 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         elif arg.startswith("--profile="):
             value = arg.split("=", 1)[1].strip()
             if not value:
-                raise CLIError("--profile= requires a profile name (e.g. server, workstation, container)")
+                raise CLIError("--profile= requires a profile name (e.g. server, desktop, container)")
             config.profile = value
 
         elif arg in ("-p", "--profile") and i + 1 < len(argv):
@@ -331,7 +331,7 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
     print("       ufw-audit --explain KEY   (standalone, no sudo required)")
 
     section("AUDIT — what to check and how")
-    opt("-p, --profile=NAME",    "Audit profile: server (default), workstation, container")
+    opt("-p, --profile=NAME",    "Audit profile: server (default), desktop, container")
     opt("-l N, --log-days=N",    "Analyse last N days of UFW logs (default: 7)")
     opt("-D, --diff",            "Show only changes since last audit baseline")
     opt("-o, --offline",         "Skip external IP lookup (no HTTP calls)")
@@ -387,7 +387,7 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
     print("  sudo ufw-audit -f --apply -y          Auto-apply all fixes")
     print("  sudo ufw-audit -v -d                  Verbose + save full report")
     print("  sudo ufw-audit --french -d            French output + save report")
-    print("  sudo ufw-audit -p workstation         Workstation profile")
+    print("  sudo ufw-audit -p desktop              Desktop profile")
     print("  sudo ufw-audit -l 14                  Analyse 14 days of UFW logs")
     print("  sudo ufw-audit -D                     Show what changed since last audit")
     print("  sudo ufw-audit -j | jq '.score'       Extract score as JSON")

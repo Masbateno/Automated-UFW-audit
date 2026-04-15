@@ -30,12 +30,34 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v1.8.0  | 1104  | +138 tests — `test_ssh.py` (93) + `test_file_perms.py` (45) : modifiable-par-tous (7), trop-permissif (5), clés-hôtes-SSH (4), NOPASSWD-ALL (5), NOPASSWD-spécifique (4), combinés (5), _is_nopasswd_all (8), dataclass (2), tout-correct (4) |
 | v1.9.0  | 1332  | +228 tests — `test_updates.py` (34), `test_explain.py` (~94), `test_domain_scores.py` (~48), `test_webhook.py` (~54) ; passages qualité sur `test_hardening.py` + `test_profiles.py` |
 | v1.15.0 | 2139  | +93 tests — `test_smtp.py` (31 + 9 passage qualité), `TestDominantLocalSource` (13), `TestApplyFlag` (12), `TestTargetFlag` (10), `TestDryRun` (8), `test_explain.py` mis à jour (73→77 clés), `test_cli.py` mis à jour (sémantique `--apply`) |
+| v1.17.0 | 2507  | +215 tests — `test_auditd.py` (nouveau, 41), `test_secure_boot.py` (nouveau, 21), `test_file_integrity.py` (nouveau, 33), `test_explain.py` +81 (variantes par profil), autres fichiers modifiés +39 |
 | v1.16.0 | 2292  | +153 tests — `test_desktop_apps.py` (nouveau), `test_ntp.py` (nouveau), `test_fail2ban.py` (42), `test_rootkit.py` (38), `test_exit_codes.py` (18) ; `test_hardening.py` −3 (fail2ban retiré) ; `test_explain.py` 77→76 clés |
 | v1.14.0 | 2045  | +155 tests — `test_samba.py` (68), `test_clamav.py` (52) ; `test_explain.py` mis à jour (63→73 clés) ; `test_compare.py` tests info_delta (+5) |
 | v1.13.0 | 1890  | +187 tests — `test_disk.py` (60), `test_memory.py` (37) ; `test_explain.py` mis à jour (assertion 33→63 clés) |
 | v1.12.0 | 1703  | +28 tests — profil workstation, assertions de dates, fixtures dict dans les fichiers existants |
 | v1.11.0 | 1675  | +134 tests — `test_user_accounts.py` (51), `test_password_policy.py` (51) ; clés A2 `--explain` dans `test_explain.py` (+13 assertions) ; passage qualité sur les deux nouveaux fichiers |
 | v1.10.0 | 1541  | +209 tests — `test_display_explain_hint.py` (25), `test_kernel_modules.py` (48), `test_cron_audit.py` (47), `test_services_state.py` (35) ; passage qualité : `test_check_rules.py` (+10), `test_cli.py` (+38), `test_compare.py` (+7), `test_cron.py` (+10), `test_ddns.py` (+5), `test_degraded.py` (+3) |
+
+### v1.17.0 — 2507/2507 (2026-04-15)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+2507 passed in 2.47s
+```
+
+#### Nouveaux tests / modifiés (+215)
+
+| Fichier | Modification | Couverture |
+|---------|-------------|------------|
+| `tests/test_auditd.py` | Nouveau — 41 tests | Défauts `AuditdSnapshot` ; chemins `from_system()` ; `check_auditd()` — non installé (INFO), service inactif (WARN −1 pt), sans règles (WARN −1 pt), watches manquants server (WARN −1 pt) / desktop (INFO), tout OK (OK) |
+| `tests/test_secure_boot.py` | Nouveau — 21 tests | Défauts `SecureBootSnapshot` ; méthodes de détection (mokutil/efivars/bootctl) ; `check_secure_boot()` — activé (OK), désactivé desktop (WARN −1 pt), désactivé server (INFO), no_uefi (INFO), inconnu (INFO) |
+| `tests/test_file_integrity.py` | Nouveau — 33 tests | Défauts `FileIntegritySnapshot` ; `_check_age_days()` (date ancienne, future, invalide, vide) ; `check_file_integrity()` — non installé, BDD absente (cmds aide/tripwire), sans check, check trop ancien (date+jours dans t()), propre (ok) ; `TestCleanSystemFindingCount` ; `TestEdgeCases` (date invalide→ok, priorité no_db, repli outil inconnu) |
+| `tests/test_explain.py` | +81 tests | `TestHasProfileVariants` (12 assertions) ; `TestRunExplainProfileVariants` (sections par profil pour les 17 clés avec variantes) ; `TestRunExplainUniform` (note jaune uniforme, pas de sections pour 8 clés uniformes) ; `test_known_key_shows_why_and_how_headers` mis à jour avec branchement variante/uniforme |
+| Autres fichiers modifiés | +39 tests | `test_cli.py`, `test_desktop_apps.py`, `test_disk.py`, `test_fail2ban.py`, `test_hardening.py`, `test_ipv6.py`, `test_logs.py`, `test_memory.py`, `test_profiles.py`, `test_updates.py`, `test_virtualization.py` |
+
+---
 
 ### v1.16.0 — 2292/2292 (2026-04-12)
 

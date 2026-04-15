@@ -148,6 +148,7 @@ def check_fail2ban(snapshot: Fail2banSnapshot, t=None) -> CheckResult:
             message=_t("fail2ban.no_jails"),
             detail=_t("fail2ban.no_jails_detail"),
             cmd="sudo fail2ban-client status",
+            cmd_type="check",
             nature="improvement",
             key="fail2ban.no_jails",
         )

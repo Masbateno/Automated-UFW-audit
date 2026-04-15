@@ -17,11 +17,11 @@
     "not_installed": "non installé"
   },
   "groups": {
-    "firewall_network":   "PARE-FEU & RÉSEAU",
-    "exposure_services":  "EXPOSITION & SERVICES",
-    "access_control":     "CONTRÔLE D'ACCÈS",
-    "system_hardening":   "DURCISSEMENT SYSTÈME",
-    "detection_health":   "DÉTECTION & SANTÉ"
+    "firewall_network": "PARE-FEU & RÉSEAU",
+    "exposure_services": "EXPOSITION & SERVICES",
+    "access_control": "CONTRÔLE D'ACCÈS",
+    "system_hardening": "DURCISSEMENT SYSTÈME",
+    "detection_health": "DÉTECTION & SANTÉ"
   },
   "sections": {
     "prerequisites": "VÉRIFICATION DES PRÉREQUIS",
@@ -59,6 +59,9 @@
     "desktop_apps": "AUDIT APPLICATIONS BUREAU",
     "ntp": "SYNCHRONISATION NTP",
     "fail2ban": "PRÉVENTION D'INTRUSION FAIL2BAN",
+    "auditd": "AUDIT SYSTÈME LINUX (AUDITD)",
+    "secure_boot": "DÉMARRAGE SÉCURISÉ (SECURE BOOT)",
+    "file_integrity": "INTÉGRITÉ DES FICHIERS (AIDE / TRIPWIRE)",
     "rootkit": "DÉTECTION ROOTKIT & INTÉGRITÉ"
   },
   "status": {
@@ -132,7 +135,7 @@
       "unknown": "Service installé, état indéterminé"
     },
     "exposure": {
-      "open_world": "exposé sur internet — aucune restriction source dans UFW",
+      "open_world": "exposé sur internet — règle UFW autorise depuis toutes les adresses (Anywhere)",
       "open_local": "restreint au réseau local par règle UFW",
       "deny": "bloqué explicitement par règle UFW",
       "no_rule": "couvert par la politique deny par défaut",
@@ -157,7 +160,8 @@
     "uncovered_default_deny": "Port {port} en écoute sur toutes les interfaces — aucune règle UFW explicite, mais couvert par la politique de refus par défaut"
   },
   "logs": {
-    "no_logfile": "Fichier de log UFW introuvable (/var/log/ufw.log) — journalisation désactivée ?",
+    "no_logfile": "Fichier de log UFW introuvable (/var/log/ufw.log) et aucune entrée UFW dans journald — journalisation désactivée ?",
+    "source_journald": "Source des logs UFW : systemd-journald (pas de /var/log/ufw.log — normal sur les systèmes sans rsyslog)",
     "empty": "Aucun événement UFW BLOCK dans les logs sur la période analysée",
     "period": "Période analysée",
     "days_unit": "jour(s)",
@@ -211,6 +215,7 @@
     "score_label": "Score de sécurité",
     "risk_label": "Niveau de risque",
     "network_context": "Contexte réseau",
+    "profile_label": "Profil d'audit",
     "level": {
       "low": "FAIBLE",
       "medium": "MOYEN",
@@ -272,7 +277,7 @@
     "no_logs": "Aucun rapport trouvé dans {path}",
     "stored_in": "Rapports dans : {path}",
     "size_label": "Ko",
-    "prompt": "Numéro(s) (ex : 1,3 ou 2-4), 'all', 'c' pour changer l'emplacement, Entrée pour quitter",
+    "prompt": "Numéro(s) (ex : 1,3 ou 2-4), 'all', 'c' pour changer l'emplacement, Entrée ou 'q' pour quitter",
     "change_prompt": "Nouveau chemin de stockage des rapports (q pour annuler)",
     "location_updated": "Emplacement mis à jour : {path}",
     "cancelled": "Annulé.",
@@ -593,7 +598,8 @@
     "both_disabled": "IPv6 désactivé dans le noyau et dans UFW — cohérent",
     "ufw_enabled_kernel_disabled": "UFW a IPv6 activé mais le noyau a IPv6 désactivé — les règles (v6) d'UFW n'ont aucun effet",
     "ufw_disabled_no_listeners": "UFW IPv6 désactivé et aucun service IPv6 détecté — pas de risque immédiat",
-    "ufw_disabled_listeners_present": "{count} service(s) à l'écoute en IPv6 (::) mais UFW ne gère pas les règles IPv6",
+    "ufw_disabled_listeners_present": "{count} service(s) à l'écoute en IPv6 (::) mais UFW n'est pas configuré pour gérer l'IPv6 (IPV6=no)",
+    "listeners_list": "Port(s) concerné(s) : {ports}",
     "port_no_v6_rule": "Port {port} à l'écoute en IPv6 (::) sans règle UFW (v6) correspondante",
     "all_ports_covered": "Les {count} service(s) IPv6 sont couverts par des règles UFW (v6)"
   },
@@ -727,7 +733,8 @@
     "ok": "Tous les services de sécurité surveillés sont actifs"
   },
   "output": {
-    "recommendation_label": "Que faire ?"
+    "recommendation_label": "Que faire ?",
+    "check_label": "Vérifier :"
   },
   "domain_scores": {
     "title": "Scores par domaine",
@@ -921,46 +928,126 @@
       "security_pending": {
         "title": "Mises à jour de sécurité en attente",
         "why": "Des mises à jour de sécurité en attente signifient que le système contient des vulnérabilités connues avec des CVE publics et souvent des exploits publics. Les attaquants scannent activement les systèmes non patchés. Chaque jour de retard augmente la fenêtre d'exposition.",
-        "how": "1. Appliquez les mises à jour de sécurité maintenant :\n   sudo apt-get upgrade\n2. Prévisualisez ce qui serait appliqué :\n   sudo unattended-upgrade --dry-run\n3. Appliquez uniquement les patches de sécurité :\n   sudo unattended-upgrade\n4. Si des mises à jour du noyau sont incluses, redémarrez :\n   sudo reboot"
+        "how": "1. Appliquez les mises à jour de sécurité maintenant :\n   sudo apt-get upgrade\n2. Prévisualisez ce qui serait appliqué :\n   sudo unattended-upgrade --dry-run\n3. Appliquez uniquement les patches de sécurité :\n   sudo unattended-upgrade\n4. Si des mises à jour du noyau sont incluses, redémarrez :\n   sudo reboot",
+        "server": {
+          "why": "Les mises à jour de sécurité en attente sur un serveur créent des vulnérabilités connues et exploitables. Les attaquants priorisent les CVE récemment publiés dont les correctifs existent mais n'ont pas été appliqués — c'est le vecteur d'attaque le plus courant sur les serveurs exposés. Appliquez les mises à jour immédiatement."
+        },
+        "desktop": {
+          "why": "Les mises à jour en attente affectent tous les profils, mais sur un desktop les plus critiques concernent le noyau, le navigateur et les bibliothèques traitant des données non fiables. Appliquez-les rapidement pour vous protéger contre les escalades de privilèges locales et les attaques drive-by."
+        },
+        "container": {
+          "why": "Dans un container, les mises à jour en attente doivent être traitées en reconstruisant l'image depuis une base mise à jour, plutôt qu'en lançant apt dans le container. Exécuter apt upgrade dans un container en cours est une solution temporaire — la bonne pratique est de mettre à jour le tag de l'image de base et de redéployer.",
+          "how": "Reconstruire depuis une image de base mise à jour :\n   # Mettez à jour le tag FROM dans votre Dockerfile ou utilisez --pull :\n   docker build --pull -t <votre-image> .\n   docker compose up -d\nEn solution d'urgence uniquement :\n   docker exec -it <container> apt-get update && apt-get upgrade -y"
+        }
       },
       "unattended_not_configured": {
         "title": "Mises à jour automatiques de sécurité non configurées",
         "why": "Sans mises à jour automatiques, les patches de sécurité s'accumulent jusqu'à ce que quelqu'un les applique manuellement. Les fenêtres d'exposition grandissent avec le temps, et les patches critiques sont souvent manqués sur les serveurs sans surveillance active.",
-        "how": "1. Installez le paquet :\n   sudo apt install unattended-upgrades\n2. Configurez-le de manière interactive :\n   sudo dpkg-reconfigure -plow unattended-upgrades\n3. Vérifiez que le service est actif :\n   sudo systemctl status unattended-upgrades\n4. Testez avec une simulation :\n   sudo unattended-upgrade --dry-run -d"
+        "how": "1. Installez le paquet :\n   sudo apt install unattended-upgrades\n2. Configurez-le de manière interactive :\n   sudo dpkg-reconfigure -plow unattended-upgrades\n3. Vérifiez que le service est actif :\n   sudo systemctl status unattended-upgrades\n4. Testez avec une simulation :\n   sudo unattended-upgrade --dry-run -d",
+        "server": {
+          "why": "Sur un serveur exposé, chaque jour sans correctif est une fenêtre ouverte. Les attaquants scannent activement les systèmes manquant de CVE récents. La gestion manuelle des mises à jour sur un serveur se traduit presque toujours par du retard — les mises à jour de sécurité automatiques sont incontournables sur une infrastructure publique."
+        },
+        "desktop": {
+          "why": "Sur un desktop, la gestion manuelle des mises à jour est courante et acceptable. Le risque est plus faible car aucun service entrant n'est exposé publiquement. Cependant, retarder les correctifs de sécurité au-delà d'une semaine augmente les risques d'escalade de privilèges locale et d'exploitation de navigateurs ou bibliothèques."
+        },
+        "container": {
+          "why": "Dans un environnement conteneurisé, les mises à jour sont gérées au niveau de l'image — pas via unattended-upgrades. Si votre pipeline reconstruit régulièrement l'image depuis une base mise à jour, cette détection ne s'applique pas. Vérifiez que votre CI/CD inclut le rafraîchissement de l'image de base.",
+          "how": "Reconstruire l'image depuis une base mise à jour plutôt que de lancer apt dans le container :\n   # Mettez à jour le tag FROM dans votre Dockerfile, puis :\n   docker build --pull -t <votre-image> .\n   docker compose up -d\nPour le système hôte (si unattended-upgrades est nécessaire là) :\n   sudo apt install unattended-upgrades\n   sudo dpkg-reconfigure -plow unattended-upgrades"
+        }
       }
     },
     "hardening": {
       "rp_filter_disabled": {
         "title": "Filtrage par chemin inverse désactivé (rp_filter = 0)",
         "why": "Sans filtrage par chemin inverse, le noyau accepte des paquets provenant d'adresses IP sources qui ne peuvent pas avoir transité par l'interface réceptrice — signe classique d'usurpation d'IP. Cela permet des attaques par source usurpée et peut contourner les règles du pare-feu basées sur l'IP source.",
-        "how": "1. Activez immédiatement (prend effet maintenant) :\n   sudo sysctl -w net.ipv4.conf.all.rp_filter=1\n2. Rendez le changement permanent :\n   echo 'net.ipv4.conf.all.rp_filter=1' | sudo tee -a /etc/sysctl.d/99-rp-filter.conf\n3. Appliquez tous les paramètres sysctl :\n   sudo sysctl --system"
+        "how": "1. Activez immédiatement (prend effet maintenant) :\n   sudo sysctl -w net.ipv4.conf.all.rp_filter=1\n2. Rendez le changement permanent :\n   echo 'net.ipv4.conf.all.rp_filter=1' | sudo tee -a /etc/sysctl.d/99-rp-filter.conf\n3. Appliquez tous les paramètres sysctl :\n   sudo sysctl --system",
+        "server": {
+          "why": "Sur un serveur exposé, le filtrage par chemin inverse est une mesure fondamentale. Sans lui, un attaquant peut envoyer des paquets avec une IP source forgée, contournant potentiellement les contrôles d'accès basés sur IP ou permettant des attaques par amplification. Le correctif est sans coût et sans effet secondaire fonctionnel."
+        },
+        "desktop": {
+          "why": "Sur un desktop, le filtrage par chemin inverse est une défense en profondeur. Le risque pratique est faible car aucun service public entrant n'est exposé, mais l'activer ne coûte rien et élimine une classe d'attaques par usurpation sur le réseau local."
+        },
+        "container": {
+          "why": "Dans un container, les paramètres sysctl réseau sont contrôlés par le noyau hôte. Ce paramètre ne peut pas être modifié depuis un container standard. Appliquez le correctif sur le système hôte.",
+          "how": "Appliquer sur le système hôte (pas dans le container) :\n   sudo sysctl -w net.ipv4.conf.all.rp_filter=1\n   echo 'net.ipv4.conf.all.rp_filter=1' | sudo tee -a /etc/sysctl.d/99-rp-filter.conf\n   sudo sysctl --system"
+        }
       },
       "redirects_enabled": {
         "title": "Redirections ICMP acceptées (accept_redirects = 1)",
         "why": "Les messages de redirection ICMP peuvent ordonner au noyau de modifier ses tables de routage. Un attaquant sur le réseau local peut envoyer de fausses redirections ICMP pour réacheminer le trafic via une machine qu'il contrôle, permettant un détournement de routage ou une attaque de l'homme du milieu.",
-        "how": "1. Désactivez immédiatement (prend effet maintenant) :\n   sudo sysctl -w net.ipv4.conf.all.accept_redirects=0\n2. Rendez le changement permanent :\n   echo 'net.ipv4.conf.all.accept_redirects=0' | sudo tee -a /etc/sysctl.d/99-redirects.conf\n3. Appliquez tous les paramètres sysctl :\n   sudo sysctl --system"
+        "how": "1. Désactivez immédiatement (prend effet maintenant) :\n   sudo sysctl -w net.ipv4.conf.all.accept_redirects=0\n2. Rendez le changement permanent :\n   echo 'net.ipv4.conf.all.accept_redirects=0' | sudo tee -a /etc/sysctl.d/99-redirects.conf\n3. Appliquez tous les paramètres sysctl :\n   sudo sysctl --system",
+        "server": {
+          "why": "Les redirections ICMP peuvent être utilisées par un attaquant sur le réseau local pour empoisonner la table de routage d'un serveur, redirigeant son trafic vers une passerelle malveillante (MITM). Sur un serveur, l'acceptation des redirections ICMP doit toujours être désactivée."
+        },
+        "desktop": {
+          "why": "L'acceptation des redirections ICMP est un risque mineur sur un desktop, principalement pertinent sur les réseaux non fiables (Wi-Fi public, LAN d'entreprise). La désactiver est une bonne pratique sans impact fonctionnel pour la plupart des utilisateurs."
+        },
+        "container": {
+          "why": "Les paramètres de redirection ICMP sont au niveau du noyau et contrôlés par l'hôte. Cette détection n'est pas réalisable depuis un container. Vérifiez et corrigez sur le système hôte.",
+          "how": "Appliquer sur le système hôte :\n   sudo sysctl -w net.ipv4.conf.all.accept_redirects=0\n   echo 'net.ipv4.conf.all.accept_redirects=0' | sudo tee -a /etc/sysctl.d/99-redirects.conf\n   sudo sysctl --system"
+        }
       },
       "log_martians_disabled": {
         "title": "Journalisation des paquets martiens désactivée (log_martians = 0)",
         "why": "Les paquets martiens ont des adresses sources impossibles selon la table de routage — indicateur fort d'usurpation d'IP, de paquets forgés ou de scan. Sans les journaliser, la reconnaissance précoce et les attaques par usurpation ne laissent aucune trace. Activer cette journalisation est peu coûteux et fournit des données forensiques précieuses.",
-        "how": "1. Activez immédiatement :\n   sudo sysctl -w net.ipv4.conf.all.log_martians=1\n   sudo sysctl -w net.ipv4.conf.default.log_martians=1\n2. Rendez le changement permanent :\n   echo 'net.ipv4.conf.all.log_martians=1' | sudo tee -a /etc/sysctl.d/99-network-security.conf\n   echo 'net.ipv4.conf.default.log_martians=1' | sudo tee >> /etc/sysctl.d/99-network-security.conf\n3. Appliquez :\n   sudo sysctl --system"
+        "how": "1. Activez immédiatement :\n   sudo sysctl -w net.ipv4.conf.all.log_martians=1\n   sudo sysctl -w net.ipv4.conf.default.log_martians=1\n2. Rendez le changement permanent :\n   echo 'net.ipv4.conf.all.log_martians=1' | sudo tee -a /etc/sysctl.d/99-network-security.conf\n   echo 'net.ipv4.conf.default.log_martians=1' | sudo tee >> /etc/sysctl.d/99-network-security.conf\n3. Appliquez :\n   sudo sysctl --system",
+        "server": {
+          "why": "La journalisation des paquets martiens sur un serveur est essentielle pour détecter l'usurpation IP et la reconnaissance réseau. Sans elle, les tentatives de scan et d'usurpation en phase préliminaire ne laissent aucune trace dans les logs, compliquant l'investigation d'incidents."
+        },
+        "desktop": {
+          "why": "La journalisation des paquets martiens est un outil forensique utile mais génère du bruit sur les réseaux résidentiels actifs. C'est une mesure de durcissement de basse priorité sur un desktop — activez-la si vous souhaitez de la visibilité sur le trafic local anormal."
+        },
+        "container": {
+          "why": "Les paramètres sysctl de journalisation sont au niveau du noyau et non configurables depuis un container standard. Cette détection n'est pas réalisable dans un contexte conteneurisé. Appliquez sur l'hôte.",
+          "how": "Appliquer sur le système hôte :\n   sudo sysctl -w net.ipv4.conf.all.log_martians=1\n   sudo sysctl -w net.ipv4.conf.default.log_martians=1\n   echo 'net.ipv4.conf.all.log_martians=1' | sudo tee -a /etc/sysctl.d/99-network-security.conf\n   echo 'net.ipv4.conf.default.log_martians=1' | sudo tee -a /etc/sysctl.d/99-network-security.conf\n   sudo sysctl --system"
+        }
       },
       "rp_filter_loose": {
         "title": "Filtrage par chemin inverse en mode permissif (rp_filter = 2)",
         "why": "Le mode permissif (rp_filter=2) accepte les paquets tant qu'il existe une route quelconque vers la source, pas nécessairement via l'interface réceptrice. Cela offre une protection plus faible que le mode strict (=1) contre l'usurpation d'IP et les attaques par routage source. Le mode strict rejette les paquets dont le chemin de retour ne correspond pas à l'interface d'arrivée.",
-        "how": "1. Passez en mode strict :\n   sudo sysctl -w net.ipv4.conf.all.rp_filter=1\n2. Rendez le changement permanent :\n   echo 'net.ipv4.conf.all.rp_filter=1' | sudo tee -a /etc/sysctl.d/99-rp-filter.conf\n3. Appliquez :\n   sudo sysctl --system\nNote : le mode strict peut perturber le routage asymétrique (serveurs multi-homés). Vérifiez la connectivité réseau après application."
+        "how": "1. Passez en mode strict :\n   sudo sysctl -w net.ipv4.conf.all.rp_filter=1\n2. Rendez le changement permanent :\n   echo 'net.ipv4.conf.all.rp_filter=1' | sudo tee -a /etc/sysctl.d/99-rp-filter.conf\n3. Appliquez :\n   sudo sysctl --system\nNote : le mode strict peut perturber le routage asymétrique (serveurs multi-homés). Vérifiez la connectivité réseau après application.",
+        "server": {
+          "why": "Le mode lâche (rp_filter=2) offre une protection plus faible que le mode strict (=1) sur un serveur. Sur un serveur à interface unique, le mode strict est préférable car il rejette davantage de paquets usurpés. Le mode lâche ne se justifie que sur les serveurs multi-interfaces avec routage asymétrique."
+        },
+        "desktop": {
+          "why": "Sur un desktop à interface unique, le mode lâche offre peu de protection par rapport au mode strict. Le mode strict (=1) est sûr et recommandé sauf besoins spécifiques de routage asymétrique, rares sur un desktop."
+        },
+        "container": {
+          "why": "Identique à rp_filter_disabled — paramètre du noyau hôte non modifiable depuis un container standard. Appliquez sur l'hôte.",
+          "how": "Appliquer sur le système hôte :\n   sudo sysctl -w net.ipv4.conf.all.rp_filter=1\n   echo 'net.ipv4.conf.all.rp_filter=1' | sudo tee -a /etc/sysctl.d/99-rp-filter.conf\n   sudo sysctl --system"
+        }
       }
     },
     "kernel_modules": {
       "risky_fs": {
         "title": "Modules noyau de systèmes de fichiers risqués chargés",
         "why": "Les pilotes de systèmes de fichiers (cramfs, freevxfs, hfs, hfsplus, jffs2, squashfs, udf, usb_storage) élargissent inutilement la surface d'attaque du noyau. Des vulnérabilités dans ces pilotes peuvent être déclenchées en montant une image de système de fichiers malveillante ou en insérant un périphérique USB, permettant potentiellement une escalade de privilèges ou une exécution de code arbitraire dans l'espace noyau.",
-        "how": "1. Déchargez le module maintenant :\n   sudo modprobe -r <nom_du_module>\n2. Mettez-le sur liste noire pour empêcher le rechargement :\n   echo 'blacklist <module>' | sudo tee -a /etc/modprobe.d/blacklist-rare-fs.conf\n   echo 'install <module> /bin/false' | sudo tee -a /etc/modprobe.d/blacklist-rare-fs.conf\n3. Reconstruisez l'initramfs :\n   sudo update-initramfs -u\nNote : ne bloquez que les modules que votre système n'utilise pas (ex : usb_storage est nécessaire pour les clés USB)."
+        "how": "1. Déchargez le module maintenant :\n   sudo modprobe -r <nom_du_module>\n2. Mettez-le sur liste noire pour empêcher le rechargement :\n   echo 'blacklist <module>' | sudo tee -a /etc/modprobe.d/blacklist-rare-fs.conf\n   echo 'install <module> /bin/false' | sudo tee -a /etc/modprobe.d/blacklist-rare-fs.conf\n3. Reconstruisez l'initramfs :\n   sudo update-initramfs -u\nNote : ne bloquez que les modules que votre système n'utilise pas (ex : usb_storage est nécessaire pour les clés USB).",
+        "server": {
+          "why": "Les modules de systèmes de fichiers exotiques (cramfs, freevxfs, hfs, hfsplus, jffs2, squashfs, udf) élargissent la surface d'attaque du noyau sur un serveur. Des vulnérabilités dans ces pilotes peuvent être déclenchées par une image de fichiers malveillante, permettant potentiellement une escalade de privilèges en espace noyau."
+        },
+        "desktop": {
+          "why": "La plupart de ces systèmes de fichiers ne sont pas nécessaires sur un desktop typique. Cependant, si vous montez des supports amovibles avec des systèmes de fichiers inhabituels (HFS+ depuis un disque Mac, UDF depuis un DVD), les mettre sur liste noire vous empêcherait de les monter. Évaluez ce dont vous avez réellement besoin avant de blacklister."
+        },
+        "container": {
+          "why": "Le chargement de modules noyau est restreint par défaut dans les containers (CAP_SYS_MODULE non accordée). Cette détection n'est pas réalisable depuis un container — traitez-la sur le système hôte.",
+          "how": "Appliquer sur le système hôte :\n   echo 'blacklist <module>' | sudo tee -a /etc/modprobe.d/blacklist-rare-fs.conf\n   echo 'install <module> /bin/false' | sudo tee -a /etc/modprobe.d/blacklist-rare-fs.conf\n   sudo update-initramfs -u"
+        }
       },
       "risky_net": {
         "title": "Modules noyau de protocoles réseau risqués chargés",
         "why": "Des protocoles comme DCCP, SCTP, RDS et TIPC ont eu des vulnérabilités critiques dans le noyau (CVE avec exécution de code à distance et escalade de privilèges). Ces protocoles sont rarement nécessaires sur des serveurs standard et représentent une surface d'attaque inutile dans l'espace noyau. Leur chargement rend le système exploitable par l'envoi de paquets réseau forgés vers n'importe quel socket ouvert.",
-        "how": "1. Déchargez le module maintenant :\n   sudo modprobe -r <nom_du_module>\n2. Mettez-le sur liste noire :\n   echo 'blacklist <module>' | sudo tee -a /etc/modprobe.d/blacklist-rare-net.conf\n   echo 'install <module> /bin/false' | sudo tee -a /etc/modprobe.d/blacklist-rare-net.conf\n3. Reconstruisez l'initramfs :\n   sudo update-initramfs -u\nNote : SCTP est utilisé par certains logiciels de téléphonie et de clustering. Vérifiez avant de bloquer."
+        "how": "1. Déchargez le module maintenant :\n   sudo modprobe -r <nom_du_module>\n2. Mettez-le sur liste noire :\n   echo 'blacklist <module>' | sudo tee -a /etc/modprobe.d/blacklist-rare-net.conf\n   echo 'install <module> /bin/false' | sudo tee -a /etc/modprobe.d/blacklist-rare-net.conf\n3. Reconstruisez l'initramfs :\n   sudo update-initramfs -u\nNote : SCTP est utilisé par certains logiciels de téléphonie et de clustering. Vérifiez avant de bloquer.",
+        "server": {
+          "why": "Les protocoles DCCP, SCTP, RDS et TIPC ont connu des CVE noyau critiques permettant exécution de code à distance et escalade de privilèges. Ces protocoles ne sont pratiquement jamais utilisés sur des serveurs standards. Leur présence dans le noyau signifie qu'un paquet réseau forgé pourrait déclencher une vulnérabilité connue."
+        },
+        "desktop": {
+          "why": "Ces protocoles réseau ne sont pratiquement jamais utilisés sur un desktop. Les mettre sur liste noire n'a aucun impact pratique sur le réseau et ferme une classe de vulnérabilités noyau historiques."
+        },
+        "container": {
+          "why": "Le chargement de modules noyau est restreint dans les containers. Cette détection n'est pas réalisable depuis un container — traitez-la sur l'hôte.",
+          "how": "Appliquer sur le système hôte :\n   echo 'blacklist <module>' | sudo tee -a /etc/modprobe.d/blacklist-rare-net.conf\n   echo 'install <module> /bin/false' | sudo tee -a /etc/modprobe.d/blacklist-rare-net.conf\n   sudo update-initramfs -u"
+        }
       }
     },
     "cron_audit": {
@@ -979,7 +1066,16 @@
       "enabled_inactive": {
         "title": "Service de sécurité activé au démarrage mais actuellement inactif",
         "why": "Un service configuré pour démarrer au boot mais actuellement arrêté peut avoir planté, être mal configuré, ou avoir été délibérément désactivé. Si ce service est un contrôle de sécurité (pare-feu, détection d'intrusion, démon de logs), son absence crée une fenêtre pendant laquelle les menaces ne sont ni détectées ni bloquées. Le système semble protégé au démarrage mais ne l'est pas en runtime.",
-        "how": "1. Vérifiez pourquoi le service s'est arrêté :\n   sudo journalctl -u <service> -n 50\n2. Redémarrez et vérifiez :\n   sudo systemctl start <service>\n   sudo systemctl status <service>\n3. Si le service plante au démarrage, examinez la configuration :\n   sudo systemctl status <service> --no-pager -l\n4. Assurez-vous qu'il reste activé :\n   sudo systemctl enable <service>"
+        "how": "1. Vérifiez pourquoi le service s'est arrêté :\n   sudo journalctl -u <service> -n 50\n2. Redémarrez et vérifiez :\n   sudo systemctl start <service>\n   sudo systemctl status <service>\n3. Si le service plante au démarrage, examinez la configuration :\n   sudo systemctl status <service> --no-pager -l\n4. Assurez-vous qu'il reste activé :\n   sudo systemctl enable <service>",
+        "server": {
+          "why": "Un service activé au démarrage mais actuellement inactif sur un serveur peut indiquer un contrôle de sécurité planté ou mal configuré. Il redémarrera au prochain boot, exposant potentiellement un port qui semble fermé maintenant. Sur un serveur, investiguez et résolvez immédiatement."
+        },
+        "desktop": {
+          "why": "Sur un desktop, un service actif-mais-inactif est généralement un vestige d'une ancienne installation. Le risque est plus faible (aucune exposition entrante attendue), mais il ralentit le démarrage et peut causer des problèmes subtils. Désactivez les services inutilisés."
+        },
+        "container": {
+          "why": "Dans un container, systemd n'est souvent pas le système d'init. Si votre container utilise un init léger (s6, runit, supervisord), cette détection peut ne pas s'appliquer. Si systemd est présent dans le container, suivez les recommandations serveur."
+        }
       }
     },
     "rules": {
@@ -1003,12 +1099,30 @@
       "ufw_disabled_listeners_present": {
         "title": "Services en écoute sur IPv6 mais le support UFW IPv6 est désactivé",
         "why": "Avec UFW IPv6 désactivé (IPV6=no dans /etc/default/ufw), aucune règle ip6tables n'est chargée. Tout service en écoute sur une adresse dual-stack (::) est accessible depuis le réseau en IPv6 sans aucun filtrage pare-feu, indépendamment de ce qu'UFW affiche pour IPv4.",
-        "how": "1. Activez le support IPv6 d'UFW :\n   sudo nano /etc/default/ufw  →  IPV6=yes\n2. Rechargez UFW pour appliquer les règles ip6tables :\n   sudo ufw reload\n3. Vérifiez que les règles ip6tables sont maintenant actives :\n   sudo ip6tables -L INPUT -n | head -20"
+        "how": "1. Activez le support IPv6 d'UFW :\n   sudo nano /etc/default/ufw  →  IPV6=yes\n2. Rechargez UFW pour appliquer les règles ip6tables :\n   sudo ufw reload\n3. Vérifiez que les règles ip6tables sont maintenant actives :\n   sudo ip6tables -L INPUT -n | head -20",
+        "server": {
+          "why": "Si le support IPv6 d'UFW est désactivé (IPV6=no) mais que des services écoutent sur des adresses IPv6, ces ports sont complètement hors du périmètre UFW. Tout le trafic IPv6 entrant atteint le service sans filtrage. Sur un serveur, il s'agit d'une faille majeure dans le pare-feu."
+        },
+        "desktop": {
+          "why": "Sur un desktop, cette détection est informative. La plupart des services écoutant en IPv6 sont liés à loopback (::1) ou aux adresses link-local (fe80::) sans accessibilité externe. Activez le support IPv6 d'UFW par bonne pratique, mais le risque immédiat est faible."
+        },
+        "container": {
+          "why": "La gestion IPv6 dans les containers est assurée par la pile réseau de l'hôte. Cette détection n'est généralement pas réalisable depuis un container. Vérifiez la configuration UFW de l'hôte."
+        }
       },
       "port_no_v6_rule": {
         "title": "Service en écoute sur IPv6 sans règle UFW IPv6 correspondante",
         "why": "Un service lié à une adresse IPv6 sans règle UFW correspondante ne s'appuie que sur la politique par défaut. Si cette politique est permissive ou non définie, le service est accessible depuis n'importe quelle source IPv6 sans filtrage. Les politiques de pare-feu doivent être explicites pour toutes les adresses en écoute.",
-        "how": "1. Identifiez quel service écoute :\n   sudo ss -tlnp | grep ':::'\n2. Ajoutez une règle UFW explicite (s'applique à IPv4 et IPv6 par défaut) :\n   sudo ufw allow <port>/tcp\n3. Ou refusez-le explicitement si le service ne doit pas être accessible :\n   sudo ufw deny <port>/tcp\n4. Rechargez :\n   sudo ufw reload"
+        "how": "1. Identifiez quel service écoute :\n   sudo ss -tlnp | grep ':::'\n2. Ajoutez une règle UFW explicite (s'applique à IPv4 et IPv6 par défaut) :\n   sudo ufw allow <port>/tcp\n3. Ou refusez-le explicitement si le service ne doit pas être accessible :\n   sudo ufw deny <port>/tcp\n4. Rechargez :\n   sudo ufw reload",
+        "server": {
+          "why": "Un service écoutant en IPv6 sans règle UFW explicite est accessible via IPv6 mais non filtré. Sur un serveur avec une adresse IPv6 publique, cela crée un chemin d'exposition non contrôlé contournant toutes vos règles pare-feu IPv4. Ajoutez des règles explicites pour chaque port en écoute."
+        },
+        "desktop": {
+          "why": "Sur un desktop, la plupart des expositions IPv6 sont sur le réseau local. Le risque dépend de l'existence d'une adresse IPv6 publique (préfixe /64 routable de votre FAI). Sur les réseaux domestiques typiques (NAT ou link-local uniquement), c'est informatif — mais ajouter des règles UFW explicites reste une bonne pratique."
+        },
+        "container": {
+          "why": "La connectivité IPv6 dans les containers dépend de la configuration réseau de l'hôte et du runtime. Si vos containers ne sont pas accessibles depuis l'extérieur via IPv6, cette détection est informative. Vérifiez votre configuration réseau avant d'ajouter des règles."
+        }
       },
       "ufw_enabled_kernel_disabled": {
         "title": "UFW IPv6 activé mais le support IPv6 du noyau est désactivé",
@@ -1086,12 +1200,32 @@
       "swappiness_ssd_wear": {
         "title": "Swappiness élevé sur SSD — amplification d'écriture inutile",
         "why": "Une valeur de swappiness élevée pousse le noyau à swapper des pages en mémoire de façon agressive même lorsque la RAM est disponible. Sur les SSD, chaque écriture de swap compte dans l'endurance totale en écriture du disque (TBW). Un swap agressif soutenu peut réduire significativement la durée de vie du SSD.",
-        "how": "1. Vérifiez la valeur actuelle :\n   cat /proc/sys/vm/swappiness\n2. Définissez une valeur plus basse immédiatement :\n   sudo sysctl vm.swappiness=10  # poste de travail\n   sudo sysctl vm.swappiness=1   # serveur\n3. Rendez-le permanent :\n   echo 'vm.swappiness=1' | sudo tee /etc/sysctl.d/99-swappiness.conf\n   sudo sysctl --system"
+        "how": "1. Vérifiez la valeur actuelle :\n   cat /proc/sys/vm/swappiness\n2. Définissez une valeur plus basse immédiatement :\n   sudo sysctl vm.swappiness=10  # poste de travail\n   sudo sysctl vm.swappiness=1   # serveur\n3. Rendez-le permanent :\n   echo 'vm.swappiness=1' | sudo tee /etc/sysctl.d/99-swappiness.conf\n   sudo sysctl --system",
+        "server": {
+          "why": "Sur un serveur avec SSD, une valeur swappiness élevée provoque un swapping agressif même quand la RAM est disponible, accélérant l'usure du disque et augmentant la latence I/O. Pour les serveurs de base de données ou I/O-intensifs, le swap excessif peut causer des dégradations de performance mesurables."
+        },
+        "desktop": {
+          "why": "Sur un desktop avec SSD, une swappiness élevée affecte directement la réactivité et la longévité du SSD. Le symptôme typique est un lag notable pendant les tâches intensives en mémoire. Réduire à 10 est la recommandation standard pour les desktops SSD, sans aucun inconvénient."
+        },
+        "container": {
+          "why": "La swappiness est un paramètre du noyau contrôlé par l'hôte. Les processus dans un container ne peuvent pas modifier vm.swappiness. Cette détection n'est pas réalisable dans un container — ajustez vm.swappiness sur le système hôte.",
+          "how": "Appliquer sur le système hôte (pas dans le container) :\n   sudo sysctl vm.swappiness=10\n   echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-swappiness.conf\n   sudo sysctl --system"
+        }
       },
       "swappiness_unjustified": {
         "title": "Swap utilisé malgré une RAM abondante",
         "why": "Le noyau déplace la mémoire des processus vers le swap alors que la RAM est largement disponible. Cela gaspille des cycles d'écriture du swap (particulièrement dommageable sur les SSD), augmente la latence I/O pour les processus concernés, et peut indiquer une valeur de swappiness trop élevée ou une fuite mémoire dans un processus en cours.",
-        "how": "1. Identifiez les processus avec de la mémoire swappée :\n   sudo smem -rs swap 2>/dev/null | head -15\n2. Réduisez la swappiness pour diminuer la tendance à swapper :\n   sudo sysctl vm.swappiness=10\n3. Si un processus spécifique fuit de la mémoire, examinez-le :\n   sudo top  # surveillez les colonnes RES/VIRT\n4. Rendez swappiness permanent :\n   echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-swappiness.conf"
+        "how": "1. Identifiez les processus avec de la mémoire swappée :\n   sudo smem -rs swap 2>/dev/null | head -15\n2. Réduisez la swappiness pour diminuer la tendance à swapper :\n   sudo sysctl vm.swappiness=10\n3. Si un processus spécifique fuit de la mémoire, examinez-le :\n   sudo top  # surveillez les colonnes RES/VIRT\n4. Rendez swappiness permanent :\n   echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-swappiness.conf",
+        "server": {
+          "why": "Un serveur qui utilise activement le swap alors que la RAM est disponible indique soit une swappiness trop haute pour la charge, soit un processus qui fuit de la mémoire. L'activité de swap ajoute de la latence I/O et, sur les serveurs SSD, consomme de l'endurance d'écriture. Investiguez et ajustez."
+        },
+        "desktop": {
+          "why": "Sur un desktop avec suffisamment de RAM utilisant activement le swap, le premier symptôme est une lenteur système. Réduire la swappiness de la valeur par défaut (60) à 10-20 améliore la réactivité pour les usages desktop typiques sans risquer des OOM."
+        },
+        "container": {
+          "why": "vm.swappiness ne peut pas être ajusté depuis un container. Si un processus container fuit de la mémoire, traitez la fuite directement. Pour le réglage du swap au niveau hôte, appliquez sur l'hôte.",
+          "how": "Investiguer la fuite mémoire dans le processus container :\n   docker stats <container>\nPour le réglage du swap au niveau hôte :\n   sudo sysctl vm.swappiness=10\n   echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-swappiness.conf\n   sudo sysctl --system"
+        }
       }
     },
     "samba": {
@@ -1130,22 +1264,58 @@
       "db_very_outdated": {
         "title": "Base de données virale dangereusement obsolète (> 30 jours)",
         "why": "La capacité de détection de ClamAV dépend entièrement de sa base de signatures. Une base obsolète est incapable de détecter les malwares découverts après la dernière mise à jour. Les ransomwares, trojans et rootkits publiés le mois dernier seraient complètement invisibles.",
-        "how": "1. Mettre à jour la base immédiatement :\n   sudo freshclam\n2. Activer les mises à jour automatiques :\n   sudo systemctl enable --now clamav-freshclam\n3. Vérifier que le timer systemd planifie des mises à jour quotidiennes"
+        "how": "1. Mettre à jour la base immédiatement :\n   sudo freshclam\n2. Activer les mises à jour automatiques :\n   sudo systemctl enable --now clamav-freshclam\n3. Vérifier que le timer systemd planifie des mises à jour quotidiennes",
+        "server": {
+          "why": "Une base de données antivirus de plus de 30 jours sur un serveur gérant des fichiers (relais mail, service d'upload, stockage partagé) laisse les malwares récents complètement indétectables. Chaque jour de retard ajoute des centaines de nouvelles signatures non détectables."
+        },
+        "desktop": {
+          "why": "Sur un desktop, une base de données ClamAV obsolète laisse sans protection contre les malwares récents. Comme les desktops traitent les téléchargements, pièces jointes et contenus web, maintenir les signatures à jour est essentiel pour que l'outil ait une utilité réelle."
+        },
+        "container": {
+          "why": "ClamAV est rarement déployé dans les containers — l'analyse se fait généralement au niveau de l'hôte ou via des scanners d'images dédiés (Trivy, Snyk). Si présent, une base obsolète dans un container indique que le cycle de rebuild de l'image ne rafraîchit pas la base."
+        }
       },
       "db_outdated": {
         "title": "Base de données virale obsolète (> 7 jours)",
         "why": "ClamAV publie plusieurs mises à jour de signatures par jour. Après 7 jours, des centaines de nouvelles signatures manquent dans votre base. Cela réduit significativement les taux de détection des menaces récentes.",
-        "how": "1. Mettre à jour la base :\n   sudo freshclam\n2. Activer les mises à jour automatiques :\n   sudo systemctl enable --now clamav-freshclam"
+        "how": "1. Mettre à jour la base :\n   sudo freshclam\n2. Activer les mises à jour automatiques :\n   sudo systemctl enable --now clamav-freshclam",
+        "server": {
+          "why": "Une base ClamAV vieille de 7-30 jours sur un serveur approche du seuil de risque. Les mises à jour automatiques via freshclam devraient maintenir la base sans intervention manuelle — une base obsolète suggère que le processus de mise à jour automatique échoue."
+        },
+        "desktop": {
+          "why": "Sur un desktop, une base de 7-30 jours est un signal d'alerte jaune. Le démon freshclam doit gérer les mises à jour automatiquement. S'il ne tourne pas, réactivez-le. Des menaces récentes peuvent passer inaperçues."
+        },
+        "container": {
+          "why": "Dans un container, les mises à jour de la base ClamAV doivent faire partie du pipeline de build de l'image. Une base obsolète dans un container en cours indique que l'image ou le processus de mise à jour nécessite une révision."
+        }
       },
       "scan_very_old": {
         "title": "Dernière analyse très ancienne (> 90 jours)",
         "why": "Sans analyses régulières, des infections peuvent persister des mois sans être détectées. Les systèmes Linux sont de plus en plus ciblés par des web shells, miners de cryptomonnaie, backdoors et rootkits qui ne se signalent pas.",
-        "how": "1. Lancer une analyse immédiate :\n   sudo clamscan -r /home --infected --log=/var/log/clamav/clamscan.log\n2. Planifier des analyses hebdomadaires via cron :\n   echo '0 2 * * 0 root clamscan -r /home --infected --log=/var/log/clamav/clamscan.log' | sudo tee /etc/cron.d/clamav-scan"
+        "how": "1. Lancer une analyse immédiate :\n   sudo clamscan -r /home --infected --log=/var/log/clamav/clamscan.log\n2. Planifier des analyses hebdomadaires via cron :\n   echo '0 2 * * 0 root clamscan -r /home --infected --log=/var/log/clamav/clamscan.log' | sudo tee /etc/cron.d/clamav-scan",
+        "server": {
+          "why": "Si le dernier scan date de plus de 90 jours sur un serveur gérant des fichiers, des malwares peuvent être présents depuis des mois. Les web shells, mineurs de cryptomonnaies et backdoors ne se signalent pas. Lancez un scan immédiat et planifiez des scans hebdomadaires réguliers via cron."
+        },
+        "desktop": {
+          "why": "Un écart de 90+ jours sur un desktop signifie que tout malware reçu ou téléchargé pendant cette période n'a pas été détecté. Lancez un scan immédiat et planifiez des scans hebdomadaires automatisés."
+        },
+        "container": {
+          "why": "Les scans ClamAV périodiques dans les containers ne sont pas standard. L'analyse se fait généralement au stade du build de l'image via Trivy, Snyk ou outils similaires. Les scans manuels dans des containers en cours ne sont pas une pratique standard."
+        }
       },
       "scan_old": {
         "title": "Dernière analyse il y a plus de 30 jours",
         "why": "Des analyses mensuelles laissent une large fenêtre pendant laquelle une infection peut s'établir, exfiltrer des données ou se propager. Sur un serveur exposé à internet, des analyses mensuelles sont insuffisantes.",
-        "how": "1. Lancer une nouvelle analyse :\n   sudo clamscan -r /home --infected --log=/var/log/clamav/clamscan.log\n2. Planifier des analyses hebdomadaires :\n   echo '0 2 * * 0 root clamscan -r /home --infected --log=/var/log/clamav/clamscan.log' | sudo tee /etc/cron.d/clamav-scan"
+        "how": "1. Lancer une nouvelle analyse :\n   sudo clamscan -r /home --infected --log=/var/log/clamav/clamscan.log\n2. Planifier des analyses hebdomadaires :\n   echo '0 2 * * 0 root clamscan -r /home --infected --log=/var/log/clamav/clamscan.log' | sudo tee /etc/cron.d/clamav-scan",
+        "server": {
+          "why": "Un écart de 30-90 jours entre les scans sur un serveur laisse une longue fenêtre pendant laquelle des malwares non détectés peuvent s'établir. Augmentez la fréquence des scans — hebdomadaire est le minimum recommandé pour les serveurs en production."
+        },
+        "desktop": {
+          "why": "Pour un desktop, un scan hebdomadaire est une base raisonnable. S'il s'est passé 30-90 jours, réactivez le scan planifié. Des téléchargements récents ou pièces jointes peuvent avoir introduit des malwares non détectés."
+        },
+        "container": {
+          "why": "Identique à scan_very_old — les scans ClamAV périodiques dans les containers ne sont pas standard. Privilégiez l'analyse d'image (Trivy, Snyk) intégrée dans votre pipeline CI/CD."
+        }
       }
     }
   },
@@ -1346,6 +1516,49 @@
     "exposed_detail": "Le port 25 ouvert sur toutes les interfaces signifie que n'importe quel hôte du réseau (ou d'internet, si non filtré) peut tenter des connexions SMTP. Sur un poste de travail ou un serveur interne, c'est presque toujours involontaire et permet des tentatives de relais, l'énumération VRFY et des tentatives d'envoi de spam.",
     "exposed_reason": "Port SMTP 25 lié à {bind} — accessible depuis le réseau",
     "exposed_restart_postfix": "Puis redémarrer Postfix : sudo systemctl restart postfix"
+  },
+  "auditd": {
+    "not_installed": "Linux Audit Framework (auditd) n'est pas installé",
+    "not_installed_detail": "auditd enregistre les appels système et les accès aux fichiers dans un journal infalsifiable. Sans lui, les tentatives d'escalade de privilèges, les accès aux fichiers de credentials et les abus de sudo ne sont pas tracés. Installez auditd et configurez des règles de surveillance sur les fichiers sensibles.",
+    "service_inactive": "auditd est installé mais le service ne fonctionne pas",
+    "service_inactive_detail": "auditd est installé mais inactif — aucun événement système n'est journalisé. Activez-le pour rétablir la couverture d'audit.",
+    "service_inactive_reason": "auditd inactif — journalisation des événements système désactivée",
+    "no_rules": "auditd fonctionne mais aucune règle d'audit n'est chargée",
+    "no_rules_detail": "auditd est actif mais n'a aucune règle configurée. Sans règles de surveillance, les accès aux fichiers sensibles (/etc/passwd, /etc/shadow, /etc/sudoers) ne sont pas journalisés. Ajoutez des règles via auditctl ou /etc/audit/rules.d/.",
+    "no_rules_reason": "auditd actif sans règle d'audit chargée",
+    "missing_sensitive_rules": "auditd ne surveille pas les fichiers système sensibles",
+    "missing_sensitive_rules_detail": "Les fichiers sensibles suivants ne sont pas couverts par des règles auditd : {files}. Tout accès ou modification de ces fichiers ne sera pas journalisé.",
+    "missing_sensitive_rules_reason": "auditd : fichiers sensibles non surveillés — {files}",
+    "active": "auditd actif — {count} règle(s) chargée(s)",
+    "sensitive_files_watched": "auditd surveille les fichiers sensibles (/etc/passwd, /etc/shadow, /etc/sudoers)"
+  },
+  "secure_boot": {
+    "enabled": "Secure Boot est activé",
+    "disabled": "Secure Boot est désactivé",
+    "disabled_detail": "Secure Boot empêche l'exécution de chargeurs de démarrage et noyaux non signés ou falsifiés. Sans lui, un attaquant avec accès physique ou des privilèges root peut installer un bootkit persistant après réinstallation, invisible au système. Activez Secure Boot dans les paramètres UEFI/BIOS.",
+    "disabled_server_detail": "Secure Boot est désactivé. Sur les serveurs et machines virtuelles, c'est courant (images cloud, noyaux personnalisés, hyperviseurs). Envisagez de l'activer si la plateforme le supporte.",
+    "disabled_reason": "Secure Boot désactivé — protection contre les malwares au niveau du démarrage inactive",
+    "no_uefi": "BIOS legacy détecté — Secure Boot non applicable",
+    "no_uefi_detail": "Ce système utilise un BIOS legacy (non-UEFI). Secure Boot est une fonctionnalité UEFI et ne peut pas être activé.",
+    "setup_mode": "Secure Boot est en mode Setup — aucune clé Platform Key enrollée",
+    "setup_mode_detail": "Secure Boot est techniquement activé mais en mode Setup : aucune Platform Key (PK) n'est enrollée. Cela signifie que n'importe quel chargeur de démarrage ou noyau non signé peut s'exécuter — Secure Boot n'offre aucune protection. Enrollez des clés ou désactivez le mode Setup dans les paramètres UEFI/BIOS.",
+    "setup_mode_reason": "Secure Boot en mode Setup — aucune Platform Key enrollée, protection inactive",
+    "unknown": "L'état de Secure Boot n'a pas pu être déterminé",
+    "unknown_detail": "Impossible de lire l'état de Secure Boot (mokutil non installé, variables EFI inaccessibles). Installez mokutil pour vérifier : sudo apt install mokutil"
+  },
+  "file_integrity": {
+    "not_installed": "Aucun moniteur d'intégrité des fichiers installé (AIDE / Tripwire)",
+    "not_installed_detail": "Les moniteurs d'intégrité des fichiers détectent les modifications non autorisées des fichiers système, binaires et configurations. Sans eux, un attaquant qui modifie un binaire ou un fichier de configuration (ex : /etc/passwd, /usr/bin/sudo) passe inaperçu. Installez AIDE et initialisez sa base de données.",
+    "no_db": "{tool} est installé mais la base de données d'intégrité n'a pas été initialisée",
+    "no_db_detail": "Sans base de données initialisée, {tool} n'a aucune référence pour détecter des changements. Initialisez la base maintenant.",
+    "no_db_reason": "{tool} installé mais base non initialisée — surveillance d'intégrité inactive",
+    "no_check": "La base {tool} existe mais aucune vérification d'intégrité n'a été effectuée",
+    "no_check_detail": "La base {tool} existe mais aucune vérification n'a été lancée. Planifiez des vérifications régulières via cron pour détecter rapidement les modifications.",
+    "no_check_reason": "{tool} — base présente mais aucune vérification enregistrée",
+    "check_old": "Dernière vérification {tool} il y a {days} jour(s) ({date})",
+    "check_old_detail": "La vérification d'intégrité date de plus de 30 jours. Des modifications non détectées dans l'intervalle pourraient indiquer une compromission. Planifiez des vérifications hebdomadaires ou quotidiennes via cron.",
+    "check_old_reason": "Dernière vérification {tool} il y a {days} jours — couverture obsolète",
+    "ok": "Vérification d'intégrité {tool} à jour (dernier passage : {date})"
   },
   "fail2ban": {
     "not_installed": "Fail2ban n'est pas installé",

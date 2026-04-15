@@ -139,6 +139,11 @@ class TestSmartctlMissing:
         result = run(make_snap(smartctl_available=False))
         assert deduction_points(result) == 0
 
+    def test_smartctl_missing_has_install_cmd(self):
+        result = run(make_snap(smartctl_available=False))
+        f = next(f for f in result.findings if f.key == "disk.smartctl_missing")
+        assert "smartmontools" in f.cmd
+
 
 # ---------------------------------------------------------------------------
 # SMART — virtual / unsupported
@@ -430,6 +435,41 @@ class TestParseSmartAttr:
 # ---------------------------------------------------------------------------
 # Edge cases
 # ---------------------------------------------------------------------------
+
+class TestCmdType:
+    def test_smart_failed_cmd_type_is_check(self):
+        result = run(make_snap(smart_results=[make_smart(passed=False)]))
+        f = next(f for f in result.findings if f.key == "disk.smart_failed")
+        assert f.cmd_type == "check"
+
+    def test_reallocated_sectors_cmd_type_is_check(self):
+        result = run(make_snap(smart_results=[make_smart(reallocated_sectors=5)]))
+        f = next(f for f in result.findings if f.key == "disk.reallocated_sectors")
+        assert f.cmd_type == "check"
+
+    def test_pending_sectors_cmd_type_is_check(self):
+        result = run(make_snap(smart_results=[make_smart(pending_sectors=3)]))
+        f = next(f for f in result.findings if f.key == "disk.pending_sectors")
+        assert f.cmd_type == "check"
+
+    def test_uncorrectable_errors_cmd_type_is_check(self):
+        result = run(make_snap(smart_results=[make_smart(uncorrectable_errors=2)]))
+        f = next(f for f in result.findings if f.key == "disk.uncorrectable_errors")
+        assert f.cmd_type == "check"
+
+    def test_partition_critical_cmd_type_is_check(self):
+        result = run(make_snap(partitions=[make_part(used_pct=_WARN_USAGE_PCT)]))
+        f = next(f for f in result.findings if f.key == "disk.partition_critical")
+        assert f.cmd_type == "check"
+
+    def test_smart_tips_cmd_type_is_check(self):
+        result = run(make_snap(
+            smartctl_available=True,
+            smart_results=[make_smart(passed=True)],
+        ))
+        f = next(f for f in result.findings if f.key == "disk.smart_tips")
+        assert f.cmd_type == "check"
+
 
 class TestEdgeCases:
     def test_no_t_does_not_crash(self):

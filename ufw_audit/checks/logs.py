@@ -109,12 +109,14 @@ class LogsSnapshot:
         entries:        List of parsed BLOCK events within the period.
         days_available: Number of distinct days found in the full log file.
         log_days:       Requested analysis period in days.
-        log_found:      True if /var/log/ufw.log exists.
+        log_found:      True if a log source (file or journald) was found.
+        log_source:     "file" | "journald" | "none"
     """
     entries:        list[LogEntry]
     days_available: int
     log_days:       int
     log_found:      bool = True
+    log_source:     str  = "file"
 
     @property
     def total(self) -> int:
@@ -136,32 +138,44 @@ class LogsSnapshot:
         Returns:
             Populated LogsSnapshot. Never raises.
         """
-        if not log_path.exists():
-            return cls(entries=[], days_available=0,
-                       log_days=log_days, log_found=False)
-
-        _MAX_LOG_SIZE = 10 * 1024 * 1024  # 10 MB — read from end to capture recent entries
-        try:
-            with log_path.open(encoding="utf-8", errors="ignore") as fh:
-                fh.seek(0, 2)
-                file_size = fh.tell()
-                fh.seek(max(file_size - _MAX_LOG_SIZE, 0))
-                content = fh.read()
-        except OSError as exc:
-            logger.warning("Cannot read %s: %s", log_path, exc)
-            return cls(entries=[], days_available=0,
-                       log_days=log_days, log_found=False)
-
         cutoff_dt = datetime.now() - timedelta(days=log_days)
-        days_available = _count_available_days(content)
-        entries = _parse_log(content, cutoff_dt)
 
-        return cls(
-            entries=entries,
-            days_available=days_available,
-            log_days=log_days,
-            log_found=True,
-        )
+        # --- Primary source: /var/log/ufw.log ---
+        if log_path.exists():
+            _MAX_LOG_SIZE = 10 * 1024 * 1024  # 10 MB
+            try:
+                with log_path.open(encoding="utf-8", errors="ignore") as fh:
+                    fh.seek(0, 2)
+                    file_size = fh.tell()
+                    fh.seek(max(file_size - _MAX_LOG_SIZE, 0))
+                    content = fh.read()
+                days_available = _count_available_days(content)
+                entries = _parse_log(content, cutoff_dt)
+                return cls(
+                    entries=entries,
+                    days_available=days_available,
+                    log_days=log_days,
+                    log_found=True,
+                    log_source="file",
+                )
+            except OSError as exc:
+                logger.warning("Cannot read %s: %s", log_path, exc)
+
+        # --- Fallback: journald (Debian/systemd without rsyslog) ---
+        content = _read_from_journald(log_days)
+        if content:
+            days_available = _count_available_days(content)
+            entries = _parse_log(content, cutoff_dt)
+            return cls(
+                entries=entries,
+                days_available=days_available,
+                log_days=log_days,
+                log_found=True,
+                log_source="journald",
+            )
+
+        return cls(entries=[], days_available=0,
+                   log_days=log_days, log_found=False, log_source="none")
 
 
 # ---------------------------------------------------------------------------
@@ -191,6 +205,9 @@ def check_logs(
     if not snapshot.log_found:
         result.info(message=_t("logs.no_logfile"))
         return result
+
+    if snapshot.log_source == "journald":
+        result.info(message=_t("logs.source_journald"))
 
     if snapshot.total == 0:
         result.ok(message=_t("logs.empty"))
@@ -468,6 +485,39 @@ def geoip2_status() -> str:
 # ---------------------------------------------------------------------------
 # Parsing helpers
 # ---------------------------------------------------------------------------
+
+def _read_from_journald(log_days: int) -> str:
+    """
+    Read UFW kernel log entries from systemd-journald.
+
+    Used as a fallback when /var/log/ufw.log is absent (e.g. Debian 13 with
+    journald-only logging, no rsyslog).
+
+    Returns:
+        Raw log content string (ISO-formatted lines), or empty string if
+        journald is unavailable or returned no UFW entries.
+    """
+    try:
+        import subprocess as _sp
+        result = _sp.run(
+            [
+                "journalctl", "-k",
+                "--no-pager",
+                "--output=short-iso",
+                f"--since={log_days} days ago",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        content = result.stdout
+        # Only return content if it actually contains UFW entries
+        if "[UFW " in content:
+            return content
+    except Exception:
+        pass
+    return ""
+
 
 def _count_available_days(content: str) -> int:
     """Count the number of distinct calendar days in the log file."""

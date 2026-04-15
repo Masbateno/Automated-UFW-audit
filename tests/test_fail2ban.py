@@ -271,6 +271,12 @@ class TestCheckFail2banNoJails:
         result = check_fail2ban(snap)
         assert result.findings[0].key == "fail2ban.no_jails"
 
+    def test_no_jails_cmd_type_is_check(self):
+        snap = Fail2banSnapshot(installed=True, service_active=True, active_jails=[])
+        result = check_fail2ban(snap)
+        f = next(f for f in result.findings if f.key == "fail2ban.no_jails")
+        assert f.cmd_type == "check"
+
 
 # ---------------------------------------------------------------------------
 # check_fail2ban() — running with jails

@@ -60,6 +60,7 @@ def _run(argv=None) -> int:
 
     if config.explain_key:
         i18n.init(lang=config.lang)
+        output.init(no_color=config.no_color)
         from ufw_audit.explain import run_explain, run_explain_interactive
         if config.explain_key == "__interactive__":
             run_explain_interactive(i18n.t)
@@ -202,7 +203,8 @@ def _run(argv=None) -> int:
         save_baseline(curr_baseline)
 
         if not config.quiet:
-            print_audit_summary(engine, network_context, public_ip, config, t, report, snapshots)
+            print_audit_summary(engine, network_context, public_ip, config, t, report, snapshots,
+                                profile_name=active_profile.name)
             from ufw_audit.domain_scores import compute_domain_scores, render_domain_scores
             _domain_scores = compute_domain_scores(engine)
             for _line in render_domain_scores(_domain_scores, t):

@@ -131,7 +131,12 @@ def parse_log_selection(answer: str, max_idx: int) -> list[int]:
 # ---------------------------------------------------------------------------
 
 def run_manage_logs(user_config, config, t) -> int:
-    """Standalone log management UI — list, multi-delete, and change storage location."""
+    """Standalone log management UI — list, multi-delete, and change storage location.
+
+    Loops until the user explicitly quits (empty input or 'q').
+    The log list is refreshed on every iteration so deletions are reflected
+    immediately without restarting the tool.
+    """
     from ufw_audit import output
     output.init(no_color=config.no_color)
 
@@ -148,80 +153,86 @@ def run_manage_logs(user_config, config, t) -> int:
         print(f"  ℹ {t('manage_logs.no_dir')}")
         return 0
 
-    log_dir = Path(log_dir_str)
+    while True:
+        # Refresh log_dir and file list on every iteration
+        log_dir_str = user_config.get("log_dir") or log_dir_str
+        log_dir = Path(log_dir_str)
 
-    if not log_dir.exists():
-        log_dir.mkdir(parents=True, exist_ok=True)
+        if not log_dir.exists():
+            log_dir.mkdir(parents=True, exist_ok=True)
 
-    logs = sorted(log_dir.glob("ufw_audit_*.log"), reverse=True)
+        logs = sorted(log_dir.glob("ufw_audit_*.log"), reverse=True)
 
-    print(f"  {t('manage_logs.stored_in', path=str(log_dir))}")
-    print()
+        print(f"  {t('manage_logs.stored_in', path=str(log_dir))}")
+        print()
 
-    if not logs:
-        print(f"  ℹ {t('manage_logs.no_logs', path=str(log_dir))}")
-    else:
-        size_label = t("manage_logs.size_label")
-        for i, f in enumerate(logs, 1):
-            size_kb = max(1, f.stat().st_size // 1024)
-            from datetime import datetime as _dt
-            mtime = _dt.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
-            print(f"  [{i:2}]  {f.name}  ({size_kb} {size_label})  {mtime}")
-
-    print()
-    print(f"  {t('manage_logs.prompt')}")
-    answer = input("  > ").strip().lower()
-
-    if answer == "":
-        return 0
-
-    elif answer in ("c", "change"):
-        default_dir = Path(log_dir_str)
-        chosen = prompt_path(t("manage_logs.change_prompt"), default_dir, allow_cancel=True)
-        if chosen is None:
-            print(f"  {t('manage_logs.cancelled')}")
-            return 0
-        try:
-            chosen.mkdir(parents=True, exist_ok=True)
-        except OSError as exc:
-            print(f"  ✖ Cannot create directory {chosen}: {exc}")
-            return 1
-        user_config.set("log_dir", str(chosen))
-        print(f"  ✔ {t('manage_logs.location_updated', path=str(chosen))}")
-
-    elif answer == "all":
-        confirm = input(f"  {t('manage_logs.confirm_all', count=len(logs))} [y/N] ").strip().lower()
-        if confirm != "y":
-            return 0
-        deleted = 0
-        for f in logs:
-            try:
-                f.unlink()
-                deleted += 1
-            except OSError as exc:
-                print(f"  ✖ Cannot delete {f.name}: {exc}")
-        print(f"  ✔ {t('manage_logs.deleted_all', count=deleted)}")
-
-    else:
-        selected = parse_log_selection(answer, len(logs))
-        if not selected:
-            print(f"  ✖ {t('manage_logs.invalid')}")
-        elif len(selected) == 1:
-            f = logs[selected[0] - 1]
-            try:
-                f.unlink()
-                print(f"  ✔ {t('manage_logs.deleted_one', name=f.name)}")
-            except OSError as exc:
-                print(f"  ✖ Cannot delete {f.name}: {exc}")
+        if not logs:
+            print(f"  ℹ {t('manage_logs.no_logs', path=str(log_dir))}")
         else:
-            deleted = 0
-            for idx in selected:
-                f = logs[idx - 1]
+            size_label = t("manage_logs.size_label")
+            for i, f in enumerate(logs, 1):
+                size_kb = max(1, f.stat().st_size // 1024)
+                from datetime import datetime as _dt
+                mtime = _dt.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+                print(f"  [{i:2}]  {f.name}  ({size_kb} {size_label})  {mtime}")
+
+        print()
+        print(f"  {t('manage_logs.prompt')}")
+        answer = input("  > ").strip().lower()
+
+        if answer in ("", "q", "quit"):
+            return 0
+
+        elif answer in ("c", "change"):
+            default_dir = Path(log_dir_str)
+            chosen = prompt_path(t("manage_logs.change_prompt"), default_dir, allow_cancel=True)
+            if chosen is None:
+                print(f"  {t('manage_logs.cancelled')}")
+            else:
+                try:
+                    chosen.mkdir(parents=True, exist_ok=True)
+                except OSError as exc:
+                    print(f"  ✖ Cannot create directory {chosen}: {exc}")
+                    print()
+                    continue
+                user_config.set("log_dir", str(chosen))
+                log_dir_str = str(chosen)
+                print(f"  ✔ {t('manage_logs.location_updated', path=str(chosen))}")
+
+        elif answer == "all":
+            confirm = input(f"  {t('manage_logs.confirm_all', count=len(logs))} [y/N] ").strip().lower()
+            if confirm != "y":
+                print(f"  {t('manage_logs.cancelled')}")
+            else:
+                deleted = 0
+                for f in logs:
+                    try:
+                        f.unlink()
+                        deleted += 1
+                    except OSError as exc:
+                        print(f"  ✖ Cannot delete {f.name}: {exc}")
+                print(f"  ✔ {t('manage_logs.deleted_all', count=deleted)}")
+
+        else:
+            selected = parse_log_selection(answer, len(logs))
+            if not selected:
+                print(f"  ✖ {t('manage_logs.invalid')}")
+            elif len(selected) == 1:
+                f = logs[selected[0] - 1]
                 try:
                     f.unlink()
-                    deleted += 1
+                    print(f"  ✔ {t('manage_logs.deleted_one', name=f.name)}")
                 except OSError as exc:
                     print(f"  ✖ Cannot delete {f.name}: {exc}")
-            print(f"  ✔ {t('manage_logs.deleted_multi', count=deleted)}")
+            else:
+                deleted = 0
+                for idx in selected:
+                    f = logs[idx - 1]
+                    try:
+                        f.unlink()
+                        deleted += 1
+                    except OSError as exc:
+                        print(f"  ✖ Cannot delete {f.name}: {exc}")
+                print(f"  ✔ {t('manage_logs.deleted_multi', count=deleted)}")
 
-    return 0
+        print()

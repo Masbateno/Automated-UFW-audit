@@ -77,10 +77,6 @@ class TestDesktopAppsFromSystem:
             snap = DesktopAppsSnapshot.from_system()
         assert snap.detected[0][0] == "Slack"
 
-    def test_spotify_detected(self):
-        with patch("subprocess.check_output", return_value=_ps_output("spotify")):
-            snap = DesktopAppsSnapshot.from_system()
-        assert snap.detected[0][0] == "Spotify"
 
     def test_obs_detected(self):
         with patch("subprocess.check_output", return_value=_ps_output("obs")):
@@ -159,7 +155,7 @@ class TestCheckDesktopAppsDetected:
         snap = DesktopAppsSnapshot(detected=[
             ("Steam", "steam"),
             ("Discord", "Discord"),
-            ("Spotify", "spotify"),
+            ("OBS Studio", "obs"),
         ])
         result = check_desktop_apps(snap)
         assert len(result.findings) == 3

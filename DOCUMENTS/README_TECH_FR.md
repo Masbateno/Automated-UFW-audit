@@ -1,9 +1,9 @@
 *[Read in English](README_TECH.md)* · *[Vue d'ensemble](../README_FR.md)*
 
-# ufw-audit v1.16.0
+# ufw-audit v1.17.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.16.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.17.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -50,7 +50,10 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 - **Synchronisation NTP** — vérifie si systemd-timesyncd, chronyd ou ntpd est actif et synchronisé ; WARN −1 pt si NTP est désactivé ou l'horloge pas encore synchronisée
 - **Prévention d'intrusion Fail2ban** — check autonome dédié ; détecte l'installation, l'état du service, les jails actifs et la présence d'un jail SSH ; WARN −1 pt si service inactif ou aucun jail configuré
 - **Scan rootkit & intégrité** — détection rkhunter/chkrootkit ; WARN −1 pt pour base de données rkhunter obsolète (≥7 jours), scan absent ou dernier scan trop ancien (>30 jours)
-- **`--explain KEY`** — explication structurée par constat (POURQUOI C'EST UN RISQUE / COMMENT CORRIGER / référence CIS Ubuntu 22.04) ; 76 clés explicables dans 19 groupes ; `--explain list` affiche toutes les clés avec en-têtes de groupes ; TUI interactif : navigation bloquée (pas de wrap), écran détail in-curses (ESC pour revenir) ; normalisation des clés `file_perms.*` ; sans droit root
+- **Linux Audit Framework (auditd)** — détecte l'installation, l'état du service, les règles chargées et la couverture des fichiers sensibles (/etc/passwd, /etc/shadow, /etc/sudoers) ; WARN −1 pt chacun pour service inactif, aucune règle, fichiers non couverts (profil server uniquement)
+- **Secure Boot** — état UEFI via `mokutil --sb-state` → `/sys/firmware/efi/efivars/` → `bootctl status` ; WARN −1 pt si désactivé sur desktop ; INFO si désactivé sur server/VM ou BIOS/inconnu
+- **Intégrité des fichiers (AIDE/Tripwire)** — détecte l'installation, l'initialisation de la base et la date du dernier check ; AIDE préféré à Tripwire ; WARN −1 pt si base absente ou check absent/trop ancien (>30 jours)
+- **`--explain KEY`** — explication structurée par constat (POURQUOI C'EST UN RISQUE / COMMENT CORRIGER / référence CIS Ubuntu 22.04) ; 76 clés explicables dans 19 groupes ; 17 clés affichent des sections par profil (`[ server ]` / `[ desktop ]` / `[ container ]`) ; note uniforme jaune pour les clés sans différence entre profils ; TUI interactif avec délai ESC réduit à 25 ms ; sans droit root
 - **Scores par domaine** — sous-scores de sécurité par domaine (SSH / Sécurité Samba / Fichiers & Accès / Mises à jour / Durcissement / Santé Disque / Pare-feu & Services) ; 7 domaines ; affichés en barre █/░ après l'audit ; inclus dans la sortie JSON et le payload webhook
 - **Webhooks** — `--webhook URL` envoie le résultat d'audit en JSON après chaque audit ; formats générique (Grafana/automation) et Slack (auto-détecté) ; non-fatal ; `--webhook-format=auto|generic|slack`
 - **Mode `--diff`** — lance l'audit silencieusement et affiche uniquement le delta comparatif (changements depuis le dernier audit) ; suit le score, le nombre d'alertes/avertissements et le nombre d'INFO (les changements de niveau INFO sont donc détectés)
@@ -60,7 +63,9 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 - **Exposition SMTP locale** — détecte les MTA (Postfix, Exim, Sendmail) en écoute sur toutes les interfaces (`0.0.0.0:25` ou `:::25`) vs localhost uniquement ; `SmtpSnapshot.from_system()` utilise `ps -eo comm` + `ss -tlnp`/repli `netstat` ; WARN −1 pt si exposition publique
 - **`--fix` aperçu par défaut** — `--fix` seul affiche un aperçu de toutes les corrections disponibles avec `→ cmd` sans exécuter ; `--fix --apply` active le flux d'application interactif ; `--fix --apply --yes` confirme tout automatiquement avec journal d'audit
 - **`--target N`** — objectif de score (1–10) ; affiché dans la boîte de synthèse comme `✔ atteint` (vert) ou `▲ +N pt(s) manquant(s)` (jaune) ; retourne le code de sortie 4 si le score < cible (intégration CI, prioritaire sur les codes 1/2)
-- **5 en-têtes de groupes thématiques** — sortie de l'audit réorganisée en cinq groupes nommés : FIREWALL & RÉSEAU / EXPOSITION & SERVICES / CONTRÔLE D'ACCÈS / DURCISSEMENT SYSTÈME / DÉTECTION & SANTÉ ; chaque groupe introduit par un séparateur `━` cyan pleine largeur avant la première boîte de section
+- **5 en-têtes de groupes thématiques** — sortie de l'audit réorganisée en cinq groupes nommés : FIREWALL & RÉSEAU / EXPOSITION & SERVICES / CONTRÔLE D'ACCÈS / DURCISSEMENT SYSTÈME / DÉTECTION & SANTÉ ; chaque groupe introduit par un séparateur `━` cyan pleine largeur avec le titre centré
+- **`cmd_type` sur les findings** — `Finding` gagne `cmd_type: str = "fix"` / `"check"` ; la boîte de synthèse utilise `→` pour les commandes de correction et `ℹ` pour les commandes de vérification
+- **Profils d'audit** — `server` (défaut), `desktop` (remplace `workstation`), `container` ; alias `workstation` conservé ; profil actif affiché dans la boîte de synthèse
 
 ---
 

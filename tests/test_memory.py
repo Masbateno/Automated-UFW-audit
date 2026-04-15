@@ -232,16 +232,16 @@ class TestSuboptimalSwappiness:
         result = run(make_snap(swappiness=60, swap_on_ssd=False), profile_name="server")
         assert "memory.swappiness_suboptimal" in finding_keys(result)
 
-    def test_default_swappiness_workstation_produces_info(self):
-        result = run(make_snap(swappiness=60, swap_on_ssd=False), profile_name="workstation")
+    def test_default_swappiness_desktop_produces_info(self):
+        result = run(make_snap(swappiness=60, swap_on_ssd=False), profile_name="desktop")
         assert "memory.swappiness_suboptimal" in finding_keys(result)
 
     def test_already_optimal_server_produces_ok(self):
         result = run(make_snap(swappiness=1, swap_on_ssd=False), profile_name="server")
         assert "memory.swappiness_ok" in finding_keys(result)
 
-    def test_already_optimal_workstation_produces_ok(self):
-        result = run(make_snap(swappiness=10, swap_on_ssd=False), profile_name="workstation")
+    def test_already_optimal_desktop_produces_ok(self):
+        result = run(make_snap(swappiness=10, swap_on_ssd=False), profile_name="desktop")
         assert "memory.swappiness_ok" in finding_keys(result)
 
     def test_suboptimal_no_deduction(self):
@@ -272,24 +272,24 @@ class TestProfileAware:
         warn = next(f for f in result.findings if f.key == "memory.swappiness_ssd_wear")
         assert "vm.swappiness=1" in (warn.cmd or "")
 
-    def test_workstation_recommended_swappiness_10(self):
-        """Workstation profile cmd should recommend swappiness=10."""
-        result = run(make_snap(swap_on_ssd=True, swappiness=60), profile_name="workstation")
+    def test_desktop_recommended_swappiness_10(self):
+        """Desktop profile cmd should recommend swappiness=10."""
+        result = run(make_snap(swap_on_ssd=True, swappiness=60), profile_name="desktop")
         warn = next(f for f in result.findings if f.key == "memory.swappiness_ssd_wear")
         assert "vm.swappiness=10" in (warn.cmd or "")
 
-    def test_server_and_workstation_differ(self):
+    def test_server_and_desktop_differ(self):
         """The two profiles must not recommend the same value."""
         snap = make_snap(swap_on_ssd=True, swappiness=60)
         server_warn = next(
             f for f in run(snap, profile_name="server").findings
             if f.key == "memory.swappiness_ssd_wear"
         )
-        ws_warn = next(
-            f for f in run(snap, profile_name="workstation").findings
+        desktop_warn = next(
+            f for f in run(snap, profile_name="desktop").findings
             if f.key == "memory.swappiness_ssd_wear"
         )
-        assert server_warn.cmd != ws_warn.cmd
+        assert server_warn.cmd != desktop_warn.cmd
 
 
 # ---------------------------------------------------------------------------

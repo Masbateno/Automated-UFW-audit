@@ -164,6 +164,11 @@ class TestRpFilter:
         reasons = [d.reason for d in result.deductions]
         assert "hardening.rp_filter_disabled" in reasons
 
+    def test_rp_filter_cmd_is_persistent(self):
+        result = check_hardening(make_snapshot(rp_filter=0), t=_t)
+        f = next(f for f in result.findings if f.key == "hardening.rp_filter_disabled")
+        assert "tee" in f.cmd and "sysctl.d" in f.cmd
+
 
 # ---------------------------------------------------------------------------
 # ICMP redirects
@@ -187,6 +192,11 @@ class TestAcceptRedirects:
         reasons = [d.reason for d in result.deductions]
         assert "hardening.redirects_enabled" in reasons
 
+    def test_redirects_cmd_is_persistent(self):
+        result = check_hardening(make_snapshot(accept_redirects=True), t=_t)
+        f = next(f for f in result.findings if f.key == "hardening.redirects_enabled")
+        assert "tee" in f.cmd and "sysctl.d" in f.cmd
+
 
 # ---------------------------------------------------------------------------
 # log_martians
@@ -206,6 +216,11 @@ class TestLogMartians:
         result = check_hardening(make_snapshot(log_martians=False), t=_t)
         martian_deductions = [d for d in result.deductions if "martian" in d.reason]
         assert martian_deductions == []
+
+    def test_log_martians_cmd_is_persistent(self):
+        result = check_hardening(make_snapshot(log_martians=False), t=_t)
+        f = next(f for f in result.findings if f.key == "hardening.log_martians_disabled")
+        assert "tee" in f.cmd and "sysctl.d" in f.cmd
 
 
 # ---------------------------------------------------------------------------

@@ -63,4 +63,4 @@ def build_panorama_rows(all_snapshots) -> list[PanoramaRow]:
             ufw=ufw,
         ))
 
-    return rows
+    return sorted(rows, key=lambda r: r["label"].lower())

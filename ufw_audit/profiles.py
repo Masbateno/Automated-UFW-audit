@@ -119,6 +119,8 @@ def load_profile(name: str) -> AuditProfile:
     """
     if name in ("default", "server", ""):
         return _DEFAULT_PROFILE
+    if name == "workstation":          # backward-compat alias
+        name = "desktop"
 
     path = _find_profile_file(name)
     if path is None:

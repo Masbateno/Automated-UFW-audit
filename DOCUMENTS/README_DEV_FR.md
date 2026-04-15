@@ -53,7 +53,7 @@ Cette séparation permet de tester toute la logique métier en instanciant direc
 | `sysinfo.py` | Info système — `collect_system_info()`, `detect_network_context()`, `get_user_home()` |
 | `compare.py` | Rapport comparatif — `AuditBaseline`, `AuditDelta`, `build_baseline()`, `save_baseline()`, `load_baseline()`, `compute_delta()`, `display_delta()` |
 | `plugin_checks.py` | Chargeur de plugins — `PluginCheck`, `load_plugin_checks()`, sanitisation ANSI |
-| `explain.py` | `--explain KEY` — `normalize_key()`, `run_explain()`, 76 clés canoniques dans 19 groupes, lookup référence CIS |
+| `explain.py` | `--explain KEY` — `normalize_key()`, `run_explain()`, 76 clés canoniques dans 19 groupes, variantes par profil (17 clés × 3 profils), lookup référence CIS |
 | `domain_scores.py` | Sous-scores par domaine — `compute_domain_scores()`, `render_domain_scores()`, attribution 6 domaines |
 | `webhook.py` | Envoi webhook — `build_generic_payload()`, `build_slack_payload()`, `send_webhook()`, auto-détection format |
 
@@ -92,6 +92,9 @@ Cette séparation permet de tester toute la logique métier en instanciant direc
 | `ntp.py` | Synchronisation NTP : systemd-timesyncd/chronyd/ntpd actif et synchronisé |
 | `fail2ban.py` | Prévention intrusion Fail2ban : état service, jails actifs, détection jail SSH |
 | `rootkit.py` | Scan rootkit & intégrité : installation rkhunter/chkrootkit, fraîcheur BDD, date dernier scan |
+| `auditd.py` | Linux Audit Framework : installation, état service, règles chargées, surveillance fichiers sensibles |
+| `secure_boot.py` | Secure Boot : état UEFI via mokutil/efivars/bootctl ; scoring adapté au profil |
+| `file_integrity.py` | Intégrité des fichiers : installation AIDE/Tripwire, existence BDD, récence du dernier check |
 
 ---
 

@@ -53,7 +53,7 @@ This separation allows the entire business logic to be tested by instantiating s
 | `sysinfo.py` | System info — `collect_system_info()`, `detect_network_context()`, `get_user_home()` |
 | `compare.py` | Comparative report — `AuditBaseline`, `AuditDelta`, `build_baseline()`, `save_baseline()`, `load_baseline()`, `compute_delta()`, `display_delta()` |
 | `plugin_checks.py` | Plugin loader — `PluginCheck`, `load_plugin_checks()`, ANSI sanitization |
-| `explain.py` | `--explain KEY` — `normalize_key()`, `run_explain()`, 76-key canonical list in 19 groups, CIS reference lookup |
+| `explain.py` | `--explain KEY` — `normalize_key()`, `run_explain()`, 76-key canonical list in 19 groups, profile variants (17 keys × 3 profiles), CIS reference lookup |
 | `domain_scores.py` | Per-domain sub-scores — `compute_domain_scores()`, `render_domain_scores()`, 6-domain attribution |
 | `webhook.py` | Webhook delivery — `build_generic_payload()`, `build_slack_payload()`, `send_webhook()`, format auto-detection |
 
@@ -92,6 +92,9 @@ This separation allows the entire business logic to be tested by instantiating s
 | `ntp.py` | NTP time synchronisation: systemd-timesyncd/chronyd/ntpd active and synchronised |
 | `fail2ban.py` | Fail2ban intrusion prevention: service state, active jails, SSH jail detection |
 | `rootkit.py` | Rootkit & integrity scan: rkhunter/chkrootkit installation, DB freshness, last scan age |
+| `auditd.py` | Linux Audit Framework: installation, service state, loaded rules, sensitive file watches |
+| `secure_boot.py` | Secure Boot: UEFI state via mokutil/efivars/bootctl; profile-aware scoring |
+| `file_integrity.py` | File integrity monitoring: AIDE/Tripwire installation, DB existence, last check recency |
 
 ---
 
