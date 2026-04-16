@@ -177,6 +177,44 @@ Pour lister et supprimer les rapports générés :
 sudo ufw-audit --manage-logs
 ```
 
+### Actions disponibles
+
+| Saisie | Action |
+|--------|--------|
+| `1`, `3`, `1,3`, `2-5` | Supprimer le(s) rapport(s) par numéro |
+| `all` | Supprimer tous les rapports visibles (confirmation requise) |
+| `c` | Changer l'emplacement de stockage |
+| Entrée / `q` | Quitter |
+
+### Changer l'emplacement de stockage
+
+Appuyez sur `c` pour saisir un nouveau chemin. Si des rapports existent dans le répertoire actuel, la question suivante apparaît :
+
+```
+Déplacer 28 rapport(s) vers le nouvel emplacement ? [y/N]
+```
+
+- **y** — tous les rapports visibles sont déplacés vers le nouveau chemin via `shutil.move`
+- **n / Entrée** — les rapports restent dans l'ancien répertoire ; l'ancien chemin est mémorisé
+
+### Vue multi-répertoires
+
+Si vous avez changé l'emplacement sans déplacer les rapports, tous les répertoires connus sont affichés ensemble dans une liste unifiée :
+
+```
+  Rapports dans : /home/user/ufwauditlogs  [actuel]
+
+  ℹ Aucun rapport trouvé
+
+  ─── Emplacement précédent : /home/user/.local/share/ufw-audit/logs ───
+
+  [ 1]  ufw_audit_20260416_053234.log  (20 Ko)  2026-04-16 05:32
+  ...
+  [28]  ufw_audit_20260413_124813.log  (19 Ko)  2026-04-13 12:48
+```
+
+Tous les éléments partagent un index continu — suppression, sélection ou `all` fonctionnent quel que soit le répertoire d'origine. Les anciens répertoires devenus vides sont automatiquement retirés de la liste.
+
 ---
 
 ## Configuration Postfix pour les emails HTML (v0.12+)

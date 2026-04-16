@@ -16,6 +16,9 @@ import pytest
 
 from ufw_audit.checks.hardening import HardeningSnapshot, check_hardening
 from ufw_audit.checks.ipv6 import IPv6Snapshot, check_ipv6
+from ufw_audit.checks.ssh import SSHSnapshot, check_ssh
+from ufw_audit.checks.rootkit import RootkitSnapshot, check_rootkit
+from ufw_audit.checks.password_policy import PasswordPolicySnapshot, check_password_policy
 from ufw_audit.profiles import (
     AuditProfile,
     _DEFAULT_PROFILE,
@@ -115,6 +118,30 @@ class TestLoadBuiltinProfiles:
         p = load_profile("desktop")
         assert p.override_for("hardening.rp_filter_disabled") == "info"
 
+    def test_desktop_overrides_ssh_password_auth(self):
+        p = load_profile("desktop")
+        assert p.override_for("ssh.password_auth") == "info"
+
+    def test_desktop_overrides_ssh_x11_forwarding(self):
+        p = load_profile("desktop")
+        assert p.override_for("ssh.x11_forwarding") == "info"
+
+    def test_desktop_overrides_ssh_allow_tcp_forwarding(self):
+        p = load_profile("desktop")
+        assert p.override_for("ssh.allow_tcp_forwarding") == "info"
+
+    def test_desktop_overrides_rootkit_no_scan(self):
+        p = load_profile("desktop")
+        assert p.override_for("rootkit.no_scan") == "info"
+
+    def test_desktop_overrides_rootkit_scan_old(self):
+        p = load_profile("desktop")
+        assert p.override_for("rootkit.scan_old") == "info"
+
+    def test_desktop_overrides_password_policy_no_quality_module(self):
+        p = load_profile("desktop")
+        assert p.override_for("password_policy.no_quality_module") == "info"
+
     def test_container_skips_hardening_section(self):
         p = load_profile("container")
         assert p.should_skip_section("hardening")
@@ -122,6 +149,22 @@ class TestLoadBuiltinProfiles:
     def test_container_inherits_desktop_overrides(self):
         p = load_profile("container")
         assert p.override_for("hardening.auto_updates_missing") == "info"
+
+    @pytest.mark.parametrize("section", [
+        "kernel_modules", "secure_boot", "auditd", "fail2ban",
+        "rootkit", "file_integrity", "disk", "clamav", "ntp", "memory",
+    ])
+    def test_container_skips_host_level_sections(self, section):
+        p = load_profile("container")
+        assert p.should_skip_section(section), f"container should skip '{section}'"
+
+    def test_container_does_not_skip_ssh(self):
+        p = load_profile("container")
+        assert not p.should_skip_section("ssh")
+
+    def test_container_does_not_skip_file_perms(self):
+        p = load_profile("container")
+        assert not p.should_skip_section("file_perms")
 
 
 # ---------------------------------------------------------------------------
@@ -431,3 +474,212 @@ class TestDesktopIntegration:
         port_findings = [f for f in result.findings if f.key == "ipv6.port_no_v6_rule"]
         assert port_findings
         assert port_findings[0].level == FindingLevel.INFO
+
+
+# ---------------------------------------------------------------------------
+# Integration — desktop profile new overrides (SSH, rootkit, password policy)
+# ---------------------------------------------------------------------------
+
+class TestDesktopProfileNewOverrides:
+    # --- SSH ---
+
+    def _ssh_snap(self, **cfg_overrides) -> SSHSnapshot:
+        """Helper: active sshd with minimal safe config + specified overrides."""
+        cfg = {
+            "permitrootlogin": "no",
+            "permitemptypasswords": "no",
+            "passwordauthentication": "no",
+            "x11forwarding": "no",
+            "allowtcpforwarding": "no",
+        }
+        cfg.update(cfg_overrides)
+        return SSHSnapshot(sshd_installed=True, sshd_active=True, sshd_config=cfg)
+
+    def test_ssh_password_auth_becomes_info(self):
+        snap = self._ssh_snap(passwordauthentication="yes")
+        result = check_ssh(snap, t=_t)
+        profile = load_profile("desktop")
+        apply_profile(result, profile)
+        findings = [f for f in result.findings if f.key == "ssh.password_auth"]
+        assert findings, "ssh.password_auth finding expected"
+        assert findings[0].level == FindingLevel.INFO
+
+    def test_ssh_password_auth_deduction_removed_on_desktop(self):
+        snap = self._ssh_snap(passwordauthentication="yes")
+        result = check_ssh(snap, t=_t)
+        profile = load_profile("desktop")
+        apply_profile(result, profile)
+        assert "ssh.password_auth" not in [d.key for d in result.deductions]
+
+    def test_ssh_x11_forwarding_becomes_info(self):
+        snap = self._ssh_snap(x11forwarding="yes")
+        result = check_ssh(snap, t=_t)
+        profile = load_profile("desktop")
+        apply_profile(result, profile)
+        findings = [f for f in result.findings if f.key == "ssh.x11_forwarding"]
+        assert findings, "ssh.x11_forwarding finding expected"
+        assert findings[0].level == FindingLevel.INFO
+
+    def test_ssh_tcp_forwarding_becomes_info(self):
+        snap = self._ssh_snap(allowtcpforwarding="yes")
+        result = check_ssh(snap, t=_t)
+        profile = load_profile("desktop")
+        apply_profile(result, profile)
+        findings = [f for f in result.findings if f.key == "ssh.allow_tcp_forwarding"]
+        assert findings, "ssh.allow_tcp_forwarding finding expected"
+        assert findings[0].level == FindingLevel.INFO
+
+    def test_ssh_permit_root_login_not_downgraded_on_desktop(self):
+        """permit_root_login is NOT overridden on desktop — always a risk (ALERT)."""
+        snap = self._ssh_snap(permitrootlogin="yes")
+        result = check_ssh(snap, t=_t)
+        profile = load_profile("desktop")
+        apply_profile(result, profile)
+        findings = [f for f in result.findings if f.key == "ssh.permit_root_login"]
+        assert findings, "ssh.permit_root_login finding expected"
+        assert findings[0].level == FindingLevel.ALERT
+
+    # --- Rootkit ---
+
+    def test_rootkit_no_scan_becomes_info(self):
+        snap = RootkitSnapshot(rkhunter_installed=True, last_scan_date=None)
+        result = check_rootkit(snap, t=_t)
+        profile = load_profile("desktop")
+        apply_profile(result, profile)
+        findings = [f for f in result.findings if f.key == "rootkit.no_scan"]
+        assert findings, "rootkit.no_scan finding expected"
+        assert findings[0].level == FindingLevel.INFO
+
+    def test_rootkit_no_scan_deduction_removed_on_desktop(self):
+        snap = RootkitSnapshot(rkhunter_installed=True, last_scan_date=None)
+        result = check_rootkit(snap, t=_t)
+        profile = load_profile("desktop")
+        apply_profile(result, profile)
+        assert "rootkit.no_scan" not in [d.key for d in result.deductions]
+
+    def test_rootkit_scan_old_becomes_info(self):
+        snap = RootkitSnapshot(rkhunter_installed=True, last_scan_date="2025-01-01")
+        result = check_rootkit(snap, t=_t)
+        profile = load_profile("desktop")
+        apply_profile(result, profile)
+        findings = [f for f in result.findings if f.key == "rootkit.scan_old"]
+        assert findings, "rootkit.scan_old finding expected"
+        assert findings[0].level == FindingLevel.INFO
+
+    # --- Password policy ---
+
+    def test_password_policy_no_quality_module_becomes_info(self):
+        snap = PasswordPolicySnapshot(pam_quality_module=None)
+        result = check_password_policy(snap, t=_t)
+        profile = load_profile("desktop")
+        apply_profile(result, profile)
+        findings = [f for f in result.findings
+                    if f.key == "password_policy.no_quality_module"]
+        assert findings, "password_policy.no_quality_module finding expected"
+        assert findings[0].level == FindingLevel.INFO
+
+    def test_password_policy_no_quality_module_deduction_removed(self):
+        snap = PasswordPolicySnapshot(pam_quality_module=None)
+        result = check_password_policy(snap, t=_t)
+        profile = load_profile("desktop")
+        apply_profile(result, profile)
+        assert "password_policy.no_quality_module" not in [d.key for d in result.deductions]
+
+
+# ---------------------------------------------------------------------------
+# apply_profile — nature cleared on INFO downgrade (summary box regression)
+# ---------------------------------------------------------------------------
+
+class TestApplyProfileNatureCleared:
+    """Regression: findings downgraded to INFO must have nature='' so they
+    do not appear in the action/improvement buckets of the summary box."""
+
+    def test_downgrade_to_info_clears_nature_improvement(self):
+        result = CheckResult()
+        result.warn(message="warn finding", nature="improvement",
+                    key="hardening.auto_updates_missing")
+        profile = AuditProfile(
+            name="desktop",
+            overrides={"hardening.auto_updates_missing": "info"},
+        )
+        apply_profile(result, profile)
+        finding = next(f for f in result.findings
+                       if f.key == "hardening.auto_updates_missing")
+        assert finding.level == FindingLevel.INFO
+        assert finding.nature == ""
+
+    def test_downgrade_to_info_clears_nature_action(self):
+        result = CheckResult()
+        result.warn(message="action finding", nature="action",
+                    key="password_policy.no_quality_module")
+        profile = AuditProfile(
+            name="desktop",
+            overrides={"password_policy.no_quality_module": "info"},
+        )
+        apply_profile(result, profile)
+        finding = next(f for f in result.findings
+                       if f.key == "password_policy.no_quality_module")
+        assert finding.level == FindingLevel.INFO
+        assert finding.nature == ""
+
+    def test_remap_to_warn_preserves_nature(self):
+        """Remapping to same or higher level must NOT clear nature."""
+        result = CheckResult()
+        result.warn(message="improvement", nature="improvement",
+                    key="hardening.rp_filter_disabled")
+        profile = AuditProfile(
+            name="test",
+            overrides={"hardening.rp_filter_disabled": "warn"},
+        )
+        apply_profile(result, profile)
+        finding = next(f for f in result.findings
+                       if f.key == "hardening.rp_filter_disabled")
+        assert finding.nature == "improvement"
+
+    def test_skip_does_not_affect_remaining_natures(self):
+        """Skipping one finding does not change nature of surviving findings."""
+        result = CheckResult()
+        result.warn(message="skip this", nature="improvement",
+                    key="hardening.auto_updates_missing")
+        result.warn(message="keep this", nature="improvement",
+                    key="hardening.rp_filter_disabled")
+        profile = AuditProfile(
+            name="test",
+            overrides={"hardening.auto_updates_missing": "skip"},
+        )
+        apply_profile(result, profile)
+        remaining = [f for f in result.findings]
+        assert len(remaining) == 1
+        assert remaining[0].key == "hardening.rp_filter_disabled"
+        assert remaining[0].nature == "improvement"
+
+    def test_no_key_finding_nature_untouched(self):
+        """Findings without a key are never modified — nature preserved."""
+        result = CheckResult()
+        result.warn(message="no key", nature="improvement")
+        profile = AuditProfile(
+            name="test",
+            overrides={"hardening.auto_updates_missing": "info"},
+        )
+        apply_profile(result, profile)
+        assert result.findings[0].nature == "improvement"
+
+    def test_desktop_ssh_password_auth_nature_cleared(self):
+        """Integration: ssh.password_auth downgraded on desktop → nature=''."""
+        from ufw_audit.checks.ssh import SSHSnapshot, check_ssh
+        snap = SSHSnapshot(
+            sshd_installed=True, sshd_active=True,
+            sshd_config={
+                "permitrootlogin": "no",
+                "permitemptypasswords": "no",
+                "passwordauthentication": "yes",
+                "x11forwarding": "no",
+                "allowtcpforwarding": "no",
+            },
+        )
+        result = check_ssh(snap, t=_t)
+        profile = load_profile("desktop")
+        apply_profile(result, profile)
+        finding = next(f for f in result.findings if f.key == "ssh.password_auth")
+        assert finding.level == FindingLevel.INFO
+        assert finding.nature == ""

@@ -264,6 +264,7 @@ def apply_profile(result: CheckResult, profile: AuditProfile) -> CheckResult:
                 # Remap to WARN/ALERT: keep deductions — scoring impact is retained.
                 if new_level == FindingLevel.INFO:
                     _remove_deductions_for_key(result, finding.key)
+                    finding.nature = ""  # remove from action/improvement buckets in summary
 
     return result
 

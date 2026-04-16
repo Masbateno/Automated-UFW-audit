@@ -412,11 +412,6 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
             from ufw_audit.output import _c
             for content, val in _wrap_for_box("  ℹ  ", t("summary.block_improve_disclaimer"), inner):
                 lines.append((f"{_c.red}{content}{_c.reset}", val))
-        if structural_items:
-            lines.append(("---", ""))
-            lines.append((f"ℹ {t('summary.block_normal')}", ""))
-            for item in structural_items:
-                _add_finding_lines("  ℹ  ", item)
 
     if engine.breakdown or engine.cap_info:
         lines.append(("---", ""))

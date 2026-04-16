@@ -62,7 +62,9 @@
     "auditd": "AUDIT SYSTÈME LINUX (AUDITD)",
     "secure_boot": "DÉMARRAGE SÉCURISÉ (SECURE BOOT)",
     "file_integrity": "INTÉGRITÉ DES FICHIERS (AIDE / TRIPWIRE)",
-    "rootkit": "DÉTECTION ROOTKIT & INTÉGRITÉ"
+    "rootkit": "DÉTECTION ROOTKIT & INTÉGRITÉ",
+    "mac_policy": "Politique MAC (AppArmor / SELinux)",
+    "backup": "Solution de sauvegarde"
   },
   "status": {
     "ok": "OK",
@@ -280,6 +282,10 @@
     "prompt": "Numéro(s) (ex : 1,3 ou 2-4), 'all', 'c' pour changer l'emplacement, Entrée ou 'q' pour quitter",
     "change_prompt": "Nouveau chemin de stockage des rapports (q pour annuler)",
     "location_updated": "Emplacement mis à jour : {path}",
+    "current_label": "actuel",
+    "previous_label": "Emplacement précédent",
+    "move_logs_prompt": "Déplacer {count} rapport(s) vers le nouvel emplacement ?",
+    "move_logs_done": "{count} rapport(s) déplacé(s)",
     "cancelled": "Annulé.",
     "deleted_one": "{name} supprimé",
     "confirm_all": "Supprimer les {count} rapport(s) ?",
@@ -713,7 +719,12 @@
     "risky_net": "Module(s) de protocole réseau à risque chargé(s) : {modules}",
     "risky_net_detail": "Ces protocoles (DCCP, SCTP, RDS, TIPC) sont rarement utilisés et ont un historique d'exploits noyau. Déchargez-les et placez-les en liste noire.",
     "risky_net_reason": "Module(s) de protocole réseau à risque chargé(s) : {modules}",
-    "ok": "Aucun module noyau à risque chargé"
+    "ok": "Aucun module noyau à risque chargé",
+    "kernels_reboot_pending": "Redémarrage en attente — noyau actif ({running}) ≠ dernier installé ({recent})",
+    "kernels_reboot_pending_detail": "Installés : {installed}\nNe supprimez pas encore les anciens noyaux. Redémarrez sur {recent} et vérifiez le bon fonctionnement du système.",
+    "kernels_obsolete": "{count} noyau(x) obsolète(s) détecté(s) (actif : {running}, récent : {recent})",
+    "kernels_obsolete_detail": "Installés  : {installed}\nObsolètes  : {to_remove}\nCette commande supprime uniquement l'image noyau. Exécutez ensuite sudo apt autoremove --purge pour nettoyer les headers et modules associés. À n'exécuter qu'après avoir vérifié que le système démarre correctement sur {recent}.",
+    "kernels_listed": "{count} noyau(x) installé(s) : {installed} — aucun nettoyage nécessaire"
   },
   "cron_audit": {
     "pipe_to_shell": "{count} tâche(s) cron envoie(nt) du contenu distant vers un shell (curl/wget | sh)",
@@ -1317,6 +1328,75 @@
           "why": "Identique à scan_very_old — les scans ClamAV périodiques dans les containers ne sont pas standard. Privilégiez l'analyse d'image (Trivy, Snyk) intégrée dans votre pipeline CI/CD."
         }
       }
+    },
+    "auditd": {
+      "not_installed": {
+        "title": "Framework d'audit Linux non installé",
+        "why": "auditd fournit une journalisation noyau des appels système, des accès fichiers, des authentifications et des commandes privilégiées. Sans lui, les attaquants peuvent agir sans laisser de trace — escalades de privilèges, accès non autorisés et lectures de fichiers sensibles passent inaperçus.",
+        "how": "Installer auditd et les plugins de dispatch :\n  sudo apt install auditd audispd-plugins\n  sudo systemctl enable --now auditd\n\nCréer un jeu de règles minimal dans /etc/audit/rules.d/99-local.rules :\n  -w /etc/passwd -p wa -k identity\n  -w /etc/shadow -p wa -k identity\n  -w /etc/sudoers -p wa -k sudoers\n\nCharger les règles :\n  sudo augenrules --load"
+      },
+      "service_inactive": {
+        "title": "auditd installé mais service arrêté",
+        "why": "auditd est installé mais son service est arrêté. Les événements noyau ne sont pas journalisés en temps réel. Les authentifications, usages de sudo et accès aux fichiers sensibles ne sont pas enregistrés, supprimant toute preuve forensique en cas d'incident.",
+        "how": "Activer et démarrer le service :\n  sudo systemctl enable --now auditd\n\nVérifier qu'il tourne et que les règles sont chargées :\n  sudo systemctl status auditd\n  sudo auditctl -l"
+      },
+      "no_rules": {
+        "title": "auditd actif mais aucune règle d'audit configurée",
+        "why": "auditd est actif mais aucune règle n'est chargée. Seuls des événements par défaut très limités sont capturés. Les événements critiques — accès à /etc/passwd, /etc/shadow, invocations sudo, commandes privilégiées — ne sont pas journalisés.",
+        "how": "Créer des règles persistantes dans /etc/audit/rules.d/99-local.rules :\n  -w /etc/passwd -p wa -k identity\n  -w /etc/shadow -p wa -k identity\n  -w /etc/sudoers -p wa -k sudoers\n  -a always,exit -F arch=b64 -S execve -k commands\n\nRecharger les règles :\n  sudo augenrules --load\n  sudo systemctl restart auditd\n\nVérifier :\n  sudo auditctl -l"
+      },
+      "missing_sensitive_rules": {
+        "title": "Fichiers sensibles non couverts par les règles d'audit",
+        "why": "Des fichiers critiques comme /etc/passwd, /etc/shadow et /etc/sudoers ne sont pas surveillés par auditd. Toute modification non autorisée de ces fichiers pourrait indiquer une escalade de privilèges ou une prise de contrôle de compte, sans laisser de trace.",
+        "how": "Ajouter des règles de surveillance pour les fichiers manquants dans /etc/audit/rules.d/99-local.rules :\n  -w /etc/passwd -p wa -k identity\n  -w /etc/shadow -p wa -k identity\n  -w /etc/sudoers -p wa -k sudoers\n\nRecharger :\n  sudo augenrules --load\n  sudo systemctl restart auditd",
+        "server": {
+          "why": "Sur un serveur, toute modification non autorisée de /etc/passwd, /etc/shadow ou /etc/sudoers est un indicateur critique d'escalade de privilèges ou de compromission de compte. Sans règles de surveillance sur ces fichiers, de tels changements ne laissent aucune trace — un angle mort majeur pour la réponse aux incidents et la conformité."
+        },
+        "desktop": {
+          "why": "Certains fichiers sensibles ne sont pas couverts par les règles auditd. Sur un poste de travail, c'est informatif — ces fichiers sont moins souvent ciblés — mais ajouter des règles de surveillance apporte une couche supplémentaire de visibilité forensique."
+        }
+      }
+    },
+    "secure_boot": {
+      "setup_mode": {
+        "title": "Secure Boot en mode Setup (aucune clé Platform Key enregistrée)",
+        "why": "Le mode Setup de Secure Boot signifie qu'aucune Platform Key n'est enregistrée. N'importe quel chargeur de démarrage, y compris un malveillant, peut être chargé sans vérification. Cela désactive toutes les protections Secure Boot et permet l'installation de bootkits persistants.",
+        "how": "Enregistrer la Platform Key via les paramètres UEFI :\n  1. Redémarrer et entrer dans le BIOS/UEFI (F2, F12 ou Suppr).\n  2. Naviguer vers Secure Boot → Key Management.\n  3. Enregistrer une Platform Key (PK), une Key Exchange Key (KEK) et une base de données (db).\n\nAlternativement, utiliser mokutil :\n  mokutil --sb-state\n  mokutil --enable-validation"
+      },
+      "disabled": {
+        "title": "Secure Boot désactivé",
+        "why": "Secure Boot vérifie que seuls les chargeurs et noyaux de confiance sont chargés au démarrage. Sans lui, rootkits, bootkits et pilotes malveillants peuvent persister sous l'OS, contournant toutes les défenses logicielles.",
+        "how": "Activer Secure Boot dans les paramètres UEFI :\n  1. Redémarrer et entrer dans le BIOS/UEFI (F2, F12 ou Suppr).\n  2. Naviguer vers les paramètres Secure Boot.\n  3. Activer Secure Boot.\n  4. Pour les noyaux personnalisés ou pilotes tiers, enregistrer une Machine Owner Key :\n     sudo mokutil --import mok.der",
+        "server": {
+          "why": "Secure Boot est désactivé. Sur les serveurs, c'est courant — images cloud, pilotes out-of-tree (NVIDIA, ZFS) et noyaux personnalisés le nécessitent souvent. Ceci est noté pour exhaustivité ; aucune déduction n'est appliquée sur le profil serveur.",
+          "how": "Aucune action requise sur les profils serveur. Pour activer Secure Boot, s'assurer que tous les noyaux et modules chargés sont signés, puis l'activer dans les paramètres UEFI. Utiliser mokutil pour enregistrer des clés de signature personnalisées si nécessaire :\n  mokutil --sb-state\n  mokutil --import mok.der"
+        },
+        "desktop": {
+          "why": "Sur un poste de travail, désactiver Secure Boot permet à des rootkits, bootkits et pilotes malveillants de se charger avant l'OS, contournant toutes les défenses logicielles. C'est un vecteur d'attaque réel pour des compromissions persistantes au niveau noyau, notamment sur les portables ou les postes partagés."
+        }
+      }
+    },
+    "file_integrity": {
+      "not_installed": {
+        "title": "Aucun outil de surveillance d'intégrité des fichiers installé",
+        "why": "Sans outil de surveillance d'intégrité (AIDE ou Tripwire), il est impossible de détecter des modifications non autorisées des fichiers système, fichiers de configuration ou binaires. Un attaquant peut remplacer des binaires, ajouter des portes dérobées ou modifier la configuration sans être détecté.",
+        "how": "Installer et initialiser AIDE :\n  sudo apt install aide\n  sudo aideinit                    # crée la base de données de référence\n  sudo mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db\n\nPlanifier des vérifications régulières via cron :\n  echo '0 3 * * * root /usr/bin/aide --check 2>&1 | mail -s \"Vérification AIDE\" root' | sudo tee /etc/cron.d/aide-check"
+      },
+      "no_db": {
+        "title": "Outil d'intégrité installé mais aucune base de référence",
+        "why": "L'outil de surveillance d'intégrité est installé mais aucune base de données de référence n'a été créée. Sans référence, l'outil ne peut détecter aucune modification. Tout changement effectué avant l'initialisation ne sera jamais signalé.",
+        "how": "Initialiser la base de données de référence :\n  Pour AIDE :     sudo aideinit && sudo mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db\n  Pour Tripwire : sudo tripwire --init\n\nPuis planifier des vérifications régulières :\n  sudo crontab -e\n  0 3 * * * /usr/bin/aide --check 2>&1 | mail -s 'Rapport AIDE' root"
+      },
+      "no_check": {
+        "title": "Base de référence créée mais aucune vérification effectuée",
+        "why": "Une base de données de référence existe mais aucune vérification d'intégrité n'a été effectuée depuis l'initialisation. Sans vérifications régulières, toute modification des fichiers — y compris malveillante — reste indétectée.",
+        "how": "Lancer une vérification immédiatement :\n  Pour AIDE :     sudo aide --check\n  Pour Tripwire : sudo tripwire --check\n\nEn cas de modifications inattendues, les investiguer. Planifier des vérifications régulières :\n  sudo crontab -e\n  0 3 * * * /usr/bin/aide --check 2>&1 | mail -s 'Rapport AIDE' root"
+      },
+      "check_old": {
+        "title": "La vérification d'intégrité des fichiers n'a pas été effectuée récemment",
+        "why": "La dernière vérification d'intégrité est trop ancienne. Les modifications récentes des fichiers système — légitimes ou malveillantes — n'ont pas été vérifiées par rapport à la référence. La surveillance perd sa valeur si les vérifications ne sont pas régulières.",
+        "how": "Lancer une nouvelle vérification :\n  Pour AIDE :     sudo aide --check\n  Pour Tripwire : sudo tripwire --check\n\nAutomatiser les vérifications régulières :\n  sudo crontab -e\n  0 3 * * * /usr/bin/aide --check 2>&1 | mail -s 'Rapport AIDE' root\n\nAprès validation des changements légitimes, mettre à jour la référence :\n  sudo aide --update && sudo mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db"
+      }
     }
   },
   "explain_cis": {
@@ -1425,6 +1505,22 @@
       "empty_password": "CIS Ubuntu 22.04 L1 — 6.2.1 — S'assurer qu'aucun compte n'a de mot de passe vide",
       "expired_account": "CIS Ubuntu 22.04 L1 — 5.4.2 — Expiration des mots de passe ≤ 365 jours (examiner les comptes expirés)",
       "no_shadow": "CIS Ubuntu 22.04 L1 — 6.2 — Paramètres utilisateurs et groupes (nécessite un accès privilégié à /etc/shadow)"
+    },
+    "auditd": {
+      "not_installed": "CIS Ubuntu 22.04 L2 — 4.1.1 — Vérifier qu'auditd est installé",
+      "service_inactive": "CIS Ubuntu 22.04 L2 — 4.1.2 — Vérifier que le service auditd est activé et actif",
+      "no_rules": "CIS Ubuntu 22.04 L2 — 4.1.4–4.1.17 — Configurer les règles d'audit système",
+      "missing_sensitive_rules": "CIS Ubuntu 22.04 L2 — 4.1.6 — Vérifier que les événements modifiant les informations utilisateur/groupe sont collectés"
+    },
+    "secure_boot": {
+      "setup_mode": "CIS Ubuntu 22.04 L2 — 1.4.1 — Vérifier que Secure Boot est activé",
+      "disabled": "CIS Ubuntu 22.04 L2 — 1.4.1 — Vérifier que Secure Boot est activé"
+    },
+    "file_integrity": {
+      "not_installed": "CIS Ubuntu 22.04 L1 — 1.3.1 — Vérifier qu'AIDE est installé",
+      "no_db": "CIS Ubuntu 22.04 L1 — 1.3.1 — Vérifier qu'AIDE est installé",
+      "no_check": "CIS Ubuntu 22.04 L1 — 1.3.2 — Vérifier que l'intégrité du système de fichiers est vérifiée régulièrement",
+      "check_old": "CIS Ubuntu 22.04 L1 — 1.3.2 — Vérifier que l'intégrité du système de fichiers est vérifiée régulièrement"
     }
   },
   "user_accounts": {
@@ -1585,5 +1681,35 @@
     "scan_old_detail": "Le scan de rootkit date de plus de 30 jours. Une compromission non détectée dans l'intervalle resterait ignorée. Planifiez des scans hebdomadaires ou quotidiens via cron.",
     "scan_old_reason": "Dernier scan {tool} il y a {days} jours — couverture obsolète",
     "ok": "Scan {tool} à jour (dernier passage : {date})"
+  },
+  "mac_policy": {
+    "apparmor_ok": "AppArmor en mode enforce — {enforcing} profil(s) actif(s), {complain} en plainte",
+    "apparmor_no_enforce": "AppArmor actif mais aucun profil en mode enforce ({complain} en plainte)",
+    "apparmor_no_enforce_detail": "Tous les profils sont en mode plainte — les violations sont journalisées mais non bloquées. Passez en mode enforce pour bloquer activement les attaques.",
+    "apparmor_no_enforce_reason": "AppArmor actif mais aucun profil en enforce",
+    "apparmor_inactive": "AppArmor installé mais le service n'est pas actif",
+    "apparmor_inactive_detail": "Le module AppArmor est présent mais le service ne fonctionne pas. Sans framework MAC actif, les processus exploités s'exécutent avec tous les privilèges.",
+    "apparmor_inactive_reason": "AppArmor installé mais inactif",
+    "selinux_enforcing": "SELinux en mode enforce — politique MAC active",
+    "selinux_permissive": "SELinux est en mode permissif — les violations sont journalisées mais non bloquées",
+    "selinux_permissive_detail": "Le mode permissif journalise les violations sans les bloquer. Passez en mode enforcing pour une protection active.",
+    "no_enforce": "Aucune politique MAC n'est activement appliquée",
+    "no_enforce_detail": "Passez SELinux en mode enforcing pour bloquer les violations plutôt que de les journaliser.",
+    "no_enforce_reason": "Aucune politique MAC activement appliquée",
+    "no_mac": "Aucun framework de Contrôle d'Accès Obligatoire (MAC) trouvé",
+    "no_mac_detail": "Ni AppArmor ni SELinux n'est installé. Les frameworks MAC confinent les processus et limitent les dégâts en cas d'exploitation.",
+    "no_mac_reason": "Aucun framework MAC (AppArmor/SELinux) installé ou actif",
+    "selinux_disabled": "SELinux installé mais désactivé",
+    "selinux_disabled_detail": "SELinux est installé sur ce système mais a été explicitement désactivé. Exécutez 'sudo setenforce 1' pour réactiver l'application sans redémarrer, puis vérifiez avec 'sestatus'.",
+    "selinux_disabled_reason": "SELinux installé mais désactivé"
+  },
+  "backup": {
+    "active": "Solution de sauvegarde active : {tools}",
+    "also_installed": "Également installé (actif non confirmé) : {tools}",
+    "installed_only": "Outil(s) de sauvegarde trouvé(s) mais actif non confirmé : {tools}",
+    "installed_only_detail": "L'outil est installé mais aucun artefact de configuration n'a été détecté. Vérifiez que les sauvegardes sont bien planifiées et s'exécutent.",
+    "no_backup": "Aucune solution de sauvegarde trouvée",
+    "no_backup_detail": "Aucun outil de sauvegarde (borgmatic, borg, restic, timeshift, duplicati, bacula, rclone…) n'a été détecté. Des sauvegardes régulières sont essentielles pour récupérer après une perte de données, un ransomware ou une panne matérielle.",
+    "no_backup_reason": "Aucune solution de sauvegarde installée ou configurée"
   }
 }

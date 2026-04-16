@@ -49,36 +49,8 @@ _ufw_audit() {
     # All short options
     local short_opts="-v -d -q -f -y -r -n -j -J -l -m -c -C -o -p -e -D -w -V -h"
 
-    # All long options
-    local long_opts="
-        --verbose
-        --detailed
-        --quiet
-        --fix
-        --apply
-        --yes
-        --reconfigure
-        --no-color
-        --json
-        --json-full
-        --log-days=
-        --manage-logs
-        --install-cron
-        --manage-cron
-        --install-completion
-        --french
-        --lang=
-        --offline
-        --profile=
-        --reset-baseline
-        --explain
-        --diff
-        --webhook=
-        --webhook-format=
-        --target=
-        --version
-        --help
-    "
+    # All long options (single line — avoids multiline parsing issues on some bash versions)
+    local long_opts="--verbose --detailed --quiet --fix --apply --yes --reconfigure --no-color --json --json-full --log-days= --manage-logs --install-cron --manage-cron --install-completion --french --lang= --offline --profile= --reset-baseline --explain --diff --webhook= --webhook-format= --target= --version --help"
 
     if [[ "${cur}" == --* ]]; then
         COMPREPLY=( $(compgen -W "${long_opts}" -- "${cur}") )
@@ -88,7 +60,7 @@ _ufw_audit() {
 
     # Suppress trailing space only for options that take a value (end with =)
     if [[ ${#COMPREPLY[@]} -eq 1 && "${COMPREPLY[0]}" == *= ]]; then
-        compopt -o nospace
+        compopt -o nospace 2>/dev/null || true
     fi
 
     return 0

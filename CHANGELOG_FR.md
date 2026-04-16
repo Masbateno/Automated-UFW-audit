@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.18.0](#v1180) | 2026-04-16 | CHECK 34 (politique MAC AppArmor/SELinux) ; CHECK 35 (audit solution de sauvegarde) ; listing noyaux (toujours affiché) ; correctif surcharges profil (nature effacé) ; boîte de synthèse épurée ; passage profils (desktop 6 surcharges, container 12 skip_sections) ; `--explain` 76→86 clés ; correctif autocomplétion Debian ; UX `--manage-logs` (déplacement + vue multi-répertoires) ; 2729/2729 tests |
 | [v1.17.0](#v1170) | 2026-04-15 | CHECK 31 (auditd) ; CHECK 32 (Secure Boot) ; CHECK 33 (intégrité fichiers AIDE/Tripwire) ; variantes `--explain` par profil (17 clés) ; `workstation` → `desktop` ; Trusted Publishing ; `cmd_type` fix/check ; correctif IPv6 avahi ; repli journald ; persistance sysctl ; améliorations UX ; 2507/2507 tests |
 | [v1.16.0](#v1160) | 2026-04-12 | CHECK 19 (détection applis bureau) ; CHECK 28 (sync NTP) ; CHECK 29 (Fail2ban autonome) ; CHECK 30 (scan rootkit/intégrité) ; `--target N` → code de sortie 4 ; validation CLI valeurs vides ; 5 en-têtes de groupes thématiques ; fail2ban sorti du durcissement ; 2292/2292 tests |
 | [v1.15.1](#v1151) | 2026-04-12 | Hotfix : autocomplétion bash — `--explain` n'obtient plus de `=` parasite ; `compopt -o nospace` pour les options à valeur |
@@ -51,6 +52,73 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.18.0
+
+**2026-04-16**
+
+### CHECK 34 — Politique MAC AppArmor / SELinux (`checks/mac_policy.py`)
+
+- `MacPolicySnapshot` : `apparmor_installed`, `apparmor_active`, `apparmor_enforcing`, `apparmor_complain`, `selinux_installed`, `selinux_mode`
+- `from_system()` : `aa-status --json` (AppArmor) ; `sestatus` / `getenforce` (SELinux) ; résistant à l'indisponibilité
+- `check_mac_policy()` : SELinux enforcing → OK (court-circuit) ; AppArmor enforcing > 0 → OK ; AppArmor actif sans profil enforce → WARN −1 pt (server) / INFO (desktop) ; AppArmor inactif → WARN −1 pt ; SELinux permissive seulement → WARN −1 pt ; aucun MAC → WARN −1 pt
+- 40 tests dans `tests/test_mac_policy.py`
+
+### CHECK 35 — Audit solution de sauvegarde (`checks/backup.py`)
+
+- `BackupSnapshot` : `active_tools`, `installed_tools` — deux niveaux de confiance : actif (binaire + artefact de config / service systemd) vs. installé seulement (binaire sans config détectable)
+- Outils détectés : borgmatic, borg, restic, timeshift, duplicati, bacula, rclone, tarsnap, deja-dup
+- Preuves d'activité : fichiers de config borgmatic ; répertoire clés borg ; JSON timeshift ; `systemctl is-active` ; fichiers de config rclone/tarsnap
+- `check_backup()` : au moins un outil actif → OK ; installé seulement → INFO (sans déduction, tout profil) ; aucun outil → WARN −1 pt (server) / INFO (desktop)
+- Profil container : `backup` ajouté aux `skip_sections` (la sauvegarde est une responsabilité de l'orchestrateur dans les conteneurs éphémères)
+- 39 tests dans `tests/test_backup.py`
+
+### Extension vérification modules noyau (`checks/kernel_modules.py`)
+
+- `KernelModulesSnapshot` gagne : `dpkg_available`, `running_kernel`, `installed_kernels`
+- `from_system()` : `dpkg -l 'linux-image-*'` pour lister les noyaux installés
+- `_check_installed_kernels()` : rétention par profil — server conserve 3 (actif + 2 fallbacks), desktop conserve 2 (actif + 1 fallback)
+- Redémarrage en attente (noyau actif ≠ plus récent installé) → `kernel_modules.kernels_reboot_pending` INFO
+- Noyaux obsolètes → `kernel_modules.kernels_obsolete` INFO + `apt purge linux-image-X` par version, `cmd_type="check"` ; le noyau actif n'est jamais inclus dans la commande
+- Tri des versions noyau : analyse les tuples `MAJOR.MINOR.PATCH-ABI` pour un ordre numérique
+
+### Passage profils
+
+**`data/profiles/desktop.conf`** — 6 nouvelles surcharges :
+- `ssh.password_auth`, `ssh.x11_forwarding`, `ssh.allow_tcp_forwarding` → `info` (courant sur les postes personnels)
+- `rootkit.no_scan`, `rootkit.scan_old` → `info`
+- `password_policy.no_quality_module` → `info`
+
+**`data/profiles/container.conf`** — 13 `skip_sections` (précédemment 1) :
+- Ajoutés : `kernel_modules`, `secure_boot`, `auditd`, `rootkit`, `file_integrity`, `disk`, `memory`, `fail2ban`, `clamav`, `ntp`, `mac_policy`, `backup`
+
+### `--explain` — CHECKs 31 / 32 / 33 (10 nouvelles clés, 76 → 86 au total)
+
+- `auditd.not_installed`, `auditd.service_inactive`, `auditd.no_rules`, `auditd.missing_sensitive_rules` (variante profil : server / desktop)
+- `secure_boot.setup_mode`, `secure_boot.disabled` (variante profil : server explique la situation comme normale ; desktop explique le risque)
+- `file_integrity.not_installed`, `file_integrity.no_db`, `file_integrity.no_check`, `file_integrity.check_old`
+- Références CIS Ubuntu 22.04 ajoutées pour les 10 clés
+- Locale FR mise à jour avec les traductions complètes
+
+### Correctif autocomplétion bash
+
+- `long_opts` réduit à une seule ligne — évite les problèmes d'analyse des chaînes multilignes sur le bash Debian
+- `--explain` listé sans `=` parasite
+- `compopt -o nospace 2>/dev/null || true` — repli silencieux si `compopt` indisponible
+
+### Améliorations UX `--manage-logs`
+
+- **Proposition de déplacement lors du changement d'emplacement** : après saisie d'un nouveau chemin via `c`, si des rapports existent et que la destination diffère, propose de déplacer tous les rapports visibles `[y/N]` ; confirme le nombre de fichiers déplacés
+- **Vue multi-répertoires** : répertoire actuel + tous les précédents affichés ensemble ; emplacements précédents sous `─── Emplacement précédent : /path ───` avec numérotation continue ; chaque rapport accessible et actionnable quel que soit le chemin configuré
+- L'ancien répertoire est enregistré dans `log_dirs_extra` si l'utilisateur refuse le déplacement ; auto-nettoyé lorsqu'il devient vide
+- Nouvelles clés locale : `current_label`, `previous_label`, `move_logs_prompt`, `move_logs_done`
+- 29 tests dans `tests/test_manage_logs.py`
+
+### Tests
+
+- **2729/2729** (+222 par rapport à v1.17.0)
 
 ---
 

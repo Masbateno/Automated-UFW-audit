@@ -142,6 +142,22 @@ _EXPLAIN_GROUPS: list[tuple[str, list[str]]] = [
         "memory.swappiness_ssd_wear",
         "memory.swappiness_unjustified",
     ]),
+    ("Auditd", [
+        "auditd.not_installed",
+        "auditd.service_inactive",
+        "auditd.no_rules",
+        "auditd.missing_sensitive_rules",
+    ]),
+    ("Secure Boot", [
+        "secure_boot.setup_mode",
+        "secure_boot.disabled",
+    ]),
+    ("File Integrity", [
+        "file_integrity.not_installed",
+        "file_integrity.no_db",
+        "file_integrity.no_check",
+        "file_integrity.check_old",
+    ]),
 ]
 
 # Flat list derived from groups — used externally and for key lookup

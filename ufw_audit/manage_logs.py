@@ -7,6 +7,7 @@ saved audit report files, plus log directory configuration helpers.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -98,6 +99,33 @@ def get_or_prompt_log_dir(user_config, config, t) -> Path:
 
 
 # ---------------------------------------------------------------------------
+# Extra directories helpers
+# ---------------------------------------------------------------------------
+
+def _get_extra_dirs(user_config) -> list[Path]:
+    """Return the list of previous log directories tracked in user_config."""
+    raw = user_config.get("log_dirs_extra")
+    if not raw:
+        return []
+    try:
+        return [Path(p) for p in json.loads(raw) if p]
+    except Exception:
+        return []
+
+
+def _set_extra_dirs(user_config, dirs: list[Path]) -> None:
+    user_config.set("log_dirs_extra", json.dumps([str(d) for d in dirs]))
+
+
+def _add_extra_dir(user_config, path: Path) -> None:
+    """Add *path* to the extras list if not already present."""
+    extras = _get_extra_dirs(user_config)
+    if path not in extras:
+        extras.append(path)
+        _set_extra_dirs(user_config, extras)
+
+
+# ---------------------------------------------------------------------------
 # Selection parser
 # ---------------------------------------------------------------------------
 
@@ -134,8 +162,9 @@ def run_manage_logs(user_config, config, t) -> int:
     """Standalone log management UI — list, multi-delete, and change storage location.
 
     Loops until the user explicitly quits (empty input or 'q').
-    The log list is refreshed on every iteration so deletions are reflected
-    immediately without restarting the tool.
+    Reports from the current directory AND any previously configured
+    directories are shown together with a continuous index so that
+    all files are reachable regardless of which path is currently active.
     """
     from ufw_audit import output
     output.init(no_color=config.no_color)
@@ -154,27 +183,63 @@ def run_manage_logs(user_config, config, t) -> int:
         return 0
 
     while True:
-        # Refresh log_dir and file list on every iteration
+        # Refresh current directory on every iteration
         log_dir_str = user_config.get("log_dir") or log_dir_str
         log_dir = Path(log_dir_str)
 
         if not log_dir.exists():
             log_dir.mkdir(parents=True, exist_ok=True)
 
-        logs = sorted(log_dir.glob("ufw_audit_*.log"), reverse=True)
+        cur_logs = sorted(log_dir.glob("ufw_audit_*.log"), reverse=True)
 
-        print(f"  {t('manage_logs.stored_in', path=str(log_dir))}")
+        # Collect extra (previous) directories that still contain logs;
+        # auto-drop those that are empty or no longer exist.
+        extra_dirs = _get_extra_dirs(user_config)
+        extra_sections: list[tuple[Path, list[Path]]] = []
+        live_extras: list[Path] = []
+        for extra in extra_dirs:
+            if extra == log_dir:
+                continue
+            if extra.exists():
+                ex_logs = sorted(extra.glob("ufw_audit_*.log"), reverse=True)
+                if ex_logs:
+                    extra_sections.append((extra, ex_logs))
+                    live_extras.append(extra)
+        if live_extras != extra_dirs:
+            _set_extra_dirs(user_config, live_extras)
+
+        # Flat list for unified index (current dir first, then extras in order)
+        all_logs: list[Path] = list(cur_logs)
+        for _, ex_logs in extra_sections:
+            all_logs.extend(ex_logs)
+
+        # ── Display ──────────────────────────────────────────────────────
+        size_label = t("manage_logs.size_label")
+        current_label = t("manage_logs.current_label")
+        print(f"  {t('manage_logs.stored_in', path=str(log_dir))}  [{current_label}]")
         print()
 
-        if not logs:
+        idx = 1
+        if not cur_logs:
             print(f"  ℹ {t('manage_logs.no_logs', path=str(log_dir))}")
         else:
-            size_label = t("manage_logs.size_label")
-            for i, f in enumerate(logs, 1):
+            for f in cur_logs:
                 size_kb = max(1, f.stat().st_size // 1024)
                 from datetime import datetime as _dt
                 mtime = _dt.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
-                print(f"  [{i:2}]  {f.name}  ({size_kb} {size_label})  {mtime}")
+                print(f"  [{idx:2}]  {f.name}  ({size_kb} {size_label})  {mtime}")
+                idx += 1
+
+        for extra_path, ex_logs in extra_sections:
+            print()
+            print(f"  ─── {t('manage_logs.previous_label')}: {extra_path} ───")
+            print()
+            for f in ex_logs:
+                size_kb = max(1, f.stat().st_size // 1024)
+                from datetime import datetime as _dt
+                mtime = _dt.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+                print(f"  [{idx:2}]  {f.name}  ({size_kb} {size_label})  {mtime}")
+                idx += 1
 
         print()
         print(f"  {t('manage_logs.prompt')}")
@@ -184,8 +249,7 @@ def run_manage_logs(user_config, config, t) -> int:
             return 0
 
         elif answer in ("c", "change"):
-            default_dir = Path(log_dir_str)
-            chosen = prompt_path(t("manage_logs.change_prompt"), default_dir, allow_cancel=True)
+            chosen = prompt_path(t("manage_logs.change_prompt"), log_dir, allow_cancel=True)
             if chosen is None:
                 print(f"  {t('manage_logs.cancelled')}")
             else:
@@ -195,17 +259,37 @@ def run_manage_logs(user_config, config, t) -> int:
                     print(f"  ✖ Cannot create directory {chosen}: {exc}")
                     print()
                     continue
+                # Register current dir as "previous" before switching
+                if cur_logs and chosen != log_dir:
+                    _add_extra_dir(user_config, log_dir)
+                # Offer to move all visible reports to the new location
+                if all_logs and chosen != log_dir:
+                    move_confirm = input(
+                        f"  {t('manage_logs.move_logs_prompt', count=len(all_logs))} [y/N] "
+                    ).strip().lower()
+                    if move_confirm == "y":
+                        import shutil as _shutil
+                        moved = 0
+                        for f in all_logs:
+                            try:
+                                _shutil.move(str(f), str(chosen / f.name))
+                                moved += 1
+                            except OSError as exc:
+                                print(f"  ✖ Cannot move {f.name}: {exc}")
+                        print(f"  ✔ {t('manage_logs.move_logs_done', count=moved)}")
                 user_config.set("log_dir", str(chosen))
                 log_dir_str = str(chosen)
                 print(f"  ✔ {t('manage_logs.location_updated', path=str(chosen))}")
 
         elif answer == "all":
-            confirm = input(f"  {t('manage_logs.confirm_all', count=len(logs))} [y/N] ").strip().lower()
+            confirm = input(
+                f"  {t('manage_logs.confirm_all', count=len(all_logs))} [y/N] "
+            ).strip().lower()
             if confirm != "y":
                 print(f"  {t('manage_logs.cancelled')}")
             else:
                 deleted = 0
-                for f in logs:
+                for f in all_logs:
                     try:
                         f.unlink()
                         deleted += 1
@@ -214,11 +298,11 @@ def run_manage_logs(user_config, config, t) -> int:
                 print(f"  ✔ {t('manage_logs.deleted_all', count=deleted)}")
 
         else:
-            selected = parse_log_selection(answer, len(logs))
+            selected = parse_log_selection(answer, len(all_logs))
             if not selected:
                 print(f"  ✖ {t('manage_logs.invalid')}")
             elif len(selected) == 1:
-                f = logs[selected[0] - 1]
+                f = all_logs[selected[0] - 1]
                 try:
                     f.unlink()
                     print(f"  ✔ {t('manage_logs.deleted_one', name=f.name)}")
@@ -226,8 +310,8 @@ def run_manage_logs(user_config, config, t) -> int:
                     print(f"  ✖ Cannot delete {f.name}: {exc}")
             else:
                 deleted = 0
-                for idx in selected:
-                    f = logs[idx - 1]
+                for sel_idx in selected:
+                    f = all_logs[sel_idx - 1]
                     try:
                         f.unlink()
                         deleted += 1

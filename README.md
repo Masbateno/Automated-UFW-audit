@@ -156,13 +156,26 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Quality & reliability
 
-- ✅ 2507 unit tests
+- ✅ 2729 unit tests
 - 🧱 Modular architecture (snapshot / check separated)
 - 🧪 Tested on Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.17.0
+## 🆕 v1.18.0
+
+- 🔒 **CHECK 34 — AppArmor / SELinux MAC policy** — AppArmor enforce/complain profiles + SELinux mode; WARN −1 pt if inactive, no enforce profiles (server), or no MAC at all; desktop is more lenient (no enforce → INFO)
+- 💾 **CHECK 35 — Backup solution audit** — detects borgmatic, borg, restic, timeshift, duplicati, bacula, rclone, tarsnap, deja-dup; two confidence levels (active = binary + config/service evidence vs. installed only); WARN −1 pt if no backup tool found on server; desktop and container are more lenient
+- 🧩 **Kernel listing** — `kernel_modules` always shows installed kernels with running annotation; no cleanup needed → INFO listing; reboot-pending and obsolete cases unchanged
+- 📋 **Profile pass** — `desktop.conf` gains 6 new overrides (SSH password auth, X11 forwarding, rootkit scan age, password quality); `container.conf` gains 12 new `skip_sections` (kernel, Secure Boot, auditd, rootkit, file integrity, disk, memory, fail2ban, ClamAV, NTP, MAC policy, backup)
+- 🗣 **`--explain` 76 → 86 keys** — CHECKs 31/32/33 fully covered (auditd ×4, secure_boot ×2, file_integrity ×4); CIS Ubuntu 22.04 L1/L2 references; profile-variant display for `auditd.missing_sensitive_rules` and `secure_boot.disabled`
+- 🔧 **bash-completion Debian fix** — `long_opts` single-line to avoid Debian bash multiline parsing issues
+- 🐛 **Profile override fix** — findings downgraded to INFO by a profile now correctly leave the summary box; `nature` cleared on downgrade
+- 🧹 **Summary box cleanup** — "Configuration normale" section removed; summary shows only actionable items
+- 📁 **`--manage-logs` UX** — when changing location, proposes moving existing reports (`[y/N]`); all known directories (current + previous) displayed together with a continuous index — every report is reachable and actionable regardless of which path is currently active
+- ✅ 2729/2729 unit tests (+222)
+
+## v1.17.0
 
 - 🔍 **CHECK 31 — Linux Audit Framework (auditd)** — detects installation, service status, loaded rules, and coverage of sensitive files (/etc/passwd, /etc/shadow, /etc/sudoers); WARN −1 pt each for inactive service, no rules, uncovered sensitive files (server profile)
 - 🔐 **CHECK 32 — Secure Boot** — UEFI Secure Boot state via mokutil/efivars/bootctl; WARN −1 pt if disabled on desktop; INFO if disabled on server/VM or unknown BIOS
@@ -235,7 +248,7 @@ Automated-UFW-audit/
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 2507 unit tests
+└── tests/                          # 2729 unit tests
 ```
 
 ---

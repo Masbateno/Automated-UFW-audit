@@ -177,6 +177,44 @@ To list and delete generated reports:
 sudo ufw-audit --manage-logs
 ```
 
+### Available actions
+
+| Input | Action |
+|-------|--------|
+| `1`, `3`, `1,3`, `2-5` | Delete report(s) by number |
+| `all` | Delete all visible reports (confirmation required) |
+| `c` | Change storage location |
+| Enter / `q` | Quit |
+
+### Changing the storage location
+
+Press `c` to enter a new path. If reports exist in the current directory, you will be prompted:
+
+```
+Move 28 report(s) to the new location? [y/N]
+```
+
+- **y** — all visible reports are moved to the new path via `shutil.move`
+- **n / Enter** — reports stay in the old directory; the old path is remembered
+
+### Multi-directory view
+
+If you previously changed the storage location without moving the reports, all known directories are displayed together in a single unified list:
+
+```
+  Reports in: /home/user/ufwauditlogs  [current]
+
+  ℹ No reports found
+
+  ─── Previous location: /home/user/.local/share/ufw-audit/logs ───
+
+  [ 1]  ufw_audit_20260416_053234.log  (20 KB)  2026-04-16 05:32
+  ...
+  [28]  ufw_audit_20260413_124813.log  (19 KB)  2026-04-13 12:48
+```
+
+All entries share a continuous index — you can delete, select, or use `all` regardless of which directory the file is in. Old directories that become empty are automatically removed from the list.
+
 ---
 
 ## Postfix configuration for HTML emails (v0.12+)

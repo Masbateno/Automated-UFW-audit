@@ -24,6 +24,9 @@ from ufw_audit.checks.kernel_modules import (
     KernelModulesSnapshot,
     check_kernel_modules,
     _unload_cmd,
+    _kernel_sort_key,
+    _parse_installed_kernels,
+    _purge_cmd,
     RISKY_MODULES,
     _RISKY_FS,
     _RISKY_NET,
@@ -389,3 +392,309 @@ class TestEdgeCases:
         result = check_kernel_modules(snap)
         assert _has_finding(result, "kernel_modules.ok", FindingLevel.OK)
         assert _deduction_points(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# _kernel_sort_key
+# ---------------------------------------------------------------------------
+
+class TestKernelSortKey:
+    def test_orders_by_major_minor_patch_abi(self):
+        versions = ["6.8.0-55-generic", "6.8.0-52-generic", "6.11.0-13-generic"]
+        assert sorted(versions, key=_kernel_sort_key) == [
+            "6.8.0-52-generic",
+            "6.8.0-55-generic",
+            "6.11.0-13-generic",
+        ]
+
+    def test_same_base_sorted_by_abi(self):
+        versions = ["6.8.0-58-generic", "6.8.0-52-generic", "6.8.0-55-generic"]
+        assert sorted(versions, key=_kernel_sort_key) == [
+            "6.8.0-52-generic",
+            "6.8.0-55-generic",
+            "6.8.0-58-generic",
+        ]
+
+    def test_unparseable_returns_zero_tuple(self):
+        assert _kernel_sort_key("custom-kernel") == (0, 0, 0, 0)
+
+    def test_higher_minor_beats_higher_abi(self):
+        assert _kernel_sort_key("6.11.0-1-generic") > _kernel_sort_key("6.8.0-99-generic")
+
+
+# ---------------------------------------------------------------------------
+# _parse_installed_kernels
+# ---------------------------------------------------------------------------
+
+class TestParseInstalledKernels:
+    def test_parses_standard_packages(self):
+        output = (
+            "linux-image-6.8.0-52-generic\n"
+            "linux-image-6.8.0-55-generic\n"
+            "linux-image-6.8.0-58-generic\n"
+        )
+        assert _parse_installed_kernels(output) == [
+            "6.8.0-52-generic",
+            "6.8.0-55-generic",
+            "6.8.0-58-generic",
+        ]
+
+    def test_ignores_non_numeric_packages(self):
+        output = (
+            "linux-image-generic\n"
+            "linux-image-6.8.0-52-generic\n"
+            "linux-image-hwe-22.04\n"
+        )
+        assert _parse_installed_kernels(output) == ["6.8.0-52-generic"]
+
+    def test_empty_output_returns_empty_list(self):
+        assert _parse_installed_kernels("") == []
+
+    def test_strips_whitespace(self):
+        assert _parse_installed_kernels("  linux-image-6.8.0-52-generic  \n") == [
+            "6.8.0-52-generic"
+        ]
+
+
+# ---------------------------------------------------------------------------
+# _purge_cmd
+# ---------------------------------------------------------------------------
+
+class TestPurgeCmd:
+    def test_single_kernel(self):
+        assert _purge_cmd(["6.8.0-52-generic"]) == "sudo apt purge linux-image-6.8.0-52-generic"
+
+    def test_multiple_kernels(self):
+        cmd = _purge_cmd(["6.8.0-52-generic", "6.8.0-55-generic"])
+        assert cmd == "sudo apt purge linux-image-6.8.0-52-generic linux-image-6.8.0-55-generic"
+
+    def test_empty_list_returns_empty(self):
+        assert _purge_cmd([]) == ""
+
+
+# ---------------------------------------------------------------------------
+# Kernel cleanup — helpers
+# ---------------------------------------------------------------------------
+
+def _ksnap(
+    *,
+    running: str = "",
+    installed: list[str] | None = None,
+    dpkg: bool = True,
+) -> KernelModulesSnapshot:
+    """Build a snapshot focused on the kernel-cleanup sub-check."""
+    return KernelModulesSnapshot(
+        lsmod_available=True,
+        loaded_modules=[],
+        dpkg_available=dpkg,
+        running_kernel=running,
+        installed_kernels=installed or [],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Kernel cleanup — no-op cases
+# ---------------------------------------------------------------------------
+
+class TestKernelCleanupNoOp:
+    def test_single_kernel_shows_listing(self):
+        snap = _ksnap(running="6.8.0-58-generic", installed=["6.8.0-58-generic"])
+        result = check_kernel_modules(snap)
+        assert _has_finding(result, "kernel_modules.kernels_listed", FindingLevel.INFO)
+        assert "kernel_modules.kernels_obsolete" not in _finding_keys(result)
+
+    def test_dpkg_unavailable_no_finding(self):
+        snap = _ksnap(dpkg=False, running="6.8.0-58-generic",
+                      installed=["6.8.0-52-generic", "6.8.0-58-generic"])
+        result = check_kernel_modules(snap)
+        assert "kernel_modules.kernels_obsolete" not in _finding_keys(result)
+        assert "kernel_modules.kernels_listed" not in _finding_keys(result)
+
+    def test_running_not_in_installed_shows_listing(self):
+        """Custom kernel not in dpkg — still list the dpkg-managed kernels."""
+        snap = _ksnap(running="5.15.0-custom",
+                      installed=["6.8.0-52-generic", "6.8.0-58-generic"])
+        result = check_kernel_modules(snap)
+        assert _has_finding(result, "kernel_modules.kernels_listed", FindingLevel.INFO)
+        assert "kernel_modules.kernels_obsolete" not in _finding_keys(result)
+
+    def test_server_3_kernels_shows_listing(self):
+        snap = _ksnap(
+            running="6.8.0-58-generic",
+            installed=["6.8.0-52-generic", "6.8.0-55-generic", "6.8.0-58-generic"],
+        )
+        result = check_kernel_modules(snap, profile_name="server")
+        assert _has_finding(result, "kernel_modules.kernels_listed", FindingLevel.INFO)
+        assert "kernel_modules.kernels_obsolete" not in _finding_keys(result)
+
+    def test_desktop_2_kernels_shows_listing(self):
+        snap = _ksnap(
+            running="6.8.0-58-generic",
+            installed=["6.8.0-55-generic", "6.8.0-58-generic"],
+        )
+        result = check_kernel_modules(snap, profile_name="desktop")
+        assert _has_finding(result, "kernel_modules.kernels_listed", FindingLevel.INFO)
+        assert "kernel_modules.kernels_obsolete" not in _finding_keys(result)
+
+    def test_kernels_listed_count_in_message(self):
+        """_t key pass-through — message key contains count kwarg (not checked here)."""
+        snap = _ksnap(
+            running="6.8.0-58-generic",
+            installed=["6.8.0-55-generic", "6.8.0-58-generic"],
+        )
+        result = check_kernel_modules(snap, profile_name="desktop")
+        finding = _get_finding(result, "kernel_modules.kernels_listed")
+        assert finding is not None
+
+    def test_kernels_listed_message_contains_running_annotation(self):
+        """Message must include the running kernel with (*) marker."""
+        def _t_verbose(key, **kw):
+            return ":".join([key] + [str(v) for v in kw.values()])
+
+        snap = _ksnap(
+            running="6.8.0-58-generic",
+            installed=["6.8.0-55-generic", "6.8.0-58-generic"],
+        )
+        snap.lsmod_available = True
+        snap.loaded_modules = []
+        result = check_kernel_modules(snap, t=_t_verbose, profile_name="desktop")
+        finding = _get_finding(result, "kernel_modules.kernels_listed")
+        assert finding is not None
+        assert "6.8.0-58-generic (*)" in finding.message
+
+    def test_kernels_listed_no_deduction(self):
+        snap = _ksnap(
+            running="6.8.0-58-generic",
+            installed=["6.8.0-55-generic", "6.8.0-58-generic"],
+        )
+        result = check_kernel_modules(snap, profile_name="desktop")
+        assert _deduction_points(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# Kernel cleanup — obsolete kernels detected
+# ---------------------------------------------------------------------------
+
+class TestKernelCleanupObsolete:
+    def test_server_4_kernels_flags_1_obsolete(self):
+        snap = _ksnap(
+            running="6.8.0-58-generic",
+            installed=["6.8.0-50-generic", "6.8.0-52-generic",
+                       "6.8.0-55-generic", "6.8.0-58-generic"],
+        )
+        result = check_kernel_modules(snap, profile_name="server")
+        assert _has_finding(result, "kernel_modules.kernels_obsolete", FindingLevel.INFO)
+
+    def test_desktop_3_kernels_flags_1_obsolete(self):
+        snap = _ksnap(
+            running="6.8.0-58-generic",
+            installed=["6.8.0-52-generic", "6.8.0-55-generic", "6.8.0-58-generic"],
+        )
+        result = check_kernel_modules(snap, profile_name="desktop")
+        assert _has_finding(result, "kernel_modules.kernels_obsolete", FindingLevel.INFO)
+
+    def test_obsolete_finding_has_purge_cmd(self):
+        snap = _ksnap(
+            running="6.8.0-58-generic",
+            installed=["6.8.0-52-generic", "6.8.0-55-generic", "6.8.0-58-generic"],
+        )
+        result = check_kernel_modules(snap, profile_name="desktop")
+        finding = _get_finding(result, "kernel_modules.kernels_obsolete")
+        assert finding is not None
+        assert "apt purge" in finding.cmd
+        assert "linux-image-6.8.0-52-generic" in finding.cmd
+
+    def test_obsolete_cmd_type_is_check(self):
+        snap = _ksnap(
+            running="6.8.0-58-generic",
+            installed=["6.8.0-52-generic", "6.8.0-55-generic", "6.8.0-58-generic"],
+        )
+        result = check_kernel_modules(snap, profile_name="desktop")
+        finding = _get_finding(result, "kernel_modules.kernels_obsolete")
+        assert finding.cmd_type == "check"
+
+    def test_obsolete_no_deduction(self):
+        snap = _ksnap(
+            running="6.8.0-58-generic",
+            installed=["6.8.0-52-generic", "6.8.0-55-generic", "6.8.0-58-generic"],
+        )
+        result = check_kernel_modules(snap, profile_name="desktop")
+        assert not any(d.key == "kernel_modules.kernels_obsolete" for d in result.deductions)
+
+    def test_running_kernel_never_in_purge_cmd(self):
+        snap = _ksnap(
+            running="6.8.0-58-generic",
+            installed=["6.8.0-52-generic", "6.8.0-55-generic", "6.8.0-58-generic"],
+        )
+        result = check_kernel_modules(snap, profile_name="desktop")
+        finding = _get_finding(result, "kernel_modules.kernels_obsolete")
+        assert "6.8.0-58-generic" not in finding.cmd
+
+
+# ---------------------------------------------------------------------------
+# Kernel cleanup — reboot pending
+# ---------------------------------------------------------------------------
+
+class TestKernelRebootPending:
+    def test_reboot_pending_shows_info(self):
+        snap = _ksnap(
+            running="6.8.0-52-generic",
+            installed=["6.8.0-52-generic", "6.8.0-55-generic", "6.8.0-58-generic"],
+        )
+        result = check_kernel_modules(snap, profile_name="server")
+        assert _has_finding(result, "kernel_modules.kernels_reboot_pending", FindingLevel.INFO)
+
+    def test_reboot_pending_no_purge_cmd(self):
+        snap = _ksnap(
+            running="6.8.0-52-generic",
+            installed=["6.8.0-52-generic", "6.8.0-55-generic", "6.8.0-58-generic"],
+        )
+        result = check_kernel_modules(snap, profile_name="server")
+        finding = _get_finding(result, "kernel_modules.kernels_reboot_pending")
+        assert finding.cmd == ""
+
+    def test_reboot_pending_no_deduction(self):
+        snap = _ksnap(
+            running="6.8.0-52-generic",
+            installed=["6.8.0-52-generic", "6.8.0-55-generic", "6.8.0-58-generic"],
+        )
+        result = check_kernel_modules(snap, profile_name="server")
+        assert not any(d.key == "kernel_modules.kernels_reboot_pending"
+                       for d in result.deductions)
+
+    def test_no_reboot_pending_when_running_is_latest(self):
+        snap = _ksnap(
+            running="6.8.0-58-generic",
+            installed=["6.8.0-52-generic", "6.8.0-55-generic", "6.8.0-58-generic"],
+        )
+        result = check_kernel_modules(snap, profile_name="desktop")
+        assert "kernel_modules.kernels_reboot_pending" not in _finding_keys(result)
+
+
+# ---------------------------------------------------------------------------
+# Kernel cleanup — profile retention comparison
+# ---------------------------------------------------------------------------
+
+class TestKernelRetentionByProfile:
+    def _snap_4(self) -> KernelModulesSnapshot:
+        return _ksnap(
+            running="6.8.0-60-generic",
+            installed=["6.8.0-50-generic", "6.8.0-55-generic",
+                       "6.8.0-58-generic", "6.8.0-60-generic"],
+        )
+
+    def test_server_4_kernels_keeps_3(self):
+        """Server retains 3 → only 6.8.0-50 flagged as obsolete."""
+        result = check_kernel_modules(self._snap_4(), profile_name="server")
+        finding = _get_finding(result, "kernel_modules.kernels_obsolete")
+        assert finding is not None
+        assert "6.8.0-50-generic" in finding.cmd
+        assert "6.8.0-55-generic" not in finding.cmd
+
+    def test_desktop_4_kernels_keeps_2(self):
+        """Desktop retains 2 → 6.8.0-50 and 6.8.0-55 flagged as obsolete."""
+        result = check_kernel_modules(self._snap_4(), profile_name="desktop")
+        finding = _get_finding(result, "kernel_modules.kernels_obsolete")
+        assert finding is not None
+        assert "6.8.0-50-generic" in finding.cmd
+        assert "6.8.0-55-generic" in finding.cmd

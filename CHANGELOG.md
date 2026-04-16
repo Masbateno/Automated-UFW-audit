@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.18.0](#v1180) | 2026-04-16 | CHECK 34 (AppArmor/SELinux MAC policy); CHECK 35 (backup solution audit); kernel listing (always shown); profile override fix (nature cleared on INFO downgrade); summary box cleanup (structural section removed); profile pass (desktop 6 overrides, container 12 skip_sections); `--explain` 76→86 keys; bash-completion Debian fix; `--manage-logs` UX (move prompt + multi-dir view); 2729/2729 tests |
 | [v1.17.0](#v1170) | 2026-04-15 | CHECK 31 (auditd); CHECK 32 (Secure Boot); CHECK 33 (file integrity AIDE/Tripwire); `--explain` profile variants (17 keys); `workstation` → `desktop` profile; Trusted Publishing; `cmd_type` fix/check; IPv6 avahi fix; journald fallback; sysctl persistence; UX improvements; 2507/2507 tests |
 | [v1.16.0](#v1160) | 2026-04-12 | CHECK 19 (desktop app detection); CHECK 28 (NTP sync); CHECK 29 (Fail2ban standalone); CHECK 30 (rootkit/integrity scan); `--target N` → exit code 4; CLI validation for empty values; 5 thematic group headers; fail2ban moved out of hardening; 2292/2292 tests |
 | [v1.15.1](#v1151) | 2026-04-12 | Hotfix: bash-completion — `--explain` no longer gets trailing `=`; `compopt -o nospace` for value options |
@@ -51,6 +52,74 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.18.0
+
+**2026-04-16**
+
+### CHECK 34 — AppArmor / SELinux MAC policy (`checks/mac_policy.py`)
+
+- `MacPolicySnapshot`: `apparmor_installed`, `apparmor_active`, `apparmor_enforcing`, `apparmor_complain`, `selinux_installed`, `selinux_mode`
+- `from_system()`: `aa-status --json` (AppArmor); `sestatus` / `getenforce` (SELinux); graceful if unavailable
+- `check_mac_policy()`: SELinux enforcing → OK (short-circuit); AppArmor enforcing > 0 → OK; AppArmor active but no enforce profiles → WARN −1 pt (server) / INFO (desktop); AppArmor inactive → WARN −1 pt; SELinux permissive only → WARN −1 pt; no MAC → WARN −1 pt
+- 40 tests in `tests/test_mac_policy.py`
+
+### CHECK 35 — Backup solution audit (`checks/backup.py`)
+
+- `BackupSnapshot`: `active_tools`, `installed_tools` — two confidence levels: active (binary + config artefact / systemd service) vs. installed (binary only)
+- Detected tools: borgmatic, borg, restic, timeshift, duplicati, bacula, rclone, tarsnap, deja-dup
+- Active evidence: borgmatic config files; borg keys directory; timeshift JSON; `systemctl is-active`; rclone/tarsnap config files
+- `check_backup()`: at least one active tool → OK; installed-only → INFO (no deduction, any profile); no tool at all → WARN −1 pt (server) / INFO (desktop)
+- Container profile: `backup` added to `skip_sections` (backup is an orchestrator / host concern in ephemeral containers)
+- 39 tests in `tests/test_backup.py`
+
+### Kernel module check extension (`checks/kernel_modules.py`)
+
+- `KernelModulesSnapshot` gains `dpkg_available`, `running_kernel`, `installed_kernels`
+- `from_system()`: `dpkg -l 'linux-image-*'` to enumerate installed kernels
+- `_check_installed_kernels()`: profile-aware retention — server keeps 3 (running + 2 fallbacks), desktop keeps 2 (running + 1 fallback)
+- Always emits `kernels_listed` INFO with annotated list (`6.x.y (*) = running`) even when no cleanup is needed; covers single kernel, custom (non-dpkg) kernel, and within-retention cases
+- Reboot pending (running ≠ most-recent installed) → `kernel_modules.kernels_reboot_pending` INFO
+- Obsolete kernels → `kernel_modules.kernels_obsolete` INFO + `apt purge linux-image-X` per version, `cmd_type="check"`; running kernel never included
+- Kernel version sorting: parses `MAJOR.MINOR.PATCH-ABI` tuples for numeric ordering
+
+### Profile pass
+
+**`data/profiles/desktop.conf`** — 6 new overrides:
+- `ssh.password_auth`, `ssh.x11_forwarding`, `ssh.allow_tcp_forwarding` → `info` (common on personal workstations)
+- `rootkit.no_scan`, `rootkit.scan_old` → `info`
+- `password_policy.no_quality_module` → `info`
+
+**`data/profiles/container.conf`** — 13 `skip_sections` (previously 1):
+- Added: `kernel_modules`, `secure_boot`, `auditd`, `rootkit`, `file_integrity`, `disk`, `memory`, `fail2ban`, `clamav`, `ntp`, `mac_policy`, `backup`
+
+### `--explain` — CHECKs 31 / 32 / 33 (10 new keys, 76 → 86 total)
+
+- `auditd.not_installed`, `auditd.service_inactive`, `auditd.no_rules`, `auditd.missing_sensitive_rules` (profile-variant: server / desktop)
+- `secure_boot.setup_mode`, `secure_boot.disabled` (profile-variant: server explains it as expected; desktop explains the risk)
+- `file_integrity.not_installed`, `file_integrity.no_db`, `file_integrity.no_check`, `file_integrity.check_old`
+- CIS Ubuntu 22.04 references added for all 10 keys
+- FR locale updated with full translations
+
+### Bash-completion fix
+
+- `long_opts` collapsed to a single line — avoids multiline string parsing issues on Debian's older bash
+- `--explain` listed without trailing `=` (was inadvertently added in some builds)
+- `compopt -o nospace 2>/dev/null || true` — silent fallback when `compopt` is unavailable
+
+### `--manage-logs` UX improvements
+
+- **Move prompt on location change**: after entering a new path via `c`, if reports exist and the destination differs, proposes moving all visible reports `[y/N]`; confirms count of files moved
+- **Multi-directory view**: current + all previous log directories displayed together; previous locations shown under `─── Previous location: /path ───` with continuous index; every report is reachable and actionable regardless of which path is currently configured
+- Old directory registered in `log_dirs_extra` when user declines move; auto-removed when empty
+- New locale keys: `current_label`, `previous_label`, `move_logs_prompt`, `move_logs_done`
+- 29 tests in `tests/test_manage_logs.py`
+
+### Tests
+
+- **2729/2729** (+222 vs v1.17.0)
 
 ---
 

@@ -6,6 +6,85 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.18.0] — 2026-04-16
+
+### Résumé
+- **CHECK 34** — Politique MAC AppArmor / SELinux : comptage enforce/complain via `aa-status` + mode SELinux via `getenforce` → OK si enforce ; WARN −1 pt si aucun MAC, AppArmor inactif, aucun profil enforce (server), SELinux disabled ; desktop : no enforce → INFO
+- **CHECK 35** — Audit solution de sauvegarde : détecte borgmatic, borg, restic, timeshift, duplicati, bacula, rclone, tarsnap, deja-dup ; actif = binaire + artefact config/service ; installé = binaire seul ; WARN −1 pt si aucun outil (server) ; INFO sur desktop/container
+- **Listing des noyaux** — `check_kernel_modules` émet toujours un finding `kernels_listed` INFO quand dpkg est disponible ; liste annotée dans le message (`6.x.y-z-generic (*)` pour le noyau actif) ; couvre noyau unique, noyau custom et cas dans la politique de rétention
+- **Correctif surcharges de profil** — `apply_profile()` positionne `finding.nature = ""` lors d'un downgrade en INFO ; empêche les findings ramenés en INFO d'apparaître dans les buckets action/improvement de la boîte de synthèse
+- **Boîte de synthèse épurée** — bloc `structural_items` supprimé de `print_audit_summary()` ; seuls les items actionnables restent
+- **Passage profils** — `desktop.conf` +6 surcharges ; `container.conf` +12 `skip_sections`
+- **`--explain` 76 → 86 clés** — CHECKs 31/32/33 avec références CIS Ubuntu 22.04 L1/L2
+- **Correctif autocomplétion bash Debian** — `long_opts` sur une seule ligne
+- **UX `--manage-logs`** — proposition de déplacement lors du changement d'emplacement ; vue multi-répertoires avec index continu
+- **2729/2729 tests** (+222 vs v1.17.0)
+
+### Modifications
+
+**`checks/mac_policy.py`** (CHECK 34 — nouveau fichier)
+- `MacPolicySnapshot` : `apparmor_installed`, `apparmor_active`, `apparmor_enforcing`, `apparmor_complain`, `selinux_installed`, `selinux_mode`
+- `from_system()` : `aa-status` → comptage enforce/complain ; fallback `/sys/module/apparmor` pour install partielle ; `getenforce` → selinux_mode
+- `_parse_aa_count(output, mode)` : regex `^\s*(\d+)\s+profiles?\s+are\s+in\s+(\w+)\s+mode` (MULTILINE)
+- `check_mac_policy()` : SELinux enforcing → OK (court-circuit) ; AppArmor enforcing → OK ; AppArmor actif 0 enforce → WARN −1 pt (server) / INFO (desktop) ; AppArmor inactif → WARN −1 pt ; SELinux permissif (sans AppArmor) → INFO + WARN `no_enforce` −1 pt ; SELinux disabled (installed=True) → WARN −1 pt `selinux_disabled` ; aucun MAC → WARN −1 pt `no_mac`
+- `se_mode` normalisé en minuscules une fois en entrée de fonction
+
+**`checks/backup.py`** (CHECK 35 — nouveau fichier)
+- Constantes artefacts : `_BORGMATIC_CONFIGS`, `_BORG_KEYS_DIR`, `_TIMESHIFT_CONFIG`, `_RCLONE_CONFIGS`, `_TARSNAP_CONFIGS`
+- `BackupSnapshot` : `active_tools: List[str]`, `installed_tools: List[str]`
+- `from_system()` : borgmatic → borg (seulement si borgmatic pas actif) → restic (installé seulement) → timeshift → duplicati/bacula (service actif) → rclone/tarsnap → deja-dup ; dédup via `dict.fromkeys()`
+- `_borgmatic_config_exists(path)` : True si répertoire non-vide ou fichier existant
+- `_service_active(service)` : `systemctl is-active` → `out.lower() == "active"`
+- `check_backup()` : actif → OK + optionnel `also_installed` INFO ; installé seulement → INFO ; aucun outil server → WARN −1 pt ; aucun outil desktop → INFO ; `sorted()` sur les listes d'outils pour un affichage déterministe
+
+**`checks/kernel_modules.py`**
+- `_check_installed_kernels()` restructurée : retour anticipé uniquement si `not installed or not running`
+- Finding `kernels_listed` INFO : message contient la liste annotée ; émis pour noyau unique, noyau custom (non dpkg) ou cas dans la politique de rétention
+- `reboot_pending` et liste `annotated` calculés avant tout branchement
+
+**`profiles.py`**
+- `apply_profile()` : `finding.nature = ""` ajouté après `_remove_deductions_for_key()` lors d'un downgrade en INFO
+
+**`display.py`**
+- `print_audit_summary()` : liste `structural_items` et son bloc d'affichage supprimés ; action et improvement uniquement
+
+**`desktop.conf`**
+- Nouvelles surcharges : `ssh.password_auth = info`, `ssh.x11_forwarding = info`, `ssh.allow_tcp_forwarding = info`, `password_policy.no_quality_module = info`, `rootkit.no_scan = info`, `rootkit.scan_old = info`
+
+**`container.conf`**
+- Nouveaux `skip_sections` : `kernel_modules`, `secure_boot`, `auditd`, `rootkit`, `file_integrity`, `disk`, `memory`, `fail2ban`, `clamav`, `ntp`, `mac_policy`, `backup`
+
+**`explain.py`**
+- 3 nouveaux groupes : `"Auditd"` (4 clés), `"Secure Boot"` (2 clés), `"File Integrity"` (4 clés)
+- Total : 76 → 86 clés
+
+**`locales/en.json` + `fr.json`**
+- `mac_policy.*` : 12 nouvelles clés (no_mac, apparmor_inactive, apparmor_no_enforce, apparmor_ok, selinux_enforcing, selinux_permissive, selinux_disabled, no_enforce + variantes detail/reason)
+- `backup.*` : 8 nouvelles clés (active, also_installed, installed_only, no_backup + variantes detail)
+- `kernel_modules.kernels_listed` : nouvelle clé (liste annotée dans le message, sans detail)
+- `explain.auditd.*`, `explain.secure_boot.*`, `explain.file_integrity.*` : 10 nouvelles entrées explain
+- `explain_cis.auditd.*`, `explain_cis.secure_boot.*`, `explain_cis.file_integrity.*` : références CIS Ubuntu 22.04 L1/L2
+
+**`ufw_audit/data/ufw-audit.bash-completion`**
+- `long_opts` sur une seule ligne (correctif parsing multiligne bash Debian)
+
+**`manage_logs.py`** — améliorations UX
+- Proposition de déplacement : lors d'un changement via `c`, si des rapports existent et que la destination diffère → invite `[y/N]` ; `shutil.move` chaque fichier ; confirme le nombre déplacé
+- Vue multi-répertoires : helpers `_get_extra_dirs` / `_set_extra_dirs` / `_add_extra_dir` stockant `log_dirs_extra` (JSON) dans user_config ; répertoire actuel en premier, anciens répertoires sous en-tête `─── Emplacement précédent : /path ───` ; index plat continu sur tous les répertoires
+- Auto-nettoyage : les extras vides ou inexistants sont supprimés à chaque itération
+- Nouvelles clés locale : `current_label`, `previous_label`, `move_logs_prompt`, `move_logs_done`
+
+**Tests**
+- `tests/test_mac_policy.py` (nouveau) : 67 tests — `_parse_aa_count`, AppArmor inactif/no_enforce/enforcing, SELinux enforcing/permissif/disabled, defaults snapshot, invariants de déduction
+- `tests/test_backup.py` (nouveau) : 62 tests — actif/installé/no_backup, priorité, borg/borgmatic standalone, invariants déduction, `_borgmatic_config_exists`
+- `tests/test_manage_logs.py` (nouveau) : 29 tests — `parse_log_selection`, helpers extras, changement d'emplacement (vide, même chemin, déplacer oui/non, annuler), affichage/nettoyage extras, suppression cross-répertoire, `all`
+- `tests/test_profiles.py` : +6 tests de régression pour l'effacement de `nature` (`TestApplyProfileNatureCleared`)
+- `tests/test_kernel_modules.py` : `TestKernelCleanupNoOp` mis à jour ; +8 tests pour le finding `kernels_listed`
+- `tests/test_explain.py` : comptage 76→86 clés ; 6 nouveaux tests de contenu auditd/secure_boot/file_integrity
+- **2729/2729 tests** (+222)
+
+---
+
 ## [v1.17.0] — 2026-04-15
 
 ### Résumé

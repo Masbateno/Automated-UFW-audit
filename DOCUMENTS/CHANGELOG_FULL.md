@@ -6,6 +6,85 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.18.0] — 2026-04-16
+
+### TL;DR
+- **CHECK 34** — AppArmor / SELinux MAC policy: `aa-status` enforce/complain count + `getenforce` mode → OK if enforcing; WARN −1 pt for no MAC, AppArmor inactive, no enforce profiles (server), SELinux disabled; desktop: no enforce → INFO
+- **CHECK 35** — Backup solution audit: detects borgmatic, borg, restic, timeshift, duplicati, bacula, rclone, tarsnap, deja-dup; active = binary + config/service artefact; installed = binary only; WARN −1 pt if no tool (server); INFO on desktop/container
+- **Kernel listing** — `check_kernel_modules` always emits `kernels_listed` INFO when dpkg data is available; annotated list in message (`6.x.y-z-generic (*)` for running); single/custom/within-retention cases all show the listing
+- **Profile override fix** — `apply_profile()` sets `finding.nature = ""` when downgrading to INFO; prevents downgraded findings from appearing in the action/improvement buckets of the summary box
+- **Summary box cleanup** — `structural_items` block removed from `print_audit_summary()`; summary now shows only action and improvement items
+- **Profile pass** — `desktop.conf` +6 overrides; `container.conf` +12 `skip_sections`
+- **`--explain` 76 → 86 keys** — CHECKs 31/32/33 with CIS Ubuntu 22.04 L1/L2 references
+- **bash-completion Debian fix** — `long_opts` single-line
+- **`--manage-logs` UX** — move prompt on location change; multi-directory view with continuous index
+- **2729/2729 tests** (+222 vs v1.17.0)
+
+### Changes
+
+**`checks/mac_policy.py`** (CHECK 34 — new file)
+- `MacPolicySnapshot`: `apparmor_installed`, `apparmor_active`, `apparmor_enforcing`, `apparmor_complain`, `selinux_installed`, `selinux_mode`
+- `from_system()`: `aa-status` → parse enforce/complain counts; `/sys/module/apparmor` fallback for partial install; `getenforce` → selinux_mode
+- `_parse_aa_count(output, mode)`: regex `^\s*(\d+)\s+profiles?\s+are\s+in\s+(\w+)\s+mode` (MULTILINE)
+- `check_mac_policy()`: SELinux enforcing → OK (short-circuit); AppArmor enforcing → OK; AppArmor active 0 enforce → WARN −1 pt (server) / INFO (desktop); AppArmor inactive → WARN −1 pt; SELinux permissive (no AppArmor) → INFO + WARN `no_enforce` −1 pt; SELinux disabled (installed=True) → WARN −1 pt `selinux_disabled`; no MAC → WARN −1 pt `no_mac`
+- `se_mode` normalised to lowercase once at function entry
+
+**`checks/backup.py`** (CHECK 35 — new file)
+- Config artefact constants: `_BORGMATIC_CONFIGS`, `_BORG_KEYS_DIR`, `_TIMESHIFT_CONFIG`, `_RCLONE_CONFIGS`, `_TARSNAP_CONFIGS`
+- `BackupSnapshot`: `active_tools: List[str]`, `installed_tools: List[str]`
+- `from_system()`: borgmatic → borg (only if borgmatic not active) → restic (installed-only) → timeshift → duplicati/bacula (service active) → rclone/tarsnap → deja-dup; dedup with `dict.fromkeys()`
+- `_borgmatic_config_exists(path)`: True if non-empty dir or existing file
+- `_service_active(service)`: `systemctl is-active` → `out.lower() == "active"`
+- `check_backup()`: active → OK + optional `also_installed` INFO; installed-only → INFO; no tool server → WARN −1 pt; no tool desktop → INFO; `sorted()` applied to tool lists for deterministic output
+
+**`checks/kernel_modules.py`**
+- `_check_installed_kernels()` restructured: early return only when `not installed or not running`
+- `kernels_listed` INFO finding: message contains annotated kernel list; emitted for single kernel, custom (non-dpkg) kernel, or within-retention cases
+- `reboot_pending` and `annotated` list now computed before any branching
+
+**`profiles.py`**
+- `apply_profile()`: `finding.nature = ""` added after `_remove_deductions_for_key()` when downgrading to INFO
+
+**`display.py`**
+- `print_audit_summary()`: `structural_items` list and its display block removed; action and improvement items only
+
+**`desktop.conf`**
+- New overrides: `ssh.password_auth = info`, `ssh.x11_forwarding = info`, `ssh.allow_tcp_forwarding = info`, `password_policy.no_quality_module = info`, `rootkit.no_scan = info`, `rootkit.scan_old = info`
+
+**`container.conf`**
+- New `skip_sections`: `kernel_modules`, `secure_boot`, `auditd`, `rootkit`, `file_integrity`, `disk`, `memory`, `fail2ban`, `clamav`, `ntp`, `mac_policy`, `backup`
+
+**`explain.py`**
+- 3 new groups: `"Auditd"` (4 keys), `"Secure Boot"` (2 keys), `"File Integrity"` (4 keys)
+- Total: 76 → 86 keys
+
+**`locales/en.json` + `fr.json`**
+- `mac_policy.*`: 12 new keys (no_mac, apparmor_inactive, apparmor_no_enforce, apparmor_ok, selinux_enforcing, selinux_permissive, selinux_disabled, no_enforce + detail/reason variants)
+- `backup.*`: 8 new keys (active, also_installed, installed_only, no_backup + detail variants)
+- `kernel_modules.kernels_listed`: new key (annotated list in message, no detail)
+- `explain.auditd.*`, `explain.secure_boot.*`, `explain.file_integrity.*`: 10 new explain entries
+- `explain_cis.auditd.*`, `explain_cis.secure_boot.*`, `explain_cis.file_integrity.*`: CIS Ubuntu 22.04 L1/L2 references
+
+**`ufw_audit/data/ufw-audit.bash-completion`**
+- `long_opts` written on a single line (Debian bash completion multiline parsing fix)
+
+**`manage_logs.py`** — UX improvements
+- Move prompt: when changing location via `c`, if reports exist and destination differs → `[y/N]` prompt; `shutil.move` each file; confirms count moved
+- Multi-directory view: `_get_extra_dirs` / `_set_extra_dirs` / `_add_extra_dir` helpers backed by `log_dirs_extra` JSON key in user_config; current dir always first, previous dirs shown under `─── Previous location: /path ───` header; flat continuous index across all dirs
+- Auto-cleanup: extra dirs that are empty or non-existent are removed from the list each iteration
+- New locale keys: `current_label`, `previous_label`, `move_logs_prompt`, `move_logs_done`
+
+**Tests**
+- `tests/test_mac_policy.py` (new): 67 tests — `_parse_aa_count`, AppArmor inactive/no_enforce/enforcing, SELinux enforcing/permissive/disabled, snapshot defaults, deduction invariants
+- `tests/test_backup.py` (new): 62 tests — active/installed/no_backup, priority logic, borg/borgmatic standalone, deduction invariants, `_borgmatic_config_exists`
+- `tests/test_manage_logs.py` (new): 29 tests — `parse_log_selection`, extras helpers, change location (no logs, same path, move yes/no, cancel), extra dir display/cleanup, cross-dir delete, `all`
+- `tests/test_profiles.py`: +6 regression tests for `nature` clearing (`TestApplyProfileNatureCleared`)
+- `tests/test_kernel_modules.py`: `TestKernelCleanupNoOp` updated; +8 tests for `kernels_listed` finding
+- `tests/test_explain.py`: 76→86 key count; 6 new content tests for auditd/secure_boot/file_integrity
+- **2729/2729 tests** (+222)
+
+---
+
 ## [v1.17.0] — 2026-04-15
 
 ### TL;DR

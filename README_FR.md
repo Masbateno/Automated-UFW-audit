@@ -156,13 +156,26 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Qualité & fiabilité
 
-- ✅ 2507 tests unitaires
+- ✅ 2729 tests unitaires
 - 🧱 Architecture modulaire (snapshot / check séparés)
 - 🧪 Testé sur Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.17.0
+## 🆕 v1.18.0
+
+- 🔒 **CHECK 34 — Politique MAC AppArmor / SELinux** — profils AppArmor enforce/complain + mode SELinux ; WARN −1 pt si inactif, aucun profil enforce (server) ou aucun MAC ; desktop plus permissif (no enforce → INFO)
+- 💾 **CHECK 35 — Audit solution de sauvegarde** — détecte borgmatic, borg, restic, timeshift, duplicati, bacula, rclone, tarsnap, deja-dup ; deux niveaux de confiance (actif = binaire + artefact/service vs. installé seulement) ; WARN −1 pt si aucune sauvegarde sur server ; desktop et container plus tolérants
+- 🧩 **Listing des noyaux** — `kernel_modules` affiche toujours les noyaux installés avec annotation du noyau actif (*) ; aucun nettoyage nécessaire → INFO listing ; cas reboot-pending et obsolètes inchangés
+- 📋 **Passage profils** — `desktop.conf` gagne 6 nouvelles surcharges (auth SSH par mot de passe, transfert X11, âge scan rootkit, qualité mots de passe) ; `container.conf` gagne 12 nouveaux `skip_sections` (noyau, Secure Boot, auditd, rootkit, intégrité fichiers, disque, mémoire, fail2ban, ClamAV, NTP, politique MAC, sauvegarde)
+- 🗣 **`--explain` 76 → 86 clés** — CHECKs 31/32/33 entièrement couverts (auditd ×4, secure_boot ×2, file_integrity ×4) ; références CIS Ubuntu 22.04 L1/L2 ; affichage par profil pour `auditd.missing_sensitive_rules` et `secure_boot.disabled`
+- 🔧 **Correctif autocomplétion bash Debian** — `long_opts` sur une seule ligne pour éviter les problèmes d'analyse multilignes
+- 🐛 **Correctif surcharges de profil** — les findings ramenés en INFO par un profil sortent désormais correctement de la boîte de synthèse ; `nature` effacé au downgrade
+- 🧹 **Boîte de synthèse épurée** — section "Configuration normale" supprimée ; seuls les items actionnables restent
+- 📁 **UX `--manage-logs`** — lors d'un changement d'emplacement, propose de déplacer les rapports existants (`[y/N]`) ; tous les répertoires connus (actuel + précédents) affichés ensemble avec un index continu — chaque rapport est accessible et actionnable quel que soit le chemin actif
+- ✅ 2729/2729 tests unitaires (+222)
+
+## v1.17.0
 
 - 🔍 **CHECK 31 — Linux Audit Framework (auditd)** — détecte l'installation, l'état du service, les règles chargées et la couverture des fichiers sensibles (/etc/passwd, /etc/shadow, /etc/sudoers) ; WARN −1 pt chacun pour service inactif, aucune règle, fichiers non couverts (profil server)
 - 🔐 **CHECK 32 — Secure Boot** — état UEFI via mokutil/efivars/bootctl ; WARN −1 pt si désactivé sur desktop ; INFO si désactivé sur server/VM ou BIOS inconnu
@@ -235,7 +248,7 @@ Automated-UFW-audit/
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 2507 tests unitaires
+└── tests/                          # 2729 tests unitaires
 ```
 
 ---

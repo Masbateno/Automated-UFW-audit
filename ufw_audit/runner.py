@@ -38,6 +38,7 @@ from ufw_audit.checks.ssh import SSHSnapshot, check_ssh
 from ufw_audit.checks.file_perms import FilePermsSnapshot, check_file_perms
 from ufw_audit.checks.updates import UpdatesSnapshot, check_updates
 from ufw_audit.checks.kernel_modules import KernelModulesSnapshot, check_kernel_modules
+from ufw_audit.checks.mac_policy import MacPolicySnapshot, check_mac_policy
 from ufw_audit.checks.cron_audit import CronAuditSnapshot, check_cron_audit
 from ufw_audit.checks.services_state import ServicesStateSnapshot, check_services_state
 from ufw_audit.checks.user_accounts import UserAccountsSnapshot, check_user_accounts
@@ -48,6 +49,7 @@ from ufw_audit.checks.samba import SambaSnapshot, check_samba
 from ufw_audit.checks.clamav import ClamAVSnapshot, check_clamav
 from ufw_audit.checks.smtp import SmtpSnapshot, check_smtp
 from ufw_audit.checks.desktop_apps import DesktopAppsSnapshot, check_desktop_apps
+from ufw_audit.checks.backup import BackupSnapshot, check_backup
 from ufw_audit.checks.auditd import AuditdSnapshot, check_auditd
 from ufw_audit.checks.secure_boot import SecureBootSnapshot, check_secure_boot
 from ufw_audit.checks.file_integrity import FileIntegritySnapshot, check_file_integrity
@@ -408,11 +410,31 @@ def run_checks(
         if not config.quiet:
             print_section(t("sections.kernel_modules"))
         report.write_section(t("sections.kernel_modules"))
-        kernel_modules_result = check_kernel_modules(kernel_modules_snapshot, t=t)
+        kernel_modules_result = check_kernel_modules(
+            kernel_modules_snapshot, t=t,
+            profile_name=profile.name if profile is not None else "server",
+        )
         if profile is not None:
             apply_profile(kernel_modules_result, profile)
         engine.apply(kernel_modules_result)
         display_result(kernel_modules_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 34 — MAC policy (AppArmor / SELinux) ----
+    mac_policy_snapshot = MacPolicySnapshot.from_system()
+    if profile is None or not profile.should_skip_section("mac_policy"):
+        if not config.quiet:
+            print_section(t("sections.mac_policy"))
+        report.write_section(t("sections.mac_policy"))
+        mac_policy_result = check_mac_policy(
+            mac_policy_snapshot, t=t,
+            profile_name=profile.name if profile is not None else "server",
+        )
+        if profile is not None:
+            apply_profile(mac_policy_result, profile)
+        engine.apply(mac_policy_result)
+        display_result(mac_policy_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:
             print()
 
@@ -499,6 +521,23 @@ def run_checks(
     if not config.quiet:
         print_group(t("groups.detection_health"))
     report.write_group(t("groups.detection_health"))
+
+    # ---- CHECK 35 — Backup solution ----
+    backup_snapshot = BackupSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("backup"):
+        if not config.quiet:
+            print_section(t("sections.backup"))
+        report.write_section(t("sections.backup"))
+        backup_result = check_backup(
+            backup_snapshot, t=t,
+            profile_name=profile.name if profile is not None else "server",
+        )
+        if profile is not None:
+            apply_profile(backup_result, profile)
+        engine.apply(backup_result)
+        display_result(backup_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
 
     # ---- CHECK 31 — Linux Audit Framework (auditd) ----
     auditd_snapshot = AuditdSnapshot.from_system()

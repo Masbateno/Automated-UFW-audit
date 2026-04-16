@@ -62,7 +62,9 @@
     "auditd": "LINUX AUDIT FRAMEWORK (AUDITD)",
     "secure_boot": "SECURE BOOT",
     "file_integrity": "FILE INTEGRITY MONITORING (AIDE / TRIPWIRE)",
-    "rootkit": "ROOTKIT & INTEGRITY SCAN"
+    "rootkit": "ROOTKIT & INTEGRITY SCAN",
+    "mac_policy": "MAC Policy (AppArmor / SELinux)",
+    "backup": "Backup Solution"
   },
   "status": {
     "ok": "OK",
@@ -260,6 +262,10 @@
     "prompt": "Number(s) (e.g. 1,3 or 2-4), 'all', 'c' to change location, Enter or 'q' to quit",
     "change_prompt": "New report storage path (q to cancel)",
     "location_updated": "Location updated: {path}",
+    "current_label": "current",
+    "previous_label": "Previous location",
+    "move_logs_prompt": "Move {count} report(s) to the new location?",
+    "move_logs_done": "{count} report(s) moved",
     "cancelled": "Cancelled.",
     "deleted_one": "{name} deleted",
     "confirm_all": "Delete all {count} report(s)?",
@@ -713,7 +719,12 @@
     "risky_net": "Risky network protocol module(s) loaded: {modules}",
     "risky_net_detail": "These protocols (DCCP, SCTP, RDS, TIPC) are rarely used and have a history of kernel exploits. Unload and blacklist them.",
     "risky_net_reason": "Risky network protocol module(s) loaded: {modules}",
-    "ok": "No risky kernel modules loaded"
+    "ok": "No risky kernel modules loaded",
+    "kernels_reboot_pending": "Reboot pending — running kernel ({running}) is not the latest installed ({recent})",
+    "kernels_reboot_pending_detail": "Installed: {installed}\nDo not remove old kernels yet. Reboot into {recent} first and verify the system works correctly.",
+    "kernels_obsolete": "{count} obsolete kernel(s) detected (running: {running}, latest: {recent})",
+    "kernels_obsolete_detail": "Installed : {installed}\nObsolete  : {to_remove}\nThis command removes the kernel image only. Run sudo apt autoremove --purge afterwards to clean up associated headers and modules. Execute only after verifying the system boots correctly on {recent}.",
+    "kernels_listed": "{count} kernel(s) installed: {installed} — no cleanup needed"
   },
   "cron_audit": {
     "pipe_to_shell": "{count} cron job(s) pipe remote content into a shell (curl/wget | sh)",
@@ -1317,6 +1328,75 @@
           "why": "Same as scan_very_old — periodic ClamAV scans inside containers are non-standard. Focus on image security scanning (Trivy, Snyk) integrated into your CI/CD pipeline."
         }
       }
+    },
+    "auditd": {
+      "not_installed": {
+        "title": "Linux Audit Framework not installed",
+        "why": "auditd provides kernel-level logging of system calls, file access, authentication, and privileged commands. Without it, attackers can operate undetected — privilege escalations, unauthorized access, and sensitive file reads leave no forensic trace.",
+        "how": "Install auditd and the dispatcher plugins:\n  sudo apt install auditd audispd-plugins\n  sudo systemctl enable --now auditd\n\nCreate a minimal rule set in /etc/audit/rules.d/99-local.rules:\n  -w /etc/passwd -p wa -k identity\n  -w /etc/shadow -p wa -k identity\n  -w /etc/sudoers -p wa -k sudoers\n\nLoad the rules:\n  sudo augenrules --load"
+      },
+      "service_inactive": {
+        "title": "auditd installed but service not running",
+        "why": "auditd is installed but stopped. Kernel events are not being logged in real time. Authentication events, sudo usage, and sensitive file access go unrecorded, eliminating forensic evidence if an incident occurs.",
+        "how": "Enable and start the service:\n  sudo systemctl enable --now auditd\n\nVerify it is running and rules are loaded:\n  sudo systemctl status auditd\n  sudo auditctl -l"
+      },
+      "no_rules": {
+        "title": "auditd running but no audit rules configured",
+        "why": "auditd is active but no rules are loaded. Only a minimal set of default events is captured. Critical events — access to /etc/passwd, /etc/shadow, sudo invocations, privileged commands — go unlogged, making forensic analysis very difficult.",
+        "how": "Create persistent rules in /etc/audit/rules.d/99-local.rules:\n  -w /etc/passwd -p wa -k identity\n  -w /etc/shadow -p wa -k identity\n  -w /etc/sudoers -p wa -k sudoers\n  -a always,exit -F arch=b64 -S execve -k commands\n\nReload rules:\n  sudo augenrules --load\n  sudo systemctl restart auditd\n\nVerify:\n  sudo auditctl -l"
+      },
+      "missing_sensitive_rules": {
+        "title": "Sensitive files not covered by audit rules",
+        "why": "Critical files such as /etc/passwd, /etc/shadow, and /etc/sudoers are not monitored by auditd. Any unauthorized modification to these files could indicate privilege escalation or account takeover, and would leave no audit trail.",
+        "how": "Add watch rules for the missing files in /etc/audit/rules.d/99-local.rules:\n  -w /etc/passwd -p wa -k identity\n  -w /etc/shadow -p wa -k identity\n  -w /etc/sudoers -p wa -k sudoers\n\nReload:\n  sudo augenrules --load\n  sudo systemctl restart auditd",
+        "server": {
+          "why": "On a server, unauthorized modifications to /etc/passwd, /etc/shadow, or /etc/sudoers are high-severity indicators of privilege escalation or account takeover. Without watch rules for these files, such changes leave no audit trail — a critical gap for incident response and compliance."
+        },
+        "desktop": {
+          "why": "Some sensitive files are not covered by auditd rules. On a desktop this is informational — these files are less frequently targeted — but adding watch rules provides an additional layer of forensic visibility."
+        }
+      }
+    },
+    "secure_boot": {
+      "setup_mode": {
+        "title": "Secure Boot is in Setup Mode (no Platform Key enrolled)",
+        "why": "Secure Boot Setup Mode means no Platform Key is enrolled. Any bootloader, including a malicious one, can be loaded without verification. This effectively disables Secure Boot protections and allows persistent bootkits on systems with physical or early-boot access.",
+        "how": "Enroll your Platform Key via the UEFI firmware settings:\n  1. Reboot and enter UEFI/BIOS (F2, F12, or Del).\n  2. Navigate to Secure Boot → Key Management.\n  3. Enroll a Platform Key (PK), Key Exchange Key (KEK), and database (db).\n\nAlternatively, use mokutil to check state:\n  mokutil --sb-state\n  mokutil --enable-validation"
+      },
+      "disabled": {
+        "title": "Secure Boot is disabled",
+        "why": "Secure Boot verifies that only trusted bootloaders and kernels load at startup. Without it, rootkits, bootkits, and malicious drivers can persist below the OS, bypassing all software-level defenses.",
+        "how": "Enable Secure Boot in your UEFI firmware settings:\n  1. Reboot and enter UEFI/BIOS (F2, F12, or Del).\n  2. Navigate to the Secure Boot settings.\n  3. Set Secure Boot to Enabled.\n  4. If you use custom kernels or third-party drivers, enroll a Machine Owner Key:\n     sudo mokutil --import mok.der",
+        "server": {
+          "why": "Secure Boot is disabled. On servers this is common — cloud images, out-of-tree drivers (NVIDIA, ZFS), and custom kernels often require it to be disabled. This is noted for completeness; no score deduction is applied for server profiles.",
+          "how": "No action is required on server profiles. If you want to enable Secure Boot, ensure all loaded kernels and modules are signed, then enable it in UEFI settings. Use mokutil to enroll custom signing keys if needed:\n  mokutil --sb-state\n  mokutil --import mok.der"
+        },
+        "desktop": {
+          "why": "On a desktop, disabling Secure Boot allows rootkits, bootkits, and malicious drivers to load before the OS, bypassing all software-level defenses. This is a real threat vector for persistent, kernel-level attacks, especially on laptops or shared workstations."
+        }
+      }
+    },
+    "file_integrity": {
+      "not_installed": {
+        "title": "No file integrity monitoring tool installed",
+        "why": "Without a file integrity monitor (AIDE or Tripwire), there is no way to detect unauthorized modifications to system files, configuration files, or binaries. An attacker who gains access can replace binaries, add backdoors, or alter configuration without detection.",
+        "how": "Install and initialize AIDE:\n  sudo apt install aide\n  sudo aideinit                    # creates the initial baseline database\n  sudo mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db\n\nSchedule regular checks in cron:\n  echo '0 3 * * * root /usr/bin/aide --check 2>&1 | mail -s \"AIDE check\" root' | sudo tee /etc/cron.d/aide-check"
+      },
+      "no_db": {
+        "title": "File integrity tool installed but no baseline database",
+        "why": "The integrity monitoring tool is installed but no baseline database has been created. Without a baseline, the tool cannot detect changes to system files. Any modifications made before database initialization will never be flagged.",
+        "how": "Initialize the baseline database:\n  For AIDE:     sudo aideinit && sudo mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db\n  For Tripwire: sudo tripwire --init\n\nThen schedule regular checks:\n  sudo crontab -e\n  0 3 * * * /usr/bin/aide --check 2>&1 | mail -s 'AIDE report' root"
+      },
+      "no_check": {
+        "title": "Integrity baseline exists but no check has ever been run",
+        "why": "A baseline database exists but no integrity check has been performed since initialization. Without regular checks, any file modification since baseline creation — including malicious ones — goes undetected.",
+        "how": "Run an integrity check immediately:\n  For AIDE:     sudo aide --check\n  For Tripwire: sudo tripwire --check\n\nIf the output shows unexpected changes, investigate each one. Schedule regular checks:\n  sudo crontab -e\n  0 3 * * * /usr/bin/aide --check 2>&1 | mail -s 'AIDE report' root"
+      },
+      "check_old": {
+        "title": "File integrity check has not been run recently",
+        "why": "The last file integrity check is outdated. Recent changes to system files — legitimate or malicious — have not been verified against the baseline. Integrity monitoring loses its value if checks are not performed regularly.",
+        "how": "Run a new integrity check:\n  For AIDE:     sudo aide --check\n  For Tripwire: sudo tripwire --check\n\nAutomate regular checks:\n  sudo crontab -e\n  0 3 * * * /usr/bin/aide --check 2>&1 | mail -s 'AIDE report' root\n\nAfter verifying all known-good changes, update the baseline:\n  sudo aide --update && sudo mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db"
+      }
     }
   },
   "explain_cis": {
@@ -1425,6 +1505,22 @@
       "empty_password": "CIS Ubuntu 22.04 L1 — 6.2.1 — Ensure accounts in /etc/passwd use shadowed passwords / no empty passwords",
       "expired_account": "CIS Ubuntu 22.04 L1 — 5.4.2 — Ensure password expiration is 365 days or less (review expired accounts)",
       "no_shadow": "CIS Ubuntu 22.04 L1 — 6.2 — User and Group Settings (requires privileged access to /etc/shadow)"
+    },
+    "auditd": {
+      "not_installed": "CIS Ubuntu 22.04 L2 — 4.1.1 — Ensure auditd is installed",
+      "service_inactive": "CIS Ubuntu 22.04 L2 — 4.1.2 — Ensure auditd service is enabled and active",
+      "no_rules": "CIS Ubuntu 22.04 L2 — 4.1.4–4.1.17 — Configure system audit rules",
+      "missing_sensitive_rules": "CIS Ubuntu 22.04 L2 — 4.1.6 — Ensure events that modify user/group information are collected"
+    },
+    "secure_boot": {
+      "setup_mode": "CIS Ubuntu 22.04 L2 — 1.4.1 — Ensure Secure Boot is enabled",
+      "disabled": "CIS Ubuntu 22.04 L2 — 1.4.1 — Ensure Secure Boot is enabled"
+    },
+    "file_integrity": {
+      "not_installed": "CIS Ubuntu 22.04 L1 — 1.3.1 — Ensure AIDE is installed",
+      "no_db": "CIS Ubuntu 22.04 L1 — 1.3.1 — Ensure AIDE is installed",
+      "no_check": "CIS Ubuntu 22.04 L1 — 1.3.2 — Ensure filesystem integrity is regularly checked",
+      "check_old": "CIS Ubuntu 22.04 L1 — 1.3.2 — Ensure filesystem integrity is regularly checked"
     }
   },
   "user_accounts": {
@@ -1585,5 +1681,35 @@
     "scan_old_detail": "The rootkit scan is more than 30 days old. An undetected compromise in the interim would remain unnoticed. Schedule weekly or daily cron scans.",
     "scan_old_reason": "Last {tool} scan {days} days ago — stale coverage",
     "ok": "{tool} scan is up to date (last run: {date})"
+  },
+  "mac_policy": {
+    "apparmor_ok": "AppArmor enforcing — {enforcing} profile(s) enforce, {complain} complain",
+    "apparmor_no_enforce": "AppArmor active but no profiles in enforce mode ({complain} in complain)",
+    "apparmor_no_enforce_detail": "All profiles are in complain mode — violations are logged but not blocked. Switch to enforce mode to actively prevent attacks.",
+    "apparmor_no_enforce_reason": "AppArmor active but no profiles enforcing",
+    "apparmor_inactive": "AppArmor installed but service is not active",
+    "apparmor_inactive_detail": "The AppArmor module is present but the service is not running. Without an active MAC framework, exploited processes run with full privileges.",
+    "apparmor_inactive_reason": "AppArmor installed but inactive",
+    "selinux_enforcing": "SELinux enforcing — MAC policy is active",
+    "selinux_permissive": "SELinux is in permissive mode — violations are logged but not blocked",
+    "selinux_permissive_detail": "Permissive mode logs policy violations without enforcing them. Switch to enforcing mode for active protection.",
+    "no_enforce": "No MAC policy is actively enforcing",
+    "no_enforce_detail": "Set SELinux to enforcing mode to block policy violations rather than just logging them.",
+    "no_enforce_reason": "No MAC policy actively enforcing",
+    "no_mac": "No Mandatory Access Control (MAC) framework found",
+    "no_mac_detail": "Neither AppArmor nor SELinux is installed. MAC frameworks confine processes and limit the damage from exploited services.",
+    "no_mac_reason": "No MAC framework (AppArmor/SELinux) installed or active",
+    "selinux_disabled": "SELinux installed but disabled",
+    "selinux_disabled_detail": "SELinux is installed on this system but has been explicitly disabled. Run 'sudo setenforce 1' to re-enable enforcement without rebooting, then verify with 'sestatus'.",
+    "selinux_disabled_reason": "SELinux installed but disabled"
+  },
+  "backup": {
+    "active": "Backup solution active: {tools}",
+    "also_installed": "Also installed (not confirmed active): {tools}",
+    "installed_only": "Backup tool(s) found but not confirmed active: {tools}",
+    "installed_only_detail": "The tool is installed but no configuration artefact was detected. Verify that backups are actually scheduled and running.",
+    "no_backup": "No backup solution found",
+    "no_backup_detail": "No backup tool (borgmatic, borg, restic, timeshift, duplicati, bacula, rclone…) was detected. Regular backups are essential to recover from data loss, ransomware, or hardware failure.",
+    "no_backup_reason": "No backup solution installed or configured"
   }
 }

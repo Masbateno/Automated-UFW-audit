@@ -75,8 +75,8 @@ class TestNormalizeKey:
 # ---------------------------------------------------------------------------
 
 class TestExplainKeysList:
-    def test_has_seventy_six_keys(self):
-        assert len(EXPLAIN_KEYS) == 76
+    def test_has_eighty_six_keys(self):
+        assert len(EXPLAIN_KEYS) == 86
 
     def test_all_keys_are_strings(self):
         for k in EXPLAIN_KEYS:
@@ -122,6 +122,17 @@ class TestExplainKeysList:
         assert "user_accounts.empty_password" in EXPLAIN_KEYS
         assert "user_accounts.expired_account" in EXPLAIN_KEYS
         assert "user_accounts.no_shadow" in EXPLAIN_KEYS
+        # v1.18.0 — CHECKs 31/32/33
+        assert "auditd.not_installed" in EXPLAIN_KEYS
+        assert "auditd.service_inactive" in EXPLAIN_KEYS
+        assert "auditd.no_rules" in EXPLAIN_KEYS
+        assert "auditd.missing_sensitive_rules" in EXPLAIN_KEYS
+        assert "secure_boot.setup_mode" in EXPLAIN_KEYS
+        assert "secure_boot.disabled" in EXPLAIN_KEYS
+        assert "file_integrity.not_installed" in EXPLAIN_KEYS
+        assert "file_integrity.no_db" in EXPLAIN_KEYS
+        assert "file_integrity.no_check" in EXPLAIN_KEYS
+        assert "file_integrity.check_old" in EXPLAIN_KEYS
 
 
 # ---------------------------------------------------------------------------
@@ -265,6 +276,45 @@ class TestRunExplainKnownKeys:
         assert "CIS" in out
         assert "PasswordAuthentication no" in out
         assert "explain." not in out               # no leaked i18n paths
+
+    # --- v1.18.0 content tests ------------------------------------------------
+
+    def test_auditd_not_installed_content(self):
+        t = _make_t()
+        out = _capture_run_explain("auditd.not_installed", t)
+        assert any(w in out.lower() for w in ("audit", "kernel", "forensic"))
+        assert "apt install" in out
+
+    def test_auditd_missing_sensitive_rules_is_profile_variant(self):
+        t = _make_t()
+        out = _capture_run_explain("auditd.missing_sensitive_rules", t)
+        assert "[ server ]" in out
+        assert "[ desktop ]" in out
+        assert "HOW TO FIX" in out
+
+    def test_secure_boot_disabled_is_profile_variant(self):
+        t = _make_t()
+        out = _capture_run_explain("secure_boot.disabled", t)
+        assert "[ server ]" in out
+        assert "[ desktop ]" in out
+        assert "HOW TO FIX" in out
+
+    def test_secure_boot_setup_mode_content(self):
+        t = _make_t()
+        out = _capture_run_explain("secure_boot.setup_mode", t)
+        assert any(w in out.lower() for w in ("platform key", "setup mode", "bootloader", "bootkit"))
+        assert "mokutil" in out
+
+    def test_file_integrity_not_installed_content(self):
+        t = _make_t()
+        out = _capture_run_explain("file_integrity.not_installed", t)
+        assert any(w in out.lower() for w in ("aide", "tripwire", "baseline", "integrity"))
+        assert "apt install aide" in out
+
+    def test_file_integrity_check_old_content(self):
+        t = _make_t()
+        out = _capture_run_explain("file_integrity.check_old", t)
+        assert any(w in out.lower() for w in ("check", "aide", "cron"))
 
 
 # ---------------------------------------------------------------------------
