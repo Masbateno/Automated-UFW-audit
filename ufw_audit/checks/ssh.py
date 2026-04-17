@@ -78,6 +78,14 @@ _PUB_SUFFIX = ".pub"
 # ---------------------------------------------------------------------------
 
 @dataclass
+class HostKeyInfo:
+    """Information about a server host key in /etc/ssh/."""
+    path:     Path
+    key_type: str           # "rsa", "dsa", "ecdsa", "ed25519", "unknown"
+    rsa_bits: Optional[int] # None for non-RSA keys or when undeterminable
+
+
+@dataclass
 class PrivateKeyInfo:
     """Information about a private SSH key file in ~/.ssh/."""
     path:           Path
@@ -131,6 +139,8 @@ class SSHSnapshot:
     sshd_config:             dict = field(default_factory=dict)
     config_source_files:     List[str] = field(default_factory=list)
 
+    host_keys:               List[HostKeyInfo] = field(default_factory=list)
+
     sudo_user:               str = ""
     user_home:               Optional[Path] = None
     ssh_dir_exists:          bool = False
@@ -168,6 +178,9 @@ class SSHSnapshot:
                 if out == "active":
                     snap.sshd_active = True
                     break
+
+        # --- server host keys ---
+        snap.host_keys = _collect_host_keys()
 
         # --- sshd_config (server) ---
         if _SSHD_CONFIG_PATH.exists():
@@ -266,6 +279,9 @@ def check_ssh(snapshot: SSHSnapshot, t=None) -> CheckResult:
     else:
         result.ok(message=_t("ssh.active"), key="ssh.active")
 
+    # --- server host keys ---
+    _check_host_keys(snapshot, result, _t)
+
     # --- sshd_config ---
     _check_sshd_config(snapshot, result, _t)
 
@@ -291,6 +307,48 @@ def check_ssh(snapshot: SSHSnapshot, t=None) -> CheckResult:
 # Sub-check functions
 # ---------------------------------------------------------------------------
 
+def _check_host_keys(snapshot: SSHSnapshot, result: CheckResult, _t) -> None:
+    """Audit server host keys in /etc/ssh/ssh_host_*."""
+    keys = snapshot.host_keys
+    if not keys:
+        return  # No host keys found — daemon probably not configured, skip silently
+
+    for hk in keys:
+        name = hk.path.name
+
+        if hk.key_type == "dsa":
+            result.warn(
+                message=_t("ssh.host_key_dsa", name=name),
+                nature="improvement",
+                detail=_t("ssh.host_key_dsa_detail"),
+                cmd=f"sudo rm {hk.path} {hk.path}.pub && sudo ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N '' && sudo systemctl restart ssh",
+                cmd_type="fix",
+                key="ssh.host_key_dsa",
+            )
+            result.add_deduction(
+                reason=_t("ssh.host_key_dsa_reason", name=name),
+                points=1,
+                context="local",
+                key="ssh.host_key_dsa",
+            )
+
+        elif hk.key_type == "rsa" and hk.rsa_bits is not None and hk.rsa_bits < 4096:
+            result.info(
+                message=_t("ssh.host_key_rsa_short", name=name, bits=hk.rsa_bits),
+                detail=_t("ssh.host_key_rsa_short_detail"),
+                cmd="sudo ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N '' && sudo systemctl restart ssh",
+                cmd_type="fix",
+                key="ssh.host_key_rsa_short",
+            )
+
+        else:
+            # ed25519, ecdsa, RSA ≥ 4096, or unknown → OK
+            result.ok(
+                message=_t("ssh.host_key_ok", name=name, type=hk.key_type.upper()),
+                key="ssh.host_key_ok",
+            )
+
+
 def _check_sshd_config(snapshot: SSHSnapshot, result: CheckResult, _t) -> None:
     """Analyse /etc/ssh/sshd_config directives."""
     cfg = snapshot.sshd_config
@@ -298,7 +356,7 @@ def _check_sshd_config(snapshot: SSHSnapshot, result: CheckResult, _t) -> None:
 
     # PermitRootLogin
     prl = cfg.get("permitrootlogin", "prohibit-password").lower()
-    if prl in ("yes",):
+    if prl == "yes":
         result.alert(
             message=_t("ssh.permit_root_login", value=prl),
             detail=_t("ssh.permit_root_login_detail"),
@@ -311,7 +369,17 @@ def _check_sshd_config(snapshot: SSHSnapshot, result: CheckResult, _t) -> None:
             points=3, context="local", key="ssh.permit_root_login",
         )
         found_issue = True
-    elif prl not in ("no", "prohibit-password", "forced-commands-only"):
+    elif prl == "no":
+        result.ok(
+            message=_t("ssh.permit_root_login_disabled"),
+            key="ssh.permit_root_login_disabled",
+        )
+    elif prl in ("prohibit-password", "forced-commands-only"):
+        result.ok(
+            message=_t("ssh.permit_root_login_restricted", value=prl),
+            key="ssh.permit_root_login_restricted",
+        )
+    else:
         result.info(
             message=_t("ssh.permit_root_login", value=prl),
             key="ssh.permit_root_login",
@@ -992,13 +1060,14 @@ def _detect_private_key_type(path: Path, header: str) -> str:
     if "ec private key" in header_lower:
         return "ecdsa"
     # New OpenSSH format — check filename
+    # Check ecdsa before dsa — "ecdsa" contains "dsa" as a substring
     name = path.stem.lower()
+    if "ecdsa" in name:
+        return "ecdsa"
     if "rsa" in name:
         return "rsa"
     if "dsa" in name:
         return "dsa"
-    if "ecdsa" in name:
-        return "ecdsa"
     if "ed25519" in name:
         return "ed25519"
     # New format without name hints — try reading the full public key blob
@@ -1016,12 +1085,13 @@ def _detect_private_key_type(path: Path, header: str) -> str:
 def _key_type_from_algo(algo: str) -> str:
     """Map SSH algorithm string to short key type."""
     algo = algo.lower()
+    # Check ecdsa before dsa — "ecdsa" contains "dsa" as a substring
+    if "ecdsa" in algo:
+        return "ecdsa"
     if "rsa" in algo:
         return "rsa"
     if "dss" in algo or "dsa" in algo:
         return "dsa"
-    if "ecdsa" in algo:
-        return "ecdsa"
     if "ed25519" in algo:
         return "ed25519"
     return "unknown"
@@ -1230,6 +1300,41 @@ def _parse_known_hosts(path: Path) -> list[KnownHostEntry]:
             is_hashed=is_hashed,
         ))
     return entries
+
+
+def _collect_host_keys() -> list[HostKeyInfo]:
+    """
+    Collect server host key info from /etc/ssh/ssh_host_*_key.pub.
+
+    Reads the .pub file (world-readable) to determine type and RSA size
+    without needing root access to the private key.
+    """
+    results: list[HostKeyInfo] = []
+    try:
+        pub_files = sorted(Path("/etc/ssh").glob("ssh_host_*_key.pub"))
+    except OSError:
+        return results
+
+    for pub in pub_files:
+        # Private key path (same name without .pub)
+        priv = pub.with_suffix("")
+        try:
+            parts = pub.read_text(encoding="utf-8", errors="ignore").split()
+        except OSError:
+            continue
+        if len(parts) < 2:
+            continue
+
+        algo = parts[0].lower()
+        blob = parts[1]
+        key_type = _key_type_from_algo(algo)
+        rsa_bits: Optional[int] = None
+        if key_type == "rsa":
+            rsa_bits = _rsa_bits_from_blob(blob)
+
+        results.append(HostKeyInfo(path=priv, key_type=key_type, rsa_bits=rsa_bits))
+
+    return results
 
 
 def _detect_ssh_install_cmd() -> str:

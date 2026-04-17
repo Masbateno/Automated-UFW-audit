@@ -16,7 +16,7 @@ import pytest
 
 _ANSI_RE = re.compile(r'\x1b\[[0-9;]*m')
 
-from ufw_audit.display import print_audit_summary
+from ufw_audit.display import _wrap_for_box, print_audit_summary
 from ufw_audit.explain import EXPLAIN_KEYS, normalize_key
 from ufw_audit.scoring import Finding, FindingLevel, RiskLevel
 
@@ -247,3 +247,57 @@ class TestDuplicateFindings:
         output = _run(engine, capsys)
         lines = _hint_lines(output, "ssh.password_auth")
         assert len(lines) == 2
+
+
+# ---------------------------------------------------------------------------
+# _wrap_for_box — long token truncation
+# ---------------------------------------------------------------------------
+
+class TestWrapForBox:
+    def _lines(self, prefix: str, text: str, inner: int) -> list[str]:
+        return [content for content, _ in _wrap_for_box(prefix, text, inner)]
+
+    def test_short_text_no_wrap(self):
+        lines = self._lines("  ⚠  ", "short text", 78)
+        assert len(lines) == 1
+        assert lines[0] == "  ⚠  short text"
+
+    def test_wraps_at_space(self):
+        prefix = "  ⚠  "
+        avail = 78 - len(prefix)  # 73
+        text = ("word " * 20).strip()
+        lines = self._lines(prefix, text, 78)
+        for line in lines:
+            assert len(line) <= 78
+
+    def test_long_token_truncated_with_ellipsis(self):
+        """A single token longer than avail must be truncated, not overflow."""
+        prefix = "  ⚠  "
+        inner = 78
+        long_path = "/home/timeshift/snapshots/2026-04-04_23-00-01/localhost/opt/brave.com/brave/chrome-sandbox,"
+        lines = self._lines(prefix, long_path, inner)
+        assert len(lines) == 1
+        assert len(lines[0]) <= inner
+        assert lines[0].endswith("…")
+
+    def test_all_lines_fit_in_box(self):
+        """Every output line must fit within inner width even with long paths."""
+        prefix = "  ⚠  "
+        inner = 78
+        text = (
+            "/home/timeshift/snapshots/2026-04-04_23-00-01/localhost/opt/brave.com/brave/chrome-sandbox, "
+            "/home/timeshift/snapshots/2026-04-04_23-00-01/localhost/usr/lib/xorg/Xorg.wrap, "
+            "/home/timeshift/snapshots/2026-04-04_23-00-01/localhost/usr/sbin/mount.cifs"
+        )
+        lines = self._lines(prefix, text, inner)
+        for line in lines:
+            assert len(line) <= inner, f"Line too long ({len(line)}): {line!r}"
+
+    def test_continuation_lines_indented(self):
+        prefix = "  ⚠  "
+        text = "word " * 30
+        lines = self._lines(prefix, text.strip(), 78)
+        assert len(lines) > 1
+        indent = " " * len(prefix)
+        for line in lines[1:]:
+            assert line.startswith(indent)

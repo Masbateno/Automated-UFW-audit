@@ -36,6 +36,12 @@ def make_snapshot(**overrides) -> HardeningSnapshot:
         accept_redirects=False,
         log_martians=True,
         icmp_echo_ignore_broadcasts=True,
+        tcp_syncookies=1,
+        accept_source_route=False,
+        accept_redirects_v6=False,
+        send_redirects=False,
+        protected_hardlinks=True,
+        protected_symlinks=True,
     )
     defaults.update(overrides)
     return HardeningSnapshot(**defaults)
@@ -385,3 +391,197 @@ class TestAppArmorEdgeCases:
         )
         aa_deductions = [d for d in result.deductions if "apparmor" in d.reason.lower()]
         assert aa_deductions == []
+
+
+# ---------------------------------------------------------------------------
+# tcp_syncookies
+# ---------------------------------------------------------------------------
+
+class TestTcpSyncookies:
+    def test_syncookies_1_is_ok(self):
+        result = check_hardening(make_snapshot(tcp_syncookies=1), t=_t)
+        keys = [f.key for f in result.findings]
+        assert "hardening.tcp_syncookies_ok" in keys
+
+    def test_syncookies_2_is_ok(self):
+        result = check_hardening(make_snapshot(tcp_syncookies=2), t=_t)
+        keys = [f.key for f in result.findings]
+        assert "hardening.tcp_syncookies_ok" in keys
+
+    def test_syncookies_0_is_warn(self):
+        result = check_hardening(make_snapshot(tcp_syncookies=0), t=_t)
+        assert has_level(result, "warn")
+        keys = [f.key for f in result.findings]
+        assert "hardening.tcp_syncookies_disabled" in keys
+
+    def test_syncookies_0_deduction(self):
+        result = check_hardening(make_snapshot(tcp_syncookies=0), t=_t)
+        deduction_keys = [d.key for d in result.deductions]
+        assert "hardening.tcp_syncookies_disabled" in deduction_keys
+
+    def test_syncookies_0_deduction_1pt(self):
+        result = check_hardening(make_snapshot(tcp_syncookies=0), t=_t)
+        pts = sum(d.points for d in result.deductions
+                  if d.key == "hardening.tcp_syncookies_disabled")
+        assert pts == 1
+
+    def test_syncookies_ok_no_deduction(self):
+        result = check_hardening(make_snapshot(tcp_syncookies=1), t=_t)
+        deduction_keys = [d.key for d in result.deductions]
+        assert "hardening.tcp_syncookies_disabled" not in deduction_keys
+
+
+# ---------------------------------------------------------------------------
+# accept_source_route
+# ---------------------------------------------------------------------------
+
+class TestAcceptSourceRoute:
+    def test_source_route_disabled_is_ok(self):
+        result = check_hardening(make_snapshot(accept_source_route=False), t=_t)
+        keys = [f.key for f in result.findings]
+        assert "hardening.accept_source_route_ok" in keys
+
+    def test_source_route_enabled_is_warn(self):
+        result = check_hardening(make_snapshot(accept_source_route=True), t=_t)
+        assert has_level(result, "warn")
+        keys = [f.key for f in result.findings]
+        assert "hardening.accept_source_route_enabled" in keys
+
+    def test_source_route_enabled_deduction(self):
+        result = check_hardening(make_snapshot(accept_source_route=True), t=_t)
+        deduction_keys = [d.key for d in result.deductions]
+        assert "hardening.accept_source_route_enabled" in deduction_keys
+
+    def test_source_route_enabled_deduction_1pt(self):
+        result = check_hardening(make_snapshot(accept_source_route=True), t=_t)
+        pts = sum(d.points for d in result.deductions
+                  if d.key == "hardening.accept_source_route_enabled")
+        assert pts == 1
+
+    def test_source_route_disabled_no_deduction(self):
+        result = check_hardening(make_snapshot(accept_source_route=False), t=_t)
+        deduction_keys = [d.key for d in result.deductions]
+        assert "hardening.accept_source_route_enabled" not in deduction_keys
+
+
+# ---------------------------------------------------------------------------
+# accept_redirects_v6
+# ---------------------------------------------------------------------------
+
+class TestAcceptRedirectsV6:
+    def test_v6_redirects_disabled_is_ok(self):
+        result = check_hardening(make_snapshot(accept_redirects_v6=False), t=_t)
+        keys = [f.key for f in result.findings]
+        assert "hardening.accept_redirects_v6_ok" in keys
+
+    def test_v6_redirects_enabled_is_warn(self):
+        result = check_hardening(make_snapshot(accept_redirects_v6=True), t=_t)
+        assert has_level(result, "warn")
+        keys = [f.key for f in result.findings]
+        assert "hardening.accept_redirects_v6_enabled" in keys
+
+    def test_v6_redirects_enabled_deduction(self):
+        result = check_hardening(make_snapshot(accept_redirects_v6=True), t=_t)
+        deduction_keys = [d.key for d in result.deductions]
+        assert "hardening.accept_redirects_v6_enabled" in deduction_keys
+
+    def test_v6_redirects_enabled_deduction_1pt(self):
+        result = check_hardening(make_snapshot(accept_redirects_v6=True), t=_t)
+        pts = sum(d.points for d in result.deductions
+                  if d.key == "hardening.accept_redirects_v6_enabled")
+        assert pts == 1
+
+    def test_v6_redirects_disabled_no_deduction(self):
+        result = check_hardening(make_snapshot(accept_redirects_v6=False), t=_t)
+        deduction_keys = [d.key for d in result.deductions]
+        assert "hardening.accept_redirects_v6_enabled" not in deduction_keys
+
+
+# ---------------------------------------------------------------------------
+# send_redirects
+# ---------------------------------------------------------------------------
+
+class TestSendRedirects:
+    def test_send_redirects_disabled_is_ok(self):
+        result = check_hardening(make_snapshot(send_redirects=False), t=_t)
+        keys = [f.key for f in result.findings]
+        assert "hardening.send_redirects_ok" in keys
+
+    def test_send_redirects_enabled_is_warn(self):
+        result = check_hardening(make_snapshot(send_redirects=True), t=_t)
+        assert has_level(result, "warn")
+        keys = [f.key for f in result.findings]
+        assert "hardening.send_redirects_enabled" in keys
+
+    def test_send_redirects_enabled_deduction(self):
+        result = check_hardening(make_snapshot(send_redirects=True), t=_t)
+        deduction_keys = [d.key for d in result.deductions]
+        assert "hardening.send_redirects_enabled" in deduction_keys
+
+    def test_send_redirects_enabled_deduction_1pt(self):
+        result = check_hardening(make_snapshot(send_redirects=True), t=_t)
+        pts = sum(d.points for d in result.deductions
+                  if d.key == "hardening.send_redirects_enabled")
+        assert pts == 1
+
+    def test_send_redirects_disabled_no_deduction(self):
+        result = check_hardening(make_snapshot(send_redirects=False), t=_t)
+        deduction_keys = [d.key for d in result.deductions]
+        assert "hardening.send_redirects_enabled" not in deduction_keys
+
+
+# ---------------------------------------------------------------------------
+# fs.protected_hardlinks
+# ---------------------------------------------------------------------------
+
+class TestProtectedHardlinks:
+    def test_enabled_is_ok(self):
+        result = check_hardening(make_snapshot(protected_hardlinks=True), t=_t)
+        keys = [f.key for f in result.findings]
+        assert "hardening.protected_hardlinks_ok" in keys
+
+    def test_disabled_is_warn(self):
+        result = check_hardening(make_snapshot(protected_hardlinks=False), t=_t)
+        assert has_level(result, "warn")
+        keys = [f.key for f in result.findings]
+        assert "hardening.protected_hardlinks_disabled" in keys
+
+    def test_disabled_deduction_1pt(self):
+        result = check_hardening(make_snapshot(protected_hardlinks=False), t=_t)
+        pts = sum(d.points for d in result.deductions
+                  if d.key == "hardening.protected_hardlinks_disabled")
+        assert pts == 1
+
+    def test_enabled_no_deduction(self):
+        result = check_hardening(make_snapshot(protected_hardlinks=True), t=_t)
+        deduction_keys = [d.key for d in result.deductions]
+        assert "hardening.protected_hardlinks_disabled" not in deduction_keys
+
+
+# ---------------------------------------------------------------------------
+# fs.protected_symlinks
+# ---------------------------------------------------------------------------
+
+class TestProtectedSymlinks:
+    def test_enabled_is_ok(self):
+        result = check_hardening(make_snapshot(protected_symlinks=True), t=_t)
+        keys = [f.key for f in result.findings]
+        assert "hardening.protected_symlinks_ok" in keys
+
+    def test_disabled_is_warn(self):
+        result = check_hardening(make_snapshot(protected_symlinks=False), t=_t)
+        assert has_level(result, "warn")
+        keys = [f.key for f in result.findings]
+        assert "hardening.protected_symlinks_disabled" in keys
+
+    def test_disabled_deduction_1pt(self):
+        result = check_hardening(make_snapshot(protected_symlinks=False), t=_t)
+        pts = sum(d.points for d in result.deductions
+                  if d.key == "hardening.protected_symlinks_disabled")
+        assert pts == 1
+
+    def test_enabled_no_deduction(self):
+        result = check_hardening(make_snapshot(protected_symlinks=True), t=_t)
+        deduction_keys = [d.key for d in result.deductions]
+        assert "hardening.protected_symlinks_disabled" not in deduction_keys
+

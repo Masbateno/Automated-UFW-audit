@@ -101,13 +101,13 @@ def _run(argv=None) -> int:
         config.quiet = True
 
     _devnull = None
-    if config.json_mode:
+    if config.json_mode or config.csv_mode or config.markdown_mode:
         config.quiet = True
         _devnull     = open(os.devnull, "w")
         sys.stdout   = _devnull
 
     try:
-        output.init(no_color=config.no_color, quiet=config.quiet)
+        output.init(no_color=config.no_color, quiet=config.quiet, min_level=config.min_level)
         registry    = ServiceRegistry.load()
         user_config = UserConfig.load()
 
@@ -134,6 +134,13 @@ def _run(argv=None) -> int:
         if config.profile:
             user_config.set_profile(config.profile)
         active_profile = load_profile(profile_name)
+
+        if config.watch_mode:
+            from ufw_audit.watch import run_watch
+            return run_watch(
+                config, config.watch_interval, t, output,
+                registry, active_profile, VERSION,
+            )
 
         prev_baseline = load_baseline()
 
@@ -204,7 +211,8 @@ def _run(argv=None) -> int:
 
         if not config.quiet:
             print_audit_summary(engine, network_context, public_ip, config, t, report, snapshots,
-                                profile_name=active_profile.name)
+                                profile_name=active_profile.name,
+                                prev_score=prev_baseline.score if prev_baseline else None)
             from ufw_audit.domain_scores import compute_domain_scores, render_domain_scores
             _domain_scores = compute_domain_scores(engine)
             for _line in render_domain_scores(_domain_scores, t):
@@ -247,6 +255,20 @@ def _run(argv=None) -> int:
                 ipv6_snapshot=ipv6_snapshot,
             )
             print(_json.dumps(data, ensure_ascii=False, indent=2))
+
+        if config.csv_mode:
+            sys.stdout = sys.__stdout__
+            _devnull.close()
+            _devnull = None
+            from ufw_audit.csv_output import build_csv_output
+            print(build_csv_output(engine, sys_info), end="")
+
+        if config.markdown_mode:
+            sys.stdout = sys.__stdout__
+            _devnull.close()
+            _devnull = None
+            from ufw_audit.markdown_output import build_markdown_output
+            print(build_markdown_output(engine, sys_info), end="")
 
         if config.target > 0 and engine.score < config.target:
             return EXIT_TARGET_MISSED

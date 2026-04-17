@@ -50,7 +50,16 @@ _ufw_audit() {
     local short_opts="-v -d -q -f -y -r -n -j -J -l -m -c -C -o -p -e -D -w -V -h"
 
     # All long options (single line — avoids multiline parsing issues on some bash versions)
-    local long_opts="--verbose --detailed --quiet --fix --apply --yes --reconfigure --no-color --json --json-full --log-days= --manage-logs --install-cron --manage-cron --install-completion --french --lang= --offline --profile= --reset-baseline --explain --diff --webhook= --webhook-format= --target= --version --help"
+    local long_opts="--verbose --detailed --quiet --fix --apply --yes --reconfigure --no-color --json --json-full --output= --min-level= --log-days= --manage-logs --install-cron --manage-cron --install-completion --french --lang= --offline --profile= --reset-baseline --explain --diff --watch= --webhook= --webhook-format= --target= --version --help"
+    # Value completions for --output and --min-level
+    if [[ "${prev}" == "--output" ]]; then
+        COMPREPLY=( $(compgen -W "csv json markdown" -- "${cur}") )
+        return 0
+    fi
+    if [[ "${prev}" == "--min-level" ]]; then
+        COMPREPLY=( $(compgen -W "warn alert" -- "${cur}") )
+        return 0
+    fi
 
     if [[ "${cur}" == --* ]]; then
         COMPREPLY=( $(compgen -W "${long_opts}" -- "${cur}") )

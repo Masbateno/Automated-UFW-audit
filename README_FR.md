@@ -156,63 +156,20 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Qualité & fiabilité
 
-- ✅ 2729 tests unitaires
+- ✅ 3259 tests unitaires
 - 🧱 Architecture modulaire (snapshot / check séparés)
 - 🧪 Testé sur Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.18.0
+## 🆕 v1.19.0
 
-- 🔒 **CHECK 34 — Politique MAC AppArmor / SELinux** — profils AppArmor enforce/complain + mode SELinux ; WARN −1 pt si inactif, aucun profil enforce (server) ou aucun MAC ; desktop plus permissif (no enforce → INFO)
-- 💾 **CHECK 35 — Audit solution de sauvegarde** — détecte borgmatic, borg, restic, timeshift, duplicati, bacula, rclone, tarsnap, deja-dup ; deux niveaux de confiance (actif = binaire + artefact/service vs. installé seulement) ; WARN −1 pt si aucune sauvegarde sur server ; desktop et container plus tolérants
-- 🧩 **Listing des noyaux** — `kernel_modules` affiche toujours les noyaux installés avec annotation du noyau actif (*) ; aucun nettoyage nécessaire → INFO listing ; cas reboot-pending et obsolètes inchangés
-- 📋 **Passage profils** — `desktop.conf` gagne 6 nouvelles surcharges (auth SSH par mot de passe, transfert X11, âge scan rootkit, qualité mots de passe) ; `container.conf` gagne 12 nouveaux `skip_sections` (noyau, Secure Boot, auditd, rootkit, intégrité fichiers, disque, mémoire, fail2ban, ClamAV, NTP, politique MAC, sauvegarde)
-- 🗣 **`--explain` 76 → 86 clés** — CHECKs 31/32/33 entièrement couverts (auditd ×4, secure_boot ×2, file_integrity ×4) ; références CIS Ubuntu 22.04 L1/L2 ; affichage par profil pour `auditd.missing_sensitive_rules` et `secure_boot.disabled`
-- 🔧 **Correctif autocomplétion bash Debian** — `long_opts` sur une seule ligne pour éviter les problèmes d'analyse multilignes
-- 🐛 **Correctif surcharges de profil** — les findings ramenés en INFO par un profil sortent désormais correctement de la boîte de synthèse ; `nature` effacé au downgrade
-- 🧹 **Boîte de synthèse épurée** — section "Configuration normale" supprimée ; seuls les items actionnables restent
-- 📁 **UX `--manage-logs`** — lors d'un changement d'emplacement, propose de déplacer les rapports existants (`[y/N]`) ; tous les répertoires connus (actuel + précédents) affichés ensemble avec un index continu — chaque rapport est accessible et actionnable quel que soit le chemin actif
-- ✅ 2729/2729 tests unitaires (+222)
-
-## v1.17.0
-
-- 🔍 **CHECK 31 — Linux Audit Framework (auditd)** — détecte l'installation, l'état du service, les règles chargées et la couverture des fichiers sensibles (/etc/passwd, /etc/shadow, /etc/sudoers) ; WARN −1 pt chacun pour service inactif, aucune règle, fichiers non couverts (profil server)
-- 🔐 **CHECK 32 — Secure Boot** — état UEFI via mokutil/efivars/bootctl ; WARN −1 pt si désactivé sur desktop ; INFO si désactivé sur server/VM ou BIOS inconnu
-- 🗂 **CHECK 33 — Intégrité des fichiers (AIDE/Tripwire)** — détecte l'installation, l'initialisation de la base et la date du dernier check ; WARN −1 pt si base absente ou check absent/trop ancien (>30 jours)
-- 🗣 **Variantes `--explain` par profil** — 17 clés affichent 3 sections dédiées (server / desktop / container) avec des explications adaptées ; note uniforme jaune pour les clés sans différence entre profils
-- 🖥 **Profil `workstation` → `desktop`** — renommé pour plus de clarté ; alias `workstation` conservé pour la rétrocompatibilité
-- 🏷 **`cmd_type` sur les findings** — les findings distinguent désormais les commandes `fix` des commandes `check` avec des préfixes différents dans le résumé
-- 🐛 **Fausse alerte IPv6 avahi corrigée** — avahi-daemon, systemd-resolve et processus internes similaires ne déclenchent plus de suggestions de règles UFW
-- 📋 **Repli journald dans les logs** — Debian 13 sans rsyslog lit automatiquement depuis `journalctl -k`
-- ⚙️ **Persistance des commandes sysctl** — les corrections de durcissement écrivent désormais dans `/etc/sysctl.d/99-hardening.conf`
-- 🚀 **Trusted Publishing** — déploiement sur PyPI via OIDC GitHub Actions ; aucun token API requis
-- ✅ 2507/2507 tests unitaires (+215)
-
-## v1.16.0
-
-- 🖥 **CHECK 19 — Détection d'applications de bureau** — détecte les applications GUI connues (Steam, Discord, Zoom, Signal…) en cours d'exécution ; findings INFO, sans déduction ; section affichée uniquement si des applis sont détectées
-- 🕐 **CHECK 28 — Synchronisation NTP** — vérifie systemd-timesyncd/chronyd/ntpd ; WARN −1 pt si désactivé ou pas encore synchronisé
-- 🛡 **CHECK 29 — Prévention d'intrusion Fail2ban** — check dédié indépendant ; WARN −1 pt si service inactif ou aucun jail configuré ; détecte le jail SSH actif
-- 🔍 **CHECK 30 — Scan rootkit & intégrité** — détection rkhunter/chkrootkit ; WARN −1 pt pour base de données obsolète, scan absent ou scan trop ancien (>30 jours)
-- 🎯 **`--target N` code de sortie 4** — retourne le code de sortie 4 si le score < cible (intégration CI) ; prioritaire sur les codes 1/2
-- 🚨 **Validation CLI** — `--explain=`, `--profile=`, `--lang=`, `--webhook=`, `--target=` avec valeur vide lèvent maintenant une erreur explicite
-- 📐 **5 en-têtes de groupes thématiques** — sortie réorganisée en FIREWALL & RÉSEAU / EXPOSITION & SERVICES / CONTRÔLE D'ACCÈS / DURCISSEMENT SYSTÈME / DÉTECTION & SANTÉ ; séparateur `━` cyan épais
-- ✅ 2292/2292 tests unitaires (+153)
-
-## v1.15.1
-
-- 🔧 **Hotfix autocomplétion bash** — `--explain` n'obtient plus de `=` parasite ; les options à valeur (`--target=`, `--log-days=`, `--profile=`) n'ajoutent plus d'espace après le `=`
-
-## v1.15.0
-
-- 🌐 **CHECK 26 — Dominance source locale IoT** — détecte quand une seule IP privée représente ≥ 70 % du trafic UFW bloqué (typique des appareils IoT qui scannent le LAN)
-- 📧 **CHECK 27 — Exposition SMTP locale** — détecte Postfix/Exim/Sendmail en écoute sur toutes les interfaces (0.0.0.0:25) vs localhost uniquement ; WARN −1 pt si accessible publiquement
-- 🔧 **`--fix` aperçu par défaut** — `--fix` seul prévisualise les corrections sans les exécuter ; `--fix --apply` pour exécuter de manière interactive ; `--fix --apply --yes` pour confirmer automatiquement avec journal d'audit
-- 🎯 **`--target N` objectif de score** — affiche une ligne cible dans la boîte de synthèse : `✔` vert si atteint, `▲` jaune avec l'écart sinon
-- 🎛 **TUI `--explain`** — navigation bloquée (pas de wrap), écran détail in-curses (ESC pour revenir), correction ESC/q, en-têtes de groupes restaurés au scroll-up ; 73→77 clés
-- ❌ **Annulation à chaque étape des wizards** — `q` quitte proprement dans `--install-cron`, `--manage-cron`, `--manage-logs`
-- ✅ 2139/2139 tests unitaires (+93)
+- 🔑 **SSH `PermitRootLogin` cas OK** — `no` → OK (désactivation totale) ; `prohibit-password` / `forced-commands-only` → OK restreint ; seul le chemin ALERT était couvert auparavant
+- ⚡ **Performance scan SUID** — `find /` remplacé par une liste `_SCAN_ROOTS` ciblée ; durée réduite de >10 s à <1 s ; liste blanche SGID étendue
+- 🐛 **Correctif affichage dominance IoT** — le finding INFO `logs.local_dominance` s'affiche désormais correctement dans la section logs
+- 🌍 **i18n labels scores par domaine** — les 7 labels de domaine sont traduits via `t()` quand `--french` est actif
+- 🛡 **Durcissement — 6 nouveaux contrôles sysctl** — `tcp_syncookies` (protection SYN flood) ; `accept_source_route` (routage source IP) ; `accept_redirects_v6` (redirections ICMP IPv6) ; `send_redirects` (envoi de redirections ICMP) ; `protected_hardlinks` (attaques par lien dur) ; `protected_symlinks` (race conditions /tmp) — lecture via `/proc/sys/`, WARN −1 pt chacun
+- ✅ 3259/3259 tests unitaires (+530)
 
 ---
 
@@ -248,7 +205,7 @@ Automated-UFW-audit/
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 2729 tests unitaires
+└── tests/                          # 3259 tests unitaires
 ```
 
 ---

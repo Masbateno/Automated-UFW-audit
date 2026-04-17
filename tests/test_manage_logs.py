@@ -464,3 +464,259 @@ class TestChangeLocationCancel:
             run_manage_logs(uc, _make_config(), _t)
 
         assert store["log_dir"] == str(old_dir)
+
+
+# ---------------------------------------------------------------------------
+# Score history helpers
+# ---------------------------------------------------------------------------
+
+class TestExtractScoreFromLog:
+    def test_standard_format(self, tmp_path):
+        from ufw_audit.manage_logs import _extract_score_from_log
+        f = tmp_path / "log.log"
+        f.write_text("Score   : 7/10\n")
+        assert _extract_score_from_log(f) == 7
+
+    def test_compact_format(self, tmp_path):
+        from ufw_audit.manage_logs import _extract_score_from_log
+        f = tmp_path / "log.log"
+        f.write_text("Score: 10/10\n")
+        assert _extract_score_from_log(f) == 10
+
+    def test_score_embedded_in_text(self, tmp_path):
+        from ufw_audit.manage_logs import _extract_score_from_log
+        f = tmp_path / "log.log"
+        f.write_text("some header\nOK: 5\nScore   : 3/10\nRisk: low\n")
+        assert _extract_score_from_log(f) == 3
+
+    def test_score_zero(self, tmp_path):
+        from ufw_audit.manage_logs import _extract_score_from_log
+        f = tmp_path / "log.log"
+        f.write_text("Score   : 0/10\n")
+        assert _extract_score_from_log(f) == 0
+
+    def test_no_score_returns_none(self, tmp_path):
+        from ufw_audit.manage_logs import _extract_score_from_log
+        f = tmp_path / "log.log"
+        f.write_text("no score line here\n")
+        assert _extract_score_from_log(f) is None
+
+    def test_missing_file_returns_none(self, tmp_path):
+        from ufw_audit.manage_logs import _extract_score_from_log
+        assert _extract_score_from_log(tmp_path / "missing.log") is None
+
+    def test_partial_match_not_returned(self, tmp_path):
+        """'notScore   : 7/10' should not match (line-start anchor)."""
+        from ufw_audit.manage_logs import _extract_score_from_log
+        f = tmp_path / "log.log"
+        f.write_text("notScore   : 7/10\n")
+        assert _extract_score_from_log(f) is None
+
+    def test_first_score_wins(self, tmp_path):
+        """Only the first Score line is returned."""
+        from ufw_audit.manage_logs import _extract_score_from_log
+        f = tmp_path / "log.log"
+        f.write_text("Score   : 5/10\nScore   : 9/10\n")
+        assert _extract_score_from_log(f) == 5
+
+
+class TestParseLogDate:
+    def test_standard_filename(self):
+        from ufw_audit.manage_logs import _parse_log_date
+        p = Path("ufw_audit_20260413_170724.log")
+        assert _parse_log_date(p) == "2026-04-13 17:07"
+
+    def test_midnight(self):
+        from ufw_audit.manage_logs import _parse_log_date
+        p = Path("ufw_audit_20260101_000000.log")
+        assert _parse_log_date(p) == "2026-01-01 00:00"
+
+    def test_end_of_day(self):
+        from ufw_audit.manage_logs import _parse_log_date
+        p = Path("ufw_audit_20261231_235959.log")
+        assert _parse_log_date(p) == "2026-12-31 23:59"
+
+    def test_malformed_falls_back_to_stem(self):
+        from ufw_audit.manage_logs import _parse_log_date
+        p = Path("notavalidname.log")
+        assert _parse_log_date(p) == "notavalidname"
+
+
+class TestBuildScoreHistory:
+    def _make_log_with_score(self, directory: Path, name: str, score: int) -> Path:
+        f = directory / name
+        f.write_text(f"Score   : {score}/10\n")
+        return f
+
+    def test_empty_list(self):
+        from ufw_audit.manage_logs import _build_score_history
+        assert _build_score_history([]) == []
+
+    def test_single_log(self, tmp_path):
+        from ufw_audit.manage_logs import _build_score_history
+        f = self._make_log_with_score(tmp_path, "ufw_audit_20260413_170000.log", 7)
+        result = _build_score_history([f])
+        assert result == [("2026-04-13 17:00", 7)]
+
+    def test_sorted_chronologically(self, tmp_path):
+        from ufw_audit.manage_logs import _build_score_history
+        f1 = self._make_log_with_score(tmp_path, "ufw_audit_20260413_100000.log", 5)
+        f2 = self._make_log_with_score(tmp_path, "ufw_audit_20260414_100000.log", 8)
+        f3 = self._make_log_with_score(tmp_path, "ufw_audit_20260415_100000.log", 9)
+        result = _build_score_history([f3, f1, f2])
+        assert [s for _, s in result] == [5, 8, 9]
+
+    def test_logs_without_score_skipped(self, tmp_path):
+        from ufw_audit.manage_logs import _build_score_history
+        good = self._make_log_with_score(tmp_path, "ufw_audit_20260413_100000.log", 6)
+        bad = tmp_path / "ufw_audit_20260414_100000.log"
+        bad.write_text("no score here")
+        result = _build_score_history([good, bad])
+        assert len(result) == 1
+        assert result[0][1] == 6
+
+    def test_all_without_score(self, tmp_path):
+        from ufw_audit.manage_logs import _build_score_history
+        f = tmp_path / "ufw_audit_20260413_100000.log"
+        f.write_text("no score")
+        assert _build_score_history([f]) == []
+
+    def test_dates_correct(self, tmp_path):
+        from ufw_audit.manage_logs import _build_score_history
+        f1 = self._make_log_with_score(tmp_path, "ufw_audit_20260101_090000.log", 4)
+        f2 = self._make_log_with_score(tmp_path, "ufw_audit_20260201_140530.log", 9)
+        result = _build_score_history([f1, f2])
+        assert result[0][0] == "2026-01-01 09:00"
+        assert result[1][0] == "2026-02-01 14:05"
+
+
+class TestRenderScoreChart:
+    def _t(self, key, **kwargs):
+        from ufw_audit import i18n
+        i18n.init(lang="en")
+        return i18n.t(key, **kwargs)
+
+    def test_empty_history_returns_no_lines(self):
+        from ufw_audit.manage_logs import _render_score_chart
+        assert _render_score_chart([], self._t) == []
+
+    def test_single_entry_renders(self):
+        from ufw_audit.manage_logs import _render_score_chart
+        lines = _render_score_chart([("2026-04-13 17:00", 7)], self._t)
+        assert len(lines) >= 3  # title, sep, entry, sep
+        combined = "\n".join(lines)
+        assert "7" in combined
+        assert "2026-04-13" in combined
+
+    def test_bar_length_10(self):
+        from ufw_audit.manage_logs import _render_score_chart
+        lines = _render_score_chart([("2026-04-13 17:00", 5)], self._t)
+        data_line = next(l for l in lines if "2026-04-13" in l)
+        assert data_line.count("█") + data_line.count("░") == 10
+
+    def test_score_10_all_filled(self):
+        from ufw_audit.manage_logs import _render_score_chart
+        lines = _render_score_chart([("2026-04-13 17:00", 10)], self._t)
+        data_line = next(l for l in lines if "2026-04-13" in l)
+        assert "░" not in data_line
+        assert data_line.count("█") == 10
+
+    def test_score_0_all_empty(self):
+        from ufw_audit.manage_logs import _render_score_chart
+        lines = _render_score_chart([("2026-04-13 17:00", 0)], self._t)
+        data_line = next(l for l in lines if "2026-04-13" in l)
+        assert "█" not in data_line
+        assert data_line.count("░") == 10
+
+    def test_at_most_20_entries_shown(self):
+        from ufw_audit.manage_logs import _render_score_chart
+        history = [(f"2026-01-{i+1:02d} 10:00", 5) for i in range(25)]
+        lines = _render_score_chart(history, self._t)
+        data_lines = [l for l in lines if "2026-01-" in l]
+        assert len(data_lines) == 20
+
+    def test_last_20_kept(self):
+        from ufw_audit.manage_logs import _render_score_chart
+        history = [(f"2026-{i+1:02d}-01 10:00", i) for i in range(25)]
+        lines = _render_score_chart(history, self._t)
+        combined = "\n".join(lines)
+        assert "2026-01-01" not in combined
+        assert "2026-25-01" in combined
+
+    def test_title_contains_count(self):
+        from ufw_audit.manage_logs import _render_score_chart
+        history = [("2026-04-13 17:00", 7), ("2026-04-14 17:00", 8)]
+        lines = _render_score_chart(history, self._t)
+        title_line = lines[0]
+        assert "2" in title_line
+
+    def test_separators_present(self):
+        from ufw_audit.manage_logs import _render_score_chart
+        lines = _render_score_chart([("2026-04-13 17:00", 5)], self._t)
+        sep_lines = [l for l in lines if "─" in l]
+        assert len(sep_lines) >= 2
+
+    def test_score_shown_as_n_over_10(self):
+        from ufw_audit.manage_logs import _render_score_chart
+        lines = _render_score_chart([("2026-04-13 17:00", 6)], self._t)
+        data_line = next(l for l in lines if "2026-04-13" in l)
+        assert "6/10" in data_line
+
+
+class TestScoreHistoryDisplayedInUI:
+    """Integration: score history chart appears in manage-logs output."""
+
+    def _make_log_with_score(self, directory: Path, name: str, score: int) -> Path:
+        f = directory / name
+        f.write_text(f"Score   : {score}/10\n")
+        return f
+
+    def test_chart_shown_when_logs_have_scores(self, tmp_path, capsys):
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+        self._make_log_with_score(log_dir, "ufw_audit_20260413_170000.log", 7)
+        self._make_log_with_score(log_dir, "ufw_audit_20260414_170000.log", 9)
+
+        uc, _ = _make_user_config(str(log_dir))
+        inputs = iter(["q"])
+
+        with patch("builtins.input", side_effect=inputs):
+            from ufw_audit.manage_logs import run_manage_logs
+            run_manage_logs(uc, _make_config(), _t)
+
+        out = capsys.readouterr().out
+        assert "7/10" in out
+        assert "9/10" in out
+
+    def test_chart_absent_when_no_logs(self, tmp_path, capsys):
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+
+        uc, _ = _make_user_config(str(log_dir))
+        inputs = iter(["q"])
+
+        with patch("builtins.input", side_effect=inputs):
+            from ufw_audit.manage_logs import run_manage_logs
+            run_manage_logs(uc, _make_config(), _t)
+
+        out = capsys.readouterr().out
+        assert "/10" not in out
+
+    def test_chart_includes_extra_dir_logs(self, tmp_path, capsys):
+        cur_dir = tmp_path / "current"
+        extra_dir = tmp_path / "previous"
+        cur_dir.mkdir()
+        extra_dir.mkdir()
+        self._make_log_with_score(cur_dir, "ufw_audit_20260413_170000.log", 5)
+        self._make_log_with_score(extra_dir, "ufw_audit_20260412_170000.log", 8)
+
+        uc, _ = _make_user_config(str(cur_dir), extra_dirs=[str(extra_dir)])
+        inputs = iter(["q"])
+
+        with patch("builtins.input", side_effect=inputs):
+            from ufw_audit.manage_logs import run_manage_logs
+            run_manage_logs(uc, _make_config(), _t)
+
+        out = capsys.readouterr().out
+        assert "5/10" in out
+        assert "8/10" in out

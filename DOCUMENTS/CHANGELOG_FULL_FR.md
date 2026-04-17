@@ -6,6 +6,68 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.19.0] — 2026-04-17
+
+### Résumé
+- **SSH `PermitRootLogin` cas OK** — `no` → OK ; `prohibit-password`/`forced-commands-only` → OK restreint ; `yes` → ALERT −3 pt (inchangé) ; valeur inconnue → INFO
+- **Performance scan SUID** — `find /` → liste ciblée `_SCAN_ROOTS` ; durée <1 s ; liste blanche SGID : `camel-lock-helper-1.2`, `support-tool-launcher`
+- **Correctif affichage dominance IoT** — le finding INFO `local_dominance` était silencieusement ignoré ; corrigé par vérification de clé explicite dans `display_log_results`
+- **i18n labels scores par domaine** — `render_domain_scores` passe les labels par `t()` ; `samba`/`disk` ajoutés aux locales
+- **6 nouveaux contrôles sysctl durcissement** — tcp_syncookies, accept_source_route, accept_redirects_v6, send_redirects, protected_hardlinks, protected_symlinks — tous WARN −1 pt, tous lus via `/proc/sys/`
+
+### Audit SSH (`checks/ssh.py`)
+
+- `_check_sshd_config` : vérification `PermitRootLogin` désormais complète
+  - `yes` → `result.alert()` + `add_deduction(points=3)` (inchangé)
+  - `no` → `result.ok(key="ssh.permit_root_login_disabled")`
+  - `prohibit-password` ou `forced-commands-only` → `result.ok(key="ssh.permit_root_login_restricted", value=prl)`
+  - valeur inconnue → `result.info(key="ssh.permit_root_login", value=prl)`
+- Valeur par défaut supposée : `prohibit-password` (défaut SSH)
+- Nouvelles clés locale : `ssh.permit_root_login_disabled`, `ssh.permit_root_login_restricted`
+- 7 nouveaux tests dans `tests/test_ssh.py`
+
+### Scan SUID/SGID (`checks/suid_audit.py`)
+
+- Tuple `_SCAN_ROOTS` remplace le `find /` complet : `/bin`, `/sbin`, `/usr/bin`, `/usr/sbin`, `/usr/local/bin`, `/usr/local/sbin`, `/usr/local/lib`, `/usr/lib`, `/usr/lib64`, `/lib`, `/lib64`, `/usr/libexec`, `/opt`
+- `from_system()` filtre `_SCAN_ROOTS` aux répertoires existants ; construit la commande `find` avec filtre de permission SUID+SGID combiné
+- `_KNOWN_SGID` étendu : `"camel-lock-helper-1.2"`, `"support-tool-launcher"`
+- Timeout maintenu à 15 s (`_FIND_TIMEOUT`)
+
+### Correctif affichage (`display.py`)
+
+- `display_log_results` n'itérait que les findings WARN ; `logs.local_dominance` (INFO) était silencieusement ignoré
+- Corrigé : après la boucle top-ports, itération de tous les findings INFO ; affichage de ceux avec `key == "logs.local_dominance"`
+
+### i18n scores par domaine (`domain_scores.py`)
+
+- `render_domain_scores(scores, t=None)` — helper interne `_label(domain, fallback)` ajouté
+- `_label` appelle `t(f"domain_scores.{domain}")` ; retourne le repli anglais si la clé n'est pas encore traduite
+- Dict `labels` construit par domaine ; `label_width` dérivé des labels traduits
+- Nouvelles clés locale : `domain_scores.samba` (EN : "Samba Security" / FR : "Sécurité Samba"), `domain_scores.disk` (EN : "Disk Health" / FR : "Santé des disques")
+
+### Contrôles sysctl durcissement (`checks/hardening.py`)
+
+Nouveaux champs dans `HardeningSnapshot` (tous lus via `_read_sysctl_bool` / `_read_sysctl_int` depuis `/proc/sys/`) :
+
+| Champ | Clé | Défaut | Condition OK | Déduction |
+|-------|-----|--------|--------------|-----------|
+| `tcp_syncookies` | `net.ipv4.tcp_syncookies` | 1 | ≥ 1 | −1 pt si 0 |
+| `accept_source_route` | `net.ipv4.conf.all.accept_source_route` | False | False | −1 pt si True |
+| `accept_redirects_v6` | `net.ipv6.conf.all.accept_redirects` | False | False | −1 pt si True |
+| `send_redirects` | `net.ipv4.conf.all.send_redirects` | False | False | −1 pt si True |
+| `protected_hardlinks` | `fs.protected_hardlinks` | True | True | −1 pt si False |
+| `protected_symlinks` | `fs.protected_symlinks` | True | True | −1 pt si False |
+
+Toutes les commandes de correction ciblent `/etc/sysctl.d/99-hardening.conf`.
+
+### Tests
+
+- `tests/test_hardening.py` : `make_snapshot` gagne 6 nouveaux défauts ; `TestTcpSyncookies` (6), `TestAcceptSourceRoute` (5), `TestAcceptRedirectsV6` (5), `TestSendRedirects` (5), `TestProtectedHardlinks` (4), `TestProtectedSymlinks` (4) — 29 nouveaux tests
+- `tests/test_ssh.py` : 7 nouveaux tests `PermitRootLogin`
+- **Total : 3259/3259 (+530 par rapport à v1.18.0)**
+
+---
+
 ## [v1.18.0] — 2026-04-16
 
 ### Résumé

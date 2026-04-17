@@ -11,6 +11,7 @@ import pytest
 from ufw_audit.checks.ssh import (
     AuthorizedKeyEntry,
     ClientConfigEntry,
+    HostKeyInfo,
     KnownHostEntry,
     PrivateKeyInfo,
     SSHSnapshot,
@@ -93,10 +94,21 @@ def base_snapshot(**kwargs) -> SSHSnapshot:
         client_config_entries=[],
         known_hosts_exists=False,
         known_hosts_entries=[],
+        host_keys=[],
         install_cmd="",
     )
     defaults.update(kwargs)
     return SSHSnapshot(**defaults)
+
+
+def _make_host_key(key_type: str, rsa_bits: int = None, name: str = None) -> HostKeyInfo:
+    if name is None:
+        name = f"ssh_host_{key_type}_key"
+    return HostKeyInfo(
+        path=Path(f"/etc/ssh/{name}"),
+        key_type=key_type,
+        rsa_bits=rsa_bits,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -145,6 +157,37 @@ class TestSshdConfig:
         snap = base_snapshot(sshd_config={"permitrootlogin": "no"})
         result = check_ssh(snap)
         assert not _has_finding(result, "ssh.permit_root_login", FindingLevel.ALERT)
+
+    def test_permit_root_login_no_is_ok(self):
+        snap = base_snapshot(sshd_config={"permitrootlogin": "no"})
+        result = check_ssh(snap)
+        assert _has_finding(result, "ssh.permit_root_login_disabled", FindingLevel.OK)
+
+    def test_permit_root_login_prohibit_password_is_ok(self):
+        snap = base_snapshot(sshd_config={"permitrootlogin": "prohibit-password"})
+        result = check_ssh(snap)
+        assert _has_finding(result, "ssh.permit_root_login_restricted", FindingLevel.OK)
+
+    def test_permit_root_login_forced_commands_is_ok(self):
+        snap = base_snapshot(sshd_config={"permitrootlogin": "forced-commands-only"})
+        result = check_ssh(snap)
+        assert _has_finding(result, "ssh.permit_root_login_restricted", FindingLevel.OK)
+
+    def test_permit_root_login_default_is_ok(self):
+        """Default (key absent) → prohibit-password → OK."""
+        snap = base_snapshot(sshd_config={})
+        result = check_ssh(snap)
+        assert _has_finding(result, "ssh.permit_root_login_restricted", FindingLevel.OK)
+
+    def test_permit_root_login_no_deduction_when_ok(self):
+        snap = base_snapshot(sshd_config={"permitrootlogin": "no"})
+        result = check_ssh(snap)
+        assert "ssh.permit_root_login" not in _deduction_keys(result)
+
+    def test_permit_root_login_unknown_value_is_info(self):
+        snap = base_snapshot(sshd_config={"permitrootlogin": "without-password"})
+        result = check_ssh(snap)
+        assert _has_finding(result, "ssh.permit_root_login", FindingLevel.INFO)
 
     def test_password_auth_yes_is_warn(self):
         snap = base_snapshot(sshd_config={"passwordauthentication": "yes"})
@@ -855,3 +898,137 @@ class TestHasPassphrase:
         kf = tmp_path / "id_truncated"
         kf.write_text(key_text)
         assert _has_passphrase(kf) is None
+
+
+# ---------------------------------------------------------------------------
+# Host key checks
+# ---------------------------------------------------------------------------
+
+class TestHostKeyDsa:
+    def test_dsa_host_key_is_warn(self):
+        snap = base_snapshot(host_keys=[_make_host_key("dsa")])
+        result = check_ssh(snap)
+        assert _has_finding(result, "ssh.host_key_dsa", FindingLevel.WARN)
+
+    def test_dsa_host_key_deducts_1(self):
+        snap = base_snapshot(host_keys=[_make_host_key("dsa")])
+        result = check_ssh(snap)
+        assert _deduction_points(result) >= 1
+        assert "ssh.host_key_dsa" in _deduction_keys(result)
+
+    def test_dsa_host_key_has_fix_cmd(self):
+        snap = base_snapshot(host_keys=[_make_host_key("dsa")])
+        result = check_ssh(snap)
+        f = next(f for f in result.findings if f.key == "ssh.host_key_dsa")
+        assert f.cmd is not None
+        assert f.cmd_type == "fix"
+
+    def test_dsa_host_key_has_detail(self):
+        snap = base_snapshot(host_keys=[_make_host_key("dsa")])
+        result = check_ssh(snap)
+        f = next(f for f in result.findings if f.key == "ssh.host_key_dsa")
+        assert f.detail is not None
+
+
+class TestHostKeyRsaShort:
+    @pytest.mark.parametrize("bits", [1024, 2048, 3072, 3999])
+    def test_rsa_short_is_info(self, bits):
+        snap = base_snapshot(host_keys=[_make_host_key("rsa", rsa_bits=bits)])
+        result = check_ssh(snap)
+        assert _has_finding(result, "ssh.host_key_rsa_short", FindingLevel.INFO)
+
+    def test_rsa_short_no_deduction(self):
+        snap = base_snapshot(host_keys=[_make_host_key("rsa", rsa_bits=3072)])
+        result = check_ssh(snap)
+        assert "ssh.host_key_rsa_short" not in _deduction_keys(result)
+
+    def test_rsa_short_has_detail(self):
+        snap = base_snapshot(host_keys=[_make_host_key("rsa", rsa_bits=3072)])
+        result = check_ssh(snap)
+        f = next(f for f in result.findings if f.key == "ssh.host_key_rsa_short")
+        assert f.detail is not None
+
+    def test_rsa_short_has_fix_cmd(self):
+        snap = base_snapshot(host_keys=[_make_host_key("rsa", rsa_bits=3072)])
+        result = check_ssh(snap)
+        f = next(f for f in result.findings if f.key == "ssh.host_key_rsa_short")
+        assert f.cmd is not None
+        assert f.cmd_type == "fix"
+
+    def test_rsa_4096_is_ok(self):
+        snap = base_snapshot(host_keys=[_make_host_key("rsa", rsa_bits=4096)])
+        result = check_ssh(snap)
+        assert _has_finding(result, "ssh.host_key_ok", FindingLevel.OK)
+        assert "ssh.host_key_rsa_short" not in _keys(result)
+
+    def test_rsa_8192_is_ok(self):
+        snap = base_snapshot(host_keys=[_make_host_key("rsa", rsa_bits=8192)])
+        result = check_ssh(snap)
+        assert _has_finding(result, "ssh.host_key_ok", FindingLevel.OK)
+
+    def test_rsa_bits_none_is_ok(self):
+        """RSA key with undeterminable size → OK (no false positive)."""
+        snap = base_snapshot(host_keys=[_make_host_key("rsa", rsa_bits=None)])
+        result = check_ssh(snap)
+        assert _has_finding(result, "ssh.host_key_ok", FindingLevel.OK)
+
+
+class TestHostKeyStrong:
+    @pytest.mark.parametrize("key_type", ["ed25519", "ecdsa", "unknown"])
+    def test_strong_key_is_ok(self, key_type):
+        snap = base_snapshot(host_keys=[_make_host_key(key_type)])
+        result = check_ssh(snap)
+        assert _has_finding(result, "ssh.host_key_ok", FindingLevel.OK)
+
+    @pytest.mark.parametrize("key_type", ["ed25519", "ecdsa"])
+    def test_strong_key_no_deduction(self, key_type):
+        snap = base_snapshot(host_keys=[_make_host_key(key_type)])
+        result = check_ssh(snap)
+        assert "ssh.host_key_ok" not in _deduction_keys(result)
+
+    def test_no_host_keys_no_finding(self):
+        """Empty host_keys list → _check_host_keys is a no-op."""
+        snap = base_snapshot(host_keys=[])
+        result = check_ssh(snap)
+        assert "ssh.host_key_ok" not in _keys(result)
+        assert "ssh.host_key_dsa" not in _keys(result)
+        assert "ssh.host_key_rsa_short" not in _keys(result)
+
+
+class TestHostKeyCombined:
+    def test_realistic_setup_rsa3072_ecdsa_ed25519(self):
+        """Matches the real system: RSA 3072 (INFO), ECDSA 256 (OK), ed25519 (OK)."""
+        snap = base_snapshot(host_keys=[
+            _make_host_key("rsa", rsa_bits=3072, name="ssh_host_rsa_key"),
+            _make_host_key("ecdsa", name="ssh_host_ecdsa_key"),
+            _make_host_key("ed25519", name="ssh_host_ed25519_key"),
+        ])
+        result = check_ssh(snap)
+        assert _has_finding(result, "ssh.host_key_rsa_short", FindingLevel.INFO)
+        assert _has_finding(result, "ssh.host_key_ok", FindingLevel.OK)
+        # RSA short and strong keys must not generate deductions
+        assert "ssh.host_key_rsa_short" not in _deduction_keys(result)
+        assert "ssh.host_key_ok" not in _deduction_keys(result)
+
+    def test_dsa_plus_ed25519(self):
+        """DSA host key (WARN) + ed25519 (OK) → deduction from DSA only."""
+        snap = base_snapshot(host_keys=[
+            _make_host_key("dsa"),
+            _make_host_key("ed25519"),
+        ])
+        result = check_ssh(snap)
+        assert _has_finding(result, "ssh.host_key_dsa", FindingLevel.WARN)
+        assert _has_finding(result, "ssh.host_key_ok", FindingLevel.OK)
+        # Only 1 deduction (from DSA)
+        dsa_deductions = [d for d in result.deductions if d.key == "ssh.host_key_dsa"]
+        assert len(dsa_deductions) == 1
+
+    def test_multiple_dsa_keys_each_deduct(self):
+        """Two DSA keys → two separate deductions."""
+        snap = base_snapshot(host_keys=[
+            _make_host_key("dsa", name="ssh_host_dsa_key"),
+            _make_host_key("dsa", name="ssh_host_dsa2_key"),
+        ])
+        result = check_ssh(snap)
+        dsa_deductions = [d for d in result.deductions if d.key == "ssh.host_key_dsa"]
+        assert len(dsa_deductions) == 2

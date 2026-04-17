@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.19.0](#v1190) | 2026-04-17 | SSH `PermitRootLogin` OK cases (no/prohibit-password/forced-commands-only); SUID scan performance (targeted roots); IoT dominance display fix; domain score labels i18n; hardening: 6 new sysctl checks (tcp_syncookies, accept_source_route, accept_redirects_v6, send_redirects, protected_hardlinks, protected_symlinks); SGID whitelist expansion; 3259/3259 tests (+530) |
 | [v1.18.0](#v1180) | 2026-04-16 | CHECK 34 (AppArmor/SELinux MAC policy); CHECK 35 (backup solution audit); kernel listing (always shown); profile override fix (nature cleared on INFO downgrade); summary box cleanup (structural section removed); profile pass (desktop 6 overrides, container 12 skip_sections); `--explain` 76→86 keys; bash-completion Debian fix; `--manage-logs` UX (move prompt + multi-dir view); 2729/2729 tests |
 | [v1.17.0](#v1170) | 2026-04-15 | CHECK 31 (auditd); CHECK 32 (Secure Boot); CHECK 33 (file integrity AIDE/Tripwire); `--explain` profile variants (17 keys); `workstation` → `desktop` profile; Trusted Publishing; `cmd_type` fix/check; IPv6 avahi fix; journald fallback; sysctl persistence; UX improvements; 2507/2507 tests |
 | [v1.16.0](#v1160) | 2026-04-12 | CHECK 19 (desktop app detection); CHECK 28 (NTP sync); CHECK 29 (Fail2ban standalone); CHECK 30 (rootkit/integrity scan); `--target N` → exit code 4; CLI validation for empty values; 5 thematic group headers; fail2ban moved out of hardening; 2292/2292 tests |
@@ -52,6 +53,52 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.19.0
+
+**2026-04-17**
+
+### SSH audit improvements (`checks/ssh.py`)
+
+- `_check_sshd_config` now emits OK findings for `PermitRootLogin no` (full disable) and `PermitRootLogin prohibit-password` / `forced-commands-only` (key-only / restricted)
+- Previously only the `yes` (ALERT −3 pt) path was covered; the OK and INFO paths now complete the check
+- New locale keys: `ssh.permit_root_login_disabled`, `ssh.permit_root_login_restricted`
+- 7 new tests in `tests/test_ssh.py`
+
+### SUID/SGID scan performance (`checks/suid_audit.py`)
+
+- Replaced `find /` full-filesystem scan with a targeted `_SCAN_ROOTS` list (`/bin`, `/sbin`, `/usr/bin`, `/usr/sbin`, `/usr/lib`, `/usr/local/...`, `/opt`, …)
+- Scan time reduced from >10 s to <1 s on a typical desktop
+- SGID whitelist extended: `camel-lock-helper-1.2`, `support-tool-launcher`
+
+### Display fix: IoT local dominance (`display.py`)
+
+- `display_log_results` previously iterated only WARN findings; the `logs.local_dominance` INFO finding was silently dropped
+- Fixed by explicitly iterating INFO findings for the `local_dominance` key after top-ports output
+
+### Domain score labels i18n (`domain_scores.py`)
+
+- `render_domain_scores` now passes all domain labels through `t()` — labels are translated when `--french` is active
+- New `_label()` helper with English fallback when the translation key is absent
+- Added `domain_scores.samba` and `domain_scores.disk` to `en.json` / `fr.json`
+
+### Hardening: 6 new sysctl checks (`checks/hardening.py`)
+
+- **`tcp_syncookies`** (`net.ipv4.tcp_syncookies`): OK if ≥ 1 (on or always-on); WARN −1 pt if 0
+- **`accept_source_route`** (`net.ipv4.conf.all.accept_source_route`): OK if 0; WARN −1 pt if 1
+- **`accept_redirects_v6`** (`net.ipv6.conf.all.accept_redirects`): OK if 0; WARN −1 pt if 1
+- **`send_redirects`** (`net.ipv4.conf.all.send_redirects`): OK if 0; WARN −1 pt if 1
+- **`protected_hardlinks`** (`fs.protected_hardlinks`): OK if 1; WARN −1 pt if 0
+- **`protected_symlinks`** (`fs.protected_symlinks`): OK if 1; WARN −1 pt if 0
+- All reads via `/proc/sys/` — no subprocess
+- Fix commands write to `/etc/sysctl.d/99-hardening.conf`
+- 21 new tests in `tests/test_hardening.py`
+
+### Tests
+
+- ✅ 3259/3259 unit tests (+530 from v1.18.0)
 
 ---
 

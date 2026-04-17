@@ -25,6 +25,9 @@ def _wrap_for_box(prefix: str, text: str, inner: int) -> list[tuple[str, str]]:
     chunks: list[str] = []
     current = ""
     for word in words:
+        # Truncate tokens that cannot fit on a line even alone
+        if len(word) > avail:
+            word = word[:avail - 1] + "…"
         if not current:
             current = word
         elif len(current) + 1 + len(word) <= avail:
@@ -50,6 +53,7 @@ def display_result(result, report, verbose: bool, quiet: bool = False) -> None:
     from ufw_audit.scoring import FindingLevel
     from ufw_audit.output import (
         print_ok, print_warn, print_alert, print_info, print_recommendation, print_check_cmd,
+        _passes_threshold,
     )
 
     for finding in result.findings:
@@ -58,11 +62,15 @@ def display_result(result, report, verbose: bool, quiet: bool = False) -> None:
             report.write_finding(level_str, finding.message)
             continue
         if finding.level == FindingLevel.OK:
-            print_ok(finding.message)
             report.write_finding("OK", finding.message)
+            if not _passes_threshold("ok"):
+                continue
+            print_ok(finding.message)
         elif finding.level == FindingLevel.WARN:
-            print_warn(finding.message)
             report.write_finding("WARN", finding.message)
+            if not _passes_threshold("warn"):
+                continue
+            print_warn(finding.message)
             if verbose:
                 rec: list[str] = []
                 if finding.detail:
@@ -78,8 +86,10 @@ def display_result(result, report, verbose: bool, quiet: bool = False) -> None:
                 if rec:
                     print_recommendation(rec)
         elif finding.level == FindingLevel.ALERT:
-            print_alert(finding.message)
             report.write_finding("ALERT", finding.message)
+            if not _passes_threshold("alert"):
+                continue
+            print_alert(finding.message)
             rec = []
             if finding.detail:
                 rec.extend(finding.detail.splitlines())
@@ -96,8 +106,10 @@ def display_result(result, report, verbose: bool, quiet: bool = False) -> None:
             if finding.note and verbose:
                 print_info(finding.note)
         elif finding.level == FindingLevel.INFO:
-            print_info(finding.message)
             report.write_finding("INFO", finding.message)
+            if not _passes_threshold("info"):
+                continue
+            print_info(finding.message)
             if verbose:
                 rec = []
                 if finding.detail:
@@ -221,6 +233,12 @@ def display_log_results(logs_result, snapshot, config, t, report) -> None:
             f"— {top_count} {t('logs.attempts')}"
         )
 
+    # local_dominance INFO (local IP generating most blocked traffic)
+    from ufw_audit.scoring import FindingLevel
+    for finding in logs_result.findings:
+        if finding.level == FindingLevel.INFO and getattr(finding, "key", "") == "logs.local_dominance":
+            print_info(finding.message)
+
     # Service hits
     if data["svc_hits"]:
         print()
@@ -340,9 +358,10 @@ def display_network_context(snapshot, t, output_mod) -> None:
 # ---------------------------------------------------------------------------
 
 def print_audit_summary(engine, network_context, public_ip, config, t,
-                         report, snapshots, profile_name: str = "server") -> None:
+                         report, snapshots, profile_name: str = "server",
+                         prev_score: "int | None" = None) -> None:
     """Print the audit summary box and write to report."""
-    from ufw_audit.output import print_summary_box, _TERM_WIDTH
+    from ufw_audit.output import print_summary_box, _TERM_WIDTH, _c
     from ufw_audit.scoring import RiskLevel
 
     # _TERM_WIDTH - 2 = box inner width; - 2 again for the leading indent
@@ -357,8 +376,19 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
 
     icon = "✔" if level == RiskLevel.LOW else "✖"
 
+    # Score trend arrow (only when a previous score is available)
+    score_str = f"{score}/10"
+    if prev_score is not None:
+        delta = score - prev_score
+        if delta > 0:
+            score_str += f"  {_c.green}↑ +{delta}{_c.reset}"
+        elif delta < 0:
+            score_str += f"  {_c.yellow}↓ {delta}{_c.reset}"
+        else:
+            score_str += f"  →"
+
     lines = [
-        (t("scoring.score_label"), f"{score}/10"),
+        (t("scoring.score_label"), score_str),
         (t("scoring.risk_label"),  f"{icon} {level_str}"),
         (t("scoring.network_context"), ctx_str),
         (t("scoring.profile_label"), profile_name.capitalize()),

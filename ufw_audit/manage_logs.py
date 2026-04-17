@@ -9,8 +9,64 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# Score history helpers
+# ---------------------------------------------------------------------------
+
+_SCORE_RE = re.compile(r"^Score\s*:\s*(\d+)/10", re.MULTILINE)
+
+
+def _extract_score_from_log(path: Path) -> "int | None":
+    """Return the security score recorded in a log file, or None if not found."""
+    try:
+        text = path.read_text(errors="replace")
+        m = _SCORE_RE.search(text)
+        if m:
+            return int(m.group(1))
+    except OSError:
+        pass
+    return None
+
+
+def _parse_log_date(path: Path) -> str:
+    """Extract a human-readable date from filename ufw_audit_YYYYMMDD_HHMMSS.log."""
+    parts = path.stem.split("_")  # ['ufw', 'audit', '20260413', '170724']
+    if len(parts) >= 4:
+        d, h = parts[2], parts[3]
+        if len(d) == 8 and len(h) == 6:
+            return f"{d[:4]}-{d[4:6]}-{d[6:]} {h[:2]}:{h[2:4]}"
+    return path.stem
+
+
+def _build_score_history(log_files: "list[Path]") -> "list[tuple[str, int]]":
+    """Return (date_str, score) pairs sorted oldest-first from the given log files."""
+    history = []
+    for f in sorted(log_files):  # lexicographic sort = chronological order
+        score = _extract_score_from_log(f)
+        if score is not None:
+            history.append((_parse_log_date(f), score))
+    return history
+
+
+def _render_score_chart(history: "list[tuple[str, int]]", t) -> "list[str]":
+    """Return lines of an ASCII bar chart of score history."""
+    if not history:
+        return []
+
+    shown = history[-20:]  # at most the 20 most recent
+    count = len(shown)
+    label = t("manage_logs.history_title", count=count)
+    sep = "─" * 50
+    lines = [f"  {label}", f"  {sep}"]
+    for date_str, score in shown:
+        bar = "█" * score + "░" * (10 - score)
+        lines.append(f"  {date_str}  [{score:2}/10]  {bar}")
+    lines.append(f"  {sep}")
+    return lines
 
 
 # ---------------------------------------------------------------------------
@@ -212,6 +268,13 @@ def run_manage_logs(user_config, config, t) -> int:
         all_logs: list[Path] = list(cur_logs)
         for _, ex_logs in extra_sections:
             all_logs.extend(ex_logs)
+
+        # ── Score history chart ───────────────────────────────────────────
+        if all_logs:
+            history = _build_score_history(all_logs)
+            for line in _render_score_chart(history, t):
+                print(line)
+            print()
 
         # ── Display ──────────────────────────────────────────────────────
         size_label = t("manage_logs.size_label")

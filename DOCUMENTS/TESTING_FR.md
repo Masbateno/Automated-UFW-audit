@@ -30,6 +30,8 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v1.8.0  | 1104  | +138 tests — `test_ssh.py` (93) + `test_file_perms.py` (45) : modifiable-par-tous (7), trop-permissif (5), clés-hôtes-SSH (4), NOPASSWD-ALL (5), NOPASSWD-spécifique (4), combinés (5), _is_nopasswd_all (8), dataclass (2), tout-correct (4) |
 | v1.9.0  | 1332  | +228 tests — `test_updates.py` (34), `test_explain.py` (~94), `test_domain_scores.py` (~48), `test_webhook.py` (~54) ; passages qualité sur `test_hardening.py` + `test_profiles.py` |
 | v1.15.0 | 2139  | +93 tests — `test_smtp.py` (31 + 9 passage qualité), `TestDominantLocalSource` (13), `TestApplyFlag` (12), `TestTargetFlag` (10), `TestDryRun` (8), `test_explain.py` mis à jour (73→77 clés), `test_cli.py` mis à jour (sémantique `--apply`) |
+| v1.19.0 | 3259  | +530 tests — `test_hardening.py` +29 (6 nouvelles classes de contrôle sysctl) ; `test_ssh.py` +7 (cas OK PermitRootLogin) ; nouveaux fichiers : `test_suid_audit.py`, `test_kernel_hardening.py`, `test_docker_audit.py`, `test_log_rotation.py`, `test_csv_output.py`, `test_markdown_output.py`, `test_min_level.py`, `test_watch.py` |
+| v1.18.0 | 2729  | +222 tests — `test_mac_policy.py` (nouveau, 40), `test_backup.py` (nouveau, 39), autres fichiers modifiés (+143) |
 | v1.17.0 | 2507  | +215 tests — `test_auditd.py` (nouveau, 41), `test_secure_boot.py` (nouveau, 21), `test_file_integrity.py` (nouveau, 33), `test_explain.py` +81 (variantes par profil), autres fichiers modifiés +39 |
 | v1.16.0 | 2292  | +153 tests — `test_desktop_apps.py` (nouveau), `test_ntp.py` (nouveau), `test_fail2ban.py` (42), `test_rootkit.py` (38), `test_exit_codes.py` (18) ; `test_hardening.py` −3 (fail2ban retiré) ; `test_explain.py` 77→76 clés |
 | v1.14.0 | 2045  | +155 tests — `test_samba.py` (68), `test_clamav.py` (52) ; `test_explain.py` mis à jour (63→73 clés) ; `test_compare.py` tests info_delta (+5) |
@@ -37,6 +39,44 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v1.12.0 | 1703  | +28 tests — profil workstation, assertions de dates, fixtures dict dans les fichiers existants |
 | v1.11.0 | 1675  | +134 tests — `test_user_accounts.py` (51), `test_password_policy.py` (51) ; clés A2 `--explain` dans `test_explain.py` (+13 assertions) ; passage qualité sur les deux nouveaux fichiers |
 | v1.10.0 | 1541  | +209 tests — `test_display_explain_hint.py` (25), `test_kernel_modules.py` (48), `test_cron_audit.py` (47), `test_services_state.py` (35) ; passage qualité : `test_check_rules.py` (+10), `test_cli.py` (+38), `test_compare.py` (+7), `test_cron.py` (+10), `test_ddns.py` (+5), `test_degraded.py` (+3) |
+
+### v1.19.0 — 3259/3259 (2026-04-17)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+3259 passed in 3.77s
+```
+
+#### Nouveaux / modifiés (+530)
+
+| Fichier | Modification | Couverture |
+|---------|-------------|------------|
+| `tests/test_hardening.py` | +29 tests | `TestTcpSyncookies` (6) : OK ≥1, désactivé WARN, déduction 1 pt ; `TestAcceptSourceRoute` (5) : OK false, activé WARN, déduction 1 pt ; `TestAcceptRedirectsV6` (5) : même motif ; `TestSendRedirects` (5) : même motif ; `TestProtectedHardlinks` (4) : OK true, désactivé WARN, déduction 1 pt, pas de déduction si OK ; `TestProtectedSymlinks` (4) : même motif ; `make_snapshot` gagne 6 nouveaux défauts |
+| `tests/test_ssh.py` | +7 tests | `test_permit_root_login_no_is_ok`, `test_permit_root_login_prohibit_password_is_ok`, `test_permit_root_login_forced_commands_is_ok`, `test_permit_root_login_default_is_ok`, `test_permit_root_login_no_deduction_when_ok`, `test_permit_root_login_unknown_value_is_info`, `test_permit_root_login_no_no_alert` |
+| Nouveaux fichiers de tests | +494 tests | `test_suid_audit.py`, `test_kernel_hardening.py`, `test_docker_audit.py`, `test_log_rotation.py`, `test_csv_output.py`, `test_markdown_output.py`, `test_min_level.py`, `test_watch.py` |
+
+---
+
+### v1.18.0 — 2729/2729 (2026-04-16)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+2729 passed in 3.12s
+```
+
+#### Nouveaux / modifiés (+222)
+
+| Fichier | Modification | Couverture |
+|---------|-------------|------------|
+| `tests/test_mac_policy.py` | Nouveau — 40 tests | Défauts `MacPolicySnapshot` ; chemins `from_system()` ; `check_mac_policy()` — aucun MAC (WARN −1 pt), AppArmor inactif (WARN −1 pt), AppArmor actif sans enforce server (WARN −1 pt) / desktop (INFO), AppArmor enforcing (OK), SELinux enforcing (OK), SELinux permissive (WARN −1 pt) |
+| `tests/test_backup.py` | Nouveau — 39 tests | Défauts `BackupSnapshot` ; niveaux de confiance actif vs. installé ; `check_backup()` — aucun outil server (WARN −1 pt), aucun outil desktop (INFO), installé seulement (INFO), outil actif (OK) ; skip_sections container |
+| Autres fichiers modifiés | +143 tests | Divers fichiers de tests existants étendus pour le passage profils, listing noyaux, UX manage-logs, clés explain 76→86 |
+
+---
 
 ### v1.17.0 — 2507/2507 (2026-04-15)
 

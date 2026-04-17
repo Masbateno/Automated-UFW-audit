@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.19.0](#v1190) | 2026-04-17 | SSH `PermitRootLogin` cas OK (no/prohibit-password/forced-commands-only) ; performance scan SUID (répertoires ciblés) ; correctif affichage dominance IoT ; i18n labels scores par domaine ; durcissement : 6 nouveaux contrôles sysctl (tcp_syncookies, accept_source_route, accept_redirects_v6, send_redirects, protected_hardlinks, protected_symlinks) ; extension liste blanche SGID ; 3259/3259 tests (+530) |
 | [v1.18.0](#v1180) | 2026-04-16 | CHECK 34 (politique MAC AppArmor/SELinux) ; CHECK 35 (audit solution de sauvegarde) ; listing noyaux (toujours affiché) ; correctif surcharges profil (nature effacé) ; boîte de synthèse épurée ; passage profils (desktop 6 surcharges, container 12 skip_sections) ; `--explain` 76→86 clés ; correctif autocomplétion Debian ; UX `--manage-logs` (déplacement + vue multi-répertoires) ; 2729/2729 tests |
 | [v1.17.0](#v1170) | 2026-04-15 | CHECK 31 (auditd) ; CHECK 32 (Secure Boot) ; CHECK 33 (intégrité fichiers AIDE/Tripwire) ; variantes `--explain` par profil (17 clés) ; `workstation` → `desktop` ; Trusted Publishing ; `cmd_type` fix/check ; correctif IPv6 avahi ; repli journald ; persistance sysctl ; améliorations UX ; 2507/2507 tests |
 | [v1.16.0](#v1160) | 2026-04-12 | CHECK 19 (détection applis bureau) ; CHECK 28 (sync NTP) ; CHECK 29 (Fail2ban autonome) ; CHECK 30 (scan rootkit/intégrité) ; `--target N` → code de sortie 4 ; validation CLI valeurs vides ; 5 en-têtes de groupes thématiques ; fail2ban sorti du durcissement ; 2292/2292 tests |
@@ -52,6 +53,52 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.19.0
+
+**2026-04-17**
+
+### Améliorations audit SSH (`checks/ssh.py`)
+
+- `_check_sshd_config` émet désormais des findings OK pour `PermitRootLogin no` (désactivation totale) et `PermitRootLogin prohibit-password` / `forced-commands-only` (clé uniquement / restreint)
+- Seul le chemin `yes` (ALERT −3 pt) était couvert ; les chemins OK et INFO complètent maintenant la vérification
+- Nouvelles clés locale : `ssh.permit_root_login_disabled`, `ssh.permit_root_login_restricted`
+- 7 nouveaux tests dans `tests/test_ssh.py`
+
+### Performance du scan SUID/SGID (`checks/suid_audit.py`)
+
+- `find /` (parcours complet du système) remplacé par une liste `_SCAN_ROOTS` ciblée (`/bin`, `/sbin`, `/usr/bin`, `/usr/sbin`, `/usr/lib`, `/usr/local/...`, `/opt`, …)
+- Durée du scan réduite de >10 s à <1 s sur un bureau classique
+- Liste blanche SGID étendue : `camel-lock-helper-1.2`, `support-tool-launcher`
+
+### Correctif affichage : dominance locale IoT (`display.py`)
+
+- `display_log_results` n'itérait que les findings WARN ; le finding INFO `logs.local_dominance` était silencieusement ignoré
+- Corrigé en itérant explicitement les findings INFO pour la clé `local_dominance` après l'affichage des top ports
+
+### i18n des labels de scores par domaine (`domain_scores.py`)
+
+- `render_domain_scores` passe désormais tous les labels de domaine par `t()` — traduits quand `--french` est actif
+- Nouveau helper `_label()` avec repli anglais si la clé de traduction est absente
+- Ajout de `domain_scores.samba` et `domain_scores.disk` dans `en.json` / `fr.json`
+
+### Durcissement : 6 nouveaux contrôles sysctl (`checks/hardening.py`)
+
+- **`tcp_syncookies`** (`net.ipv4.tcp_syncookies`) : OK si ≥ 1 (actif ou toujours actif) ; WARN −1 pt si 0
+- **`accept_source_route`** (`net.ipv4.conf.all.accept_source_route`) : OK si 0 ; WARN −1 pt si 1
+- **`accept_redirects_v6`** (`net.ipv6.conf.all.accept_redirects`) : OK si 0 ; WARN −1 pt si 1
+- **`send_redirects`** (`net.ipv4.conf.all.send_redirects`) : OK si 0 ; WARN −1 pt si 1
+- **`protected_hardlinks`** (`fs.protected_hardlinks`) : OK si 1 ; WARN −1 pt si 0
+- **`protected_symlinks`** (`fs.protected_symlinks`) : OK si 1 ; WARN −1 pt si 0
+- Toutes les lectures via `/proc/sys/` — aucun subprocess
+- Les commandes de correction écrivent dans `/etc/sysctl.d/99-hardening.conf`
+- 21 nouveaux tests dans `tests/test_hardening.py`
+
+### Tests
+
+- ✅ 3259/3259 tests unitaires (+530 par rapport à v1.18.0)
 
 ---
 

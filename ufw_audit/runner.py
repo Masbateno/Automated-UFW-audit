@@ -33,6 +33,10 @@ from ufw_audit.checks.ports import PortsSnapshot, check_ports
 from ufw_audit.checks.services import ServiceSnapshot
 from ufw_audit.checks.virtualization import VirtSnapshot, check_virtualization
 from ufw_audit.checks.hardening import HardeningSnapshot, check_hardening
+from ufw_audit.checks.kernel_hardening import KernelHardeningSnapshot, check_kernel_hardening
+from ufw_audit.checks.suid_audit import SuidSnapshot, check_suid_audit
+from ufw_audit.checks.docker_audit import DockerAuditSnapshot, check_docker_audit
+from ufw_audit.checks.log_rotation import LogRotationSnapshot, check_log_rotation
 from ufw_audit.checks.ipv6 import IPv6Snapshot, check_ipv6
 from ufw_audit.checks.ssh import SSHSnapshot, check_ssh
 from ufw_audit.checks.file_perms import FilePermsSnapshot, check_file_perms
@@ -401,6 +405,63 @@ def run_checks(
             apply_profile(hardening_result, profile)
         engine.apply(hardening_result)
         display_result(hardening_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 36 — Kernel hardening ----
+    kernel_hardening_snapshot = KernelHardeningSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("kernel_hardening"):
+        if not config.quiet:
+            print_section(t("sections.kernel_hardening"))
+        report.write_section(t("sections.kernel_hardening"))
+        kernel_hardening_result = check_kernel_hardening(kernel_hardening_snapshot, t=t)
+        if profile is not None:
+            apply_profile(kernel_hardening_result, profile)
+        engine.apply(kernel_hardening_result)
+        display_result(kernel_hardening_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 37 — SUID/SGID binary audit ----
+    suid_snapshot = SuidSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("suid_audit"):
+        if not config.quiet:
+            print_section(t("sections.suid_audit"))
+        report.write_section(t("sections.suid_audit"))
+        suid_result = check_suid_audit(suid_snapshot, t=t)
+        if profile is not None:
+            apply_profile(suid_result, profile)
+        engine.apply(suid_result)
+        display_result(suid_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 38 — Docker container security audit ----
+    docker_audit_snapshot = DockerAuditSnapshot.from_system()
+    if docker_audit_snapshot.docker_installed:
+        if profile is None or not profile.should_skip_section("docker_audit"):
+            if not config.quiet:
+                print_section(t("sections.docker_audit"))
+            report.write_section(t("sections.docker_audit"))
+            docker_audit_result = check_docker_audit(docker_audit_snapshot, t=t)
+            if profile is not None:
+                apply_profile(docker_audit_result, profile)
+            engine.apply(docker_audit_result)
+            display_result(docker_audit_result, report, config.verbose, quiet=config.quiet)
+            if not config.quiet:
+                print()
+
+    # ---- CHECK 39 — Log rotation & system journaling ----
+    log_rotation_snapshot = LogRotationSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("log_rotation"):
+        if not config.quiet:
+            print_section(t("sections.log_rotation"))
+        report.write_section(t("sections.log_rotation"))
+        log_rotation_result = check_log_rotation(log_rotation_snapshot, t=t)
+        if profile is not None:
+            apply_profile(log_rotation_result, profile)
+        engine.apply(log_rotation_result)
+        display_result(log_rotation_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:
             print()
 

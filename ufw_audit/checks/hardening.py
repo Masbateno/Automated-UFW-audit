@@ -2,7 +2,8 @@
 System hardening check for ufw-audit.
 
 Detects common hardening gaps: AppArmor,
-and kernel network parameters (rp_filter, ICMP redirects, log_martians).
+and kernel network parameters (rp_filter, ICMP redirects, log_martians,
+tcp_syncookies, accept_source_route).
 
 The check is split into two parts:
   1. HardeningSnapshot.from_system() — collects raw data via subprocess.
@@ -49,6 +50,12 @@ class HardeningSnapshot:
         accept_redirects:             True if net.ipv4.conf.all.accept_redirects == 1.
         log_martians:                 True if net.ipv4.conf.all.log_martians == 1.
         icmp_echo_ignore_broadcasts:  True if net.ipv4.icmp_echo_ignore_broadcasts == 1.
+        tcp_syncookies:               Value of net.ipv4.tcp_syncookies (0=off, 1=on, 2=always).
+        accept_source_route:          True if net.ipv4.conf.all.accept_source_route == 1.
+        accept_redirects_v6:          True if net.ipv6.conf.all.accept_redirects == 1.
+        send_redirects:               True if net.ipv4.conf.all.send_redirects == 1.
+        protected_hardlinks:          True if fs.protected_hardlinks == 1.
+        protected_symlinks:           True if fs.protected_symlinks == 1.
     """
     apparmor_loaded:             bool = False
     apparmor_mode:               str  = "not_installed"
@@ -58,6 +65,12 @@ class HardeningSnapshot:
     accept_redirects:            bool = False
     log_martians:                bool = True
     icmp_echo_ignore_broadcasts: bool = True
+    tcp_syncookies:              int  = 1
+    accept_source_route:         bool = False
+    accept_redirects_v6:         bool = False
+    send_redirects:              bool = False
+    protected_hardlinks:         bool = True
+    protected_symlinks:          bool = True
 
     @classmethod
     def from_system(cls) -> "HardeningSnapshot":
@@ -90,6 +103,12 @@ class HardeningSnapshot:
         accept_redirects            = _read_sysctl_bool("net.ipv4.conf.all.accept_redirects", default=False)
         log_martians                = _read_sysctl_bool("net.ipv4.conf.all.log_martians",     default=True)
         icmp_echo_ignore_broadcasts = _read_sysctl_bool("net.ipv4.icmp_echo_ignore_broadcasts", default=True)
+        tcp_syncookies              = _read_sysctl_int("net.ipv4.tcp_syncookies",             default=1)
+        accept_source_route         = _read_sysctl_bool("net.ipv4.conf.all.accept_source_route", default=False)
+        accept_redirects_v6         = _read_sysctl_bool("net.ipv6.conf.all.accept_redirects",    default=False)
+        send_redirects              = _read_sysctl_bool("net.ipv4.conf.all.send_redirects",      default=False)
+        protected_hardlinks         = _read_sysctl_bool("fs.protected_hardlinks",                default=True)
+        protected_symlinks          = _read_sysctl_bool("fs.protected_symlinks",                 default=True)
 
         return cls(
             apparmor_loaded=apparmor_loaded,
@@ -100,6 +119,12 @@ class HardeningSnapshot:
             accept_redirects=accept_redirects,
             log_martians=log_martians,
             icmp_echo_ignore_broadcasts=icmp_echo_ignore_broadcasts,
+            tcp_syncookies=tcp_syncookies,
+            accept_source_route=accept_source_route,
+            accept_redirects_v6=accept_redirects_v6,
+            send_redirects=send_redirects,
+            protected_hardlinks=protected_hardlinks,
+            protected_symlinks=protected_symlinks,
         )
 
 
@@ -204,6 +229,132 @@ def check_hardening(snapshot: HardeningSnapshot, t=None) -> CheckResult:
             message=_t("hardening.icmp_broadcast_enabled"),
             key="hardening.icmp_broadcast_enabled",
         )
+
+    # --- tcp_syncookies (SYN flood protection) ---
+    if snapshot.tcp_syncookies >= 1:
+        result.ok(
+            message=_t("hardening.tcp_syncookies_ok", value=snapshot.tcp_syncookies),
+            key="hardening.tcp_syncookies_ok",
+        )
+    else:
+        result.warn(
+            message=_t("hardening.tcp_syncookies_disabled"),
+            nature="improvement",
+            cmd="sudo sysctl -w net.ipv4.tcp_syncookies=1 && echo 'net.ipv4.tcp_syncookies=1' | sudo tee -a /etc/sysctl.d/99-hardening.conf",
+            key="hardening.tcp_syncookies_disabled",
+        )
+        result.add_deduction(
+            reason=_t("hardening.tcp_syncookies_disabled"),
+            points=1,
+            context="local",
+            key="hardening.tcp_syncookies_disabled",
+        )
+        found_issue = True
+
+    # --- accept_source_route (IP source routing) ---
+    if not snapshot.accept_source_route:
+        result.ok(
+            message=_t("hardening.accept_source_route_ok"),
+            key="hardening.accept_source_route_ok",
+        )
+    else:
+        result.warn(
+            message=_t("hardening.accept_source_route_enabled"),
+            nature="improvement",
+            cmd="sudo sysctl -w net.ipv4.conf.all.accept_source_route=0 && echo 'net.ipv4.conf.all.accept_source_route=0' | sudo tee -a /etc/sysctl.d/99-hardening.conf",
+            key="hardening.accept_source_route_enabled",
+        )
+        result.add_deduction(
+            reason=_t("hardening.accept_source_route_enabled"),
+            points=1,
+            context="local",
+            key="hardening.accept_source_route_enabled",
+        )
+        found_issue = True
+
+    # --- IPv6 ICMP redirects ---
+    if not snapshot.accept_redirects_v6:
+        result.ok(
+            message=_t("hardening.accept_redirects_v6_ok"),
+            key="hardening.accept_redirects_v6_ok",
+        )
+    else:
+        result.warn(
+            message=_t("hardening.accept_redirects_v6_enabled"),
+            nature="improvement",
+            cmd="sudo sysctl -w net.ipv6.conf.all.accept_redirects=0 && echo 'net.ipv6.conf.all.accept_redirects=0' | sudo tee -a /etc/sysctl.d/99-hardening.conf",
+            key="hardening.accept_redirects_v6_enabled",
+        )
+        result.add_deduction(
+            reason=_t("hardening.accept_redirects_v6_enabled"),
+            points=1,
+            context="local",
+            key="hardening.accept_redirects_v6_enabled",
+        )
+        found_issue = True
+
+    # --- send_redirects ---
+    if not snapshot.send_redirects:
+        result.ok(
+            message=_t("hardening.send_redirects_ok"),
+            key="hardening.send_redirects_ok",
+        )
+    else:
+        result.warn(
+            message=_t("hardening.send_redirects_enabled"),
+            nature="improvement",
+            cmd="sudo sysctl -w net.ipv4.conf.all.send_redirects=0 && echo 'net.ipv4.conf.all.send_redirects=0' | sudo tee -a /etc/sysctl.d/99-hardening.conf",
+            key="hardening.send_redirects_enabled",
+        )
+        result.add_deduction(
+            reason=_t("hardening.send_redirects_enabled"),
+            points=1,
+            context="local",
+            key="hardening.send_redirects_enabled",
+        )
+        found_issue = True
+
+    # --- fs.protected_hardlinks ---
+    if snapshot.protected_hardlinks:
+        result.ok(
+            message=_t("hardening.protected_hardlinks_ok"),
+            key="hardening.protected_hardlinks_ok",
+        )
+    else:
+        result.warn(
+            message=_t("hardening.protected_hardlinks_disabled"),
+            nature="improvement",
+            cmd="sudo sysctl -w fs.protected_hardlinks=1 && echo 'fs.protected_hardlinks=1' | sudo tee -a /etc/sysctl.d/99-hardening.conf",
+            key="hardening.protected_hardlinks_disabled",
+        )
+        result.add_deduction(
+            reason=_t("hardening.protected_hardlinks_disabled"),
+            points=1,
+            context="local",
+            key="hardening.protected_hardlinks_disabled",
+        )
+        found_issue = True
+
+    # --- fs.protected_symlinks ---
+    if snapshot.protected_symlinks:
+        result.ok(
+            message=_t("hardening.protected_symlinks_ok"),
+            key="hardening.protected_symlinks_ok",
+        )
+    else:
+        result.warn(
+            message=_t("hardening.protected_symlinks_disabled"),
+            nature="improvement",
+            cmd="sudo sysctl -w fs.protected_symlinks=1 && echo 'fs.protected_symlinks=1' | sudo tee -a /etc/sysctl.d/99-hardening.conf",
+            key="hardening.protected_symlinks_disabled",
+        )
+        result.add_deduction(
+            reason=_t("hardening.protected_symlinks_disabled"),
+            points=1,
+            context="local",
+            key="hardening.protected_symlinks_disabled",
+        )
+        found_issue = True
 
     return result
 

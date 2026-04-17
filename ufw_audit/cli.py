@@ -61,6 +61,15 @@ class AuditConfig:
     json_full: bool = False
     """-J / --json-full: export complete audit details as JSON (implies --json)."""
 
+    csv_mode: bool = False
+    """--output csv: export audit findings as CSV to stdout."""
+
+    markdown_mode: bool = False
+    """--output markdown: export audit as GitHub-flavored Markdown to stdout."""
+
+    min_level: str = ""
+    """--min-level=LEVEL: only display findings at or above this severity (warn, alert)."""
+
     log_days: int = 7
     """--log-days=N: number of days of UFW logs to analyse."""
 
@@ -96,6 +105,12 @@ class AuditConfig:
 
     diff_mode: bool = False
     """-D / --diff: run audit silently and show only changes since the last baseline."""
+
+    watch_mode: bool = False
+    """--watch[=N]: run the audit every N seconds (default 60) and show only changes."""
+
+    watch_interval: int = 60
+    """Interval in seconds between watch iterations (set by --watch=N)."""
 
     webhook_url: str = ""
     """-w / --webhook=URL: POST audit result as JSON to this URL after the audit."""
@@ -245,6 +260,39 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         elif arg in ("-D", "--diff"):
             config.diff_mode = True
 
+        elif arg.startswith("--watch="):
+            if config.watch_mode:
+                raise CLIError("--watch specified more than once")
+            value = arg.split("=", 1)[1].strip()
+            try:
+                n = int(value)
+            except ValueError:
+                raise CLIError(f"--watch=N requires a positive integer, got: {value!r}")
+            if n < 10:
+                raise CLIError("--watch=N: interval must be at least 10 seconds")
+            config.watch_mode = True
+            config.watch_interval = n
+
+        elif arg == "--watch" and i + 1 < len(argv) and not argv[i + 1].startswith("-"):
+            # --watch N (space-separated, next token is a number not a flag)
+            if config.watch_mode:
+                raise CLIError("--watch specified more than once")
+            i += 1
+            value = argv[i].strip()
+            try:
+                n = int(value)
+            except ValueError:
+                raise CLIError(f"--watch N requires a positive integer, got: {value!r}")
+            if n < 10:
+                raise CLIError("--watch N: interval must be at least 10 seconds")
+            config.watch_mode = True
+            config.watch_interval = n
+
+        elif arg == "--watch":
+            if config.watch_mode:
+                raise CLIError("--watch specified more than once")
+            config.watch_mode = True
+
         elif arg.startswith("--webhook="):
             value = arg.split("=", 1)[1].strip()
             if not value:
@@ -275,6 +323,46 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
                 )
             config.target = int(value)
 
+        elif arg.startswith("--output="):
+            value = arg.split("=", 1)[1].strip()
+            if not value:
+                raise CLIError("--output= requires a format: 'csv', 'json', or 'markdown'")
+            if value == "csv":
+                config.csv_mode = True
+            elif value == "json":
+                config.json_mode = True
+            elif value == "markdown":
+                config.markdown_mode = True
+            else:
+                raise CLIError(f"--output requires 'csv', 'json', or 'markdown', got: {value!r}")
+
+        elif arg == "--output" and i + 1 < len(argv):
+            i += 1
+            value = argv[i].strip()
+            if not value:
+                raise CLIError("--output requires a format: 'csv', 'json', or 'markdown'")
+            if value == "csv":
+                config.csv_mode = True
+            elif value == "json":
+                config.json_mode = True
+            elif value == "markdown":
+                config.markdown_mode = True
+            else:
+                raise CLIError(f"--output requires 'csv', 'json', or 'markdown', got: {value!r}")
+
+        elif arg.startswith("--min-level="):
+            value = arg.split("=", 1)[1].strip().lower()
+            if value not in ("warn", "alert"):
+                raise CLIError(f"--min-level requires 'warn' or 'alert', got: {value!r}")
+            config.min_level = value
+
+        elif arg == "--min-level" and i + 1 < len(argv):
+            i += 1
+            value = argv[i].strip().lower()
+            if value not in ("warn", "alert"):
+                raise CLIError(f"--min-level requires 'warn' or 'alert', got: {value!r}")
+            config.min_level = value
+
         else:
             raise CLIError(f"Unknown option: {arg!r}")
 
@@ -292,6 +380,19 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         raise CLIError("--yes requires --fix --apply")
     if config.quiet and config.json_mode:
         raise CLIError("--quiet is incompatible with --json (JSON output requires stdout)")
+    if config.quiet and config.csv_mode:
+        raise CLIError("--quiet is incompatible with --output csv (CSV output requires stdout)")
+    if config.quiet and config.markdown_mode:
+        raise CLIError("--quiet is incompatible with --output markdown (Markdown output requires stdout)")
+    _output_modes = sum([config.json_mode, config.csv_mode, config.markdown_mode])
+    if _output_modes > 1:
+        raise CLIError("--json, --output csv, and --output markdown cannot be combined")
+    if config.watch_mode and config.json_mode:
+        raise CLIError("--watch is incompatible with --json (watch mode uses interactive output)")
+    if config.watch_mode and config.csv_mode:
+        raise CLIError("--watch is incompatible with --output csv (watch mode uses interactive output)")
+    if config.watch_mode and config.markdown_mode:
+        raise CLIError("--watch is incompatible with --output markdown (watch mode uses interactive output)")
     if config.quiet and config.fix and config.apply:
         raise CLIError("--quiet is incompatible with --fix --apply (fix mode requires interactive prompts)")
     if config.json_mode and config.fix and config.apply:
@@ -303,6 +404,8 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         (config.install_cron, "--install-cron"),
         (config.manage_cron,  "--manage-cron"),
         (config.fix,          "--fix"),
+        (config.watch_mode,   "--watch"),
+        (config.diff_mode,    "--diff"),
     ]
     active_modes = [name for flag, name in exclusive_modes if flag]
     if len(active_modes) > 1:
@@ -334,6 +437,7 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
     opt("-p, --profile=NAME",    "Audit profile: server (default), desktop, container")
     opt("-l N, --log-days=N",    "Analyse last N days of UFW logs (default: 7)")
     opt("-D, --diff",            "Show only changes since last audit baseline")
+    opt("    --watch[=N]",       "Re-run audit every N seconds (default: 60) — Ctrl+C to quit")
     opt("-o, --offline",         "Skip external IP lookup (no HTTP calls)")
     opt("    --target=N",        "Score target (1–10): show gap or success in summary")
 
@@ -344,6 +448,9 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
     opt("-n, --no-color",        "Disable colour output")
     opt("-j, --json",            "Export audit summary as JSON to stdout")
     opt("-J, --json-full",       "Export full audit details as JSON (implies --json)")
+    opt("    --output csv",      "Export findings as CSV to stdout (spreadsheet/dashboard)")
+    opt("    --output markdown", "Export full report as Markdown to stdout (GitHub/wiki)")
+    opt("    --min-level=LEVEL", "Only show findings at or above: warn  |  alert")
 
     section("FIXES — apply remediation suggestions")
     opt("-f, --fix",             "Preview available fixes (dry run — nothing is executed)")
@@ -387,9 +494,11 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
     print("  sudo ufw-audit -f --apply -y          Auto-apply all fixes")
     print("  sudo ufw-audit -v -d                  Verbose + save full report")
     print("  sudo ufw-audit --french -d            French output + save report")
-    print("  sudo ufw-audit -p desktop              Desktop profile")
+    print("  sudo ufw-audit -p desktop             Desktop profile")
     print("  sudo ufw-audit -l 14                  Analyse 14 days of UFW logs")
     print("  sudo ufw-audit -D                     Show what changed since last audit")
+    print("  sudo ufw-audit --watch                Re-run every 60s and show only changes")
+    print("  sudo ufw-audit --watch=30             Re-run every 30s")
     print("  sudo ufw-audit -j | jq '.score'       Extract score as JSON")
     print("  sudo ufw-audit -w https://hooks.slack.com/...  Send to Slack")
     print("  ufw-audit -e ssh.password_auth        Explain a finding (no sudo)")

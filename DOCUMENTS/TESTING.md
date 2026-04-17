@@ -35,8 +35,48 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v1.13.0 | 1890  | +187 tests — `test_disk.py` (60), `test_memory.py` (37); `test_explain.py` updated (33→63 keys assertion) |
 | v1.14.0 | 2045  | +155 tests — `test_samba.py` (68), `test_clamav.py` (52); `test_explain.py` updated (63→73 keys); `test_compare.py` info_delta tests (+5) |
 | v1.15.0 | 2139  | +93 tests — `test_smtp.py` (31 + 9 quality pass), `TestDominantLocalSource` (13), `TestApplyFlag` (12), `TestTargetFlag` (10), `TestDryRun` (8), `test_explain.py` updated (73→77 keys), `test_cli.py` updated (`--apply` semantics) |
+| v1.19.0 | 3259  | +530 tests — `test_hardening.py` +29 (6 new sysctl check classes); `test_ssh.py` +7 (PermitRootLogin OK cases); new test files: `test_suid_audit.py`, `test_kernel_hardening.py`, `test_docker_audit.py`, `test_log_rotation.py`, `test_csv_output.py`, `test_markdown_output.py`, `test_min_level.py`, `test_watch.py` |
+| v1.18.0 | 2729  | +222 tests — `test_mac_policy.py` (new, 40), `test_backup.py` (new, 39), other modified files (+143) |
 | v1.17.0 | 2507  | +215 tests — `test_auditd.py` (new, 41), `test_secure_boot.py` (new, 21), `test_file_integrity.py` (new, 33), `test_explain.py` +81 (profile variants), other modified files +39 |
 | v1.16.0 | 2292  | +153 tests — `test_desktop_apps.py` (new), `test_ntp.py` (new), `test_fail2ban.py` (42), `test_rootkit.py` (38), `test_exit_codes.py` (18); `test_hardening.py` −3 (fail2ban removed); `test_explain.py` 77→76 keys |
+
+### v1.19.0 — 3259/3259 (2026-04-17)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+3259 passed in 3.77s
+```
+
+#### New / modified tests (+530)
+
+| File | Change | Coverage |
+|------|--------|----------|
+| `tests/test_hardening.py` | +29 tests | `TestTcpSyncookies` (6): OK ≥1, disabled WARN, deduction 1 pt; `TestAcceptSourceRoute` (5): OK false, enabled WARN, deduction 1 pt; `TestAcceptRedirectsV6` (5): same pattern; `TestSendRedirects` (5): same pattern; `TestProtectedHardlinks` (4): OK true, disabled WARN, deduction 1 pt, no deduction when ok; `TestProtectedSymlinks` (4): same pattern; `make_snapshot` gains 6 new keyword defaults |
+| `tests/test_ssh.py` | +7 tests | `test_permit_root_login_no_is_ok`, `test_permit_root_login_prohibit_password_is_ok`, `test_permit_root_login_forced_commands_is_ok`, `test_permit_root_login_default_is_ok`, `test_permit_root_login_no_deduction_when_ok`, `test_permit_root_login_unknown_value_is_info`, `test_permit_root_login_no_no_alert` |
+| New test files | +494 tests | `test_suid_audit.py`, `test_kernel_hardening.py`, `test_docker_audit.py`, `test_log_rotation.py`, `test_csv_output.py`, `test_markdown_output.py`, `test_min_level.py`, `test_watch.py` |
+
+---
+
+### v1.18.0 — 2729/2729 (2026-04-16)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+2729 passed in 3.12s
+```
+
+#### New / modified tests (+222)
+
+| File | Change | Coverage |
+|------|--------|----------|
+| `tests/test_mac_policy.py` | New — 40 tests | `MacPolicySnapshot` defaults; `from_system()` paths; `check_mac_policy()` — no MAC (WARN −1 pt), AppArmor inactive (WARN −1 pt), AppArmor active no enforce server (WARN −1 pt) / desktop (INFO), AppArmor enforcing (OK), SELinux enforcing (OK), SELinux permissive (WARN −1 pt) |
+| `tests/test_backup.py` | New — 39 tests | `BackupSnapshot` defaults; active vs. installed confidence levels; `check_backup()` — no tool server (WARN −1 pt), no tool desktop (INFO), installed only (INFO), active tool (OK); container skip_sections |
+| Other modified test files | +143 tests | Various existing test files extended for profile pass, kernel listing, manage-logs UX, explain keys 76→86 |
+
+---
 
 ### v1.17.0 — 2507/2507 (2026-04-15)
 

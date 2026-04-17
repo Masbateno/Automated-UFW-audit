@@ -153,14 +153,21 @@ def render_domain_scores(scores: dict[str, dict], t=None) -> list[str]:
         lines.append("  (no data)")
         return lines
 
-    label_width = max(len(info["label"]) for info in scores.values())
+    def _label(domain: str, fallback: str) -> str:
+        if not t:
+            return fallback
+        translated = t(f"domain_scores.{domain}")
+        return translated if translated != f"domain_scores.{domain}" else fallback
+
+    labels = {d: _label(d, scores[d]["label"]) for d in DOMAINS if d in scores}
+    label_width = max(len(lbl) for lbl in labels.values())
 
     for domain in DOMAINS:
         if domain not in scores:
             continue
         info   = scores[domain]
         score  = info["score"]
-        label  = info["label"]
+        label  = labels[domain]
         filled = int(score * _BAR_WIDTH / MAX_SCORE)
         empty  = _BAR_WIDTH - filled
         bar    = _BAR_FILLED * filled + _BAR_EMPTY * empty

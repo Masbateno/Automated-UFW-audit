@@ -98,8 +98,17 @@ _quiet:    bool = False
 # Terminal width — used for section boxes and banner
 _TERM_WIDTH: int = 80
 
+# Minimum severity threshold: 0=all, 1=info+, 2=warn+, 3=alert only
+_min_level_threshold: int = 0
+_LEVEL_RANK = {"ok": 0, "info": 1, "warn": 2, "alert": 3}
 
-def init(no_color: bool = False, quiet: bool = False) -> None:
+
+def _passes_threshold(level: str) -> bool:
+    """Return True if this level should be displayed given the current threshold."""
+    return _LEVEL_RANK.get(level, 0) >= _min_level_threshold
+
+
+def init(no_color: bool = False, quiet: bool = False, min_level: str = "") -> None:
     """
     Initialise the output module.
 
@@ -107,13 +116,15 @@ def init(no_color: bool = False, quiet: bool = False) -> None:
     Safe to call multiple times (e.g. in tests).
 
     Args:
-        no_color: If True, all ANSI codes are suppressed.
-        quiet:    If True, all print_* functions are silenced.
+        no_color:  If True, all ANSI codes are suppressed.
+        quiet:     If True, all print_* functions are silenced.
+        min_level: Minimum severity to display: '' (all), 'warn', or 'alert'.
     """
-    global _c, _no_color, _quiet
+    global _c, _no_color, _quiet, _min_level_threshold
     _no_color = no_color
     _quiet    = quiet
     _c = _COLOURS_OFF if (no_color or quiet) else _COLOURS_ON
+    _min_level_threshold = _LEVEL_RANK.get(min_level.lower(), 0)
 
 
 def _p(*args, **kwargs) -> None:

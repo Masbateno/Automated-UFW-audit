@@ -47,6 +47,7 @@
     "file_perms": "SENSITIVE FILES & SUDOERS",
     "updates": "SYSTEM UPDATES",
     "kernel_modules": "KERNEL MODULE AUDIT",
+    "kernel_hardening": "KERNEL HARDENING",
     "cron_audit": "CRON JOB AUDIT",
     "services_state": "SERVICE STATE AUDIT",
     "user_accounts": "USER ACCOUNT AUDIT",
@@ -64,7 +65,10 @@
     "file_integrity": "FILE INTEGRITY MONITORING (AIDE / TRIPWIRE)",
     "rootkit": "ROOTKIT & INTEGRITY SCAN",
     "mac_policy": "MAC Policy (AppArmor / SELinux)",
-    "backup": "Backup Solution"
+    "backup": "Backup Solution",
+    "suid_audit": "SUID/SGID BINARY AUDIT",
+    "docker_audit": "DOCKER CONTAINER SECURITY AUDIT",
+    "log_rotation": "LOG ROTATION & SYSTEM JOURNALING"
   },
   "status": {
     "ok": "OK",
@@ -271,7 +275,8 @@
     "confirm_all": "Delete all {count} report(s)?",
     "deleted_all": "{count} report(s) deleted",
     "deleted_multi": "{count} report(s) deleted",
-    "invalid": "Unrecognised choice"
+    "invalid": "Unrecognised choice",
+    "history_title": "Score history (last {count} audit(s))"
   },
   "install_cron": {
     "title": "UFW-AUDIT CRON SETUP",
@@ -538,7 +543,19 @@
     "log_martians_ok": "Martian packet logging is enabled",
     "log_martians_disabled": "Martian packet logging disabled — spoofed packets will not be logged",
     "icmp_broadcast_ok": "ICMP broadcast echo is ignored",
-    "icmp_broadcast_enabled": "ICMP broadcast echo not ignored — smurf amplification risk"
+    "icmp_broadcast_enabled": "ICMP broadcast echo not ignored — smurf amplification risk",
+    "tcp_syncookies_ok": "SYN flood protection active (tcp_syncookies={value})",
+    "tcp_syncookies_disabled": "SYN flood protection disabled (tcp_syncookies=0) — system vulnerable to SYN flood attacks",
+    "accept_source_route_ok": "IP source routing disabled (accept_source_route=0)",
+    "accept_source_route_enabled": "IP source routing enabled (accept_source_route=1) — allows attackers to specify packet path",
+    "accept_redirects_v6_ok": "IPv6 ICMP redirects disabled (net.ipv6.conf.all.accept_redirects=0)",
+    "accept_redirects_v6_enabled": "IPv6 ICMP redirects accepted — router impersonation attack possible on the local network",
+    "send_redirects_ok": "ICMP redirect sending disabled (send_redirects=0)",
+    "send_redirects_enabled": "System is sending ICMP redirects (send_redirects=1) — unnecessary on a non-router, can be abused for MITM",
+    "protected_hardlinks_ok": "Hard link protection enabled (fs.protected_hardlinks=1)",
+    "protected_hardlinks_disabled": "Hard link protection disabled (fs.protected_hardlinks=0) — allows hard link attacks for privilege escalation",
+    "protected_symlinks_ok": "Symbolic link protection enabled (fs.protected_symlinks=1)",
+    "protected_symlinks_disabled": "Symbolic link protection disabled (fs.protected_symlinks=0) — allows symlink attacks via /tmp race conditions"
   },
   "disk": {
     "ok": "All disks passed SMART health check — no critical attributes detected",
@@ -599,6 +616,13 @@
     "info_decreased": "{delta} info notice(s) resolved since last audit",
     "info_increased": "{delta} new info notice(s) since last audit"
   },
+  "watch": {
+    "header": "ufw-audit --watch  │  Interval: {interval}s  │  Ctrl+C to quit",
+    "score": "Score {score}/10",
+    "baseline_established": "Baseline established",
+    "next_check": "Next check in {interval}s (at {time})",
+    "stopped": "Watch mode stopped."
+  },
   "ipv6": {
     "config_ok": "UFW IPv6 configuration matches kernel IPv6 state",
     "both_disabled": "IPv6 disabled both in kernel and UFW — consistent",
@@ -633,6 +657,8 @@
     "active": "SSH server is active",
     "permit_root_login": "Root login via SSH is permitted (PermitRootLogin = {value})",
     "permit_root_login_detail": "Set PermitRootLogin no in /etc/ssh/sshd_config, then: sudo systemctl restart ssh",
+    "permit_root_login_disabled": "Root login disabled (PermitRootLogin = no)",
+    "permit_root_login_restricted": "Root login restricted to key-based auth (PermitRootLogin = {value})",
     "password_auth": "Password authentication is enabled (PasswordAuthentication = yes)",
     "password_auth_detail": "Brute-force risk. Prefer key-based auth: set PasswordAuthentication no in sshd_config",
     "permit_empty_passwords": "Empty passwords are permitted (PermitEmptyPasswords = yes)",
@@ -681,7 +707,13 @@
     "known_hosts_not_found": "No known_hosts file — no hosts have been connected to yet",
     "known_hosts_duplicate": "Duplicate entries for host {host} in known_hosts",
     "known_hosts_deprecated": "Deprecated key type in known_hosts line {line}: {type}",
-    "known_hosts_ok": "known_hosts: {count} entries, no issues detected"
+    "known_hosts_ok": "known_hosts: {count} entries, no issues detected",
+    "host_key_dsa": "DSA server host key found: {name} — DSA is cryptographically broken",
+    "host_key_dsa_detail": "DSA host keys use a broken algorithm and can be forged by an attacker with sufficient resources. Remove the DSA host key and regenerate as ed25519. All clients that have cached this host key will need to accept the new one.",
+    "host_key_dsa_reason": "DSA server host key in use: {name}",
+    "host_key_rsa_short": "RSA server host key {name}: {bits} bits — consider regenerating at 4096 bits or switching to ed25519",
+    "host_key_rsa_short_detail": "RSA host keys below 4096 bits are technically acceptable but no longer considered optimal. Modern clients and CAs recommend 4096-bit RSA or ed25519 for server identity keys.",
+    "host_key_ok": "Server host key {name} ({type}): strong algorithm"
   },
   "file_perms": {
     "world_writable": "{path} is world-writable ({mode}) — any user can modify this critical file",
@@ -710,6 +742,47 @@
     "unattended_not_configured_detail": "Install and enable: sudo apt install unattended-upgrades && sudo dpkg-reconfigure -plow unattended-upgrades",
     "unattended_not_configured_reason": "unattended-upgrades not configured",
     "ok": "System packages are up to date"
+  },
+  "kernel_hardening": {
+    "aslr_full": "ASLR fully enabled (randomize_va_space=2)",
+    "aslr_conservative": "ASLR in conservative mode (randomize_va_space=1) — consider enabling full randomisation",
+    "aslr_disabled": "ASLR is disabled (randomize_va_space=0) — memory layout predictable, exploits easier",
+    "ptrace_ok": "ptrace restricted (yama.ptrace_scope={scope})",
+    "ptrace_unrestricted": "ptrace unrestricted (yama.ptrace_scope=0) — any process can inspect or attach to any other",
+    "suid_dump_ok": "Core dumps from SUID binaries disabled (suid_dumpable=0)",
+    "suid_dump_root": "Core dumps from SUID binaries restricted to root (suid_dumpable=2)",
+    "suid_dump_all": "Core dumps enabled for all processes including SUID (suid_dumpable=1) — may expose credentials from privileged programs",
+    "kptr_ok": "Kernel pointer restriction enabled (kptr_restrict={val})",
+    "kptr_exposed": "Kernel pointers exposed in /proc (kptr_restrict=0) — may leak kernel addresses to unprivileged users",
+    "dmesg_ok": "dmesg access restricted to privileged users (dmesg_restrict=1)",
+    "dmesg_exposed": "dmesg accessible to all users (dmesg_restrict=0) — kernel messages may reveal exploitable information"
+  },
+  "suid_audit": {
+    "scan_skipped": "SUID/SGID scan timed out or failed — check skipped",
+    "ok": "All SUID binaries are known-safe ({suid_count} SUID, {sgid_count} SGID)",
+    "unexpected_suid": "{count} unexpected root-owned SUID binary/binaries: {paths}",
+    "unexpected_suid_detail": "These binaries run as root regardless of who launches them. Verify each one is intentional, then either remove the SUID bit (chmod u-s) or add it to your local whitelist.",
+    "unexpected_suid_reason": "{count} unexpected SUID binary/binaries found",
+    "unexpected_sgid": "{count} unexpected SGID binary/binaries: {paths}",
+    "unexpected_sgid_detail": "SGID binaries run with the file's group privileges. Less dangerous than SUID but worth reviewing."
+  },
+  "docker_audit": {
+    "scan_error": "Docker daemon not reachable — container security check skipped",
+    "no_containers": "No running containers — nothing to audit",
+    "ok": "{count} running container(s) — no critical security issues found",
+    "privileged": "{count} container(s) running in privileged mode: {containers}",
+    "privileged_detail": "Privileged containers have full access to the host kernel and devices. This effectively disables container isolation. Replace with fine-grained capabilities (--cap-add) if elevated privileges are required.",
+    "privileged_reason": "{count} privileged container(s) running",
+    "socket_mounted": "{count} container(s) with Docker socket mounted: {containers}",
+    "socket_mounted_detail": "Mounting /var/run/docker.sock inside a container grants root-equivalent control over the host. Any process in the container can create new privileged containers or escape the sandbox.",
+    "socket_mounted_reason": "{count} container(s) with Docker socket mounted",
+    "userns_not_configured": "User namespace remapping not configured (userns-remap)",
+    "userns_not_configured_detail": "Without userns-remap, a container process running as UID 0 maps directly to root on the host. Enable userns-remap in /etc/docker/daemon.json to remap container UIDs away from root.",
+    "userns_configured": "User namespace remapping enabled (userns-remap)",
+    "root_containers": "{count} container(s) running as root (UID 0): {containers}",
+    "root_containers_detail": "Running containers as root increases the blast radius of a container escape. Set a non-root USER in the Dockerfile or pass --user at runtime.",
+    "host_network": "{count} container(s) using host network namespace: {containers}",
+    "host_network_detail": "Containers in host network mode share the host's network stack and can bind to any port. Use bridge networking and publish only required ports."
   },
   "kernel_modules": {
     "no_lsmod": "lsmod not available — kernel module check skipped",
@@ -750,9 +823,11 @@
   "domain_scores": {
     "title": "Domain Scores",
     "ssh": "SSH",
+    "samba": "Samba Security",
     "file_perms": "Files & Access",
     "updates": "Updates",
     "hardening": "Hardening",
+    "disk": "Disk Health",
     "firewall": "Firewall & Services"
   },
   "explain": {
@@ -1711,5 +1786,23 @@
     "no_backup": "No backup solution found",
     "no_backup_detail": "No backup tool (borgmatic, borg, restic, timeshift, duplicati, bacula, rclone…) was detected. Regular backups are essential to recover from data loss, ransomware, or hardware failure.",
     "no_backup_reason": "No backup solution installed or configured"
+  },
+  "log_rotation": {
+    "logrotate_missing": "logrotate not installed — log files will grow unbounded",
+    "logrotate_missing_detail": "Without logrotate, log files in /var/log/ are never rotated or compressed. Disk exhaustion from runaway logs is a common cause of service outages.",
+    "logrotate_missing_reason": "logrotate not installed — no log rotation",
+    "logrotate_no_rules": "logrotate installed but no rules found in /etc/logrotate.d/",
+    "logrotate_no_rules_detail": "logrotate is installed but /etc/logrotate.d/ is empty. Add rotation rules for your application logs.",
+    "logrotate_ok": "logrotate configured — {count} active rule(s) in /etc/logrotate.d/",
+    "journald_volatile": "systemd-journald storage is {storage} — logs are lost on reboot",
+    "journald_volatile_detail": "With Storage=volatile (or none), journal entries are written only to /run/log/journal/ which is cleared at shutdown. Set Storage=persistent or create /var/log/journal/ to retain logs across reboots.",
+    "journald_volatile_reason": "systemd-journald storage is volatile — logs lost on reboot",
+    "journald_persistent": "systemd-journald logs are persistent (/var/log/journal/)",
+    "journald_no_limit": "systemd-journald disk usage is unlimited (SystemMaxUse not set)",
+    "journald_no_limit_detail": "Without SystemMaxUse= or SystemKeepFree=, the journal can consume all available disk space. Set a limit in /etc/systemd/journald.conf appropriate to your disk size.",
+    "journald_limit_ok": "systemd-journald disk limits configured: {settings}",
+    "remote_syslog_ok": "{daemon} configured with remote log target",
+    "remote_syslog_none": "{daemon} is installed but no remote log target is configured",
+    "remote_syslog_none_detail": "Forwarding logs to a remote syslog server (e.g. via rsyslog @@host:514) ensures logs are preserved even if the local system is compromised or wiped. Optional but recommended for servers."
   }
 }
