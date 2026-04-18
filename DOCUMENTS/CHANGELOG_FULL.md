@@ -6,6 +6,119 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.20.0] — 2026-04-18
+
+### TL;DR
+- **CHECK 40** — UFW logging level: `off` → ALERT −2 pts; `low`/`medium` → OK; `high`/`full` → INFO (verbose, no deduction)
+- **CHECK 41** — System umask: `UmaskSnapshot` reads `/etc/login.defs`, PAM, `/etc/profile`, RC files, current process; permissive umask (0002/0000) → WARN −1 pt; all-sources conflict detection
+- **CHECK 42** — SSH auth.log analysis: `AuthLogSnapshot` parses `/var/log/auth.log`; brute-force >10 attempts/60 s from same IP → ALERT; last successful logins; top failed sources
+- **Score history** — `history.py`; JSONL at `~/.config/ufw-audit/history.jsonl`; `--history` sparkline (▁▂▃▅▇█); 90-entry rotation
+- **Ignore list** — `ignore.py`; `--ignore KEY` persists to `ignore.yml`; `--show-ignored`; ignored findings collected but not scored; hint shown in output
+- **Bug fixes** — process-aware system port classification (`_SYSTEM_DAEMONS`); `ports.uncovered_default_deny` shows process name; auth_log `days=0` → `no_logins_no_range` key
+
+### CHECK 40 — UFW logging level (`checks/firewall.py`)
+
+- `check_ufw_logging()` added to the existing `firewall.py` check module
+- Reads current UFW logging level (`ufw status verbose` header line)
+- `off` → `result.alert()` + `add_deduction(points=2, context=network_context)` — no visibility into blocked traffic
+- `low` or `medium` → `result.ok(key="firewall.logging_ok")` — standard coverage
+- `high` or `full` → `result.info(key="firewall.logging_verbose")` — verbose logging, no deduction
+- New locale keys: `firewall.logging_off` (EN/FR), `firewall.logging_ok` (EN/FR), `firewall.logging_verbose` (EN/FR)
+- 32 tests in `tests/test_ufw_logging.py`
+
+### CHECK 41 — System umask (`checks/umask.py`)
+
+New module `checks/umask.py`:
+
+- `UmaskSnapshot`: fields `login_defs_umask`, `pam_umask`, `profile_umask`, `current_umask`, `conflict`
+- `from_system()`: reads `/etc/login.defs` (`UMASK` line), `/etc/pam.d/common-session` (`pam_umask.so umask=`), `/etc/profile` and `/etc/profile.d/*.sh` (`umask` line), `os.umask()` for current process value
+- `check_umask()`:
+  - Current umask `0002` or `0000` → WARN, −1 pt; fix = `echo "umask 0022" | sudo tee /etc/profile.d/umask.conf`
+  - Conflict between sources → WARN, −1 pt (no fix cmd — manual resolution needed)
+  - All OK → OK finding
+- `_fix_cmd()`: generates profile.d file command with profile-aware recommended value
+- 54 tests in `tests/test_umask.py`
+
+### CHECK 42 — SSH auth.log login analysis (`checks/auth_log.py`)
+
+New module `checks/auth_log.py`:
+
+- `AuthLogEntry`: `timestamp`, `event` ("accepted"/"failed"), `user`, `source_ip`, `source_port`
+- `AuthLogSnapshot`: `entries`, `days`, `log_path`
+- `from_system()`: reads last N days of `/var/log/auth.log`; `_estimate_days()` returns 0 when file is empty (just rotated)
+- `check_auth_log()`:
+  - Brute-force: same source IP with >10 failed attempts within any 60 s window → ALERT, −2 pts
+  - Last successful logins listed → INFO
+  - Top failed-login sources listed → WARN if any
+  - `days=0` (empty/rotated log): uses `auth_log.no_logins_no_range` key (no "0 day(s)" in message)
+  - `days>0` with no entries: uses `auth_log.no_logins` key as before
+- New locale keys: `auth_log.no_logins_no_range`
+- 62 tests in `tests/test_auth_log.py`
+
+### Score history (`history.py`)
+
+New module `history.py`:
+
+- `HistoryEntry`: `date` (ISO), `score`, `alerts`, `warns`
+- `load_history(path)` / `save_history(path, entries)` — JSONL format, one entry per line
+- Automatic rotation: `save_history` trims to last 90 entries
+- `render_sparkline(entries)` — maps score 0–10 to █ bars (▁▂▃▄▅▆▇█); returns string with date labels
+- `--history` CLI flag: loads and displays history; `--history=N` shows last N entries (default 20)
+- History file: `~/.config/ufw-audit/history.jsonl`
+- 36 tests in `tests/test_history.py`
+
+### Ignore list (`ignore.py`)
+
+New module `ignore.py`:
+
+- `load_ignore(path)` / `save_ignore(path, keys)` — YAML at `~/.config/ufw-audit/ignore.yml`
+- `--ignore KEY` CLI flag: adds KEY to ignore.yml; confirmation printed; exits without running audit
+- `--show-ignored` CLI flag: prints all currently ignored keys; exits without running audit
+- `ScoreEngine.ignore_keys: frozenset[str]` — populated from ignore.yml before audit runs
+- `engine.ignored_findings: list[Finding]` — collects ignored findings for optional display
+- Ignored findings receive hint: `Run ufw-audit --ignore <key> to silence this finding permanently`
+- Locale key `ignored.hint` uses `{check_key}` placeholder (avoids conflict with `t(key, ...)` signature)
+- 44 tests in `tests/test_ignore.py`
+
+### Bug fixes — `checks/ports.py`
+
+- **Process-aware system port classification**: `_SYSTEM_DAEMONS` frozenset added (`avahi-daemon`, `systemd-*`, `dnsmasq`, `named`, `NetworkManager`, …, `""` for unknown owner)
+  - `_categorize_port()` now checks `lport.process in _SYSTEM_DAEMONS` before classifying as `SYSTEM_INTERNAL`
+  - User-space apps (e.g. Spotify on `1900/udp`) fall through to standard exposure checks instead of being silently classified as system-internal
+  - Empty process string `""` included — when owner cannot be determined, treat as system daemon to avoid false positives
+- **Process name in `uncovered_default_deny` INFO**: `pp_info = f"{pp} ({lport.process})" if lport.process else pp` — INFO message now reads `57621/tcp (spotify)` when process is known
+
+### Bug fix — `checks/auth_log.py`
+
+- `_estimate_days()` returns `0` when auth.log is empty (size 0 or just rotated)
+- Previous behaviour: `check_auth_log()` injected `days=0` into `auth_log.no_logins` template → output showed "0 dernier(s) jour(s)" / "last 0 day(s)"
+- Fix: `if days == 0: result.ok(message=_t("auth_log.no_logins_no_range"), key="auth_log.no_logins")` — dedicated key with no day-count interpolation
+
+### Locale additions (`en.json` / `fr.json`)
+
+| Key | EN | FR |
+|-----|----|----|
+| `auth_log.no_logins_no_range` | No successful SSH logins recorded in the available auth.log | Aucune connexion SSH réussie enregistrée dans le journal d'authentification disponible |
+| `ignored.hint` | Run `ufw-audit --ignore {check_key}` to silence this finding permanently | Exécutez `ufw-audit --ignore {check_key}` pour masquer ce résultat définitivement |
+| `firewall.logging_off` | UFW logging is disabled — no visibility into blocked traffic | La journalisation UFW est désactivée — aucune visibilité sur le trafic bloqué |
+| `firewall.logging_ok` | UFW logging active ({level}) | Journalisation UFW active ({level}) |
+| `firewall.logging_verbose` | UFW logging set to {level} — verbose mode (high I/O) | Journalisation UFW en mode {level} — mode verbeux (I/O élevé) |
+
+### Tests
+
+| File | Tests | Coverage |
+|------|-------|---------|
+| `tests/test_auth_log.py` | 62 | `AuthLogSnapshot` defaults; `_estimate_days()` — empty file (0), normal; `check_auth_log()` — no entries with days>0 (OK, `no_logins`), no entries with days=0 (OK, `no_logins_no_range`), brute-force (ALERT, deduction), last logins listed, top failures listed; message format; key assertions |
+| `tests/test_history.py` | 36 | `HistoryEntry` dataclass; `load_history()` — empty file, valid JSONL, malformed lines skipped; `save_history()` — creates file, rotation at 90, overwrites; `render_sparkline()` — empty, single entry, scale mapping, date labels; `--history` CLI integration |
+| `tests/test_ignore.py` | 44 | `load_ignore()` — missing file (empty set), valid YAML, malformed; `save_ignore()` — creates file, overwrites; `ScoreEngine.ignore_keys` — ignored finding not scored, collected in `ignored_findings`; `ignored.hint` locale key uses `check_key=`; `--ignore` CLI; `--show-ignored` CLI |
+| `tests/test_umask.py` | 54 | `UmaskSnapshot` defaults; `from_system()` paths (login.defs/pam/profile/current); `check_umask()` — permissive 0002 (WARN, −1 pt, key, deduction key, cmd), permissive 0000 (WARN), strict 0027 (OK), default 0022 (OK), conflict (WARN −1 pt), no finding when OK; `_fix_cmd()` per profile; constants |
+| `tests/test_ufw_logging.py` | 32 | `check_ufw_logging()` — off (ALERT, −2 pts, key, deduction key, cmd), low (OK, key, no deduction), medium (OK), high (INFO, key, no deduction), full (INFO); network context deduction doubling; level in message; no_t |
+| Existing files | +7 | `tests/test_ports.py`: `_SYSTEM_DAEMONS` import; UPnP owned by Spotify → `UNCOVERED_PUBLIC`; unknown owner → `SYSTEM_INTERNAL`; `test_auth_log.py`: days=0 OK uses `no_logins_no_range` |
+
+- ✅ **3494/3494 unit tests (+235 from v1.19.0)**
+
+---
+
 ## [v1.19.0] — 2026-04-17
 
 ### TL;DR

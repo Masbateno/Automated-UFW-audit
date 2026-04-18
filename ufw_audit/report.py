@@ -286,7 +286,7 @@ class AuditReport:
         if breakdown:
             self._writeln(f"[{labels.get('breakdown', 'SCORE BREAKDOWN')}]")
             for deduction in breakdown:
-                suffix = f" ({deduction.context})" if deduction.context == "public" else ""
+                suffix = f" ({deduction.context})" if deduction.context in ("public", "ddns") else ""
                 self._writeln(
                     f"  {deduction.reason:<50}  -{deduction.points}{suffix}"
                 )

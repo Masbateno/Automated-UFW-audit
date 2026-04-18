@@ -160,6 +160,28 @@ class DdnsSnapshot:
 
 
 # ---------------------------------------------------------------------------
+# Context helper
+# ---------------------------------------------------------------------------
+
+def ddns_effective_context(
+    snapshot: DdnsSnapshot,
+    ufw_rules: str,
+    loopback_ports=None,
+    active_ports=None,
+) -> str:
+    """
+    Return "ddns" if DDNS is active with at least one open unrestricted port,
+    otherwise "local".
+
+    Called before the services check in the runner so that service exposure
+    deductions are scored at public-equivalent weight when DDNS is running.
+    """
+    if not snapshot.active:
+        return "local"
+    return "ddns" if _find_open_ports(ufw_rules, loopback_ports, active_ports) else "local"
+
+
+# ---------------------------------------------------------------------------
 # Pure check logic
 # ---------------------------------------------------------------------------
 
@@ -203,6 +225,7 @@ def check_ddns(
     result.warn(
         message=_t("ddns.found") + f": {snapshot.client_name}",
         nature="improvement",
+        key="ddns.found",
     )
 
     if snapshot.domain:
@@ -225,11 +248,13 @@ def check_ddns(
     result.warn(
         message=_t("ddns.warn"),
         nature="improvement",
+        key="ddns.warn",
     )
     result.add_deduction(
         reason=_t("ddns.warn"),
         points=1,
         context="local",
+        key="ddns.warn",
     )
 
     # Store open ports for display by orchestrator

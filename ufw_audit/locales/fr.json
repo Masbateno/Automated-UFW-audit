@@ -64,11 +64,14 @@
     "secure_boot": "DÉMARRAGE SÉCURISÉ (SECURE BOOT)",
     "file_integrity": "INTÉGRITÉ DES FICHIERS (AIDE / TRIPWIRE)",
     "rootkit": "DÉTECTION ROOTKIT & INTÉGRITÉ",
-    "mac_policy": "Politique MAC (AppArmor / SELinux)",
-    "backup": "Solution de sauvegarde",
+    "mac_policy": "POLITIQUE MAC (APPARMOR / SELINUX)",
+    "backup": "SOLUTION DE SAUVEGARDE",
     "suid_audit": "AUDIT BINAIRES SUID/SGID",
     "docker_audit": "AUDIT SÉCURITÉ CONTENEURS DOCKER",
-    "log_rotation": "ROTATION DES LOGS & JOURNALISATION SYSTÈME"
+    "log_rotation": "ROTATION DES LOGS & JOURNALISATION SYSTÈME",
+    "ufw_logging": "JOURNALISATION UFW",
+    "umask": "UMASK SYSTÈME",
+    "auth_log": "ANALYSE DES CONNEXIONS SSH"
   },
   "status": {
     "ok": "OK",
@@ -87,7 +90,11 @@
     "inactive": "Le pare-feu UFW est désactivé. Votre machine n'est actuellement pas protégée.",
     "policy_ok": "Politique par défaut : connexions entrantes bloquées (recommandé)",
     "policy_open": "La politique entrante par défaut est ALLOW — tous les ports sont ouverts par défaut",
-    "policy_unknown": "Impossible de déterminer la politique entrante par défaut"
+    "policy_unknown": "Impossible de déterminer la politique entrante par défaut",
+    "logging_off": "La journalisation UFW est désactivée — les connexions bloquées ne sont pas enregistrées",
+    "logging_ok": "Journalisation UFW active (niveau : {level})",
+    "logging_unknown": "Impossible de déterminer le niveau de journalisation UFW",
+    "logging_verbose": "Niveau de journalisation UFW {level} — peut générer un volume élevé de logs"
   },
   "rules": {
     "no_duplicates": "Aucune règle UFW en doublon détectée",
@@ -230,7 +237,8 @@
     },
     "context": {
       "local": "Réseau local uniquement",
-      "public": "IP publique directe"
+      "public": "IP publique directe",
+      "ddns": "Exposition publique via DDNS"
     },
     "breakdown_title": "Détail du score",
     "cap_note": "Score plafonné à {max} (pare-feu inactif)",
@@ -248,8 +256,8 @@
     "block_normal": "Configuration normale",
     "implicit_policy": "Service(s) à risque élevé s'appuient sur la politique par défaut UFW plutôt que des règles explicites. C'est correct si la politique est deny, mais une règle explicite est plus robuste.",
     "implicit_svcs": "Service(s) concerné(s)",
-    "scope_line1": "Ce score couvre le pare-feu, les services, SSH, les permissions et les mises à jour système.",
-    "scope_line2": "Les mises à jour système, la sécurité applicative et les autres vecteurs d'attaque ne sont pas couverts par cet audit."
+    "scope_line1": "Ce score couvre le pare-feu, les services, SSH, le contrôle d'accès, les mises à jour, le durcissement système et les outils de détection.",
+    "scope_line2": "La sécurité applicative, l'accès physique et les autres vecteurs d'attaque ne sont pas couverts par cet audit."
   },
   "fixes": {
     "title": "CORRECTIONS DISPONIBLES",
@@ -643,6 +651,12 @@
     "port_no_rule": "Port {port} sur 0.0.0.0 sans règle UFW",
     "brute_force": "Bruteforce {ip} sur {port}",
     "service_open_world": "{label} {port} exposé sur internet"
+  },
+  "ignored": {
+    "header": "Résultats supprimés (liste d'exceptions)",
+    "tag": "IGNORÉ",
+    "summary": "{count} résultat(s) masqué(s) par ignore.yml — relancer avec --show-ignored pour les afficher",
+    "hint": "Exécutez `ufw-audit --ignore {check_key}` pour masquer ce résultat définitivement"
   },
   "profile": {
     "active": "Profil d'audit : {name}",
@@ -1472,6 +1486,13 @@
         "why": "La dernière vérification d'intégrité est trop ancienne. Les modifications récentes des fichiers système — légitimes ou malveillantes — n'ont pas été vérifiées par rapport à la référence. La surveillance perd sa valeur si les vérifications ne sont pas régulières.",
         "how": "Lancer une nouvelle vérification :\n  Pour AIDE :     sudo aide --check\n  Pour Tripwire : sudo tripwire --check\n\nAutomatiser les vérifications régulières :\n  sudo crontab -e\n  0 3 * * * /usr/bin/aide --check 2>&1 | mail -s 'Rapport AIDE' root\n\nAprès validation des changements légitimes, mettre à jour la référence :\n  sudo aide --update && sudo mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db"
       }
+    },
+    "virt": {
+      "bypass_risk": {
+        "title": "L'interface bridge de virtualisation peut contourner la politique FORWARD d'UFW",
+        "why": "Les hyperviseurs tels que libvirt/KVM, VirtualBox et VMware créent des interfaces bridge Linux (virbr0, vboxnet*, etc.) et injectent leurs propres règles iptables directement dans la chaîne FORWARD. Ces règles peuvent autoriser le trafic entre les VMs et l'hôte — ou entre les VMs et internet — indépendamment de la politique FORWARD d'UFW. UFW ne gère que ses propres règles et ne peut pas empêcher ces règles de pont d'autoriser le trafic transféré.",
+        "how": "Auditer les règles FORWARD insérées par le pont :\n  sudo iptables -L FORWARD -v --line-numbers | grep virbr0\n\nC'est un comportement attendu sur un hôte de virtualisation — vérifier que seul le trafic VM légitime est transféré.\n\nPour isoler les VMs d'internet tout en conservant l'accès hôte, configurer le réseau libvirt en mode isolé :\n  virsh net-edit default  # définir <forward mode='none'/> pour les réseaux isolés\n\nSi vous n'utilisez plus de machines virtuelles :\n  sudo systemctl disable --now libvirtd"
+      }
     }
   },
   "explain_cis": {
@@ -1596,6 +1617,9 @@
       "no_db": "CIS Ubuntu 22.04 L1 — 1.3.1 — Vérifier qu'AIDE est installé",
       "no_check": "CIS Ubuntu 22.04 L1 — 1.3.2 — Vérifier que l'intégrité du système de fichiers est vérifiée régulièrement",
       "check_old": "CIS Ubuntu 22.04 L1 — 1.3.2 — Vérifier que l'intégrité du système de fichiers est vérifiée régulièrement"
+    },
+    "virt": {
+      "bypass_risk": "CIS Ubuntu 22.04 — bonne pratique sécurité réseau — S'assurer que les règles pare-feu ne sont pas contournées par des interfaces bridge"
     }
   },
   "user_accounts": {
@@ -1622,6 +1646,7 @@
     "ok": "La politique de mots de passe est correctement configurée"
   },
   "samba": {
+    "conf_only": "Démon Samba non installé — audit de configuration uniquement (smb.conf trouvé)",
     "conf_unreadable": "Samba est installé mais /etc/samba/smb.conf n'est pas lisible",
     "conf_unreadable_detail": "Exécuter : sudo chmod 644 /etc/samba/smb.conf",
     "smb1_enabled": "SMBv1 est activé — vecteur d'attaque EternalBlue / WannaCry",
@@ -1669,6 +1694,26 @@
   },
   "desktop_apps": {
     "detected": "{app} détecté (processus : {proc})"
+  },
+  "history": {
+    "title": "Historique des scores",
+    "no_entries": "Aucun historique de score — lancez un audit d'abord"
+  },
+  "auth_log": {
+    "not_available": "auth.log non accessible — analyse des connexions SSH indisponible",
+    "no_logins": "Aucune connexion SSH réussie enregistrée sur les {days} dernier(s) jour(s)",
+    "no_logins_no_range": "Aucune connexion SSH réussie enregistrée dans le journal d'authentification disponible",
+    "summary": "{count} connexion(s) SSH réussie(s) sur les {days} dernier(s) jour(s) — sources principales : {top}",
+    "public_login": "{count} connexion(s) SSH réussie(s) depuis une IP publique : {ips}",
+    "brute_force": "{count} tentative(s) de connexion SSH échouée(s) sur {days} jour(s) — envisagez d’installer fail2ban"
+  },
+  "umask": {
+    "ok": "Umask système : {umask} (sécurisé) — source : {source}",
+    "group_writable": "Umask système : {umask} — les nouveaux fichiers sont accessibles en écriture par le groupe par défaut (source : {source})",
+    "world_writable": "Umask système : {umask} — les nouveaux fichiers sont accessibles en écriture par tous par défaut (source : {source})",
+    "unusual": "Umask système : {umask} — vérifiez que c'est intentionnel (source : {source})",
+    "not_found": "Impossible de déterminer l'umask système — aucun paramètre umask trouvé dans les fichiers de configuration standard",
+    "multiple_definitions": "Plusieurs définitions umask détectées dans les fichiers de configuration : {definitions}"
   },
   "ntp": {
     "synchronized": "Synchronisation NTP active ({service})",

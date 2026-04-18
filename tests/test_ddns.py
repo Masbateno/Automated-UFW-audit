@@ -15,6 +15,7 @@ from ufw_audit.checks.ddns import (
     _extract_noip_domain,
     _find_open_ports,
     check_ddns,
+    ddns_effective_context,
 )
 from ufw_audit.scoring import FindingLevel
 
@@ -218,6 +219,13 @@ class TestCheckDdnsInactive:
         assert total_deductions(result) == 0
 
 
+class TestCheckDdnsActiveFoundKey:
+    def test_found_finding_has_key(self):
+        result = check_ddns(DdnsSnapshot.detected("ddclient"), ufw_rules=UFW_EMPTY)
+        keys = [f.key for f in result.findings]
+        assert "ddns.found" in keys
+
+
 class TestCheckDdnsActiveNoPorts:
     def test_warn_for_active_ddns(self):
         snap = DdnsSnapshot.detected("ddclient", domain="test.duckdns.org")
@@ -290,3 +298,35 @@ class TestCheckDdnsTranslation:
         def my_t(key, **kwargs): return f"T:{key}"
         result = check_ddns(DdnsSnapshot.none(), t=my_t)
         assert any("T:" in f.message for f in result.findings)
+
+
+# ---------------------------------------------------------------------------
+# ddns_effective_context
+# ---------------------------------------------------------------------------
+
+class TestDdnsEffectiveContext:
+    def test_inactive_ddns_returns_local(self):
+        snap = DdnsSnapshot.detected("ddclient", active=False)
+        assert ddns_effective_context(snap, UFW_OPEN) == "local"
+
+    def test_no_client_returns_local(self):
+        assert ddns_effective_context(DdnsSnapshot.none(), UFW_OPEN) == "local"
+
+    def test_active_with_open_ports_returns_ddns(self):
+        snap = DdnsSnapshot.detected("ddclient")
+        assert ddns_effective_context(snap, UFW_OPEN) == "ddns"
+
+    def test_active_no_open_ports_returns_local(self):
+        snap = DdnsSnapshot.detected("ddclient")
+        assert ddns_effective_context(snap, UFW_LOCAL_ONLY) == "local"
+
+    def test_active_empty_rules_returns_local(self):
+        snap = DdnsSnapshot.detected("ddclient")
+        assert ddns_effective_context(snap, UFW_EMPTY) == "local"
+
+    def test_returns_ddns_not_public(self):
+        """Context must be "ddns" (not "public") so display is accurate."""
+        snap = DdnsSnapshot.detected("ddclient")
+        ctx = ddns_effective_context(snap, UFW_OPEN)
+        assert ctx == "ddns"
+        assert ctx != "public"

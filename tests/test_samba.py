@@ -37,6 +37,7 @@ def _t(key, **kwargs):
 def make_snap(**kwargs) -> SambaSnapshot:
     defaults = dict(
         installed=True,
+        daemon_installed=True,
         conf_readable=True,
         smb1_enabled=False,
         min_protocol="",
@@ -81,6 +82,34 @@ class TestNotInstalled:
         snap = make_snap(installed=False, conf_readable=True)
         result = check_samba(snap, t=_t)
         assert result.findings == []
+
+
+class TestConfOnlyNoDaemon:
+    """smb.conf found but Samba daemon not installed (e.g. samba-common without samba)."""
+
+    def test_conf_only_emits_info(self):
+        snap = make_snap(installed=True, daemon_installed=False)
+        result = check_samba(snap, t=_t)
+        assert has_level(result, FindingLevel.INFO)
+
+    def test_conf_only_key(self):
+        snap = make_snap(installed=True, daemon_installed=False)
+        result = check_samba(snap, t=_t)
+        assert "samba.conf_only" in keys(result)
+
+    def test_conf_only_no_deductions(self):
+        snap = make_snap(installed=True, daemon_installed=False,
+                         smb1_enabled=False, null_passwords=False,
+                         map_to_guest="", server_signing="")
+        result = check_samba(snap, t=_t)
+        assert result.deductions == []
+
+    def test_conf_only_with_issue_still_deducts(self):
+        """Config-only mode still audits and deducts for real issues."""
+        snap = make_snap(installed=True, daemon_installed=False,
+                         map_to_guest="bad user")
+        result = check_samba(snap, t=_t)
+        assert any(d.key == "samba.map_to_guest" for d in result.deductions)
 
 
 class TestConfUnreadable:

@@ -156,20 +156,21 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Quality & reliability
 
-- ✅ 3259 unit tests
+- ✅ 3494 unit tests
 - 🧱 Modular architecture (snapshot / check separated)
 - 🧪 Tested on Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.19.0
+## 🆕 v1.20.0
 
-- 🔑 **SSH `PermitRootLogin` OK cases** — `no` → OK (full disable); `prohibit-password` / `forced-commands-only` → OK restricted; previously only the ALERT path was covered
-- ⚡ **SUID scan performance** — `find /` replaced with a targeted `_SCAN_ROOTS` list; scan time reduced from >10 s to <1 s; SGID whitelist extended
-- 🐛 **IoT dominance display fix** — `logs.local_dominance` INFO finding now correctly shown in log results section
-- 🌍 **Domain score labels i18n** — all 7 domain labels translated via `t()` when `--french` is active
-- 🛡 **Hardening — 6 new sysctl checks** — `tcp_syncookies` (SYN flood protection); `accept_source_route` (IP source routing); `accept_redirects_v6` (IPv6 ICMP redirects); `send_redirects` (ICMP redirect sending); `protected_hardlinks` (hardlink attacks); `protected_symlinks` (symlink /tmp race conditions) — all read via `/proc/sys/`, WARN −1 pt each
-- ✅ 3259/3259 unit tests (+530)
+- 📋 **UFW logging level check** — detects whether UFW logging is disabled (`off` → ALERT −2 pts) or running in verbose mode (`high`/`full` → INFO)
+- 🔒 **System umask audit** — reads umask from all sources (`/etc/login.defs`, PAM, `/etc/profile`, current process); permissive values (0002/0000) → WARN −1 pt; conflicting sources detected
+- 🔍 **SSH auth.log analysis** — brute-force detection (>10 failed attempts/60 s from same IP → ALERT); last successful logins; top failed-login sources
+- 📈 **Score history** — `--history` displays sparkline of past audit scores (▁▂▃▄▅▆▇█); JSONL log at `~/.config/ufw-audit/history.jsonl`
+- 🚫 **Ignore list** — `--ignore KEY` silences a specific finding permanently; `--show-ignored` lists all active exceptions; persisted in `ignore.yml`
+- 🐛 **Process-aware system ports** — UPnP/mDNS/DNS ports no longer silently ignored when owned by a user-space app (e.g. Spotify on `1900/udp`)
+- ✅ 3494/3494 unit tests (+235)
 
 ---
 
@@ -205,7 +206,7 @@ Automated-UFW-audit/
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 3259 unit tests
+└── tests/                          # 3494 unit tests
 ```
 
 ---

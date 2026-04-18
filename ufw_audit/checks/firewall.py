@@ -57,6 +57,7 @@ class FirewallStatus:
     ipv4_rules_count: int
     ipv6_rules_count: int
     ipv6_ufw_enabled: bool = True
+    logging_level:    str  = "unknown"
 
     @classmethod
     def from_system(cls) -> "FirewallStatus":
@@ -101,6 +102,8 @@ class FirewallStatus:
         # Read IPv6 config from /etc/default/ufw (default: enabled)
         ipv6_ufw_enabled = _read_ipv6_config()
 
+        logging_level = _read_logging_level(ufw_output)
+
         return cls(
             installed=installed,
             active=active,
@@ -110,6 +113,7 @@ class FirewallStatus:
             ipv4_rules_count=ipv4_rules_count,
             ipv6_rules_count=ipv6_rules_count,
             ipv6_ufw_enabled=ipv6_ufw_enabled,
+            logging_level=logging_level,
         )
 
 
@@ -338,8 +342,93 @@ def _check_ipv6_coverage(
 
 
 # ---------------------------------------------------------------------------
+# UFW logging check
+# ---------------------------------------------------------------------------
+
+def check_ufw_logging(status: FirewallStatus, t=None) -> CheckResult:
+    """
+    Check that UFW logging is enabled at an appropriate level.
+
+    UFW logging levels: off, low, medium, high, full.
+    'off' means blocked packets are never logged — the logs check finds nothing.
+    'low' is the minimum recommended level (default on most distros).
+    """
+    _t = t if t is not None else _identity_t
+    result = CheckResult()
+
+    if not status.active:
+        return result  # firewall inactive — covered by check_firewall
+
+    level = status.logging_level
+    if level == "off":
+        result.alert(
+            message=_t("firewall.logging_off"),
+            nature="action",
+            cmd="sudo ufw logging low",
+            key="firewall.logging_off",
+        )
+        result.add_deduction(
+            reason=_t("firewall.logging_off"),
+            points=2,
+            context="local",
+            key="firewall.logging_off",
+        )
+    elif level in ("low", "medium"):
+        result.ok(
+            message=_t("firewall.logging_ok", level=level),
+            key="firewall.logging_ok",
+        )
+    elif level in ("high", "full"):
+        result.info(
+            message=_t("firewall.logging_verbose", level=level),
+            key="firewall.logging_verbose",
+        )
+    else:
+        result.info(
+            message=_t("firewall.logging_unknown"),
+            key="firewall.logging_unknown",
+        )
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _read_logging_level(ufw_output: str, ufw_conf: Path = Path("/etc/ufw/ufw.conf")) -> str:
+    """
+    Extract UFW logging level from `ufw status verbose` output.
+
+    Parses lines like:
+      Logging: on (low)
+      Logging: off
+    Falls back to /etc/ufw/ufw.conf (LOGLEVEL=low).
+    Returns one of: off, low, medium, high, full, unknown.
+    """
+    # Try parsing verbose output first
+    m = re.search(r"^Logging:\s+(\S+)(?:\s+\((\S+)\))?", ufw_output, re.MULTILINE | re.IGNORECASE)
+    if m:
+        state = m.group(1).lower()
+        if state == "off":
+            return "off"
+        level = (m.group(2) or state).lower().rstrip(")")
+        if level in ("low", "medium", "high", "full"):
+            return level
+
+    # Fallback: read /etc/ufw/ufw.conf
+    try:
+        content = ufw_conf.read_text(encoding="utf-8", errors="ignore")
+        mc = re.search(r"^LOGLEVEL\s*=\s*(\S+)", content, re.MULTILINE | re.IGNORECASE)
+        if mc:
+            level = mc.group(1).lower().strip('"\'')
+            if level in ("off", "low", "medium", "high", "full"):
+                return level
+    except OSError:
+        pass
+
+    return "unknown"
+
 
 def _read_ipv6_config() -> bool:
     """

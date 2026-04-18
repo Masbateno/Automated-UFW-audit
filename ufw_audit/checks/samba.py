@@ -71,6 +71,7 @@ class SambaSnapshot:
     check_samba() operates on this snapshot only (pure logic).
     """
     installed:            bool = False
+    daemon_installed:     bool = False
     conf_readable:        bool = False
 
     # [global] settings
@@ -89,11 +90,8 @@ class SambaSnapshot:
         snap = cls()
 
         # --- detect installation ---
-        snap.installed = (
-            _command_exists("smbd")
-            or _command_exists("samba")
-            or _SMB_CONF_PATH.exists()
-        )
+        snap.daemon_installed = _command_exists("smbd") or _command_exists("samba")
+        snap.installed = snap.daemon_installed or _SMB_CONF_PATH.exists()
         if not snap.installed:
             return snap
 
@@ -198,6 +196,13 @@ def check_samba(snapshot: SambaSnapshot, t=None) -> CheckResult:
     # --- Samba not installed ---
     if not snapshot.installed:
         return result  # silent — section skipped entirely
+
+    # --- config found but no Samba daemon ---
+    if snapshot.installed and not snapshot.daemon_installed:
+        result.info(
+            message=_t("samba.conf_only"),
+            key="samba.conf_only",
+        )
 
     # --- conf not readable ---
     if not snapshot.conf_readable:

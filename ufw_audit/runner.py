@@ -23,9 +23,11 @@ from ufw_audit.output import print_group, print_section, print_service_header
 from ufw_audit.registry import ServiceRegistry
 from ufw_audit.report import AuditReport
 from ufw_audit.scoring import ScoreEngine
-from ufw_audit.checks.ddns import DdnsSnapshot, check_ddns
+from ufw_audit.checks.ddns import DdnsSnapshot, check_ddns, ddns_effective_context
+from ufw_audit.checks.auth_log import AuthLogSnapshot, check_auth_log
 from ufw_audit.checks.docker import DockerSnapshot, check_docker
-from ufw_audit.checks.firewall import FirewallStatus, check_firewall, check_rules
+from ufw_audit.checks.firewall import FirewallStatus, check_firewall, check_rules, check_ufw_logging
+from ufw_audit.checks.umask import UmaskSnapshot, check_umask
 from ufw_audit.checks.firewall_stack import FirewallStackSnapshot, check_firewall_stack
 from ufw_audit.checks.network_context import NetworkContextSnapshot, check_network_context
 from ufw_audit.checks.logs import LogsSnapshot, check_logs, geoip2_status
@@ -129,6 +131,15 @@ def run_checks(
     engine.apply(rules_result)
     display_result(rules_result, report, config.verbose, quiet=config.quiet)
 
+    # ---- CHECK 40 — UFW logging level ----
+    if not config.quiet:
+        print_section(t("sections.ufw_logging"))
+    report.write_section(t("sections.ufw_logging"))
+
+    ufw_logging_result = check_ufw_logging(fw_status, t=t)
+    engine.apply(ufw_logging_result)
+    display_result(ufw_logging_result, report, config.verbose, quiet=config.quiet)
+
     # ---- CHECK 2b — Firewall stack analysis ----
     if not config.quiet:
         print_section(t("sections.firewall_stack"))
@@ -179,6 +190,14 @@ def run_checks(
     loopback_only_ports   = ports_snapshot.loopback_only_ports
     active_external_ports = ports_snapshot.active_external_ports
     all_listening_ports   = loopback_only_ports | active_external_ports
+
+    # Upgrade network_context to "ddns" when DDNS is active with open ports
+    # so that service exposure deductions are scored at public-equivalent weight.
+    ddns_snapshot = DdnsSnapshot.from_system()
+    if network_context == "local":
+        network_context = ddns_effective_context(
+            ddns_snapshot, ufw_numbered, loopback_only_ports, active_external_ports,
+        )
 
     if not config.quiet:
         print_section(t("sections.services"))
@@ -252,7 +271,6 @@ def run_checks(
         print_section(t("sections.ddns"))
     report.write_section(t("sections.ddns"))
 
-    ddns_snapshot = DdnsSnapshot.from_system()
     ddns_result   = check_ddns(
         ddns_snapshot, ufw_rules=ufw_numbered, t=t,
         loopback_ports=loopback_only_ports,
@@ -342,6 +360,18 @@ def run_checks(
             apply_profile(ssh_result, profile)
         engine.apply(ssh_result)
         display_result(ssh_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 42 — SSH auth.log login analysis ----
+    auth_log_snapshot = AuthLogSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("auth_log"):
+        if not config.quiet:
+            print_section(t("sections.auth_log"))
+        report.write_section(t("sections.auth_log"))
+        auth_log_result = check_auth_log(auth_log_snapshot, t=t)
+        engine.apply(auth_log_result)
+        display_result(auth_log_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:
             print()
 
@@ -541,6 +571,20 @@ def run_checks(
             apply_profile(updates_result, profile)
         engine.apply(updates_result)
         display_result(updates_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 41 — System umask ----
+    umask_snapshot = UmaskSnapshot.from_system()
+    if profile is None or not profile.should_skip_section("umask"):
+        if not config.quiet:
+            print_section(t("sections.umask"))
+        report.write_section(t("sections.umask"))
+        umask_result = check_umask(umask_snapshot, t=t)
+        if profile is not None:
+            apply_profile(umask_result, profile)
+        engine.apply(umask_result)
+        display_result(umask_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:
             print()
 

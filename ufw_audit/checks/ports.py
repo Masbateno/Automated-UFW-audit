@@ -44,6 +44,14 @@ _SYSTEM_PORTS: list[tuple[int, str, str]] = [
     (6666,"udp", "clipboard sync (qlipper/KDE)"),
 ]
 
+# Processes that legitimately own system-internal ports.
+# Empty string = unknown owner; treat as system daemon to avoid false positives.
+_SYSTEM_DAEMONS: frozenset[str] = frozenset({
+    "", "avahi-daemon", "systemd", "systemd-resolve", "systemd-resolved",
+    "systemd-network", "systemd-networkd", "dnsmasq", "named", "unbound",
+    "NetworkManager", "dhcpd", "miniupnpd", "upnpd",
+})
+
 _LOOPBACK = re.compile(r"^(127\.|::1$)")
 _ALL_INTERFACES = re.compile(r"^(0\.0\.0\.0|::|\*)$")
 
@@ -230,8 +238,9 @@ def check_ports(
             # When UFW default policy is deny/reject, the port is already
             # blocked — no explicit rule needed, no deduction, downgrade to INFO.
             if default_incoming_policy in ("deny", "reject"):
+                pp_info = f"{pp} ({lport.process})" if lport.process else pp
                 result.info(
-                    message=_t("ports.uncovered_default_deny", port=pp),
+                    message=_t("ports.uncovered_default_deny", port=pp_info),
                 )
                 continue
 
@@ -253,7 +262,7 @@ def check_ports(
                 )
             result.add_deduction(
                 reason=_t("deduction.port_no_rule", port=pp),
-                points=2 if network_context == "public" else 1,
+                points=2 if network_context in ("public", "ddns") else 1,
                 context=network_context,
             )
 
@@ -282,10 +291,13 @@ def _categorize_port(lport: ListeningPort, ufw_rules: str) -> PortCategory:
     if lport.proto == "udp" and lport.port > EPHEMERAL_THRESHOLD:
         return PortCategory.EPHEMERAL
 
-    # System internal
+    # System internal — only when the owning process is a known system daemon.
+    # User-space apps (e.g. Spotify on 1900/udp) fall through to normal checks.
     for sys_port, sys_proto, _ in _SYSTEM_PORTS:
         if lport.port == sys_port and lport.proto == sys_proto:
-            return PortCategory.SYSTEM_INTERNAL
+            if lport.process in _SYSTEM_DAEMONS:
+                return PortCategory.SYSTEM_INTERNAL
+            break  # same port, user-space owner — fall through
 
     # Check UFW coverage first — applies to all ports including NetBIOS
     if _is_covered_by_ufw(lport.port, lport.proto, ufw_rules):

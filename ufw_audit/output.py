@@ -162,6 +162,14 @@ def print_info(message: str, detail: str = "") -> None:
     _print_status(f"{_c.cyan}ℹ{_c.reset}", "INFO", _c.dim, message, detail)
 
 
+def print_ignored(message: str) -> None:
+    """Print a finding that was suppressed by ignore.yml (dim, [IGNORED] tag)."""
+    if not _quiet:
+        from ufw_audit.i18n import t as _t
+        tag = _t("ignored.tag")
+        print(f"{_c.dim}  [{_c.reset}{tag}{_c.dim}] {message}{_c.reset}")
+
+
 def _print_status(
     icon: str,
     label: str,

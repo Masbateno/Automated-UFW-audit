@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.20.0](#v1200) | 2026-04-18 | CHECK 40 (UFW logging level); CHECK 41 (system umask); CHECK 42 (auth.log login analysis); score history (`--history` + sparkline); ignore list (`--ignore`/`--show-ignored`/`ignore.yml`); process-aware system port classification; auth_log `days=0` fix; 3494/3494 tests (+235) |
 | [v1.19.0](#v1190) | 2026-04-17 | SSH `PermitRootLogin` OK cases (no/prohibit-password/forced-commands-only); SUID scan performance (targeted roots); IoT dominance display fix; domain score labels i18n; hardening: 6 new sysctl checks (tcp_syncookies, accept_source_route, accept_redirects_v6, send_redirects, protected_hardlinks, protected_symlinks); SGID whitelist expansion; 3259/3259 tests (+530) |
 | [v1.18.0](#v1180) | 2026-04-16 | CHECK 34 (AppArmor/SELinux MAC policy); CHECK 35 (backup solution audit); kernel listing (always shown); profile override fix (nature cleared on INFO downgrade); summary box cleanup (structural section removed); profile pass (desktop 6 overrides, container 12 skip_sections); `--explain` 76→86 keys; bash-completion Debian fix; `--manage-logs` UX (move prompt + multi-dir view); 2729/2729 tests |
 | [v1.17.0](#v1170) | 2026-04-15 | CHECK 31 (auditd); CHECK 32 (Secure Boot); CHECK 33 (file integrity AIDE/Tripwire); `--explain` profile variants (17 keys); `workstation` → `desktop` profile; Trusted Publishing; `cmd_type` fix/check; IPv6 avahi fix; journald fallback; sysctl persistence; UX improvements; 2507/2507 tests |
@@ -53,6 +54,66 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.20.0
+
+**2026-04-18**
+
+### CHECK 40 — UFW logging level (`checks/firewall.py`)
+
+- `check_ufw_logging()`: reads current UFW logging level via `ufw status verbose` / `ufw logging`
+- `off` → ALERT, −2 pts — logging fully disabled, no visibility into blocked traffic
+- `low` / `medium` → OK — standard coverage
+- `high` / `full` → INFO — verbose logging enabled (high disk I/O, no deduction)
+- New locale keys: `firewall.logging_off`, `firewall.logging_ok`, `firewall.logging_verbose`
+
+### CHECK 41 — System umask (`checks/umask.py`)
+
+- `UmaskSnapshot`: reads umask from `/etc/login.defs`, `/etc/pam.d/common-session`, `/etc/profile`, shell RC files, and current process
+- `check_umask()`: detects permissive umask values (0022 is OK; 0002/0000 → WARN, −1 pt)
+- `_fix_cmd()`: proposes `/etc/profile.d/umask.conf` with correct `umask 0027` or `0022`
+- All-sources conflict detection: warns when sources disagree
+- 54 tests in `tests/test_umask.py`
+
+### CHECK 42 — SSH auth.log login analysis (`checks/auth_log.py`)
+
+- `AuthLogSnapshot`: parses `/var/log/auth.log` for SSH login events
+- `check_auth_log()`: brute-force detection (>10 failed attempts from same IP in 60 s → ALERT); last successful logins shown; top failed-login sources listed
+- `days=0` fix: when auth.log is empty (just rotated), uses `auth_log.no_logins_no_range` key instead of "0 day(s)"
+- New locale keys: `auth_log.no_logins_no_range`
+- 62 tests in `tests/test_auth_log.py`
+
+### Score history (`history.py`)
+
+- `HistoryEntry` dataclass + `load_history()` / `save_history()` — JSONL at `~/.config/ufw-audit/history.jsonl`
+- `--history` flag: displays last N audit scores as a sparkline (▁▂▃▅▇█) with date and score
+- Automatic rotation: keeps last 90 entries
+
+### Ignore list (`ignore.py`)
+
+- `--ignore KEY` — adds a finding key to `~/.config/ufw-audit/ignore.yml`; that finding is silenced in all future audits
+- `--show-ignored` — lists all currently ignored keys
+- `ScoreEngine.ignore_keys` frozenset: ignored findings are collected in `engine.ignored_findings` but not scored or displayed
+- Hint shown on ignored findings: `Run ufw-audit --ignore <key> to silence this finding permanently`
+- 44 tests in `tests/test_ignore.py`
+
+### Bug fixes
+
+- **ports**: `1900/udp` (UPnP/SSDP) owned by Spotify was classified as `SYSTEM_INTERNAL`; added `_SYSTEM_DAEMONS` frozenset — only recognised OS daemons (avahi-daemon, systemd-*, dnsmasq, …) qualify; user-space owners fall through to normal checks
+- **ports**: process name now included in `uncovered_default_deny` INFO message (`57621/tcp (my-app)` instead of `57621/tcp`)
+- **auth_log**: `_estimate_days()` returns 0 on an empty/just-rotated log; `check_auth_log()` now uses `auth_log.no_logins_no_range` instead of the `days=0` interpolation
+
+### Tests
+
+- `tests/test_auth_log.py` — 62 tests
+- `tests/test_history.py` — 36 tests
+- `tests/test_ignore.py` — 44 tests
+- `tests/test_umask.py` — 54 tests
+- `tests/test_ufw_logging.py` — 32 tests
+- Existing files: +7 tests (ports process-aware, auth_log days=0)
+- ✅ 3494/3494 unit tests (+235 from v1.19.0)
 
 ---
 

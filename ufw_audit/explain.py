@@ -158,6 +158,9 @@ _EXPLAIN_GROUPS: list[tuple[str, list[str]]] = [
         "file_integrity.no_check",
         "file_integrity.check_old",
     ]),
+    ("Virtualisation", [
+        "virt.bypass_risk",
+    ]),
 ]
 
 # Flat list derived from groups — used externally and for key lookup

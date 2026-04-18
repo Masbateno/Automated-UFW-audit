@@ -14,6 +14,7 @@ from ufw_audit.checks.ports import (
     ListeningPort,
     PortCategory,
     PortsSnapshot,
+    _SYSTEM_DAEMONS,
     _categorize_port,
     _is_covered_by_ufw,
     _parse_ss_output,
@@ -223,6 +224,39 @@ class TestCategorizePort:
     def test_uncovered_local_private_ip(self):
         p = make_port(port=9999, proto="tcp", address="192.168.1.10")
         assert _categorize_port(p, "") == PortCategory.UNCOVERED_LOCAL
+
+    def test_upnp_owned_by_avahi_is_system_internal(self):
+        p = ListeningPort(port=1900, proto="udp", address="0.0.0.0",
+                          raw_line="", process="avahi-daemon")
+        assert _categorize_port(p, "") == PortCategory.SYSTEM_INTERNAL
+
+    def test_upnp_owned_by_spotify_is_not_system_internal(self):
+        # Spotify binding 1900/udp must not be labeled "system internal"
+        p = ListeningPort(port=1900, proto="udp", address="0.0.0.0",
+                          raw_line="", process="spotify")
+        assert _categorize_port(p, "") != PortCategory.SYSTEM_INTERNAL
+
+    def test_upnp_owned_by_spotify_is_uncovered_public(self):
+        p = ListeningPort(port=1900, proto="udp", address="0.0.0.0",
+                          raw_line="", process="spotify")
+        assert _categorize_port(p, "") == PortCategory.UNCOVERED_PUBLIC
+
+    def test_unknown_owner_on_system_port_is_system_internal(self):
+        # Empty process string = unknown — treat as system to avoid false positives
+        p = ListeningPort(port=1900, proto="udp", address="0.0.0.0",
+                          raw_line="", process="")
+        assert _categorize_port(p, "") == PortCategory.SYSTEM_INTERNAL
+
+    def test_system_daemons_contains_empty_string(self):
+        assert "" in _SYSTEM_DAEMONS
+
+    def test_system_daemons_contains_avahi(self):
+        assert "avahi-daemon" in _SYSTEM_DAEMONS
+
+    def test_mdns_owned_by_spotify_falls_through(self):
+        p = ListeningPort(port=5353, proto="udp", address="0.0.0.0",
+                          raw_line="", process="spotify")
+        assert _categorize_port(p, "") != PortCategory.SYSTEM_INTERNAL
 
 
 # ---------------------------------------------------------------------------

@@ -40,15 +40,10 @@ def install_completion() -> int:
             bin_src = candidate
     if bin_src:
         try:
-            if dst_bin.is_symlink():
+            if dst_bin.is_symlink() or dst_bin.exists():
                 dst_bin.unlink()
-            elif dst_bin.exists():
-                print(f"✖ Refusing to overwrite existing binary at {dst_bin}",
-                      file=sys.stderr)
-                ok = False
-            if ok:
-                dst_bin.symlink_to(bin_src)
-                print(f"✔ Symlink created: {dst_bin} → {bin_src}")
+            dst_bin.symlink_to(bin_src)
+            print(f"✔ Symlink created: {dst_bin} → {bin_src}")
         except OSError as exc:
             print(f"✖ Failed to create symlink: {exc}", file=sys.stderr)
             ok = False

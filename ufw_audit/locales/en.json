@@ -64,11 +64,14 @@
     "secure_boot": "SECURE BOOT",
     "file_integrity": "FILE INTEGRITY MONITORING (AIDE / TRIPWIRE)",
     "rootkit": "ROOTKIT & INTEGRITY SCAN",
-    "mac_policy": "MAC Policy (AppArmor / SELinux)",
-    "backup": "Backup Solution",
+    "mac_policy": "MAC POLICY (APPARMOR / SELINUX)",
+    "backup": "BACKUP SOLUTION",
     "suid_audit": "SUID/SGID BINARY AUDIT",
     "docker_audit": "DOCKER CONTAINER SECURITY AUDIT",
-    "log_rotation": "LOG ROTATION & SYSTEM JOURNALING"
+    "log_rotation": "LOG ROTATION & SYSTEM JOURNALING",
+    "ufw_logging": "UFW LOGGING",
+    "umask": "SYSTEM UMASK",
+    "auth_log": "SSH LOGIN ANALYSIS"
   },
   "status": {
     "ok": "OK",
@@ -87,7 +90,11 @@
     "inactive": "UFW firewall is disabled. Your machine is currently unprotected.",
     "policy_ok": "Default policy: incoming connections blocked (recommended)",
     "policy_open": "Default incoming policy is set to ALLOW — all ports are open by default",
-    "policy_unknown": "Could not determine default incoming policy"
+    "policy_unknown": "Could not determine default incoming policy",
+    "logging_off": "UFW logging is disabled — blocked connections are not recorded",
+    "logging_ok": "UFW logging active (level: {level})",
+    "logging_unknown": "UFW logging level could not be determined",
+    "logging_verbose": "UFW logging level {level} — may generate high log volume"
   },
   "rules": {
     "no_duplicates": "No duplicate UFW rules detected",
@@ -230,7 +237,8 @@
     },
     "context": {
       "local": "Local network only",
-      "public": "Direct public IP"
+      "public": "Direct public IP",
+      "ddns": "Public exposure via DDNS"
     },
     "breakdown_title": "Score breakdown",
     "cap_note": "Score capped at {max} (firewall inactive)",
@@ -248,8 +256,8 @@
     "block_normal": "Normal configuration",
     "implicit_policy": "Service(s) relying on default UFW policy rather than explicit rules. Correct if policy is deny, but an explicit rule is more robust.",
     "implicit_svcs": "Affected service(s)",
-    "scope_line1": "This score covers firewall, services, SSH, file permissions and system updates.",
-    "scope_line2": "System updates, application security, and other attack vectors are outside the scope of this audit."
+    "scope_line1": "This score covers firewall, services, SSH, access control, updates, system hardening, and detection tools.",
+    "scope_line2": "Application security, physical access, and other attack vectors are outside the scope of this audit."
   },
   "log_dir": {
     "prompt": "Where to store detailed reports?",
@@ -643,6 +651,12 @@
     "port_no_rule": "Port {port} on 0.0.0.0 without UFW rule",
     "brute_force": "Bruteforce {ip} on {port}",
     "service_open_world": "{label} {port} open world"
+  },
+  "ignored": {
+    "header": "Suppressed findings (ignore list)",
+    "tag": "IGNORED",
+    "summary": "{count} finding(s) silenced by ignore.yml — run with --show-ignored to display them",
+    "hint": "Run `ufw-audit --ignore {check_key}` to silence this finding permanently"
   },
   "profile": {
     "active": "Audit profile: {name}",
@@ -1472,6 +1486,13 @@
         "why": "The last file integrity check is outdated. Recent changes to system files — legitimate or malicious — have not been verified against the baseline. Integrity monitoring loses its value if checks are not performed regularly.",
         "how": "Run a new integrity check:\n  For AIDE:     sudo aide --check\n  For Tripwire: sudo tripwire --check\n\nAutomate regular checks:\n  sudo crontab -e\n  0 3 * * * /usr/bin/aide --check 2>&1 | mail -s 'AIDE report' root\n\nAfter verifying all known-good changes, update the baseline:\n  sudo aide --update && sudo mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db"
       }
+    },
+    "virt": {
+      "bypass_risk": {
+        "title": "Virtualisation bridge may bypass UFW FORWARD policy",
+        "why": "Hypervisors such as libvirt/KVM, VirtualBox, and VMware create Linux bridge interfaces (virbr0, vboxnet*, etc.) and inject their own iptables rules directly into the FORWARD chain. These rules can allow traffic between VMs and the host — or between VMs and the internet — independently of UFW's FORWARD policy. UFW manages only its own ruleset and cannot prevent bridge-injected rules from permitting forwarded traffic.",
+        "how": "Audit the FORWARD rules inserted by the bridge:\n  sudo iptables -L FORWARD -v --line-numbers | grep virbr0\n\nThis is expected behaviour for a VM host — review the output to confirm only legitimate VM traffic is forwarded.\n\nTo isolate VMs from the internet while keeping local host access, configure libvirt's network in isolated mode:\n  virsh net-edit default  # set <forward mode='none'/> for isolated networks\n\nIf you no longer use virtual machines:\n  sudo systemctl disable --now libvirtd"
+      }
     }
   },
   "explain_cis": {
@@ -1596,6 +1617,9 @@
       "no_db": "CIS Ubuntu 22.04 L1 — 1.3.1 — Ensure AIDE is installed",
       "no_check": "CIS Ubuntu 22.04 L1 — 1.3.2 — Ensure filesystem integrity is regularly checked",
       "check_old": "CIS Ubuntu 22.04 L1 — 1.3.2 — Ensure filesystem integrity is regularly checked"
+    },
+    "virt": {
+      "bypass_risk": "CIS Ubuntu 22.04 — network security best practice — Ensure firewall rules are not bypassed by bridge interfaces"
     }
   },
   "user_accounts": {
@@ -1622,6 +1646,7 @@
     "ok": "Password policy is adequately configured"
   },
   "samba": {
+    "conf_only": "Samba daemon not installed — auditing configuration only (smb.conf found)",
     "conf_unreadable": "Samba is installed but /etc/samba/smb.conf is not readable",
     "conf_unreadable_detail": "Run: sudo chmod 644 /etc/samba/smb.conf",
     "smb1_enabled": "SMBv1 is enabled — EternalBlue / WannaCry attack vector",
@@ -1669,6 +1694,26 @@
   },
   "desktop_apps": {
     "detected": "{app} detected (process: {proc})"
+  },
+  "history": {
+    "title": "Score History",
+    "no_entries": "No score history found — run an audit first"
+  },
+  "auth_log": {
+    "not_available": "auth.log not accessible — SSH login analysis unavailable",
+    "no_logins": "No successful SSH logins recorded in the last {days} day(s)",
+    "no_logins_no_range": "No successful SSH logins recorded in the available auth.log",
+    "summary": "{count} successful SSH login(s) in the last {days} day(s) — top sources: {top}",
+    "public_login": "{count} successful SSH login(s) from public IP(s): {ips}",
+    "brute_force": "{count} failed SSH login attempt(s) over {days} day(s) — consider installing fail2ban"
+  },
+  "umask": {
+    "ok": "System umask is {umask} (secure) — source: {source}",
+    "group_writable": "System umask is {umask} — new files are group-writable by default (source: {source})",
+    "world_writable": "System umask is {umask} — new files are world-writable by default (source: {source})",
+    "unusual": "System umask is {umask} — verify this is intentional (source: {source})",
+    "not_found": "Could not determine system-wide umask — no umask setting found in standard config files",
+    "multiple_definitions": "Multiple umask definitions detected across config files: {definitions}"
   },
   "ntp": {
     "synchronized": "NTP time synchronisation active ({service})",

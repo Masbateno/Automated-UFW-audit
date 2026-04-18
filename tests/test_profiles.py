@@ -142,6 +142,22 @@ class TestLoadBuiltinProfiles:
         p = load_profile("desktop")
         assert p.override_for("password_policy.no_quality_module") == "info"
 
+    def test_desktop_overrides_send_redirects(self):
+        p = load_profile("desktop")
+        assert p.override_for("hardening.send_redirects_enabled") == "info"
+
+    def test_desktop_overrides_ssh_max_auth_tries(self):
+        p = load_profile("desktop")
+        assert p.override_for("ssh.max_auth_tries") == "info"
+
+    def test_desktop_overrides_ddns_warn(self):
+        p = load_profile("desktop")
+        assert p.override_for("ddns.warn") == "info"
+
+    def test_desktop_overrides_avahi_exposure(self):
+        p = load_profile("desktop")
+        assert p.override_for("services.exposed.avahi") == "info"
+
     def test_container_skips_hardening_section(self):
         p = load_profile("container")
         assert p.should_skip_section("hardening")

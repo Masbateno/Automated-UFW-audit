@@ -57,6 +57,10 @@ _KNOWN_SUID: frozenset[str] = frozenset({
     "ksu",
     # Systemtap
     "staprun",
+    # Screen lock authentication (xscreensaver)
+    "xscreensaver-auth",
+    # Mail transfer agent — local delivery (exim4, sendmail)
+    "exim4", "sendmail",
 })
 
 _KNOWN_SGID: frozenset[str] = frozenset({

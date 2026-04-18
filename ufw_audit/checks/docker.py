@@ -176,7 +176,7 @@ def check_docker(
         result.info(message=_t("docker.iptables_bypass_detail2"))
         result.info(message=_t("docker.iptables_bypass_detail3"))
         result.info(message=_t("docker.iptables_bypass_docs"))
-        points = 1 if network_context == "public" else 0
+        points = 1 if network_context in ("public", "ddns") else 0
         if points:
             result.add_deduction(
                 reason=_t("docker.iptables_bypass"),
@@ -216,7 +216,7 @@ def check_docker(
                     reason=_t("deduction.docker_bypass",
                               container=port.container_name,
                               port=port.port_proto),
-                    points=2 if network_context == "public" else 1,
+                    points=2 if network_context in ("public", "ddns") else 1,
                     context=network_context,
                 )
 

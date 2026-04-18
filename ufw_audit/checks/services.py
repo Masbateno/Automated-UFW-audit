@@ -326,25 +326,29 @@ def _check_port_exposure(
     if exposure == Exposure.OPEN_WORLD:
         # High/critical services exposed to internet get extra penalty in public context
         base_points = 1
-        if snap.service.is_high_or_critical and network_context == "public":
+        if snap.service.is_high_or_critical and network_context in ("public", "ddns"):
             base_points = 3
         elif snap.service.is_high_or_critical:
             base_points = 2
 
+        _exposure_key = f"services.exposed.{snap.service.id}"
         if snap.service.is_high_or_critical:
             result.alert(
                 message=port_msg,
                 nature="action",
+                key=_exposure_key,
             )
         else:
             result.warn(
                 message=port_msg,
                 nature="improvement",
+                key=_exposure_key,
             )
         result.add_deduction(
             reason=_t("deduction.service_open_world", label=snap.label, port=port),
             points=base_points,
             context=network_context,
+            key=_exposure_key,
         )
 
     elif exposure == Exposure.OPEN_LOCAL:

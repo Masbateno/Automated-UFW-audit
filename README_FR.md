@@ -156,20 +156,21 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Qualité & fiabilité
 
-- ✅ 3259 tests unitaires
+- ✅ 3494 tests unitaires
 - 🧱 Architecture modulaire (snapshot / check séparés)
 - 🧪 Testé sur Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.19.0
+## 🆕 v1.20.0
 
-- 🔑 **SSH `PermitRootLogin` cas OK** — `no` → OK (désactivation totale) ; `prohibit-password` / `forced-commands-only` → OK restreint ; seul le chemin ALERT était couvert auparavant
-- ⚡ **Performance scan SUID** — `find /` remplacé par une liste `_SCAN_ROOTS` ciblée ; durée réduite de >10 s à <1 s ; liste blanche SGID étendue
-- 🐛 **Correctif affichage dominance IoT** — le finding INFO `logs.local_dominance` s'affiche désormais correctement dans la section logs
-- 🌍 **i18n labels scores par domaine** — les 7 labels de domaine sont traduits via `t()` quand `--french` est actif
-- 🛡 **Durcissement — 6 nouveaux contrôles sysctl** — `tcp_syncookies` (protection SYN flood) ; `accept_source_route` (routage source IP) ; `accept_redirects_v6` (redirections ICMP IPv6) ; `send_redirects` (envoi de redirections ICMP) ; `protected_hardlinks` (attaques par lien dur) ; `protected_symlinks` (race conditions /tmp) — lecture via `/proc/sys/`, WARN −1 pt chacun
-- ✅ 3259/3259 tests unitaires (+530)
+- 📋 **Contrôle niveau de journalisation UFW** — détecte si la journalisation UFW est désactivée (`off` → ALERT −2 pts) ou en mode verbeux (`high`/`full` → INFO)
+- 🔒 **Audit umask système** — lit le umask depuis toutes les sources (`/etc/login.defs`, PAM, `/etc/profile`, processus courant) ; valeurs permissives (0002/0000) → WARN −1 pt ; conflits entre sources détectés
+- 🔍 **Analyse auth.log SSH** — détection brute-force (>10 tentatives échouées/60 s depuis la même IP → ALERT) ; dernières connexions réussies ; principales sources d'échec
+- 📈 **Historique des scores** — `--history` affiche un sparkline des audits passés (▁▂▃▄▅▆▇█) ; journal JSONL dans `~/.config/ufw-audit/history.jsonl`
+- 🚫 **Liste d'exceptions** — `--ignore KEY` masque définitivement un finding ; `--show-ignored` liste toutes les exceptions actives ; persisté dans `ignore.yml`
+- 🐛 **Ports système process-aware** — les ports UPnP/mDNS/DNS ne sont plus silencieusement ignorés quand ils appartiennent à une application utilisateur (ex. Spotify sur `1900/udp`)
+- ✅ 3494/3494 tests unitaires (+235)
 
 ---
 
@@ -205,7 +206,7 @@ Automated-UFW-audit/
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 3259 tests unitaires
+└── tests/                          # 3494 tests unitaires
 ```
 
 ---

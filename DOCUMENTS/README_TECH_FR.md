@@ -1,9 +1,9 @@
 *[Read in English](README_TECH.md)* · *[Vue d'ensemble](../README_FR.md)*
 
-# ufw-audit v1.19.0
+# ufw-audit v1.20.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.19.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.20.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -66,6 +66,12 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 - **5 en-têtes de groupes thématiques** — sortie de l'audit réorganisée en cinq groupes nommés : FIREWALL & RÉSEAU / EXPOSITION & SERVICES / CONTRÔLE D'ACCÈS / DURCISSEMENT SYSTÈME / DÉTECTION & SANTÉ ; chaque groupe introduit par un séparateur `━` cyan pleine largeur avec le titre centré
 - **`cmd_type` sur les findings** — `Finding` gagne `cmd_type: str = "fix"` / `"check"` ; la boîte de synthèse utilise `→` pour les commandes de correction et `ℹ` pour les commandes de vérification
 - **Profils d'audit** — `server` (défaut), `desktop` (remplace `workstation`), `container` ; alias `workstation` conservé ; profil actif affiché dans la boîte de synthèse
+- **Contrôle niveau de journalisation UFW** — détecte le niveau UFW (`ufw status verbose`) ; `off` → ALERT −2 pts (aucune visibilité sur le trafic bloqué) ; `low`/`medium` → OK ; `high`/`full` → INFO (mode verbeux, sans déduction)
+- **Audit umask système** — `UmaskSnapshot` lit le umask depuis `/etc/login.defs`, PAM, `/etc/profile`, RC shells et processus courant ; umask permissif (0002/0000) → WARN −1 pt ; sources conflictuelles → WARN −1 pt ; `_fix_cmd()` propose `/etc/profile.d/umask.conf`
+- **Analyse auth.log SSH** — `AuthLogSnapshot` parse `/var/log/auth.log` ; détection brute-force (>10 tentatives échouées depuis la même IP en 60 s → ALERT −2 pts) ; dernières connexions réussies affichées ; top sources d'échec listées ; `days=0` (log vide/rotaté) géré avec clé dédiée sans interpolation de zéro
+- **Historique des scores** — JSONL dans `~/.config/ufw-audit/history.jsonl` ; `--history` affiche les N derniers scores sous forme de sparkline (▁▂▃▄▅▆▇█) avec dates ; rotation automatique à 90 entrées
+- **Liste d'exceptions (ignore)** — `--ignore KEY` ajoute une clé de finding dans `ignore.yml` ; `--show-ignored` liste toutes les exceptions ; `ScoreEngine.ignore_keys` frozenset masque les findings correspondants sans les scorer ; indice affiché dans la sortie ; `{check_key}` utilisé dans la locale pour éviter le conflit de signature de `t()`
+- **Classification process-aware des ports système** — frozenset `_SYSTEM_DAEMONS` dans `checks/ports.py` ; les ports de `_SYSTEM_PORTS` (DNS, DHCP, mDNS, UPnP…) ne sont classés `SYSTEM_INTERNAL` que si l'application propriétaire est un démon OS connu ; les apps utilisateur (ex. Spotify sur `1900/udp`) passent aux vérifications d'exposition normales
 
 ---
 

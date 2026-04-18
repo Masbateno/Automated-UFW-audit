@@ -25,6 +25,8 @@ from ufw_audit.json_output import build_json_data
 from ufw_audit.output import print_banner
 from ufw_audit.profiles import load_profile
 from ufw_audit.registry import ServiceRegistry
+from ufw_audit.history import display_history, save_score
+from ufw_audit.ignore import add_ignore_key, load_ignore_keys, _ignore_file_path
 from ufw_audit.runner import init_report, run_checks
 from ufw_audit.scoring import ScoreEngine
 from ufw_audit.sysinfo import collect_system_info, detect_network_context
@@ -66,6 +68,23 @@ def _run(argv=None) -> int:
             run_explain_interactive(i18n.t)
         else:
             run_explain(config.explain_key, i18n.t)
+        return EXIT_OK
+
+    if config.show_history:
+        i18n.init(lang=config.lang)
+        output.init(no_color=config.no_color)
+        display_history(t=i18n.t)
+        return EXIT_OK
+
+    if config.ignore_key:
+        i18n.init(lang=config.lang)
+        output.init(no_color=config.no_color)
+        added = add_ignore_key(config.ignore_key)
+        if added:
+            print(f"✔ Ignored key added: {config.ignore_key}")
+            print(f"  File: {_ignore_file_path()}")
+        else:
+            print(f"ℹ  Key already present: {config.ignore_key}")
         return EXIT_OK
 
     if config.install_completion:
@@ -146,6 +165,7 @@ def _run(argv=None) -> int:
 
         report   = init_report(config, user_config, t, VERSION)
         engine   = ScoreEngine()
+        engine.ignore_keys = load_ignore_keys()
         sys_info = collect_system_info(VERSION, config.lang)
         report.write_header(sys_info)
 
@@ -238,6 +258,16 @@ def _run(argv=None) -> int:
         report.write_next_steps([t("report.next_1"), t("report.next_2"), t("report.next_3")])
         report.close()
 
+        if engine.ignored_findings and not config.quiet:
+            n = len(engine.ignored_findings)
+            print()
+            if config.show_ignored:
+                print(output._c.dim + t("ignored.header") + output._c.reset)
+                for _f in engine.ignored_findings:
+                    output.print_ignored(_f.message)
+            else:
+                output.print_ignored(t("ignored.summary", count=n))
+
         if config.fix:
             from ufw_audit.fixes import run_fixes
             run_fixes(engine, config, t)
@@ -269,6 +299,8 @@ def _run(argv=None) -> int:
             _devnull = None
             from ufw_audit.markdown_output import build_markdown_output
             print(build_markdown_output(engine, sys_info), end="")
+
+        save_score(engine.score, engine.level.value)
 
         if config.target > 0 and engine.score < config.target:
             return EXIT_TARGET_MISSED

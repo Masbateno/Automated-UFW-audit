@@ -197,7 +197,7 @@ class MarkdownReport:
             self._writeln("### " + labels.get("breakdown", "SCORE BREAKDOWN"))
             self._writeln("")
             for deduction in breakdown:
-                suffix = f" (public)" if deduction.context == "public" else ""
+                suffix = f" ({deduction.context})" if deduction.context in ("public", "ddns") else ""
                 self._writeln(
                     f"- {deduction.reason:<50} -{deduction.points}{suffix}"
                 )

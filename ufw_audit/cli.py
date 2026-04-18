@@ -121,6 +121,15 @@ class AuditConfig:
     target: int = 0
     """--target=N: score target (1–10); shown in summary with gap or success indicator."""
 
+    ignore_key: str = ""
+    """--ignore=KEY: add a finding key to ignore.yml and exit."""
+
+    show_ignored: bool = False
+    """--show-ignored: display ignored findings in grey alongside normal output."""
+
+    show_history: bool = False
+    """--history: display score history sparkline and exit."""
+
 
 # ---------------------------------------------------------------------------
 # Parser
@@ -363,6 +372,22 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
                 raise CLIError(f"--min-level requires 'warn' or 'alert', got: {value!r}")
             config.min_level = value
 
+        elif arg.startswith("--ignore="):
+            value = arg.split("=", 1)[1].strip()
+            if not value:
+                raise CLIError("--ignore= requires a finding key (e.g. ssh.permit_root_login)")
+            config.ignore_key = value
+
+        elif arg == "--ignore" and i + 1 < len(argv):
+            i += 1
+            config.ignore_key = argv[i].strip()
+
+        elif arg == "--show-ignored":
+            config.show_ignored = True
+
+        elif arg == "--history":
+            config.show_history = True
+
         else:
             raise CLIError(f"Unknown option: {arg!r}")
 
@@ -471,6 +496,10 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
     opt("-C, --manage-cron",     "List, edit or delete installed cron jobs")
     opt("-m, --manage-logs",     "List and delete saved audit log files")
     opt("    --reset-baseline",  "Delete the stored audit baseline and exit")
+    opt("    --ignore=KEY",      "Add a finding key to the ignore list (~/.config/ufw-audit/ignore.yml) and exit")
+    opt("    --show-ignored",    "Display suppressed findings in grey alongside normal output")
+
+    opt("    --history",           "Display score history sparkline (last 10 audits) and exit")
 
     section("STANDALONE — no sudo required")
     opt("-e, --explain [KEY]",   "Interactive explain picker, or explain a specific key")

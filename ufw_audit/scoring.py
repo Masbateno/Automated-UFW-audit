@@ -66,7 +66,7 @@ MAX_SCORE: int = 10
 # Data structures
 # ---------------------------------------------------------------------------
 
-VALID_CONTEXTS: frozenset[str] = frozenset({"local", "public", "structural"})
+VALID_CONTEXTS: frozenset[str] = frozenset({"local", "public", "ddns", "structural"})
 
 
 @dataclass
@@ -229,6 +229,8 @@ class ScoreEngine:
         self._cap: ScoreCap | None = None
         self.breakdown: list[Deduction] = []
         self.findings:  list[Finding]   = []
+        self.ignored_findings: list[Finding] = []
+        self.ignore_keys: frozenset[str] = frozenset()
         self._finalized: bool = False
 
     # ------------------------------------------------------------------
@@ -239,15 +241,24 @@ class ScoreEngine:
         """
         Apply all deductions, findings, and caps from a CheckResult.
 
+        Findings and deductions whose key is in self.ignore_keys are silently
+        dropped and stored in self.ignored_findings for optional display.
+
         Caps embedded in result.caps are forwarded to engine.cap() so
         the orchestrator does not need to inspect check results directly.
 
         Args:
             result: Output of a check_* function.
         """
+        ignored_keys = self.ignore_keys
         for deduction in result.deductions:
-            self._apply_deduction(deduction)
-        self.findings.extend(result.findings)
+            if not (ignored_keys and deduction.key and deduction.key in ignored_keys):
+                self._apply_deduction(deduction)
+        for finding in result.findings:
+            if ignored_keys and finding.key and finding.key in ignored_keys:
+                self.ignored_findings.append(finding)
+            else:
+                self.findings.append(finding)
         for cap in result.caps:
             self.cap(maximum=cap.maximum, reason=cap.reason)
 

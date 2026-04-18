@@ -146,6 +146,7 @@ def check_virtualization(snapshot: VirtSnapshot, t=None) -> CheckResult:
             nature="improvement",
             cmd=f"sudo iptables -L FORWARD | grep {shlex.quote(tech.iface)}",
             cmd_type="check",
+            key="virt.bypass_risk",
         )
 
     for snap_pkg in snapshot.snap_net:

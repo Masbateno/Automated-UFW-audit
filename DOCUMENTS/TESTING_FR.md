@@ -11,34 +11,58 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 
 | Version | Tests | Notes |
 |---------|-------|-------|
-| v0.9    | 421   | Première suite complète |
-| v0.17   | 505   | 15 échecs préexistants corrigés ; suite entièrement verte |
-| v0.18   | 531   | 26 nouveaux tests pour `fixes.py` ; `run_fixes()` entièrement couvert |
-| v0.20   | 548   | 17 tests en mode dégradé ; scénarios `ss`/règles/log absents |
-| v0.21   | 619   | 78 nouveaux tests + 3 corrections + carnet email ; passe qualité pré-v1.0 |
-| v1.0    | 619   | Pas de nouveaux tests — packaging (`pipx`), correctif locale `not_listening`, Python 3.9 minimum |
-| v1.1.0  | 639   | +20 tests — boîte résumé redesignée, corrections détection vsftpd/Transmission |
-| v1.2.0  | 639   | Pas de nouveaux tests — 12 corrections défensives sur 8 modules |
-| v1.2.1  | 639   | Pas de nouveaux tests — nettoyage packaging |
-| v1.3.0  | 652   | +13 tests dans `test_sysinfo.py` — `--offline`, IP publique IPv6, repli 3 fournisseurs |
-| v1.4.0  | 676   | +24 tests — isolation plugins, ports process-aware, `TestFinding`, flags CLI paramétrés |
-| v1.4.1  | 676   | Pas de nouveaux tests — correctif bash completion `--install-completion` |
-| v1.4.2  | 677   | +1 test — NetBIOS 137/138 désormais COUVERT si règle UFW existante |
-| v1.5.0  | 766   | +89 tests — `test_firewall_stack.py` (38), `test_network_context.py` (51) ; banner kernel/iptables/nftables |
-| v1.6.0  | 928   | +162 tests — `test_hardening.py` (49), `test_ipv6.py` (33), `test_compare.py` (49), `test_plugin_checks.py` (31) |
-| v1.7.0  | 966   | +38 tests — `test_profiles.py` (36), `test_compare.py` (+2 filtre ports éphémères), `test_ipv6.py` (+2 entrées malformées) |
-| v1.8.0  | 1104  | +138 tests — `test_ssh.py` (93) + `test_file_perms.py` (45) : modifiable-par-tous (7), trop-permissif (5), clés-hôtes-SSH (4), NOPASSWD-ALL (5), NOPASSWD-spécifique (4), combinés (5), _is_nopasswd_all (8), dataclass (2), tout-correct (4) |
-| v1.9.0  | 1332  | +228 tests — `test_updates.py` (34), `test_explain.py` (~94), `test_domain_scores.py` (~48), `test_webhook.py` (~54) ; passages qualité sur `test_hardening.py` + `test_profiles.py` |
-| v1.15.0 | 2139  | +93 tests — `test_smtp.py` (31 + 9 passage qualité), `TestDominantLocalSource` (13), `TestApplyFlag` (12), `TestTargetFlag` (10), `TestDryRun` (8), `test_explain.py` mis à jour (73→77 clés), `test_cli.py` mis à jour (sémantique `--apply`) |
-| v1.19.0 | 3259  | +530 tests — `test_hardening.py` +29 (6 nouvelles classes de contrôle sysctl) ; `test_ssh.py` +7 (cas OK PermitRootLogin) ; nouveaux fichiers : `test_suid_audit.py`, `test_kernel_hardening.py`, `test_docker_audit.py`, `test_log_rotation.py`, `test_csv_output.py`, `test_markdown_output.py`, `test_min_level.py`, `test_watch.py` |
+| v1.20.0 | 3494  | +235 tests — `test_auth_log.py` (62), `test_history.py` (36), `test_ignore.py` (44), `test_umask.py` (54), `test_ufw_logging.py` (32) ; corrections : auth_log days=0, ports système process-aware, nom de processus dans les messages |
+| v1.19.0 | 3259  | +530 tests — `test_hardening.py` +29 (6 nouvelles classes sysctl) ; `test_ssh.py` +7 (cas OK PermitRootLogin) ; nouveaux : `test_suid_audit.py`, `test_kernel_hardening.py`, `test_docker_audit.py`, `test_log_rotation.py`, `test_csv_output.py`, `test_markdown_output.py`, `test_min_level.py`, `test_watch.py` |
 | v1.18.0 | 2729  | +222 tests — `test_mac_policy.py` (nouveau, 40), `test_backup.py` (nouveau, 39), autres fichiers modifiés (+143) |
 | v1.17.0 | 2507  | +215 tests — `test_auditd.py` (nouveau, 41), `test_secure_boot.py` (nouveau, 21), `test_file_integrity.py` (nouveau, 33), `test_explain.py` +81 (variantes par profil), autres fichiers modifiés +39 |
 | v1.16.0 | 2292  | +153 tests — `test_desktop_apps.py` (nouveau), `test_ntp.py` (nouveau), `test_fail2ban.py` (42), `test_rootkit.py` (38), `test_exit_codes.py` (18) ; `test_hardening.py` −3 (fail2ban retiré) ; `test_explain.py` 77→76 clés |
+| v1.15.1 | 2139  | Pas de nouveaux tests — correctif bash-completion (`--explain` sans `=` ; `compopt -o nospace`) |
+| v1.15.0 | 2139  | +93 tests — `test_smtp.py` (31 + 9 passage qualité), `TestDominantLocalSource` (13), `TestApplyFlag` (12), `TestTargetFlag` (10), `TestDryRun` (8), `test_explain.py` mis à jour (73→77 clés), `test_cli.py` mis à jour (sémantique `--apply`) |
 | v1.14.0 | 2045  | +155 tests — `test_samba.py` (68), `test_clamav.py` (52) ; `test_explain.py` mis à jour (63→73 clés) ; `test_compare.py` tests info_delta (+5) |
 | v1.13.0 | 1890  | +187 tests — `test_disk.py` (60), `test_memory.py` (37) ; `test_explain.py` mis à jour (assertion 33→63 clés) |
 | v1.12.0 | 1703  | +28 tests — profil workstation, assertions de dates, fixtures dict dans les fichiers existants |
 | v1.11.0 | 1675  | +134 tests — `test_user_accounts.py` (51), `test_password_policy.py` (51) ; clés A2 `--explain` dans `test_explain.py` (+13 assertions) ; passage qualité sur les deux nouveaux fichiers |
 | v1.10.0 | 1541  | +209 tests — `test_display_explain_hint.py` (25), `test_kernel_modules.py` (48), `test_cron_audit.py` (47), `test_services_state.py` (35) ; passage qualité : `test_check_rules.py` (+10), `test_cli.py` (+38), `test_compare.py` (+7), `test_cron.py` (+10), `test_ddns.py` (+5), `test_degraded.py` (+3) |
+| v1.9.0  | 1332  | +228 tests — `test_updates.py` (34), `test_explain.py` (~94), `test_domain_scores.py` (~48), `test_webhook.py` (~54) ; passages qualité sur `test_hardening.py` + `test_profiles.py` |
+| v1.8.0  | 1104  | +138 tests — `test_ssh.py` (93) + `test_file_perms.py` (45) : modifiable-par-tous (7), trop-permissif (5), clés-hôtes-SSH (4), NOPASSWD-ALL (5), NOPASSWD-spécifique (4), combinés (5), _is_nopasswd_all (8), dataclass (2), tout-correct (4) |
+| v1.7.0  | 966   | +38 tests — `test_profiles.py` (36), `test_compare.py` (+2 filtre ports éphémères), `test_ipv6.py` (+2 entrées malformées) |
+| v1.6.0  | 928   | +162 tests — `test_hardening.py` (49), `test_ipv6.py` (33), `test_compare.py` (49), `test_plugin_checks.py` (31) |
+| v1.5.0  | 766   | +89 tests — `test_firewall_stack.py` (38), `test_network_context.py` (51) ; banner kernel/iptables/nftables |
+| v1.4.2  | 677   | +1 test — NetBIOS 137/138 désormais COUVERT si règle UFW existante |
+| v1.4.1  | 676   | Pas de nouveaux tests — correctif bash completion `--install-completion` |
+| v1.4.0  | 676   | +24 tests — isolation plugins, ports process-aware, `TestFinding`, flags CLI paramétrés |
+| v1.3.0  | 652   | +13 tests dans `test_sysinfo.py` — `--offline`, IP publique IPv6, repli 3 fournisseurs |
+| v1.2.1  | 639   | Pas de nouveaux tests — nettoyage packaging |
+| v1.2.0  | 639   | Pas de nouveaux tests — 12 corrections défensives sur 8 modules |
+| v1.1.0  | 639   | +20 tests — boîte résumé redesignée, corrections détection vsftpd/Transmission |
+| v1.0    | 619   | Pas de nouveaux tests — packaging (`pipx`), correctif locale `not_listening`, Python 3.9 minimum |
+| v0.21   | 619   | 78 nouveaux tests + 3 corrections + carnet email ; passe qualité pré-v1.0 |
+| v0.20   | 548   | 17 tests en mode dégradé ; scénarios `ss`/règles/log absents |
+| v0.18   | 531   | 26 nouveaux tests pour `fixes.py` ; `run_fixes()` entièrement couvert |
+| v0.17   | 505   | 15 échecs préexistants corrigés ; suite entièrement verte |
+| v0.9    | 421   | Première suite complète |
+
+### v1.20.0 — 3494/3494 (2026-04-18)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+3494 passed in 4.06s
+```
+
+#### Nouveaux / modifiés (+235)
+
+| Fichier | Modification | Couverture |
+|---------|-------------|------------|
+| `tests/test_auth_log.py` | Nouveau — 62 tests | Défauts `AuthLogSnapshot` ; `_estimate_days()` — fichier vide (0 jour), fichier normal ; `check_auth_log()` — aucune entrée days>0 (OK, clé `no_logins`), aucune entrée days=0 (OK, clé `no_logins_no_range`, pas de « 0 » dans le message), force-brute >10 tentatives/60 s (ALERT, −2 pts, clé déduction, IP source dans message), dernières connexions réussies (INFO), top sources échouées (WARN) ; assertions de clés ; garde no-t |
+| `tests/test_history.py` | Nouveau — 36 tests | Dataclass `HistoryEntry` ; `load_history()` — fichier absent (liste vide), JSONL valide, lignes malformées ignorées ; `save_history()` — crée le fichier, rotation à 90 entrées, écrase ; `render_sparkline()` — liste vide, entrée unique, correspondance d'échelle (0→▁, 10→█), étiquettes de dates ; intégration flag CLI `--history` |
+| `tests/test_ignore.py` | Nouveau — 44 tests | `load_ignore()` — fichier absent (set vide), YAML valide, YAML malformé ; `save_ignore()` — crée le fichier, écrase ; `ScoreEngine.ignore_keys` — finding ignoré non scoré, collecté dans `ignored_findings`, déduction non ajoutée ; clé `ignored.hint` utilise `check_key=` (pas `key=`) ; CLI `--ignore KEY` ; CLI `--show-ignored` |
+| `tests/test_umask.py` | Nouveau — 54 tests | Défauts `UmaskSnapshot` ; couverture chemins `from_system()` (login.defs/pam/profile/courant) ; `check_umask()` — permissif 0002 (WARN, −1 pt, clé, clé déduction, cmd), permissif 0000 (WARN, −1 pt), strict 0027 (OK, sans déduction), défaut 0022 (OK), sources conflictuelles (WARN −1 pt, pas de cmd), pas de finding si tout OK ; `_fix_cmd()` par profil ; cohérence des constantes |
+| `tests/test_ufw_logging.py` | Nouveau — 32 tests | `check_ufw_logging()` — off (ALERT, −2 pts, clé, clé déduction, cmd), low (OK, clé, sans déduction), medium (OK), high (INFO, clé, sans déduction), full (INFO) ; doublement déduction contexte public ; niveau affiché dans messages OK/INFO ; garde no-t |
+| Fichiers existants | +7 tests | `tests/test_ports.py` : import `_SYSTEM_DAEMONS` ; UPnP appartenant à avahi → SYSTEM_INTERNAL ; UPnP appartenant à Spotify → UNCOVERED_PUBLIC ; propriétaire inconnu sur port système → SYSTEM_INTERNAL ; `test_auth_log.py` : days=0 OK utilise clé `no_logins_no_range` (message sans « 0 jour ») |
+
+---
 
 ### v1.19.0 — 3259/3259 (2026-04-17)
 
