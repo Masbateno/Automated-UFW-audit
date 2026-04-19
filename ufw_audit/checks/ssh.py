@@ -244,13 +244,16 @@ class SSHSnapshot:
 # Main check function (pure logic — no I/O)
 # ---------------------------------------------------------------------------
 
-def check_ssh(snapshot: SSHSnapshot, t=None) -> CheckResult:
+def check_ssh(snapshot: SSHSnapshot, t=None, ssh_exposed: bool = True) -> CheckResult:
     """
     Check SSH server and client configuration.
 
     Args:
-        snapshot: SSHSnapshot collected from the system (or built in tests).
-        t:        Translation function. Defaults to key pass-through.
+        snapshot:     SSHSnapshot collected from the system (or built in tests).
+        t:            Translation function. Defaults to key pass-through.
+        ssh_exposed:  False when SSH is not reachable from outside (local network +
+                      UFW default deny). Downgrades PasswordAuthentication from WARN
+                      to INFO and appends a context note.
 
     Returns:
         CheckResult with findings and score deductions.
@@ -283,7 +286,7 @@ def check_ssh(snapshot: SSHSnapshot, t=None) -> CheckResult:
     _check_host_keys(snapshot, result, _t)
 
     # --- sshd_config ---
-    _check_sshd_config(snapshot, result, _t)
+    _check_sshd_config(snapshot, result, _t, ssh_exposed=ssh_exposed)
 
     # --- ~/.ssh directory permissions ---
     _check_ssh_dir(snapshot, result, _t)
@@ -299,6 +302,19 @@ def check_ssh(snapshot: SSHSnapshot, t=None) -> CheckResult:
 
     # --- known_hosts ---
     _check_known_hosts(snapshot, result, _t)
+
+    # Correlation note: when SSH is behind a deny firewall on a local network,
+    # the above informational findings have reduced real-world impact.
+    if not ssh_exposed:
+        has_non_ok = any(
+            f.level.value in ("warn", "alert", "info")
+            for f in result.findings
+        )
+        if has_non_ok:
+            result.info(
+                message=_t("ssh.local_context_note"),
+                key="ssh.local_context_note",
+            )
 
     return result
 
@@ -349,7 +365,8 @@ def _check_host_keys(snapshot: SSHSnapshot, result: CheckResult, _t) -> None:
             )
 
 
-def _check_sshd_config(snapshot: SSHSnapshot, result: CheckResult, _t) -> None:
+def _check_sshd_config(snapshot: SSHSnapshot, result: CheckResult, _t,
+                       ssh_exposed: bool = True) -> None:
     """Analyse /etc/ssh/sshd_config directives."""
     cfg = snapshot.sshd_config
     found_issue = False
@@ -388,18 +405,25 @@ def _check_sshd_config(snapshot: SSHSnapshot, result: CheckResult, _t) -> None:
     # PasswordAuthentication
     pw_auth = cfg.get("passwordauthentication", "yes").lower()
     if pw_auth == "yes":
-        result.warn(
-            message=_t("ssh.password_auth"),
-            detail=_t("ssh.password_auth_detail"),
-            nature="improvement",
-            cmd="",
-            key="ssh.password_auth",
-        )
-        result.add_deduction(
-            reason=_t("ssh.password_auth"),
-            points=2, context="local", key="ssh.password_auth",
-        )
-        found_issue = True
+        if ssh_exposed:
+            result.warn(
+                message=_t("ssh.password_auth"),
+                detail=_t("ssh.password_auth_detail"),
+                nature="improvement",
+                cmd="",
+                key="ssh.password_auth",
+            )
+            result.add_deduction(
+                reason=_t("ssh.password_auth"),
+                points=2, context="local", key="ssh.password_auth",
+            )
+            found_issue = True
+        else:
+            result.info(
+                message=_t("ssh.password_auth_local"),
+                detail=_t("ssh.password_auth_local_detail"),
+                key="ssh.password_auth",
+            )
 
     # PermitEmptyPasswords
     pep = cfg.get("permitemptypasswords", "no").lower()

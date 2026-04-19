@@ -67,6 +67,9 @@ class AuditConfig:
     markdown_mode: bool = False
     """--output markdown: export audit as GitHub-flavored Markdown to stdout."""
 
+    html_mode: bool = False
+    """--html: export audit as standalone HTML to stdout."""
+
     min_level: str = ""
     """--min-level=LEVEL: only display findings at or above this severity (warn, alert)."""
 
@@ -129,6 +132,15 @@ class AuditConfig:
 
     show_history: bool = False
     """--history: display score history sparkline and exit."""
+
+    check_only: frozenset[str] = frozenset()
+    """--check=LIST: run only the named checks (comma-separated section names)."""
+
+    skip_checks: frozenset[str] = frozenset()
+    """--skip=LIST: skip the named checks (comma-separated section names)."""
+
+    output_dir: str = ""
+    """--output-dir=PATH: directory where the detailed report is saved (overrides saved config)."""
 
 
 # ---------------------------------------------------------------------------
@@ -388,12 +400,50 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         elif arg == "--history":
             config.show_history = True
 
+        elif arg.startswith("--check="):
+            value = arg.split("=", 1)[1].strip()
+            if not value:
+                raise CLIError("--check= requires a comma-separated list of check names")
+            config.check_only = frozenset(n.strip() for n in value.split(",") if n.strip())
+
+        elif arg == "--check" and i + 1 < len(argv):
+            i += 1
+            value = argv[i].strip()
+            config.check_only = frozenset(n.strip() for n in value.split(",") if n.strip())
+
+        elif arg.startswith("--skip="):
+            value = arg.split("=", 1)[1].strip()
+            if not value:
+                raise CLIError("--skip= requires a comma-separated list of check names")
+            config.skip_checks = frozenset(n.strip() for n in value.split(",") if n.strip())
+
+        elif arg == "--skip" and i + 1 < len(argv):
+            i += 1
+            value = argv[i].strip()
+            config.skip_checks = frozenset(n.strip() for n in value.split(",") if n.strip())
+
+        elif arg.startswith("--output-dir="):
+            value = arg.split("=", 1)[1].strip()
+            if not value:
+                raise CLIError("--output-dir= requires a directory path")
+            config.output_dir = value
+
+        elif arg == "--output-dir" and i + 1 < len(argv):
+            i += 1
+            config.output_dir = argv[i].strip()
+
+        elif arg == "--html":
+            config.html_mode = True
+
         else:
             raise CLIError(f"Unknown option: {arg!r}")
 
         i += 1
 
     # Validate
+    if config.check_only and config.skip_checks:
+        raise CLIError("--check and --skip cannot be used together")
+
     if config.webhook_format not in ("auto", "generic", "slack"):
         raise CLIError(
             f"--webhook-format must be 'auto', 'generic', or 'slack', got: {config.webhook_format!r}"
@@ -409,15 +459,19 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         raise CLIError("--quiet is incompatible with --output csv (CSV output requires stdout)")
     if config.quiet and config.markdown_mode:
         raise CLIError("--quiet is incompatible with --output markdown (Markdown output requires stdout)")
-    _output_modes = sum([config.json_mode, config.csv_mode, config.markdown_mode])
+    if config.quiet and config.html_mode:
+        raise CLIError("--quiet is incompatible with --html (HTML output requires stdout)")
+    _output_modes = sum([config.json_mode, config.csv_mode, config.markdown_mode, config.html_mode])
     if _output_modes > 1:
-        raise CLIError("--json, --output csv, and --output markdown cannot be combined")
+        raise CLIError("--json, --output csv, --output markdown, and --html cannot be combined")
     if config.watch_mode and config.json_mode:
         raise CLIError("--watch is incompatible with --json (watch mode uses interactive output)")
     if config.watch_mode and config.csv_mode:
         raise CLIError("--watch is incompatible with --output csv (watch mode uses interactive output)")
     if config.watch_mode and config.markdown_mode:
         raise CLIError("--watch is incompatible with --output markdown (watch mode uses interactive output)")
+    if config.watch_mode and config.html_mode:
+        raise CLIError("--watch is incompatible with --html (watch mode uses interactive output)")
     if config.quiet and config.fix and config.apply:
         raise CLIError("--quiet is incompatible with --fix --apply (fix mode requires interactive prompts)")
     if config.json_mode and config.fix and config.apply:
@@ -465,6 +519,9 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
     opt("    --watch[=N]",       "Re-run audit every N seconds (default: 60) — Ctrl+C to quit")
     opt("-o, --offline",         "Skip external IP lookup (no HTTP calls)")
     opt("    --target=N",        "Score target (1–10): show gap or success in summary")
+    opt("    --check=LIST",      "Run only these checks (comma-separated: ssh,firewall,ports…)")
+    opt("    --skip=LIST",       "Skip these checks (comma-separated; mutually exclusive with --check)")
+    opt("    --output-dir=PATH", "Save detailed report to PATH (overrides saved config)")
 
     section("OUTPUT — how to present results")
     opt("-v, --verbose",         "Show detailed port exposure for each service")
@@ -475,6 +532,7 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
     opt("-J, --json-full",       "Export full audit details as JSON (implies --json)")
     opt("    --output csv",      "Export findings as CSV to stdout (spreadsheet/dashboard)")
     opt("    --output markdown", "Export full report as Markdown to stdout (GitHub/wiki)")
+    opt("    --html",            "Export full report as standalone HTML to stdout")
     opt("    --min-level=LEVEL", "Only show findings at or above: warn  |  alert")
 
     section("FIXES — apply remediation suggestions")

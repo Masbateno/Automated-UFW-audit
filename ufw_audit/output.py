@@ -56,12 +56,14 @@ class _Colours(NamedTuple):
     green:  str
     cyan:   str
     blue:   str
+    violet: str
     red_bold:    str
     yellow_bold: str
     orange_bold: str
     green_bold:  str
     cyan_bold:   str
     blue_bold:   str
+    violet_bold: str
 
 
 _COLOURS_ON = _Colours(
@@ -74,12 +76,14 @@ _COLOURS_ON = _Colours(
     green        = "\033[32m",
     cyan         = "\033[36m",
     blue         = "\033[34m",
+    violet       = "\033[38;5;135m",
     red_bold     = "\033[1;31m",
     yellow_bold  = "\033[1;33m",
     orange_bold  = "\033[1;38;5;208m",
     green_bold   = "\033[1;32m",
     cyan_bold    = "\033[1;36m",
     blue_bold    = "\033[1;34m",
+    violet_bold  = "\033[1;38;5;135m",
 )
 
 _COLOURS_OFF = _Colours(
@@ -235,12 +239,16 @@ def print_port_detail(message: str) -> None:
     _p(f"    {_c.dim}↳ {message}{_c.reset}")
 
 
-def print_recommendation(lines: str | list[str]) -> None:
-    """Print a recommendation block with arrow prefix (fix commands).
+def print_recommendation(
+    lines: str | list[str],
+    cmd_lines: str | list[str] | None = None,
+) -> None:
+    """Print a recommendation block.
 
     Args:
-        lines: Single string or list of strings. Each line is printed
-               with a → prefix on a new indented line.
+        lines:     Explanatory text lines — printed in cyan with → prefix.
+        cmd_lines: Command lines — printed in violet_bold with → prefix so
+                   they stand out from the explanatory text.
     """
     from ufw_audit.i18n import t as _t
     if isinstance(lines, str):
@@ -248,6 +256,11 @@ def print_recommendation(lines: str | list[str]) -> None:
     _p(f"\n    {_c.dim}{_t('output.recommendation_label')}{_c.reset}")
     for line in lines:
         _p(f"    {_c.cyan}→ {line}{_c.reset}")
+    if cmd_lines is not None:
+        if isinstance(cmd_lines, str):
+            cmd_lines = cmd_lines.splitlines()
+        for line in cmd_lines:
+            _p(f"    {_c.violet_bold}→ {line}{_c.reset}")
     _p()
 
 
@@ -266,7 +279,7 @@ def print_check_cmd(lines: str | list[str]) -> None:
         lines = lines.splitlines()
     _p(f"\n    {_c.dim}{_t('output.check_label')}{_c.reset}")
     for line in lines:
-        _p(f"    {_c.cyan}ℹ {line}{_c.reset}")
+        _p(f"    {_c.violet_bold}ℹ {line}{_c.reset}")
     _p()
 
 

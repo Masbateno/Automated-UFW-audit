@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import ipaddress
 import re
+import subprocess
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -56,6 +57,36 @@ _PRIVATE_NETWORKS = (
     ipaddress.ip_network("fc00::/7"),
     ipaddress.ip_network("fe80::/10"),
 )
+
+
+def _read_auth_from_journald(max_days: int = 90) -> str:
+    """
+    Read SSH authentication events from journald.
+
+    Fallback for systems without /var/log/auth.log (Debian 13+ with journald-only
+    logging). Uses --output=short to produce syslog-format lines compatible with
+    the existing _ACCEPTED_RE / _FAILED_RE regexes.
+
+    Returns:
+        Raw log content, or empty string if journald is unavailable.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "journalctl", "-t", "sshd",
+                "--no-pager",
+                "--output=short",
+                f"--since={max_days} days ago",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode == 0:
+            return result.stdout
+    except Exception:
+        pass
+    return ""
 
 
 def _is_private(ip_str: str) -> bool:
@@ -130,6 +161,10 @@ class AuthLogSnapshot:
                 continue
 
         if not snap.log_available:
+            # Fallback: journald (Debian 13+ without /var/log/auth.log)
+            journald_text = _read_auth_from_journald()
+            if journald_text.strip():
+                return cls.from_text(journald_text)
             return snap
 
         combined = "\n".join(lines_read[-max_lines:])

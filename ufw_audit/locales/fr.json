@@ -71,7 +71,10 @@
     "log_rotation": "ROTATION DES LOGS & JOURNALISATION SYSTÈME",
     "ufw_logging": "JOURNALISATION UFW",
     "umask": "UMASK SYSTÈME",
-    "auth_log": "ANALYSE DES CONNEXIONS SSH"
+    "auth_log": "ANALYSE DES CONNEXIONS SSH",
+    "ssl_certs": "EXPIRATION DES CERTIFICATS TLS/SSL",
+    "systemd_timers": "AUDIT DES TIMERS SYSTEMD",
+    "firmware": "AUDIT FIRMWARE & MICROCODE"
   },
   "status": {
     "ok": "OK",
@@ -248,7 +251,7 @@
   },
   "summary": {
     "clean": "Votre configuration est saine. Aucune action requise.",
-    "warnings": "Les avertissements reflètent une configuration normale pour ce type de système. Aucune action immédiate requise.",
+    "warnings": "Configuration globalement saine pour ce type de système. Quelques améliorations sont recommandées pour renforcer la robustesse.",
     "alerts": "Des corrections sont nécessaires. Traitez en priorité les points marqués 'À corriger'.",
     "block_action": "À corriger",
     "block_improve": "Améliorations possibles",
@@ -417,6 +420,7 @@
     "local_network": "réseau local"
   },
   "service_risk": {
+    "local_exposure_note": "ℹ Risque intrinsèque (voir ci-dessus) — exposition réelle : FAIBLE (SSH non accessible depuis internet sur ce réseau)",
     "ssh_server": {
       "level": "CRITIQUE",
       "exposure": "Port très ciblé par les scans automatisés et attaques bruteforce — exposé sur internet par défaut",
@@ -550,6 +554,7 @@
     "redirects_enabled": "Redirections ICMP acceptées — risque de manipulation de la table de routage",
     "log_martians_ok": "La journalisation des paquets martiens est activée",
     "log_martians_disabled": "Journalisation des paquets martiens désactivée — les paquets usurpés ne seront pas tracés",
+    "log_martians_disabled_detail": "Les paquets martiens ont une adresse source invalide ou usurpée. Les enregistrer aide à détecter les tentatives de reconnaissance et d'IP spoofing.",
     "icmp_broadcast_ok": "L'écho de diffusion ICMP est ignoré",
     "icmp_broadcast_enabled": "Écho de diffusion ICMP non ignoré — risque d'amplification smurf",
     "tcp_syncookies_ok": "Protection SYN flood active (tcp_syncookies={value})",
@@ -560,6 +565,7 @@
     "accept_redirects_v6_enabled": "Redirections ICMP IPv6 acceptées — usurpation de routeur possible sur le réseau local",
     "send_redirects_ok": "Envoi de redirections ICMP désactivé (send_redirects=0)",
     "send_redirects_enabled": "Le système envoie des redirections ICMP (send_redirects=1) — inutile sur un non-routeur, exploitable pour du MITM",
+    "send_redirects_detail": "Les redirections ICMP indiquent à un hôte d'utiliser une passerelle différente. Une machine non-routeur ne devrait jamais en envoyer ; un attaquant peut s'en servir pour dérouter le trafic (man-in-the-middle).",
     "protected_hardlinks_ok": "Protection des liens durs activée (fs.protected_hardlinks=1)",
     "protected_hardlinks_disabled": "Protection des liens durs désactivée (fs.protected_hardlinks=0) — permet des attaques par lien dur pour l'élévation de privilèges",
     "protected_symlinks_ok": "Protection des liens symboliques activée (fs.protected_symlinks=1)",
@@ -643,7 +649,8 @@
   },
   "audit": {
     "starting": "Démarrage de l'audit",
-    "report_saved": "Rapport détaillé : {path}"
+    "report_saved": "Rapport détaillé : {path}",
+    "running_checks": "Checks actifs : {checks}"
   },
   "deduction": {
     "docker_bypass": "Contournement Docker : {container} {port}",
@@ -675,6 +682,9 @@
     "permit_root_login_restricted": "Connexion root restreinte à l'authentification par clé (PermitRootLogin = {value})",
     "password_auth": "L'authentification par mot de passe est activée (PasswordAuthentication = yes)",
     "password_auth_detail": "Risque de force brute. Préférer les clés : définir PasswordAuthentication no dans sshd_config",
+    "password_auth_local": "PasswordAuthentication activée — risque faible (SSH non accessible publiquement sur ce réseau)",
+    "password_auth_local_detail": "SSH n'est pas joignable depuis l'extérieur (UFW deny par défaut + réseau local). L'authentification par mot de passe est acceptable dans ce contexte, bien que les clés restent la meilleure pratique.",
+    "local_context_note": "Contexte : SSH n'est pas accessible publiquement (UFW deny par défaut + réseau local) — les notices ci-dessus ont un risque réel réduit dans cette configuration.",
     "permit_empty_passwords": "Les mots de passe vides sont autorisés (PermitEmptyPasswords = yes)",
     "max_auth_tries": "MaxAuthTries = {value} — valeur recommandée : 3 ou moins",
     "login_grace_time": "LoginGraceTime = {value}s — valeur recommandée : 60s ou moins",
@@ -765,11 +775,15 @@
     "ptrace_unrestricted": "ptrace non restreint (yama.ptrace_scope=0) — tout processus peut inspecter ou s'attacher à un autre",
     "suid_dump_ok": "Vidages mémoire des binaires SUID désactivés (suid_dumpable=0)",
     "suid_dump_root": "Vidages mémoire des binaires SUID restreints à root (suid_dumpable=2)",
+    "suid_dump_root_detail": "Les vidages de processus SUID peuvent contenir des identifiants ou secrets issus d'un contexte élevé. Les restreindre à root limite l'exposition ; les désactiver entièrement (valeur=0) est plus sûr.",
     "suid_dump_all": "Vidages mémoire activés pour tous les processus y compris SUID (suid_dumpable=1) — peut exposer des identifiants issus de programmes privilégiés",
+    "suid_dump_all_detail": "Les vidages de processus SUID peuvent exposer des identifiants, clés ou zones mémoire de programmes privilégiés à tout utilisateur local. Les désactiver (valeur=0) élimine ce risque.",
     "kptr_ok": "Restriction des pointeurs noyau activée (kptr_restrict={val})",
     "kptr_exposed": "Pointeurs noyau exposés dans /proc (kptr_restrict=0) — peut divulguer des adresses noyau aux utilisateurs non privilégiés",
+    "kptr_exposed_detail": "Quand kptr_restrict=0, les adresses des symboles noyau sont lisibles dans /proc par des utilisateurs non privilégiés, rendant le contournement de KASLR beaucoup plus facile.",
     "dmesg_ok": "Accès à dmesg restreint aux utilisateurs privilégiés (dmesg_restrict=1)",
-    "dmesg_exposed": "dmesg accessible à tous les utilisateurs (dmesg_restrict=0) — les messages noyau peuvent révéler des informations exploitables"
+    "dmesg_exposed": "dmesg accessible à tous les utilisateurs (dmesg_restrict=0) — les messages noyau peuvent révéler des informations exploitables",
+    "dmesg_exposed_detail": "Quand dmesg_restrict=0, tout utilisateur local peut lire les messages du noyau, qui peuvent révéler la disposition mémoire, les modules chargés ou des détails matériels utiles à l'exploitation."
   },
   "suid_audit": {
     "scan_skipped": "Analyse SUID/SGID expirée ou échouée — vérification ignorée",
@@ -1740,7 +1754,7 @@
     "service_inactive_detail": "auditd est installé mais inactif — aucun événement système n'est journalisé. Activez-le pour rétablir la couverture d'audit.",
     "service_inactive_reason": "auditd inactif — journalisation des événements système désactivée",
     "no_rules": "auditd fonctionne mais aucune règle d'audit n'est chargée",
-    "no_rules_detail": "auditd est actif mais n'a aucune règle configurée. Sans règles de surveillance, les accès aux fichiers sensibles (/etc/passwd, /etc/shadow, /etc/sudoers) ne sont pas journalisés. Ajoutez des règles via auditctl ou /etc/audit/rules.d/.",
+    "no_rules_detail": "auditd est actif mais n'a aucune règle configurée. Sans règles de surveillance, les accès aux fichiers sensibles (/etc/passwd, /etc/shadow, /etc/sudoers) ne sont pas journalisés. Exécutez 'sudo auditctl -l' pour vérifier. Appliquez les règles ci-dessous pour couvrir les chemins les plus critiques.",
     "no_rules_reason": "auditd actif sans règle d'audit chargée",
     "missing_sensitive_rules": "auditd ne surveille pas les fichiers système sensibles",
     "missing_sensitive_rules_detail": "Les fichiers sensibles suivants ne sont pas couverts par des règles auditd : {files}. Tout accès ou modification de ces fichiers ne sera pas journalisé.",
@@ -1751,7 +1765,7 @@
   "secure_boot": {
     "enabled": "Secure Boot est activé",
     "disabled": "Secure Boot est désactivé",
-    "disabled_detail": "Secure Boot empêche l'exécution de chargeurs de démarrage et noyaux non signés ou falsifiés. Sans lui, un attaquant avec accès physique ou des privilèges root peut installer un bootkit persistant après réinstallation, invisible au système. Activez Secure Boot dans les paramètres UEFI/BIOS.",
+    "disabled_detail": "Secure Boot empêche l'exécution de chargeurs de démarrage non signés. Sur un desktop, exploiter cette absence nécessite un accès physique ou une compromission root préalable — si aucun des deux ne s'applique, le risque est faible. Activez-le dans les paramètres UEFI/BIOS si votre matériel le supporte (les noyaux Ubuntu/Mint standard sont signés).",
     "disabled_server_detail": "Secure Boot est désactivé. Sur les serveurs et machines virtuelles, c'est courant (images cloud, noyaux personnalisés, hyperviseurs). Envisagez de l'activer si la plateforme le supporte.",
     "disabled_reason": "Secure Boot désactivé — protection contre les malwares au niveau du démarrage inactive",
     "no_uefi": "BIOS legacy détecté — Secure Boot non applicable",
@@ -1804,6 +1818,8 @@
   },
   "mac_policy": {
     "apparmor_ok": "AppArmor en mode enforce — {enforcing} profil(s) actif(s), {complain} en plainte",
+    "apparmor_complain_profiles": "{complain} profil(s) AppArmor en mode plainte — les violations sont journalisées mais non bloquées",
+    "apparmor_complain_detail": "En mode plainte, AppArmor enregistre les violations de politique sans les bloquer. Passez les profils en mode enforce pour bloquer activement les accès non autorisés.",
     "apparmor_no_enforce": "AppArmor actif mais aucun profil en mode enforce ({complain} en plainte)",
     "apparmor_no_enforce_detail": "Tous les profils sont en mode plainte — les violations sont journalisées mais non bloquées. Passez en mode enforce pour bloquer activement les attaques.",
     "apparmor_no_enforce_reason": "AppArmor actif mais aucun profil en enforce",
@@ -1831,6 +1847,40 @@
     "no_backup": "Aucune solution de sauvegarde trouvée",
     "no_backup_detail": "Aucun outil de sauvegarde (borgmatic, borg, restic, timeshift, duplicati, bacula, rclone…) n'a été détecté. Des sauvegardes régulières sont essentielles pour récupérer après une perte de données, un ransomware ou une panne matérielle.",
     "no_backup_reason": "Aucune solution de sauvegarde installée ou configurée"
+  },
+  "firmware": {
+    "fwupd_missing": "fwupd non installé — impossible de déterminer l'état des mises à jour firmware",
+    "fwupd_error": "fwupdmgr get-updates a retourné une erreur : {error}",
+    "fwupd_updates": "{count} mise(s) à jour firmware en attente : {devices}",
+    "fwupd_updates_detail": "Exécutez 'sudo fwupdmgr update' pour appliquer les mises à jour firmware BIOS/UEFI/SSD/NIC en attente. Un firmware obsolète peut exposer des vulnérabilités matérielles connues.",
+    "fwupd_updates_reason": "{count} mise(s) à jour firmware détectées par fwupd",
+    "fwupd_ok": "Aucune mise à jour firmware en attente (fwupd)",
+    "microcode_missing": "Processeur {vendor} détecté mais aucun paquet microcode installé",
+    "microcode_missing_detail": "Les mises à jour de microcode CPU corrigent des vulnérabilités matérielles (Spectre, Meltdown, etc.). Installez le paquet approprié pour maintenir le microcode à jour.",
+    "microcode_missing_reason": "Paquet microcode {vendor} non installé",
+    "microcode_ok": "Paquet microcode CPU installé : {package}",
+    "microcode_na": "Le processeur n'est ni Intel ni AMD — aucun paquet microcode requis"
+  },
+  "systemd_timers": {
+    "no_systemctl": "systemctl introuvable — impossible d'auditer les timers systemd",
+    "no_timers": "Aucun timer systemd actif trouvé",
+    "pipe_to_shell": "{count} timer(s) systemd contiennent un curl/wget pipe-to-shell dans ExecStart",
+    "pipe_to_shell_detail": "Les timers qui téléchargent et exécutent du code à la volée sont un vecteur d'attaque supply-chain. Réécrivez ces commandes ExecStart : {entries}",
+    "pipe_to_shell_reason": "{count} timer(s) systemd exécutent du contenu distant dans un shell",
+    "world_writable": "{count} script(s) accessibles en écriture par tous dans ExecStart d'un timer systemd : {scripts}",
+    "world_writable_detail": "Des scripts accessibles en écriture par tous et exécutés par des timers root peuvent être remplacés par n'importe quel utilisateur local. Restreignez les droits avec chmod o-w.",
+    "world_writable_reason": "{count} script(s) world-writable dans ExecStart d'un timer systemd",
+    "user_created_root": "{count} timer(s) créés manuellement dans /etc/systemd/system/ s'exécutant en root : {units}",
+    "ok": "Les {count} timer(s) systemd semblent sains"
+  },
+  "ssl_certs": {
+    "openssl_unavailable": "openssl introuvable — impossible de vérifier l'expiration des certificats TLS/SSL",
+    "no_certs": "Aucun certificat serveur TLS/SSL trouvé (Let's Encrypt, /etc/ssl/private, nginx, apache2, postfix)",
+    "read_error": "Impossible de lire le certificat {path} : {error}",
+    "expired": "Certificat {path} EXPIRÉ depuis {days} jour(s)",
+    "expiring_critical": "Certificat {path} expire dans {days} jour(s) — renouvellement urgent",
+    "expiring_soon": "Certificat {path} expire dans {days} jour(s) — renouvellement conseillé",
+    "ok": "Certificat {path} valide — expire dans {days} jour(s)"
   },
   "log_rotation": {
     "logrotate_missing": "logrotate non installé — les fichiers journaux grossiront indéfiniment",

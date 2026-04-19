@@ -158,12 +158,14 @@ def check_kernel_hardening(snapshot: KernelHardeningSnapshot, t=None) -> CheckRe
     elif snapshot.suid_dumpable == 2:
         result.info(
             message=_t("kernel_hardening.suid_dump_root"),
+            detail=_t("kernel_hardening.suid_dump_root_detail"),
             cmd=_fix_cmd("fs.suid_dumpable", 0),
             key="kernel_hardening.suid_dump_root",
         )
     else:
         result.warn(
             message=_t("kernel_hardening.suid_dump_all"),
+            detail=_t("kernel_hardening.suid_dump_all_detail"),
             nature="improvement",
             cmd=_fix_cmd("fs.suid_dumpable", 0),
             key="kernel_hardening.suid_dump_all",
@@ -184,6 +186,7 @@ def check_kernel_hardening(snapshot: KernelHardeningSnapshot, t=None) -> CheckRe
     else:
         result.info(
             message=_t("kernel_hardening.kptr_exposed"),
+            detail=_t("kernel_hardening.kptr_exposed_detail"),
             cmd=_fix_cmd("kernel.kptr_restrict", 1),
             key="kernel_hardening.kptr_exposed",
         )
@@ -197,6 +200,7 @@ def check_kernel_hardening(snapshot: KernelHardeningSnapshot, t=None) -> CheckRe
     else:
         result.info(
             message=_t("kernel_hardening.dmesg_exposed"),
+            detail=_t("kernel_hardening.dmesg_exposed_detail"),
             cmd=_fix_cmd("kernel.dmesg_restrict", 1),
             key="kernel_hardening.dmesg_exposed",
         )

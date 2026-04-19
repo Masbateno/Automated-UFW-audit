@@ -6,6 +6,207 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.21.0] — 2026-04-19
+
+### Résumé
+- **CHECK 43** — Expiration certificats TLS/SSL : Let's Encrypt + `/etc/ssl/private` + configs nginx/apache2/postfix ; expiré → ALERT −2 pts ; <7 j → ALERT ; <30 j → WARN ; total plafonné −4 pts
+- **CHECK 44** — Timers systemd : curl/wget pipé vers un shell dans ExecStart → WARN −2 pts ; .sh world-writable → WARN −1 pt ; timer root créé par l'utilisateur → INFO
+- **CHECK 45** — Firmware & microcode : `fwupdmgr get-updates` → WARN −1 pt ; vérification paquet microcode CPU via dpkg → WARN −1 pt si absent (Intel/AMD uniquement)
+- **`--html`** — export HTML autonome : CSS embarqué, badges colorés, cercle de score, tableau déductions, sécurisé XSS
+- **`--check`/`--skip`** — n'exécuter que / exclure des checks nommés ; helper `_section_enabled()` remplace 31 gardes
+- **`--output-dir PATH`** — surcharger le répertoire rapport pour l'exécution courante, sans persistance
+- **Correctif** — note de contexte SSH : `snap.service.id == "ssh"` (comparaison `"ssh_server"` vs `"openssh"` toujours fausse)
+- **auditd** — `no_rules` rétrogradé en INFO sur le profil desktop
+- **Passage qualité** — firmware : cpu_vendor 3 états, dpkg correspondance exacte, fwupd erreur/mises à jour découplés ; systemd_timers : regex deux parties, resolve(), lstrip("-@"), dernier service
+
+### CHECK 43 — Expiration certificats TLS/SSL (`checks/ssl_certs.py`)
+
+**Nouveau fichier.** Sources analysées (lecture seule, aucun appel réseau) :
+- `/etc/letsencrypt/live/*/fullchain.pem` — certificats Let's Encrypt
+- `/etc/ssl/private/*.{pem,crt,cert}` — certs serveur installés manuellement
+- nginx : directives `ssl_certificate` dans `/etc/nginx/**/*.conf`
+- apache2 : directives `SSLCertificateFile` dans `/etc/apache2/**/*.conf`
+- postfix : `smtpd_tls_cert_file` dans `/etc/postfix/main.cf`
+
+**Impact sur le score** (par certificat, total plafonné à −4 pts) :
+- Expiré (`days_left ≤ 0`) : ALERT −2 pts
+- Expire < 7 jours : ALERT −2 pts
+- Expire < 30 jours : WARN −1 pt
+- Valide : OK (aucune déduction)
+
+**Constantes :** `_MAX_CERTS=30`, `_MAX_CONF_FILES=100`, `_MAX_CERT_SIZE=50 000 o`, `_WARN_DAYS=30`, `_ALERT_DAYS=7`
+
+**Détails :**
+- Dataclass `CertEntry` : `path`, `days_left` (None si illisible), `expiry_str`, `error`
+- `SslCertsSnapshot.from_system()` : déduplique les chemins ; ignore les fichiers >50 Ko (bundles CA) ; s'arrête à 30 certs
+- Chemins entre guillemets dans la config nginx/apache correctement traités
+- Liens symboliques cassés et erreurs de permission ignorés gracieusement
+- `check_ssl_certs()` : groupe par sévérité ; déduction accumulée puis plafonnée à 4 pts ; `openssl x509 -noout -enddate` pour lire la date d'expiration
+
+**Tests :** 59 tests dans `tests/test_ssl_certs.py`
+
+### CHECK 44 — Audit des timers systemd (`checks/systemd_timers.py`)
+
+**Nouveau fichier.** Complète `cron_audit.py` (qui couvre `/etc/cron.*`) en auditant les unités timer systemd.
+
+**Motifs vérifiés :**
+- `ExecStart` contenant curl/wget pipé vers un shell → WARN −2 pts (flat)
+- `ExecStart` référençant un script `.sh` world-writable → WARN −1 pt (flat)
+- Timer créé par l'utilisateur (dans `/etc/systemd/system/`) tournant en root (pas de `User=`) → INFO seulement
+
+**Détails de détection :**
+- Deux regex complémentaires : `_DOWNLOADER_RE` = `\b(curl|wget)\b` ; `_PIPE_TO_SHELL_RE` = `|\s*(/[a-z/]*/)?(?:ba)?sh\b` — les deux doivent correspondre
+- `systemctl list-timers --all --no-pager` pour découvrir les unités timer
+- `svc_path.resolve().as_posix().startswith("/etc/systemd/system/")` — détection symlink-safe
+- `lstrip("-@")` supprime les préfixes systemd ignore-fail (`-`) et argv0-override (`@`)
+- En cas de plusieurs `.service` sur une ligne ambiguë, le dernier est utilisé
+- `_MAX_TIMERS=100`, `_MAX_EXEC_LENGTH=200`
+
+**Tests :** 58 tests dans `tests/test_systemd_timers.py`
+
+### CHECK 45 — Audit firmware & microcode (`checks/firmware.py`)
+
+**Nouveau fichier.** Deux sous-checks indépendants.
+
+**Sous-check fwupd :**
+- `fwupdmgr get-updates` avec `--no-unreported-check --no-metadata-check` — utilise le cache sans appel réseau
+- Mises à jour firmware en attente → WARN −1 pt ; commande `sudo fwupdmgr update`
+- `fwupdmgr` absent ou erreur de commande → INFO uniquement (avec texte d'erreur)
+- Résultats erreur et mises à jour entièrement découplés
+
+**Sous-check microcode CPU :**
+- `_detect_cpu_vendor()` lit `/proc/cpuinfo` ; retourne `"intel"` | `"amd"` | `"unknown"`
+- `_dpkg_installed(package)` : correspondance exacte par colonne — gère `intel-microcode:amd64`
+- Intel → vérifie `intel-microcode` ; AMD → vérifie `amd64-microcode` ; unknown → INFO `microcode_na`
+- Paquet absent → WARN −1 pt ; installé → OK
+
+**Constantes :** `_FWUPD_TIMEOUT=30`, `_MAX_ERROR_LEN=200`, `_FWUPD_ERROR_RE`
+
+**Tests :** 54 tests dans `tests/test_firmware.py`
+
+### Export HTML (`html_output.py`)
+
+**Nouveau fichier.** `build_html_output(engine, sys_info)` produit un rapport HTML autosuffisant.
+
+**Fonctionnalités :**
+- Aucun JavaScript, aucune ressource externe — fichier unique autosuffisant
+- CSS embarqué : reset, body, h1/h2, table/th/td, `.score-circle`, `.badge`, `code`, `.meta-grid`, footer
+- Résumé score : cercle coloré (vert ≥8, orange ≥5, rouge <5) + label niveau (ALERT/WARN/INFO/OK/UNKNOWN)
+- Tableau des déductions (raison + points)
+- Findings groupés par sévérité avec badges colorés
+- Par finding : colonne message + commande de correction dans `<code>`
+
+**Sécurité :**
+- Wrapper `_h()` applique `html.escape(quote=True)` à toutes les données utilisateur — protection XSS
+- `level_label` gère `engine.level is None` avec repli `"UNKNOWN"`
+- Accès déductions : `getattr(engine, "deductions", getattr(engine, "_deductions", []))`
+
+**Tests :** 56 tests dans `tests/test_html_output.py`
+
+### `--check LIST` / `--skip LIST` — Filtres CLI par check
+
+**Nouveaux flags** dans `cli.py` :
+- `--check=ssh,firewall,ports` — n'exécute que ces checks
+- `--skip=clamav,rootkit` — exclut ces checks
+- Mutuellement exclusifs : `--check` + `--skip` ensemble → `CLIError`
+
+**`_section_enabled(section, config, profile)`** dans `runner.py` :
+- Retourne `True` quand la section doit s'exécuter
+- Respecte `config.check_only` (liste blanche), `config.skip_checks` (liste noire) et `profile.skip_sections`
+- `--check` peut forcer une section même si le profil la saute normalement
+- Remplace 31 gardes individuels dans `run_checks()`
+
+**`validate_check_filters(config)`** dans `runner.py` :
+- Avertit si un nom de section inconnu est passé à `--check` ou `--skip`
+- Appelé avant le début de l'audit
+
+### `--output-dir PATH`
+
+- `AuditConfig.output_dir: str = ""` — nouveau champ dans `cli.py`
+- `get_or_prompt_log_dir(config)` : retourne `config.output_dir` directement sans prompt ni sauvegarde
+- Ne persiste pas : chaque exécution doit passer `--output-dir` explicitement
+
+### Corrections de bugs
+
+**Note de contexte SSH (`runner.py`) :**
+- Symptôme : la note "SSH non accessible publiquement" n'était jamais affichée dans la section services.
+- Cause racine : `_svc_id` dérivé du label (`"SSH Server"` → `"ssh_server"`) comparé à `"openssh"` — toujours faux.
+- Correction : `snap.service.id == "ssh"` — l'identifiant canonique du registre.
+
+**auditd adapté au profil :**
+- Le finding `no_rules` rétrogradé de WARN −1 pt à INFO sur les profils `desktop` et `workstation` ; conserve WARN −1 pt sur `server`.
+
+### Passage qualité
+
+**`firmware.py` :** `_detect_cpu_vendor()` simplifié à 3 états nets ; `_dpkg_installed()` correspondance exacte par colonne ; résultats fwupd entièrement découplés.
+
+**`systemd_timers.py` :** deux regex indépendantes pour la détection pipe-to-shell ; `svc_path.resolve()` ; `lstrip("-@")` ; `services[-1]` sur les lignes ambiguës.
+
+### Tests
+
+| Fichier | Nombre | Couverture |
+|---------|--------|------------|
+| `tests/test_ssl_certs.py` | 59 | Defaults snapshot ; `_add_path` ; `_collect_from_configs` ; `check_ssl_certs()` tous les cas ; plafond −4 pts ; limite `_MAX_CERTS` |
+| `tests/test_systemd_timers.py` | 58 | 11 cas paramétrés pipe-to-shell ; dernier service sur ligne ambiguë ; `TestParseServiceFile` ; `TestFromSystem` ; logique check |
+| `tests/test_firmware.py` | 54 | `_detect_cpu_vendor` ; `_dpkg_installed` qualifié arch ; `check_firmware()` tous les chemins ; adapté au profil ; assertions comptage déductions |
+| `tests/test_html_output.py` | 56 | `build_html_output()` doctype HTML5, CSS, couleur cercle score, label niveau, échappement XSS, tableau déductions ; `FakeEngine` |
+| Fichiers existants | +57 | `test_cli.py`/`test_runner.py` : `--check`/`--skip`/`--output-dir`/`--html` ; `test_auditd.py` : INFO desktop ; assertions passage qualité |
+
+✅ **3778/3778 tests unitaires** (+284 par rapport à v1.20.0)
+
+---
+
+## [v1.20.0] — 2026-04-18
+
+### Résumé
+- **CHECK 40** — Niveau journalisation UFW : `off` → ALERT −2 pts ; `low`/`medium` → OK ; `high`/`full` → INFO (verbeux, aucune déduction)
+- **CHECK 41** — Umask système : `UmaskSnapshot` lit `/etc/login.defs`, PAM, `/etc/profile`, fichiers RC, processus courant ; umask permissif (0002/0000) → WARN −1 pt ; détection conflits entre sources
+- **CHECK 42** — Analyse auth.log SSH : `AuthLogSnapshot` analyse `/var/log/auth.log` ; brute-force >10 tentatives/60 s depuis la même IP → ALERT ; dernières connexions réussies ; principales sources d'échec
+- **Historique des scores** — `history.py` ; JSONL dans `~/.config/ufw-audit/history.jsonl` ; sparkline `--history` (▁▂▃▅▇█) ; rotation 90 entrées
+- **Liste d'exceptions** — `ignore.py` ; `--ignore KEY` persiste dans `ignore.yml` ; `--show-ignored` ; findings ignorés collectés sans être scorés ; astuce affichée
+- **Correctifs bugs** — classification ports système process-aware (`_SYSTEM_DAEMONS`) ; `ports.uncovered_default_deny` affiche le nom du processus ; auth_log `days=0` → clé `no_logins_no_range`
+
+### CHECK 40 — Niveau journalisation UFW (`checks/firewall.py`)
+
+- `check_ufw_logging()` : lit le niveau de journalisation UFW courant
+- `off` → ALERT, −2 pts ; `low`/`medium` → OK ; `high`/`full` → INFO
+- Nouvelles clés locale : `firewall.logging_off`, `firewall.logging_ok`, `firewall.logging_verbose`
+
+### CHECK 41 — Umask système (`checks/umask.py`)
+
+- `UmaskSnapshot` : lit le umask depuis `/etc/login.defs`, PAM, `/etc/profile`, fichiers RC shell, processus courant
+- `check_umask()` : 0022 OK ; 0002/0000 → WARN −1 pt ; conflit entre sources → WARN −1 pt
+- `_fix_cmd()` : propose `/etc/profile.d/umask.conf` avec `umask 0027` ou `0022`
+
+### CHECK 42 — Analyse auth.log SSH (`checks/auth_log.py`)
+
+- `AuthLogSnapshot` : analyse `/var/log/auth.log`
+- `check_auth_log()` : >10 tentatives/60 s → ALERT ; dernières connexions réussies ; principales sources d'échec
+- Correction `days=0` : log vide/juste tourné → clé `auth_log.no_logins_no_range`
+
+### Historique des scores (`history.py`)
+
+- Dataclass `HistoryEntry` + `load_history()` / `save_history()` — JSONL
+- `--history` : sparkline (▁▂▃▅▇█) avec date et score
+- Rotation automatique : 90 entrées maximum
+
+### Liste d'exceptions (`ignore.py`)
+
+- `--ignore KEY` — ajoute une clé dans `ignore.yml` ; masqué dans tous les audits futurs
+- `--show-ignored` — liste toutes les clés actuellement ignorées
+- Frozenset `ScoreEngine.ignore_keys` : findings ignorés collectés sans être scorés
+
+### Correctifs bugs
+
+- `1900/udp` (UPnP/SSDP) appartenant à Spotify classé `SYSTEM_INTERNAL` → ajout frozenset `_SYSTEM_DAEMONS`
+- `auth_log` : `_estimate_days()` retournait 0 sur log vide → clé `no_logins_no_range`
+
+### Tests
+
+✅ **3494/3494 tests unitaires** (+235 par rapport à v1.19.0)
+
+---
+
 ## [v1.19.0] — 2026-04-17
 
 ### Résumé

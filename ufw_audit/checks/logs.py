@@ -162,7 +162,7 @@ class LogsSnapshot:
                 logger.warning("Cannot read %s: %s", log_path, exc)
 
         # --- Fallback: journald (Debian/systemd without rsyslog) ---
-        content = _read_from_journald(log_days)
+        content, journald_reachable = _read_from_journald(log_days)
         if content:
             days_available = _count_available_days(content)
             entries = _parse_log(content, cutoff_dt)
@@ -173,6 +173,11 @@ class LogsSnapshot:
                 log_found=True,
                 log_source="journald",
             )
+
+        if journald_reachable:
+            # journald works but no UFW BLOCK entries yet — not a config problem
+            return cls(entries=[], days_available=0,
+                       log_days=log_days, log_found=True, log_source="journald")
 
         return cls(entries=[], days_available=0,
                    log_days=log_days, log_found=False, log_source="none")
@@ -486,7 +491,7 @@ def geoip2_status() -> str:
 # Parsing helpers
 # ---------------------------------------------------------------------------
 
-def _read_from_journald(log_days: int) -> str:
+def _read_from_journald(log_days: int) -> tuple[str, bool]:
     """
     Read UFW kernel log entries from systemd-journald.
 
@@ -494,8 +499,9 @@ def _read_from_journald(log_days: int) -> str:
     journald-only logging, no rsyslog).
 
     Returns:
-        Raw log content string (ISO-formatted lines), or empty string if
-        journald is unavailable or returned no UFW entries.
+        (content, reachable) where content contains UFW BLOCK lines (may be
+        empty even when reachable — e.g. fresh system with no blocked traffic),
+        and reachable is True if journald responded successfully.
     """
     try:
         import subprocess as _sp
@@ -510,13 +516,12 @@ def _read_from_journald(log_days: int) -> str:
             text=True,
             timeout=30,
         )
-        content = result.stdout
-        # Only return content if it actually contains UFW entries
-        if "[UFW " in content:
-            return content
+        if result.returncode == 0 and result.stdout.strip():
+            content = result.stdout
+            return (content if "[UFW " in content else ""), True
     except Exception:
         pass
-    return ""
+    return "", False
 
 
 def _count_available_days(content: str) -> int:

@@ -6,6 +6,164 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.21.0] — 2026-04-19
+
+### TL;DR
+- **CHECK 43** — TLS/SSL cert expiry: Let's Encrypt + `/etc/ssl/private` + nginx/apache2/postfix configs; expired → ALERT −2 pts; <7 d → ALERT; <30 d → WARN; total capped −4 pts
+- **CHECK 44** — Systemd timers: curl/wget pipe-to-shell in ExecStart → WARN −2 pts; world-writable .sh → WARN −1 pt; user-created root timer → INFO
+- **CHECK 45** — Firmware & microcode: `fwupdmgr get-updates` → WARN −1 pt; CPU microcode dpkg check → WARN −1 pt if missing (Intel/AMD only)
+- **`--html`** — standalone HTML export: embedded CSS, colored badges, score circle, deductions table, XSS-safe
+- **`--check`/`--skip`** — run-only or exclude named checks; `_section_enabled()` helper replaces 31 guards
+- **`--output-dir PATH`** — override report directory for current run, no persist
+- **Bug fix** — SSH context note: `snap.service.id == "ssh"` (was comparing derived label `"ssh_server"` against `"openssh"`)
+- **auditd** — `no_rules` downgraded to INFO on desktop profile
+- **Quality pass** — firmware: 3-state cpu_vendor, dpkg exact column match, fwupd error/updates decoupled; systemd_timers: two-part regex, resolve(), lstrip("-@"), last-service
+
+### CHECK 43 — TLS/SSL certificate expiry (`checks/ssl_certs.py`)
+
+**New file.** Sources scanned (read-only, no network calls):
+- `/etc/letsencrypt/live/*/fullchain.pem` — Let's Encrypt certificates
+- `/etc/ssl/private/*.{pem,crt,cert}` — manually installed server certs
+- nginx: `ssl_certificate` directives in `/etc/nginx/**/*.conf`
+- apache2: `SSLCertificateFile` directives in `/etc/apache2/**/*.conf`
+- postfix: `smtpd_tls_cert_file` in `/etc/postfix/main.cf`
+
+**Score impact** (per certificate, total capped at −4 pts):
+- Expired (`days_left ≤ 0`): ALERT −2 pts
+- Expires < 7 days: ALERT −2 pts
+- Expires < 30 days: WARN −1 pt
+- Valid: OK (no deduction)
+
+**Constants:** `_MAX_CERTS=30`, `_MAX_CONF_FILES=100`, `_MAX_CERT_SIZE=50_000` bytes, `_WARN_DAYS=30`, `_ALERT_DAYS=7`
+
+**Details:**
+- `CertEntry` dataclass: `path`, `days_left` (None if unreadable), `expiry_str`, `error`
+- `SslCertsSnapshot.from_system()`: deduplicates paths; skips files >50 KB (CA bundles); stops at 30 certs
+- Quoted paths in nginx/apache config stripped (`ssl_certificate "/path"` → `/path`)
+- Broken symlinks and permission errors skipped gracefully
+- `check_ssl_certs()`: groups by severity; deduction accumulated then capped at 4 pts; `openssl x509 -noout -enddate` used to read expiry
+
+**Tests:** 59 tests in `tests/test_ssl_certs.py`
+
+### CHECK 44 — Systemd timers audit (`checks/systemd_timers.py`)
+
+**New file.** Complements `cron_audit.py` (which covers `/etc/cron.*`) by auditing systemd timer units.
+
+**Patterns checked:**
+- `ExecStart` containing curl/wget piped to a shell → WARN −2 pts (flat)
+- `ExecStart` referencing a world-writable `.sh` script → WARN −1 pt (flat)
+- User-created timer (in `/etc/systemd/system/`) running as root (no `User=`) → INFO only
+
+**Detection details:**
+- Two-part regex: `_DOWNLOADER_RE` = `\b(curl|wget)\b`; `_PIPE_TO_SHELL_RE` = `|\s*(/[a-z/]*/)?(?:ba)?sh\b` — both must match to avoid false positives from path prefixes (`/bin/bash`)
+- `systemctl list-timers --all --no-pager` used to discover timer units
+- For each timer, associated `.service` file located via `_SERVICE_DIRS` search order
+- `svc_path.resolve().as_posix().startswith("/etc/systemd/system/")` — symlink-safe user-created detection
+- `lstrip("-@")` on ExecStart values strips systemd ignore-fail (`-`) and argv0-override (`@`) prefixes
+- When a timer line lists multiple `.service` matches, the last one is used
+- `_MAX_TIMERS=100`, `_MAX_EXEC_LENGTH=200`
+
+**Tests:** 58 tests in `tests/test_systemd_timers.py`
+
+### CHECK 45 — Firmware & microcode audit (`checks/firmware.py`)
+
+**New file.** Two independent sub-checks.
+
+**fwupd sub-check:**
+- Runs `fwupdmgr get-updates` with `--no-unreported-check --no-metadata-check` to use cached metadata without network
+- Pending firmware updates → WARN −1 pt; explicit fix command: `sudo fwupdmgr update`
+- `fwupdmgr` absent or command error → INFO only (with error text)
+- Error and update results fully decoupled: both can appear simultaneously
+
+**CPU microcode sub-check:**
+- `_detect_cpu_vendor()` reads `/proc/cpuinfo`; returns `"intel"` | `"amd"` | `"unknown"`
+- `_dpkg_installed(package)`: parses `dpkg -l` output; column-based exact match — handles `intel-microcode:amd64` correctly
+- Intel → checks `intel-microcode`; AMD → checks `amd64-microcode`; unknown → INFO `microcode_na`
+- Missing package → WARN −1 pt; installed → OK
+
+**Constants:** `_FWUPD_TIMEOUT=30`, `_MAX_ERROR_LEN=200`, `_FWUPD_ERROR_RE`
+
+**Tests:** 54 tests in `tests/test_firmware.py`
+
+### HTML export (`html_output.py`)
+
+**New file.** `build_html_output(engine, sys_info)` produces a standalone HTML report.
+
+**Features:**
+- No JavaScript, no external resources — self-contained single file
+- Embedded CSS: reset, body, h1/h2, table/th/td, `.score-circle`, `.badge`, `code`, `.meta-grid`, footer
+- Score summary: colored circle (green ≥8, orange ≥5, red <5) + level label (ALERT/WARN/INFO/OK/UNKNOWN)
+- Score deductions table (reason + points)
+- Findings grouped by severity with colored badges
+- Per-finding: message column + fix command in `<code>` block
+
+**Security:**
+- `_h()` wrapper applies `html.escape(quote=True)` to all user-supplied strings — XSS-safe
+- `level_label` handles `engine.level is None` with `"UNKNOWN"` fallback
+- Deduction access: `getattr(engine, "deductions", getattr(engine, "_deductions", []))` — compatible with public/private attribute naming
+
+**Tests:** 56 tests in `tests/test_html_output.py`
+
+### `--check LIST` / `--skip LIST` — Check-level CLI filters
+
+**New flags** in `cli.py`:
+- `--check=ssh,firewall,ports` or `--check ssh,firewall,ports` — run only these checks
+- `--skip=clamav,rootkit` or `--skip clamav,rootkit` — exclude these checks
+- Mutually exclusive: `--check` and `--skip` together → `CLIError`
+
+**`_section_enabled(section, config, profile)`** in `runner.py`:
+- Returns `True` when the section should run
+- Respects `config.check_only` (allowlist), `config.skip_checks` (denylist), and `profile.skip_sections`
+- `--check` can force a section even if the profile normally skips it (explicit user intent)
+- Replaced 31 individual guards spread across `run_checks()`
+
+**`validate_check_filters(config)`** in `runner.py`:
+- Warns (INFO to stderr) if an unknown section name is passed to `--check` or `--skip`
+- Called before the audit begins
+
+### `--output-dir PATH`
+
+- `AuditConfig.output_dir: str = ""` — new field in `cli.py`
+- `get_or_prompt_log_dir(config)` in `manage_logs.py`: when `config.output_dir` is non-empty, returns it directly without prompting or saving to user config
+- Does not persist: each run must pass `--output-dir` explicitly to use a custom directory
+
+### Bug fixes
+
+**SSH context note (runner.py):**
+- Symptom: "SSH not publicly accessible — exposing it externally increases risk" was never shown in the services section.
+- Root cause: `_svc_id` was derived from the service label (`"SSH Server"` → `"ssh_server"`) and compared against `"openssh"` — always failed.
+- Fix: `snap.service.id == "ssh"` — the canonical service identifier from the registry.
+
+**auditd profile-aware scoring:**
+- `no_rules` finding downgraded from WARN −1 pt to INFO on `desktop` and `workstation` profiles; remains WARN −1 pt on `server` profile.
+
+### Quality pass
+
+**`firmware.py`:**
+- `_detect_cpu_vendor()`: 3 clean states (`"intel"`, `"amd"`, `"unknown"`) — eliminates empty-string ambiguity
+- `_dpkg_installed()`: `cols[1].split(":")[0] == package` — prevents false matches on arch-qualified names
+- fwupd error and updates results fully decoupled
+
+**`systemd_timers.py`:**
+- Pipe-to-shell detection: two independent regexes — correctly handles `/bin/bash`, `bash -c`, `| sh -c`
+- `svc_path.resolve()` before prefix check — symlink-safe
+- `lstrip("-@")` on all ExecStart values
+- `services[-1]` on ambiguous timer lines — matches systemd ACTIVATES column behaviour
+
+### Tests
+
+| File | Count | Coverage |
+|------|-------|----------|
+| `tests/test_ssl_certs.py` | 59 | `SslCertsSnapshot` defaults; `_add_path`; `_collect_from_configs` (nginx, apache2, postfix, quoted paths); `check_ssl_certs()` — expired ALERT, <7d ALERT, <30d WARN, valid OK, cap at −4; `_MAX_CERTS` limit; no-t guard |
+| `tests/test_systemd_timers.py` | 58 | `SystemdTimersSnapshot` defaults; 11 parametrized pipe-to-shell cases; ambiguous-line last-service; `TestParseServiceFile`; `TestFromSystem`; check logic; no-t guard |
+| `tests/test_firmware.py` | 54 | `FirmwareSnapshot` defaults; `_detect_cpu_vendor`; `_dpkg_installed` (arch-qualified); `check_firmware()` all paths; profile-aware; deduction count assertions |
+| `tests/test_html_output.py` | 56 | `build_html_output()` — HTML5 doctype, CSS, score circle color, level label, XSS escaping, deduction table, all severity levels; `FakeEngine`; DOM assertions |
+| Existing files | +57 | `test_cli.py`/`test_runner.py`: `--check`/`--skip`/`--output-dir`/`--html`; `test_auditd.py`: desktop INFO; quality pass assertions |
+
+✅ **3778/3778 unit tests** (+284 from v1.20.0)
+
+---
+
 ## [v1.20.0] — 2026-04-18
 
 ### TL;DR

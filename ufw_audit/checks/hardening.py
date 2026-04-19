@@ -162,6 +162,7 @@ def check_hardening(snapshot: HardeningSnapshot, t=None) -> CheckResult:
     else:
         result.info(
             message=_t("hardening.log_martians_disabled"),
+            detail=_t("hardening.log_martians_disabled_detail"),
             cmd="sudo sysctl -w net.ipv4.conf.all.log_martians=1 && echo 'net.ipv4.conf.all.log_martians=1' | sudo tee -a /etc/sysctl.d/99-hardening.conf",
             key="hardening.log_martians_disabled",
         )
@@ -248,6 +249,7 @@ def check_hardening(snapshot: HardeningSnapshot, t=None) -> CheckResult:
     else:
         result.warn(
             message=_t("hardening.send_redirects_enabled"),
+            detail=_t("hardening.send_redirects_detail"),
             nature="improvement",
             cmd="sudo sysctl -w net.ipv4.conf.all.send_redirects=0 && echo 'net.ipv4.conf.all.send_redirects=0' | sudo tee -a /etc/sysctl.d/99-hardening.conf",
             key="hardening.send_redirects_enabled",

@@ -11,6 +11,7 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 
 | Version | Tests | Notes |
 |---------|-------|-------|
+| v1.21.0 | 3778  | +284 tests — `test_ssl_certs.py` (59), `test_systemd_timers.py` (58), `test_firmware.py` (54), `test_html_output.py` (56); existing files: +57 (`test_cli.py`/`test_runner.py` — `--check`/`--skip`/`--output-dir`/`--html`; `test_auditd.py` — desktop INFO; quality pass assertions) |
 | v1.20.0 | 3494  | +235 tests — `test_auth_log.py` (62), `test_history.py` (36), `test_ignore.py` (44), `test_umask.py` (54), `test_ufw_logging.py` (32); bug fixes: auth_log days=0, process-aware system ports, port process name in messages |
 | v1.19.0 | 3259  | +530 tests — `test_hardening.py` +29 (6 new sysctl checks); `test_ssh.py` +7 (PermitRootLogin OK); new: `test_suid_audit.py`, `test_kernel_hardening.py`, `test_docker_audit.py`, `test_log_rotation.py`, `test_csv_output.py`, `test_markdown_output.py`, `test_min_level.py`, `test_watch.py` |
 | v1.18.0 | 2729  | +222 tests — `test_mac_policy.py` (new, 40), `test_backup.py` (new, 39), other modified files (+143) |
@@ -41,6 +42,27 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v0.18   | 531   | 26 new tests for `fixes.py`; `run_fixes()` fully covered |
 | v0.17   | 505   | 15 pre-existing failures fixed; suite fully green |
 | v0.9    | 421   | First full suite |
+
+### v1.21.0 — 3778/3778 (2026-04-19)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+3778 passed in 5.09s
+```
+
+#### New / modified tests (+284)
+
+| File | Change | Coverage |
+|------|--------|----------|
+| `tests/test_ssl_certs.py` | New — 59 tests | `SslCertsSnapshot` defaults; `_add_path` — dedup, broken symlink skip, CA bundle skip (>50 KB); `_collect_from_configs` — nginx quoted path, apache2, postfix, inline comment ignored, extra whitespace; `check_ssl_certs()` — expired ALERT −2, <7d ALERT −2, <30d WARN −1, valid OK, cap at −4 (expired+critical+two WARN = 4 not 5), `_MAX_CERTS` limit; no-t guard |
+| `tests/test_systemd_timers.py` | New — 58 tests | `SystemdTimersSnapshot` defaults; `TestPipeToShellDetection` (11 parametrized: `\| bash`, `\| /bin/bash`, `\| bash -c`, wget+bash, zsh, ksh, no pipe, no downloader, only downloader, only pipe, empty); `test_ambiguous_line_uses_last_service`; `TestParseServiceFile` (minus prefix, at prefix, no ExecStart, User=root present); `TestFromSystem` (_MAX_TIMERS cap at 100, world-writable script dedup, mixed ExecStart, User=root); check logic — pipe WARN −2, world-writable WARN −1, root-timer INFO, ok; no-t guard |
+| `tests/test_firmware.py` | New — 54 tests | `FirmwareSnapshot` defaults; `_detect_cpu_vendor` (intel, amd, unknown, arm/other); `_dpkg_installed` (basic, arch-qualified `intel-microcode:amd64`, not installed); `check_firmware()` — pending fwupd WARN −1 pt, no fwupd INFO, fwupd error INFO+text, error and updates both reported, missing intel-microcode WARN −1, missing amd microcode WARN −1, both packages installed OK, unknown CPU INFO; deduction count assertions (len==1 before access) |
+| `tests/test_html_output.py` | New — 56 tests | `build_html_output()` — HTML5 doctype, `<title>` contains hostname, CSS present, `.score-circle` background color (green/orange/red thresholds), level label (ALERT/WARN/INFO/OK), alert/warn counts in summary, hostname HTML-escaped, XSS injection in message (no `<img>` tag in DOM), deduction table rendered, "No findings" message, all four severity levels rendered; `FakeEngine` class (no mock); DOM assertions via BeautifulSoup |
+| Existing test files | +57 tests | `test_cli.py`: `--check` single, multiple, space-separated, `--skip` single/multiple, `--check`+`--skip` CLIError, `--output-dir`, `--html` flag; `test_runner.py`: `_section_enabled` default (true), check_only filters out, skip_checks filters out, profile skip_sections, `--check` overrides profile skip; `test_auditd.py`: `no_rules` finding is INFO (not WARN) on desktop profile; quality pass assertions in `test_firmware.py` and `test_systemd_timers.py` |
+
+---
 
 ### v1.20.0 — 3494/3494 (2026-04-18)
 

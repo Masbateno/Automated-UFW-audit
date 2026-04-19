@@ -1,9 +1,9 @@
 *[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
-# ufw-audit v1.20.0
+# ufw-audit v1.21.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.20.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.21.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -72,6 +72,12 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **Score history** — JSONL at `~/.config/ufw-audit/history.jsonl`; `--history` displays last N audit scores as a sparkline (▁▂▃▄▅▆▇█) with date; automatic 90-entry rotation
 - **Ignore list** — `--ignore KEY` adds a finding key to `ignore.yml`; `--show-ignored` lists all active exceptions; `ScoreEngine.ignore_keys` frozenset silences matching findings without scoring; hint shown in output; `{check_key}` placeholder used in locale key to avoid `t()` signature conflict
 - **Process-aware system port classification** — `_SYSTEM_DAEMONS` frozenset in `checks/ports.py`; ports in `_SYSTEM_PORTS` (DNS, DHCP, mDNS, UPnP…) are classified `SYSTEM_INTERNAL` only when the owning process is a known OS daemon; user-space apps (e.g. Spotify on `1900/udp`) fall through to standard exposure checks
+- **TLS/SSL certificate expiry audit** — scans Let's Encrypt (`/etc/letsencrypt/live/*/fullchain.pem`), `/etc/ssl/private/*.{pem,crt,cert}`, nginx `ssl_certificate`, apache2 `SSLCertificateFile`, postfix `smtpd_tls_cert_file`; expired → ALERT −2 pts; <7 d → ALERT −2 pts; <30 d → WARN −1 pt; total capped at −4 pts; `_MAX_CERTS=30`; quoted paths and broken symlinks handled
+- **Systemd timers security audit** — `systemctl list-timers --all --no-pager`; curl/wget piped to a shell in ExecStart → WARN −2 pts (flat); world-writable `.sh` scripts in ExecStart → WARN −1 pt (flat); user-created timers in `/etc/systemd/system/` without `User=` → INFO; two-part regex prevents false negatives on `/bin/bash`/`bash -c`; `lstrip("-@")` handles systemd prefixes; `_MAX_TIMERS=100`
+- **Firmware & microcode audit** — `fwupdmgr get-updates` (cached, no forced network); pending device firmware → WARN −1 pt; CPU microcode package via `dpkg -l`; Intel → `intel-microcode`; AMD → `amd64-microcode`; non-Intel/AMD → INFO; missing → WARN −1 pt; exact column match prevents false positives on arch-qualified packages; error and updates decoupled
+- **`--html` HTML export** — `build_html_output()` produces a self-contained HTML file (no JS, no external resources); embedded CSS; colored score circle; ALERT/WARN/INFO/OK badges; deductions table; `_h()` applies `html.escape(quote=True)` to all user data — XSS-safe
+- **`--check LIST` / `--skip LIST`** — run only named checks (`--check=ssh,firewall`) or exclude them (`--skip=clamav,rootkit`); mutually exclusive; `_section_enabled()` helper in `runner.py`; `validate_check_filters()` warns on unknown names; profile `skip_sections` respected
+- **`--output-dir PATH`** — override report save directory for the current run; `get_or_prompt_log_dir()` prioritises this over saved config; no persist
 
 ---
 

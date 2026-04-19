@@ -77,6 +77,9 @@ _PREFIX_TO_DOMAIN: dict[str, str] = {
     "logs":             "hardening",
     "umask":            "hardening",
     "auth_log":         "ssh",
+    "ssl_certs":        "hardening",
+    "systemd_timers":   "hardening",
+    "firmware":         "hardening",
     "disk":             "disk",
 }
 
@@ -97,6 +100,29 @@ def _key_to_domain(key: str | None) -> str | None:
 # ---------------------------------------------------------------------------
 # Main computation
 # ---------------------------------------------------------------------------
+
+def active_domains_from_engine(engine: "ScoreEngine") -> frozenset[str]:
+    """
+    Return the set of domain names that have at least one finding or deduction.
+
+    Used to hide domains whose service is not installed (e.g. Samba absent →
+    no samba.* findings → domain excluded from the score display).
+    """
+    active: set[str] = set()
+    for finding in getattr(engine, "findings", []):
+        domain = _key_to_domain(getattr(finding, "key", None))
+        if domain:
+            active.add(domain)
+    for finding in getattr(engine, "ignored_findings", []):
+        domain = _key_to_domain(getattr(finding, "key", None))
+        if domain:
+            active.add(domain)
+    for deduction in getattr(engine, "breakdown", []):
+        domain = _key_to_domain(getattr(deduction, "key", None))
+        if domain:
+            active.add(domain)
+    return frozenset(active)
+
 
 def compute_domain_scores(engine: "ScoreEngine") -> dict[str, dict]:
     """
@@ -144,7 +170,11 @@ _BAR_FILLED = "█"
 _BAR_EMPTY  = "░"
 
 
-def render_domain_scores(scores: dict[str, dict], t=None) -> list[str]:
+def render_domain_scores(
+    scores: dict[str, dict],
+    t=None,
+    active_domains: "frozenset[str] | None" = None,
+) -> list[str]:
     """
     Render domain scores as a list of indented text lines.
 
@@ -177,6 +207,8 @@ def render_domain_scores(scores: dict[str, dict], t=None) -> list[str]:
 
     for domain in DOMAINS:
         if domain not in scores:
+            continue
+        if active_domains is not None and domain not in active_domains:
             continue
         info   = scores[domain]
         score  = info["score"]

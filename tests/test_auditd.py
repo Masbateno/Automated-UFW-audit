@@ -130,12 +130,33 @@ class TestNoRules:
         assert "auditd.no_rules" in finding_keys(result)
 
     def test_check_cmd_type_on_no_rules(self):
-        """The 'check' command should be cmd_type='check' (diagnostic)."""
+        """The fix command should be cmd_type='fix' (actionable rules)."""
         snap = make_snap(watched_files=set(), rule_count=0)
         result = check_auditd(snap, t=_t)
         matches = [f for f in result.findings if f.key == "auditd.no_rules"]
         assert matches, "missing finding auditd.no_rules"
-        assert matches[0].cmd_type == "check"
+        assert matches[0].cmd_type == "fix"
+
+    def test_info_on_desktop_when_no_rules(self):
+        snap = make_snap(watched_files=set(), rule_count=0)
+        result = check_auditd(snap, t=_t, profile_name="desktop")
+        assert has_level(result, "info")
+
+    def test_no_deduction_on_desktop_when_no_rules(self):
+        snap = make_snap(watched_files=set(), rule_count=0)
+        result = check_auditd(snap, t=_t, profile_name="desktop")
+        assert total_deductions(result) == 0
+
+    def test_workstation_alias_no_deduction_when_no_rules(self):
+        snap = make_snap(watched_files=set(), rule_count=0)
+        result = check_auditd(snap, t=_t, profile_name="workstation")
+        assert total_deductions(result) == 0
+
+    def test_fix_cmd_present_on_desktop_no_rules(self):
+        snap = make_snap(watched_files=set(), rule_count=0)
+        result = check_auditd(snap, t=_t, profile_name="desktop")
+        matches = [f for f in result.findings if f.key == "auditd.no_rules"]
+        assert matches[0].cmd_type == "fix"
 
 
 # ---------------------------------------------------------------------------

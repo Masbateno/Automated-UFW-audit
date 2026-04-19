@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import pytest
 from pathlib import Path
+from unittest.mock import patch
 from ufw_audit.checks.auth_log import (
     AuthLogSnapshot, LoginEntry, check_auth_log,
     _is_private, _estimate_days, _LOG_PATHS, _BRUTE_FORCE_THRESHOLD,
+    _read_auth_from_journald,
 )
 from ufw_audit.scoring import FindingLevel
 
@@ -375,7 +377,8 @@ class TestAuthLogSnapshotMocked:
 
     def test_from_system_no_log_unavailable(self, tmp_path, monkeypatch):
         monkeypatch.setattr("ufw_audit.checks.auth_log._LOG_PATHS", [tmp_path / "missing.log"])
-        snap = AuthLogSnapshot.from_system()
+        with patch("ufw_audit.checks.auth_log._read_auth_from_journald", return_value=""):
+            snap = AuthLogSnapshot.from_system()
         assert not snap.log_available
         assert snap.entries == []
 
@@ -384,7 +387,8 @@ class TestAuthLogSnapshotMocked:
         log.write_text(self._PUBLICKEY_LINE)
         log.chmod(0o000)
         monkeypatch.setattr("ufw_audit.checks.auth_log._LOG_PATHS", [log])
-        snap = AuthLogSnapshot.from_system()
+        with patch("ufw_audit.checks.auth_log._read_auth_from_journald", return_value=""):
+            snap = AuthLogSnapshot.from_system()
         assert not snap.log_available
         log.chmod(0o644)
 
@@ -417,3 +421,69 @@ class TestAuthLogSnapshotFromSystem:
     def test_failed_count_non_negative(self):
         snap = AuthLogSnapshot.from_system()
         assert snap.failed_count >= 0
+
+
+# ---------------------------------------------------------------------------
+# journald fallback
+# ---------------------------------------------------------------------------
+
+_JOURNALD_AUTH_SAMPLE = (
+    "Apr 18 10:23:45 debian13vm sshd[1234]: "
+    "Accepted publickey for so6 from 192.168.1.10 port 54321 ssh2: "
+    "RSA SHA256:abc123\n"
+    "Apr 18 10:30:00 debian13vm sshd[1235]: "
+    "Failed password for root from 5.6.7.8 port 22222 ssh2\n"
+)
+
+
+class TestReadAuthFromJournald:
+    def test_returns_content_on_success(self):
+        import subprocess
+        mock_result = type("R", (), {"returncode": 0, "stdout": _JOURNALD_AUTH_SAMPLE})()
+        with patch("subprocess.run", return_value=mock_result):
+            content = _read_auth_from_journald()
+        assert "Accepted" in content
+
+    def test_returns_empty_on_exception(self):
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            content = _read_auth_from_journald()
+        assert content == ""
+
+    def test_returns_empty_on_nonzero_returncode(self):
+        mock_result = type("R", (), {"returncode": 1, "stdout": ""})()
+        with patch("subprocess.run", return_value=mock_result):
+            content = _read_auth_from_journald()
+        assert content == ""
+
+
+class TestFromSystemJournaldFallback:
+    def test_journald_used_when_no_auth_log(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("ufw_audit.checks.auth_log._LOG_PATHS", [tmp_path / "missing.log"])
+        with patch("ufw_audit.checks.auth_log._read_auth_from_journald",
+                   return_value=_JOURNALD_AUTH_SAMPLE):
+            snap = AuthLogSnapshot.from_system()
+        assert snap.log_available
+        assert len(snap.entries) == 1
+        assert snap.entries[0].user == "so6"
+
+    def test_journald_failed_count_parsed(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("ufw_audit.checks.auth_log._LOG_PATHS", [tmp_path / "missing.log"])
+        with patch("ufw_audit.checks.auth_log._read_auth_from_journald",
+                   return_value=_JOURNALD_AUTH_SAMPLE):
+            snap = AuthLogSnapshot.from_system()
+        assert snap.failed_count == 1
+
+    def test_journald_empty_returns_unavailable(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("ufw_audit.checks.auth_log._LOG_PATHS", [tmp_path / "missing.log"])
+        with patch("ufw_audit.checks.auth_log._read_auth_from_journald", return_value=""):
+            snap = AuthLogSnapshot.from_system()
+        assert not snap.log_available
+
+    def test_file_preferred_over_journald(self, tmp_path, monkeypatch):
+        log = tmp_path / "auth.log"
+        log.write_text(_JOURNALD_AUTH_SAMPLE)
+        monkeypatch.setattr("ufw_audit.checks.auth_log._LOG_PATHS", [log])
+        with patch("ufw_audit.checks.auth_log._read_auth_from_journald") as mock_jd:
+            snap = AuthLogSnapshot.from_system()
+        mock_jd.assert_not_called()
+        assert snap.log_available

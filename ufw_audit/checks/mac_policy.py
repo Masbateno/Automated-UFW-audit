@@ -148,6 +148,17 @@ def check_mac_policy(
             ),
             key="mac_policy.apparmor_ok",
         )
+        if snapshot.apparmor_complain > 0:
+            result.info(
+                message=_t(
+                    "mac_policy.apparmor_complain_profiles",
+                    complain=snapshot.apparmor_complain,
+                ),
+                detail=_t("mac_policy.apparmor_complain_detail"),
+                cmd="sudo aa-enforce /etc/apparmor.d/*",
+                cmd_type="fix",
+                key="mac_policy.apparmor_complain_profiles",
+            )
         if se_mode == "permissive":
             result.info(
                 message=_t("mac_policy.selinux_permissive"),

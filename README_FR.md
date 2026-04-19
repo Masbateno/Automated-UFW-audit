@@ -156,21 +156,22 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Qualité & fiabilité
 
-- ✅ 3494 tests unitaires
+- ✅ 3778 tests unitaires
 - 🧱 Architecture modulaire (snapshot / check séparés)
 - 🧪 Testé sur Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.20.0
+## 🆕 v1.21.0
 
-- 📋 **Contrôle niveau de journalisation UFW** — détecte si la journalisation UFW est désactivée (`off` → ALERT −2 pts) ou en mode verbeux (`high`/`full` → INFO)
-- 🔒 **Audit umask système** — lit le umask depuis toutes les sources (`/etc/login.defs`, PAM, `/etc/profile`, processus courant) ; valeurs permissives (0002/0000) → WARN −1 pt ; conflits entre sources détectés
-- 🔍 **Analyse auth.log SSH** — détection brute-force (>10 tentatives échouées/60 s depuis la même IP → ALERT) ; dernières connexions réussies ; principales sources d'échec
-- 📈 **Historique des scores** — `--history` affiche un sparkline des audits passés (▁▂▃▄▅▆▇█) ; journal JSONL dans `~/.config/ufw-audit/history.jsonl`
-- 🚫 **Liste d'exceptions** — `--ignore KEY` masque définitivement un finding ; `--show-ignored` liste toutes les exceptions actives ; persisté dans `ignore.yml`
-- 🐛 **Ports système process-aware** — les ports UPnP/mDNS/DNS ne sont plus silencieusement ignorés quand ils appartiennent à une application utilisateur (ex. Spotify sur `1900/udp`)
-- ✅ 3494/3494 tests unitaires (+235)
+- 🔐 **Expiration des certificats TLS/SSL** — analyse Let's Encrypt, `/etc/ssl/private`, configs nginx/apache2/postfix ; expiré → ALERT −2 pts ; <7 jours → ALERT ; <30 jours → WARN ; total plafonné à −4 pts
+- ⏱ **Audit des timers systemd** — détecte `curl|wget` pipé vers un shell dans `ExecStart` (→ WARN −2 pts) ; scripts `.sh` world-writable (→ WARN −1 pt) ; timers root créés par l'utilisateur (→ INFO)
+- 🔧 **Audit firmware & microcode** — `fwupdmgr get-updates` pour les firmwares (→ WARN −1 pt) ; présence du paquet microcode CPU via `dpkg` (Intel/AMD → WARN −1 pt si absent)
+- 📄 **Export `--html`** — rapport HTML autonome (sans JS, sans ressources externes) ; badges colorés, cercle de score, tableau des déductions
+- 🎯 **`--check`/`--skip`** — n'exécuter que certains checks (`--check=ssh,firewall`) ou les exclure (`--skip=clamav,rootkit`) ; mutuellement exclusifs
+- 📁 **`--output-dir PATH`** — répertoire de sauvegarde du rapport pour l'exécution courante sans modifier la config sauvegardée
+- 🐛 **Correction note de contexte SSH** — la note "SSH non accessible publiquement" s'affiche désormais correctement dans la section services
+- ✅ 3778/3778 tests unitaires (+284)
 
 ---
 
@@ -196,7 +197,7 @@ Automated-UFW-audit/
 │   ├── TESTING.md / _FR.md         # plan de test & scénarios validés
 │   └── AUTOMATION.md / _FR.md      # guide d'automatisation cron
 ├── ufw_audit/                      # package Python
-│   ├── checks/                     # firewall, services, ports, logs, ddns, docker, virt, ssh
+│   ├── checks/                     # firewall, services, ports, logs, ddns, docker, virt, ssh, ssl_certs, systemd_timers, firmware
 │   ├── data/
 │   │   ├── services.json           # définitions des 22 services intégrés
 │   │   ├── profiles/               # profils d'audit intégrés (server, desktop, container)
@@ -206,7 +207,7 @@ Automated-UFW-audit/
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 3494 tests unitaires
+└── tests/                          # 3778 tests unitaires
 ```
 
 ---

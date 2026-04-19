@@ -4,6 +4,8 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.21.0](#v1210) | 2026-04-19 | CHECK 43 (expiration certificats TLS/SSL) ; CHECK 44 (timers systemd) ; CHECK 45 (firmware & microcode) ; export `--html` autonome ; `--check`/`--skip` filtres par check ; `--output-dir` ; correctif note de contexte SSH ; passage qualité (firmware + systemd_timers) ; 3778/3778 tests (+284) |
+| [v1.20.0](#v1200) | 2026-04-18 | CHECK 40 (niveau journalisation UFW) ; CHECK 41 (umask système) ; CHECK 42 (analyse auth.log SSH) ; historique des scores (`--history` + sparkline) ; liste d'exceptions (`--ignore`/`--show-ignored`/`ignore.yml`) ; classification ports système process-aware ; correctif auth_log days=0 ; 3494/3494 tests (+235) |
 | [v1.19.0](#v1190) | 2026-04-17 | SSH `PermitRootLogin` cas OK (no/prohibit-password/forced-commands-only) ; performance scan SUID (répertoires ciblés) ; correctif affichage dominance IoT ; i18n labels scores par domaine ; durcissement : 6 nouveaux contrôles sysctl (tcp_syncookies, accept_source_route, accept_redirects_v6, send_redirects, protected_hardlinks, protected_symlinks) ; extension liste blanche SGID ; 3259/3259 tests (+530) |
 | [v1.18.0](#v1180) | 2026-04-16 | CHECK 34 (politique MAC AppArmor/SELinux) ; CHECK 35 (audit solution de sauvegarde) ; listing noyaux (toujours affiché) ; correctif surcharges profil (nature effacé) ; boîte de synthèse épurée ; passage profils (desktop 6 surcharges, container 12 skip_sections) ; `--explain` 76→86 clés ; correctif autocomplétion Debian ; UX `--manage-logs` (déplacement + vue multi-répertoires) ; 2729/2729 tests |
 | [v1.17.0](#v1170) | 2026-04-15 | CHECK 31 (auditd) ; CHECK 32 (Secure Boot) ; CHECK 33 (intégrité fichiers AIDE/Tripwire) ; variantes `--explain` par profil (17 clés) ; `workstation` → `desktop` ; Trusted Publishing ; `cmd_type` fix/check ; correctif IPv6 avahi ; repli journald ; persistance sysctl ; améliorations UX ; 2507/2507 tests |
@@ -53,6 +55,137 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.21.0
+
+**2026-04-19**
+
+### CHECK 43 — Expiration des certificats TLS/SSL (`checks/ssl_certs.py`)
+
+- `SslCertsSnapshot` : analyse les certificats depuis cinq sources — Let's Encrypt (`/etc/letsencrypt/live/*/fullchain.pem`), `/etc/ssl/private/*.{pem,crt,cert}`, directives nginx `ssl_certificate`, directives apache2 `SSLCertificateFile`, `smtpd_tls_cert_file` de postfix
+- `check_ssl_certs()` : cert expiré → ALERT −2 pts ; expire < 7 jours → ALERT −2 pts ; expire < 30 jours → WARN −1 pt ; cert valide → OK
+- Déduction totale plafonnée à −4 pts quel que soit le nombre de certificats concernés
+- `_MAX_CERTS=30`, `_MAX_CONF_FILES=100`, `_MAX_CERT_SIZE=50 000 o` — protection contre les bundles CA et les grands déploiements
+- Chemins entre guillemets correctement traités (`ssl_certificate "/chemin/vers/cert.pem"`)
+- Liens symboliques cassés ignorés gracieusement
+- 59 tests dans `tests/test_ssl_certs.py`
+
+### CHECK 44 — Audit des timers systemd (`checks/systemd_timers.py`)
+
+- `SystemdTimersSnapshot` : découvre toutes les unités timer via `systemctl list-timers --all --no-pager` ; lit les fichiers de service associés
+- Détection pipe-to-shell : deux regex complémentaires — `_DOWNLOADER_RE` (`\b(curl|wget)\b`) + `_PIPE_TO_SHELL_RE` (`|\s*(/[a-z/]*/)?(?:ba)?sh\b`) ; les deux doivent être présents → WARN −2 pts (flat)
+- Scripts `.sh` world-writable référencés dans `ExecStart=` → WARN −1 pt (flat) ; commande `chmod o-w` proposée
+- Timers créés par l'utilisateur dans `/etc/systemd/system/` sans directive `User=` → INFO seulement
+- Plafonds `_MAX_TIMERS=100`, `_MAX_EXEC_LENGTH=200`
+- `svc_path.resolve()` pour détection symlink-safe des timers créés par l'utilisateur
+- `lstrip("-@")` supprime les préfixes systemd ignore-fail (`-`) et argv0-override (`@`) de `ExecStart`
+- 58 tests dans `tests/test_systemd_timers.py`
+
+### CHECK 45 — Audit firmware & microcode (`checks/firmware.py`)
+
+- `FirmwareSnapshot` : deux sous-checks indépendants
+  - **fwupd** : `fwupdmgr get-updates` (résultat en cache, pas d'appel réseau forcé) ; mises à jour en attente → WARN −1 pt ; fwupd absent → INFO ; erreur commande rapportée indépendamment des mises à jour
+  - **Microcode CPU** : `dpkg -l intel-microcode|amd64-microcode` ; correspondance exacte par colonne (gère les suffixes arch comme `intel-microcode:amd64`) ; absent → WARN −1 pt ; CPU non Intel/AMD → INFO
+- `_detect_cpu_vendor()` : trois états clairs — `"intel"` | `"amd"` | `"unknown"`
+- `_FWUPD_TIMEOUT=30` s, `_MAX_ERROR_LEN=200`, `_FWUPD_ERROR_RE` pour analyse structurée des erreurs
+- Résultats erreur et mises à jour entièrement découplés (les deux peuvent coexister)
+- 54 tests dans `tests/test_firmware.py`
+
+### `--html` — Export HTML autonome (`html_output.py`)
+
+- `build_html_output(engine, sys_info)` produit un fichier HTML autosuffisant (sans JS, sans ressources externes)
+- CSS embarqué : `code{}` monospace, `.score-circle` badge coloré, `.badge` labels de niveau (ALERT/WARN/INFO/OK)
+- Tableau des déductions ; findings regroupés par sévérité ; pied de page avec lien GitHub
+- `_h()` échappe toutes les données utilisateur (`html.escape(quote=True)`) — protection XSS
+- `level_label` gère gracieusement un niveau `None` dans le moteur de score (repli `"UNKNOWN"`)
+- 56 tests dans `tests/test_html_output.py`
+
+### `--check LIST` / `--skip LIST` — Filtres CLI par check
+
+- `--check=ssh,firewall,ports` — n'exécute que les checks nommés ; `--skip=clamav,rootkit` — exclut les checks nommés
+- Mutuellement exclusifs (utiliser les deux lève une `CLIError`)
+- Helper `_section_enabled(section, config, profile)` dans `runner.py` remplace 31 gardes individuels
+- `validate_check_filters(config)` avertit si un nom de check inconnu est passé
+- `skip_sections` du profil respecté : `--check` peut forcer une section même si le profil la saute normalement
+- 17 nouveaux tests dans `test_cli.py` et `test_runner.py`
+
+### `--output-dir PATH`
+
+- `get_or_prompt_log_dir()` priorise désormais `config.output_dir` quand il est défini — pas de prompt interactif, pas d'écriture dans la config utilisateur
+- `--output-dir` ne persiste pas ; il surcharge le répertoire sauvegardé pour l'exécution courante uniquement
+- 5 nouveaux tests dans `test_cli.py`
+
+### Corrections de bugs
+
+- **Note de contexte SSH** : `runner.py` — la note "SSH non accessible publiquement" dans la section services n'était jamais affichée. Cause racine : `_svc_id` était dérivé du label du service ("SSH Server" → `"ssh_server"`) et comparé à `"openssh"`. Corrigé en utilisant `snap.service.id == "ssh"` (l'identifiant canonique du registre).
+- **auditd** : le finding `no_rules` rétrogradé de WARN à INFO sur le profil `desktop` (le serveur conserve WARN −1 pt)
+
+### Passage qualité
+
+- **`firmware.py`** : `_detect_cpu_vendor()` simplifié à 3 états nets ; `_dpkg_installed()` utilise une correspondance exacte par colonne pour les paquets qualifiés par architecture ; résultats erreur et mises à jour fwupd entièrement découplés
+- **`systemd_timers.py`** : détection pipe-to-shell divisée en deux regex ciblées (élimine les faux négatifs pour `/bin/bash`, `bash -c`) ; `svc_path.resolve()` pour la sécurité des symlinks ; `lstrip("-@")` pour les préfixes systemd ; dernier service sur les lignes ambiguës
+
+### Tests
+
+- `tests/test_ssl_certs.py` — 59 tests
+- `tests/test_systemd_timers.py` — 58 tests
+- `tests/test_firmware.py` — 54 tests
+- `tests/test_html_output.py` — 56 tests
+- Fichiers existants : +57 tests (`test_cli.py` / `test_runner.py` — `--check`/`--skip`/`--output-dir`/`--html` ; `test_auditd.py` — INFO desktop ; assertions passage qualité)
+- ✅ 3778/3778 tests unitaires (+284 par rapport à v1.20.0)
+
+---
+
+## v1.20.0
+
+**2026-04-18**
+
+### CHECK 40 — Niveau de journalisation UFW (`checks/firewall.py`)
+
+- `check_ufw_logging()` : lit le niveau de journalisation UFW courant via `ufw status verbose` / `ufw logging`
+- `off` → ALERT, −2 pts — journalisation complètement désactivée, aucune visibilité sur le trafic bloqué
+- `low` / `medium` → OK — couverture standard
+- `high` / `full` → INFO — mode verbeux (I/O disque élevé, aucune déduction)
+- Nouvelles clés locale : `firewall.logging_off`, `firewall.logging_ok`, `firewall.logging_verbose`
+
+### CHECK 41 — Umask système (`checks/umask.py`)
+
+- `UmaskSnapshot` : lit le umask depuis `/etc/login.defs`, `/etc/pam.d/common-session`, `/etc/profile`, fichiers RC shell et processus courant
+- `check_umask()` : détecte les valeurs de umask permissives (0022 est OK ; 0002/0000 → WARN, −1 pt)
+- `_fix_cmd()` : propose `/etc/profile.d/umask.conf` avec `umask 0027` ou `0022` correct
+- Détection de conflits entre toutes les sources : avertit quand les sources ne concordent pas
+- 54 tests dans `tests/test_umask.py`
+
+### CHECK 42 — Analyse auth.log SSH (`checks/auth_log.py`)
+
+- `AuthLogSnapshot` : analyse `/var/log/auth.log` pour les événements de connexion SSH
+- `check_auth_log()` : détection brute-force (>10 tentatives échouées depuis la même IP en 60 s → ALERT) ; dernières connexions réussies affichées ; principales sources d'échec listées
+- Correction `days=0` : quand auth.log est vide (juste tourné), utilise la clé `auth_log.no_logins_no_range` au lieu de "0 jour(s)"
+- 62 tests dans `tests/test_auth_log.py`
+
+### Historique des scores (`history.py`)
+
+- Dataclass `HistoryEntry` + `load_history()` / `save_history()` — JSONL dans `~/.config/ufw-audit/history.jsonl`
+- Flag `--history` : affiche les N derniers scores d'audit comme sparkline (▁▂▃▅▇█) avec date et score
+- Rotation automatique : conserve les 90 dernières entrées
+
+### Liste d'exceptions (`ignore.py`)
+
+- `--ignore KEY` — ajoute une clé de finding dans `~/.config/ufw-audit/ignore.yml` ; ce finding est masqué dans tous les audits futurs
+- `--show-ignored` — liste toutes les clés actuellement ignorées
+- Frozenset `ScoreEngine.ignore_keys` : les findings ignorés sont collectés dans `engine.ignored_findings` sans être scorés ni affichés
+- Astuce affichée : `Lancez ufw-audit --ignore <key> pour masquer ce finding définitivement`
+
+### Corrections de bugs
+
+- **ports** : `1900/udp` (UPnP/SSDP) appartenant à Spotify était classé `SYSTEM_INTERNAL` ; ajout du frozenset `_SYSTEM_DAEMONS` — seuls les daemons OS reconnus qualifient
+- **auth_log** : `_estimate_days()` retournait 0 sur un log vide/tourné ; `check_auth_log()` utilise désormais `auth_log.no_logins_no_range`
+
+### Tests
+
+- ✅ 3494/3494 tests unitaires (+235 par rapport à v1.19.0)
 
 ---
 

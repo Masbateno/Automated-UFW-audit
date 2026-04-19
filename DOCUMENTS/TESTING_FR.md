@@ -11,6 +11,7 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 
 | Version | Tests | Notes |
 |---------|-------|-------|
+| v1.21.0 | 3778  | +284 tests — `test_ssl_certs.py` (59), `test_systemd_timers.py` (58), `test_firmware.py` (54), `test_html_output.py` (56) ; fichiers existants : +57 (`test_cli.py`/`test_runner.py` — `--check`/`--skip`/`--output-dir`/`--html` ; `test_auditd.py` — INFO desktop ; assertions passage qualité) |
 | v1.20.0 | 3494  | +235 tests — `test_auth_log.py` (62), `test_history.py` (36), `test_ignore.py` (44), `test_umask.py` (54), `test_ufw_logging.py` (32) ; corrections : auth_log days=0, ports système process-aware, nom de processus dans les messages |
 | v1.19.0 | 3259  | +530 tests — `test_hardening.py` +29 (6 nouvelles classes sysctl) ; `test_ssh.py` +7 (cas OK PermitRootLogin) ; nouveaux : `test_suid_audit.py`, `test_kernel_hardening.py`, `test_docker_audit.py`, `test_log_rotation.py`, `test_csv_output.py`, `test_markdown_output.py`, `test_min_level.py`, `test_watch.py` |
 | v1.18.0 | 2729  | +222 tests — `test_mac_policy.py` (nouveau, 40), `test_backup.py` (nouveau, 39), autres fichiers modifiés (+143) |
@@ -41,6 +42,27 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v0.18   | 531   | 26 nouveaux tests pour `fixes.py` ; `run_fixes()` entièrement couvert |
 | v0.17   | 505   | 15 échecs préexistants corrigés ; suite entièrement verte |
 | v0.9    | 421   | Première suite complète |
+
+### v1.21.0 — 3778/3778 (2026-04-19)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+3778 passed in 5.09s
+```
+
+#### Nouveaux / fichiers modifiés (+284)
+
+| Fichier | Modification | Couverture |
+|---------|-------------|------------|
+| `tests/test_ssl_certs.py` | Nouveau — 59 tests | Defaults snapshot ; `_add_path` — dédup, symlink cassé ignoré, bundle CA ignoré (>50 Ko) ; `_collect_from_configs` — chemin cité nginx, apache2, postfix, commentaire inline ignoré, espaces ; `check_ssl_certs()` — expiré ALERT −2, <7j ALERT −2, <30j WARN −1, valide OK, plafond −4, limite `_MAX_CERTS` ; no-t guard |
+| `tests/test_systemd_timers.py` | Nouveau — 58 tests | Defaults snapshot ; `TestPipeToShellDetection` (11 cas paramétrés : `\| bash`, `\| /bin/bash`, `\| bash -c`, wget+bash, zsh, ksh, sans pipe, sans downloader, etc.) ; test dernier service sur ligne ambiguë ; `TestParseServiceFile` (préfixe minus, préfixe at, sans ExecStart, User=root) ; `TestFromSystem` (plafond _MAX_TIMERS, dédup scripts, ExecStart mixte, User=root) ; logique check ; no-t guard |
+| `tests/test_firmware.py` | Nouveau — 54 tests | Defaults snapshot ; `_detect_cpu_vendor` (intel, amd, unknown, arm) ; `_dpkg_installed` (basic, arch-qualifié `intel-microcode:amd64`, non installé) ; `check_firmware()` — tous les chemins ; adapté au profil ; assertions comptage déductions (len==1 avant accès) |
+| `tests/test_html_output.py` | Nouveau — 56 tests | `build_html_output()` — doctype HTML5, `<title>`, CSS présent, couleur cercle score (vert/orange/rouge), label niveau, comptages alertes/avertissements, hostname échappé HTML, injection XSS dans message (pas de `<img>` dans le DOM), tableau déductions rendu, message "Aucun finding", tous les niveaux de sévérité ; classe `FakeEngine` (pas de mock) ; assertions DOM via BeautifulSoup |
+| Fichiers existants | +57 tests | `test_cli.py`/`test_runner.py` : `--check` simple/multiple, `--skip`, CLIError combinaison, `_section_enabled`, `--output-dir`, `--html` ; `test_auditd.py` : finding `no_rules` est INFO (pas WARN) sur le profil desktop ; assertions passage qualité |
+
+---
 
 ### v1.20.0 — 3494/3494 (2026-04-18)
 

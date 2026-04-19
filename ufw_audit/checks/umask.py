@@ -26,11 +26,25 @@ from ufw_audit.scoring import CheckResult
 _UMASK_RE = re.compile(r"^(?!\s*#)\s*(?:umask|UMASK)\s+([0-7]{3,4})\b", re.MULTILINE)
 _LOGIN_DEFS_RE = re.compile(r"^UMASK\s+([0-7]{3,4})", re.MULTILINE | re.IGNORECASE)
 _PAM_UMASK_RE  = re.compile(r"pam_umask\.so.*umask=([0-7]{3,4})", re.MULTILINE)
+# pam_umask.so without explicit umask= — effective value comes from login.defs or default 022
+_PAM_UMASK_NOARG_RE = re.compile(r"^\s*session\s+\S+\s+pam_umask\.so\s*$", re.MULTILINE)
 
 
 def _normalize(raw: str) -> str:
     """Normalize raw octal string to 3 digits (e.g. '0022' → '022')."""
     return raw.zfill(4)[-3:]
+
+
+def _get_proc_umask() -> Optional[str]:
+    """Read the effective umask from /proc/self/status (Linux 4.7+)."""
+    try:
+        content = Path("/proc/self/status").read_text(encoding="utf-8")
+        m = re.search(r"^Umask:\s+([0-7]{4})", content, re.MULTILINE)
+        if m:
+            return _normalize(m.group(1))
+    except OSError:
+        pass
+    return None
 
 
 def _fix_cmd(source: Optional[str]) -> str:
@@ -117,6 +131,25 @@ class UmaskSnapshot:
         for src, val in found.items():
             snap.umask_value = val
             snap.source = src
+            return snap
+
+        # pam_umask.so without explicit umask= — uses login.defs UMASK or default 022
+        # Common on Debian 13+ where UMASK is commented out in login.defs
+        try:
+            pam_content = _pam_session.read_text(encoding="utf-8", errors="ignore")
+            if _PAM_UMASK_NOARG_RE.search(pam_content):
+                ldef_val = _scan(_login_defs, _LOGIN_DEFS_RE)
+                snap.umask_value = ldef_val if ldef_val is not None else "022"
+                snap.source = str(_pam_session)
+                return snap
+        except OSError:
+            pass
+
+        # Last resort: read effective process umask from /proc/self/status
+        proc_val = _get_proc_umask()
+        if proc_val is not None:
+            snap.umask_value = proc_val
+            snap.source = "/proc/self/status"
             return snap
 
         return snap

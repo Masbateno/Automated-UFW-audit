@@ -72,37 +72,31 @@ def display_result(result, report, verbose: bool, quiet: bool = False) -> None:
                 continue
             print_warn(finding.message)
             if verbose:
-                rec: list[str] = []
-                if finding.detail:
-                    rec.extend(finding.detail.splitlines())
+                detail = finding.detail.splitlines() if finding.detail else []
                 if finding.cmd:
                     if finding.cmd_type == "check":
-                        if rec:
-                            print_recommendation(rec)
-                            rec = []
+                        if detail:
+                            print_recommendation(detail)
                         print_check_cmd(finding.cmd.splitlines())
                     else:
-                        rec.extend(finding.cmd.splitlines())
-                if rec:
-                    print_recommendation(rec)
+                        print_recommendation(detail, finding.cmd.splitlines())
+                elif detail:
+                    print_recommendation(detail)
         elif finding.level == FindingLevel.ALERT:
             report.write_finding("ALERT", finding.message)
             if not _passes_threshold("alert"):
                 continue
             print_alert(finding.message)
-            rec = []
-            if finding.detail:
-                rec.extend(finding.detail.splitlines())
+            detail = finding.detail.splitlines() if finding.detail else []
             if finding.cmd and verbose:
                 if finding.cmd_type == "check":
-                    if rec:
-                        print_recommendation(rec)
-                        rec = []
+                    if detail:
+                        print_recommendation(detail)
                     print_check_cmd(finding.cmd.splitlines())
                 else:
-                    rec.extend(finding.cmd.splitlines())
-            if rec:
-                print_recommendation(rec)
+                    print_recommendation(detail, finding.cmd.splitlines())
+            elif detail:
+                print_recommendation(detail)
             if finding.note and verbose:
                 print_info(finding.note)
         elif finding.level == FindingLevel.INFO:
@@ -111,26 +105,24 @@ def display_result(result, report, verbose: bool, quiet: bool = False) -> None:
                 continue
             print_info(finding.message)
             if verbose:
-                rec = []
-                if finding.detail:
-                    rec.extend(finding.detail.splitlines())
+                detail = finding.detail.splitlines() if finding.detail else []
                 if finding.cmd:
                     if finding.cmd_type == "check":
-                        if rec:
-                            print_recommendation(rec)
-                            rec = []
+                        if detail:
+                            print_recommendation(detail)
                         print_check_cmd(finding.cmd.splitlines())
                     else:
-                        rec.extend(finding.cmd.splitlines())
-                if rec:
-                    print_recommendation(rec)
+                        print_recommendation(detail, finding.cmd.splitlines())
+                elif detail:
+                    print_recommendation(detail)
 
 
 # ---------------------------------------------------------------------------
 # Risk context display
 # ---------------------------------------------------------------------------
 
-def display_risk_context(label: str, lang: str, t, report) -> None:
+def display_risk_context(label: str, lang: str, t, report,
+                         context_note: str | None = None) -> None:
     """Display two-axis risk context for a high/critical service."""
     svc_id = (label.lower()
               .replace(" ", "_").replace("/", "_")
@@ -149,7 +141,7 @@ def display_risk_context(label: str, lang: str, t, report) -> None:
         risk_tier = "medium"
     else:
         risk_tier = "low"
-    from ufw_audit.output import print_risk_context
+    from ufw_audit.output import print_risk_context, print_info
     print_risk_context(
         title=t("risk_context.title"),
         level=level,
@@ -159,6 +151,8 @@ def display_risk_context(label: str, lang: str, t, report) -> None:
         threat=threat,
         risk_tier=risk_tier,
     )
+    if context_note:
+        print_info(context_note)
     report.write_finding("INFO",
                          f"[{t('risk_context.title')} — {level}] {exposure}")
 
@@ -411,13 +405,12 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
     from ufw_audit.explain import EXPLAIN_KEYS, normalize_key as _norm_key
 
     def _add_finding_lines(icon_prefix: str, item) -> None:
+        from ufw_audit.output import _c as _oc
         lines.extend(_wrap_for_box(icon_prefix, item.message, inner))
         if item.cmd:
-            if item.cmd_type == "check":
-                cmd_prefix = " " * len(icon_prefix) + "ℹ "
-            else:
-                cmd_prefix = " " * len(icon_prefix) + "→ "
-            lines.extend(_wrap_for_box(cmd_prefix, item.cmd, inner))
+            cmd_prefix = " " * len(icon_prefix) + ("ℹ " if item.cmd_type == "check" else "→ ")
+            for content, val in _wrap_for_box(cmd_prefix, item.cmd, inner):
+                lines.append((f"{_oc.violet_bold}{content}{_oc.reset}", val))
         if item.note:
             note_prefix = " " * len(icon_prefix) + "ℹ "
             lines.extend(_wrap_for_box(note_prefix, item.note, inner))

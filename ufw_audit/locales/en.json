@@ -71,7 +71,10 @@
     "log_rotation": "LOG ROTATION & SYSTEM JOURNALING",
     "ufw_logging": "UFW LOGGING",
     "umask": "SYSTEM UMASK",
-    "auth_log": "SSH LOGIN ANALYSIS"
+    "auth_log": "SSH LOGIN ANALYSIS",
+    "ssl_certs": "TLS/SSL CERTIFICATE EXPIRY",
+    "systemd_timers": "SYSTEMD TIMERS AUDIT",
+    "firmware": "FIRMWARE & MICROCODE AUDIT"
   },
   "status": {
     "ok": "OK",
@@ -248,7 +251,7 @@
   },
   "summary": {
     "clean": "Your configuration is sound. No action required.",
-    "warnings": "Warnings reflect a normal configuration for this type of system. No immediate action required.",
+    "warnings": "Overall configuration is sound for this type of system. Some improvements are recommended to strengthen robustness.",
     "alerts": "Corrections are needed. Address items marked 'Action required' first.",
     "block_action": "Action required",
     "block_improve": "Possible improvements",
@@ -417,6 +420,7 @@
     "local_network": "local network"
   },
   "service_risk": {
+    "local_exposure_note": "ℹ Intrinsic risk (see above) — actual exposure: LOW (SSH not reachable from the internet on this network)",
     "ssh_server": {
       "level": "CRITICAL",
       "exposure": "Heavily targeted by automated scanners and brute-force attacks — internet-exposed by default",
@@ -550,6 +554,7 @@
     "redirects_enabled": "ICMP redirects accepted — risk of routing table manipulation",
     "log_martians_ok": "Martian packet logging is enabled",
     "log_martians_disabled": "Martian packet logging disabled — spoofed packets will not be logged",
+    "log_martians_disabled_detail": "Martian packets have spoofed or otherwise invalid source addresses. Logging them helps detect reconnaissance and IP spoofing attacks.",
     "icmp_broadcast_ok": "ICMP broadcast echo is ignored",
     "icmp_broadcast_enabled": "ICMP broadcast echo not ignored — smurf amplification risk",
     "tcp_syncookies_ok": "SYN flood protection active (tcp_syncookies={value})",
@@ -560,6 +565,7 @@
     "accept_redirects_v6_enabled": "IPv6 ICMP redirects accepted — router impersonation attack possible on the local network",
     "send_redirects_ok": "ICMP redirect sending disabled (send_redirects=0)",
     "send_redirects_enabled": "System is sending ICMP redirects (send_redirects=1) — unnecessary on a non-router, can be abused for MITM",
+    "send_redirects_detail": "ICMP redirects tell a host to use a different gateway. A non-router should never send them; an attacker can exploit this to reroute traffic (man-in-the-middle).",
     "protected_hardlinks_ok": "Hard link protection enabled (fs.protected_hardlinks=1)",
     "protected_hardlinks_disabled": "Hard link protection disabled (fs.protected_hardlinks=0) — allows hard link attacks for privilege escalation",
     "protected_symlinks_ok": "Symbolic link protection enabled (fs.protected_symlinks=1)",
@@ -643,7 +649,8 @@
   },
   "audit": {
     "starting": "Starting audit",
-    "report_saved": "Detailed report: {path}"
+    "report_saved": "Detailed report: {path}",
+    "running_checks": "Active checks: {checks}"
   },
   "deduction": {
     "docker_bypass": "Docker bypass: {container} {port}",
@@ -675,6 +682,9 @@
     "permit_root_login_restricted": "Root login restricted to key-based auth (PermitRootLogin = {value})",
     "password_auth": "Password authentication is enabled (PasswordAuthentication = yes)",
     "password_auth_detail": "Brute-force risk. Prefer key-based auth: set PasswordAuthentication no in sshd_config",
+    "password_auth_local": "PasswordAuthentication enabled — low risk (SSH not publicly accessible on this network)",
+    "password_auth_local_detail": "SSH is not reachable from outside (UFW default deny + local network). Password authentication is acceptable in this context, though key-based auth is still best practice.",
+    "local_context_note": "Context: SSH is not publicly accessible (UFW default deny + local network) — above findings carry reduced real-world risk in this configuration.",
     "permit_empty_passwords": "Empty passwords are permitted (PermitEmptyPasswords = yes)",
     "max_auth_tries": "MaxAuthTries = {value} — recommended value is 3 or less",
     "login_grace_time": "LoginGraceTime = {value}s — recommended value is 60s or less",
@@ -765,11 +775,15 @@
     "ptrace_unrestricted": "ptrace unrestricted (yama.ptrace_scope=0) — any process can inspect or attach to any other",
     "suid_dump_ok": "Core dumps from SUID binaries disabled (suid_dumpable=0)",
     "suid_dump_root": "Core dumps from SUID binaries restricted to root (suid_dumpable=2)",
+    "suid_dump_root_detail": "Core dumps of SUID processes can contain credentials or secrets from elevated contexts. Restricting them to root limits exposure; disabling entirely (value=0) is safer.",
     "suid_dump_all": "Core dumps enabled for all processes including SUID (suid_dumpable=1) — may expose credentials from privileged programs",
+    "suid_dump_all_detail": "Core dumps of SUID processes can expose credentials, keys, or memory of privileged programs to any local user. Disabling them (value=0) eliminates this risk.",
     "kptr_ok": "Kernel pointer restriction enabled (kptr_restrict={val})",
     "kptr_exposed": "Kernel pointers exposed in /proc (kptr_restrict=0) — may leak kernel addresses to unprivileged users",
+    "kptr_exposed_detail": "When kptr_restrict=0, kernel symbol addresses appear in /proc files and can be read by unprivileged users, making KASLR bypass much easier.",
     "dmesg_ok": "dmesg access restricted to privileged users (dmesg_restrict=1)",
-    "dmesg_exposed": "dmesg accessible to all users (dmesg_restrict=0) — kernel messages may reveal exploitable information"
+    "dmesg_exposed": "dmesg accessible to all users (dmesg_restrict=0) — kernel messages may reveal exploitable information",
+    "dmesg_exposed_detail": "When dmesg_restrict=0, any local user can read kernel log messages, which may reveal memory layout, loaded modules, or hardware details useful for exploitation."
   },
   "suid_audit": {
     "scan_skipped": "SUID/SGID scan timed out or failed — check skipped",
@@ -1740,7 +1754,7 @@
     "service_inactive_detail": "auditd is installed but inactive — no system events are being logged. Enable it to restore audit trail coverage.",
     "service_inactive_reason": "auditd inactive — system event logging disabled",
     "no_rules": "auditd is running but no audit rules are loaded",
-    "no_rules_detail": "auditd is active but has no rules configured. Without watch rules, access to sensitive files (/etc/passwd, /etc/shadow, /etc/sudoers) is not logged. Add rules via auditctl or /etc/audit/rules.d/.",
+    "no_rules_detail": "auditd is active but has no rules configured. Without watch rules, access to sensitive files (/etc/passwd, /etc/shadow, /etc/sudoers) is not logged. Run 'sudo auditctl -l' to verify. Apply the starter rules below to cover the most critical paths.",
     "no_rules_reason": "auditd running with no audit rules",
     "missing_sensitive_rules": "auditd has no watch rules for sensitive system files",
     "missing_sensitive_rules_detail": "The following sensitive files are not covered by auditd watch rules: {files}. Any access or modification to these files will not be logged.",
@@ -1751,7 +1765,7 @@
   "secure_boot": {
     "enabled": "Secure Boot is enabled",
     "disabled": "Secure Boot is disabled",
-    "disabled_detail": "Secure Boot prevents unsigned or tampered bootloaders and kernels from running. Without it, an attacker with physical access or root privileges can install a bootkit that persists across reinstalls and is invisible to the OS. Enable Secure Boot in UEFI/BIOS settings.",
+    "disabled_detail": "Secure Boot prevents unsigned bootloaders from running. On a desktop, exploiting this requires physical access or a prior root compromise — if neither applies, the risk is low. Enable it in UEFI/BIOS settings if your hardware and kernel support it (standard Ubuntu/Mint kernels are signed).",
     "disabled_server_detail": "Secure Boot is disabled. On servers and VMs this is common (cloud images, custom kernels, hypervisors). Consider enabling it if the platform supports it.",
     "disabled_reason": "Secure Boot disabled — boot-level malware protection inactive",
     "no_uefi": "Legacy BIOS detected — Secure Boot not applicable",
@@ -1804,6 +1818,8 @@
   },
   "mac_policy": {
     "apparmor_ok": "AppArmor enforcing — {enforcing} profile(s) enforce, {complain} complain",
+    "apparmor_complain_profiles": "{complain} AppArmor profile(s) in complain mode — violations are logged but not blocked",
+    "apparmor_complain_detail": "In complain mode, AppArmor logs policy violations but does not block them. Switch profiles to enforce mode to actively prevent unauthorized access.",
     "apparmor_no_enforce": "AppArmor active but no profiles in enforce mode ({complain} in complain)",
     "apparmor_no_enforce_detail": "All profiles are in complain mode — violations are logged but not blocked. Switch to enforce mode to actively prevent attacks.",
     "apparmor_no_enforce_reason": "AppArmor active but no profiles enforcing",
@@ -1831,6 +1847,40 @@
     "no_backup": "No backup solution found",
     "no_backup_detail": "No backup tool (borgmatic, borg, restic, timeshift, duplicati, bacula, rclone…) was detected. Regular backups are essential to recover from data loss, ransomware, or hardware failure.",
     "no_backup_reason": "No backup solution installed or configured"
+  },
+  "firmware": {
+    "fwupd_missing": "fwupd not installed — firmware update status cannot be determined",
+    "fwupd_error": "fwupdmgr get-updates returned an error: {error}",
+    "fwupd_updates": "{count} pending firmware update(s): {devices}",
+    "fwupd_updates_detail": "Run 'sudo fwupdmgr update' to apply pending BIOS/UEFI/SSD/NIC firmware updates. Outdated firmware may expose known hardware vulnerabilities.",
+    "fwupd_updates_reason": "{count} pending firmware update(s) detected by fwupd",
+    "fwupd_ok": "No pending firmware updates (fwupd)",
+    "microcode_missing": "{vendor} CPU detected but no microcode package installed",
+    "microcode_missing_detail": "CPU microcode updates patch hardware-level vulnerabilities (Spectre, Meltdown, etc.). Install the appropriate package to keep microcode up to date.",
+    "microcode_missing_reason": "{vendor} CPU microcode package not installed",
+    "microcode_ok": "CPU microcode package installed: {package}",
+    "microcode_na": "CPU vendor is not Intel or AMD — no microcode package required"
+  },
+  "systemd_timers": {
+    "no_systemctl": "systemctl not found — cannot audit systemd timers",
+    "no_timers": "No active systemd timers found",
+    "pipe_to_shell": "{count} systemd timer(s) contain a curl/wget pipe-to-shell in ExecStart",
+    "pipe_to_shell_detail": "Timers that download and execute code at runtime are a supply-chain attack vector. Review and rewrite these ExecStart commands: {entries}",
+    "pipe_to_shell_reason": "{count} systemd timer(s) pipe remote content to a shell",
+    "world_writable": "{count} world-writable script(s) referenced in systemd timer ExecStart: {scripts}",
+    "world_writable_detail": "World-writable scripts executed by root-level timers can be replaced by any local user. Restrict permissions with chmod o-w.",
+    "world_writable_reason": "{count} world-writable script(s) in systemd timer ExecStart",
+    "user_created_root": "{count} user-created timer(s) in /etc/systemd/system/ running as root: {units}",
+    "ok": "All {count} systemd timer(s) look clean"
+  },
+  "ssl_certs": {
+    "openssl_unavailable": "openssl not found — cannot check TLS/SSL certificate expiry",
+    "no_certs": "No server TLS/SSL certificates found (Let's Encrypt, /etc/ssl/private, nginx, apache2, postfix)",
+    "read_error": "Could not read certificate {path}: {error}",
+    "expired": "Certificate {path} EXPIRED {days} day(s) ago",
+    "expiring_critical": "Certificate {path} expires in {days} day(s) — renew immediately",
+    "expiring_soon": "Certificate {path} expires in {days} day(s) — renew soon",
+    "ok": "Certificate {path} valid — expires in {days} day(s)"
   },
   "log_rotation": {
     "logrotate_missing": "logrotate not installed — log files will grow unbounded",

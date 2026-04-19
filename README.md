@@ -156,21 +156,22 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Quality & reliability
 
-- ✅ 3494 unit tests
+- ✅ 3778 unit tests
 - 🧱 Modular architecture (snapshot / check separated)
 - 🧪 Tested on Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.20.0
+## 🆕 v1.21.0
 
-- 📋 **UFW logging level check** — detects whether UFW logging is disabled (`off` → ALERT −2 pts) or running in verbose mode (`high`/`full` → INFO)
-- 🔒 **System umask audit** — reads umask from all sources (`/etc/login.defs`, PAM, `/etc/profile`, current process); permissive values (0002/0000) → WARN −1 pt; conflicting sources detected
-- 🔍 **SSH auth.log analysis** — brute-force detection (>10 failed attempts/60 s from same IP → ALERT); last successful logins; top failed-login sources
-- 📈 **Score history** — `--history` displays sparkline of past audit scores (▁▂▃▄▅▆▇█); JSONL log at `~/.config/ufw-audit/history.jsonl`
-- 🚫 **Ignore list** — `--ignore KEY` silences a specific finding permanently; `--show-ignored` lists all active exceptions; persisted in `ignore.yml`
-- 🐛 **Process-aware system ports** — UPnP/mDNS/DNS ports no longer silently ignored when owned by a user-space app (e.g. Spotify on `1900/udp`)
-- ✅ 3494/3494 unit tests (+235)
+- 🔐 **TLS/SSL certificate expiry** — scans Let's Encrypt, `/etc/ssl/private`, nginx/apache2/postfix configs; expired → ALERT −2 pts; <7 days → ALERT; <30 days → WARN; total capped at −4 pts
+- ⏱ **Systemd timers audit** — detects `curl|wget` piped to a shell in `ExecStart` (→ WARN −2 pts); world-writable `.sh` scripts (→ WARN −1 pt); user-created root timers (→ INFO)
+- 🔧 **Firmware & microcode audit** — `fwupdmgr get-updates` for device firmware (→ WARN −1 pt); CPU microcode package presence via `dpkg` (Intel/AMD → WARN −1 pt if missing)
+- 📄 **`--html` export** — standalone HTML report (no JS, no external resources); colored badges, score circle, deductions table
+- 🎯 **`--check`/`--skip`** — run only specific checks (`--check=ssh,firewall`) or exclude them (`--skip=clamav,rootkit`); mutually exclusive
+- 📁 **`--output-dir PATH`** — override report save directory for the current run without modifying saved config
+- 🐛 **SSH context note fix** — "SSH not publicly accessible" note now correctly displayed in services section
+- ✅ 3778/3778 unit tests (+284)
 
 ---
 
@@ -196,7 +197,7 @@ Automated-UFW-audit/
 │   ├── TESTING.md / _FR.md         # test plan & validated scenarios
 │   └── AUTOMATION.md / _FR.md      # cron & automation guide
 ├── ufw_audit/                      # Python package
-│   ├── checks/                     # firewall, services, ports, logs, ddns, docker, virt, ssh
+│   ├── checks/                     # firewall, services, ports, logs, ddns, docker, virt, ssh, ssl_certs, systemd_timers, firmware
 │   ├── data/
 │   │   ├── services.json           # 22 built-in service definitions
 │   │   ├── profiles/               # built-in audit profiles (server, desktop, container)
@@ -206,7 +207,7 @@ Automated-UFW-audit/
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 3494 unit tests
+└── tests/                          # 3778 unit tests
 ```
 
 ---

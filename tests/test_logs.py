@@ -614,22 +614,27 @@ _JOURNALD_SAMPLE = (
 class TestReadFromJournald:
     def test_returns_content_when_ufw_entries_present(self):
         mock_result = MagicMock()
+        mock_result.returncode = 0
         mock_result.stdout = _JOURNALD_SAMPLE
         with patch("subprocess.run", return_value=mock_result):
-            content = _read_from_journald(7)
+            content, reachable = _read_from_journald(7)
         assert "[UFW " in content
+        assert reachable is True
 
-    def test_returns_empty_when_no_ufw_entries(self):
+    def test_returns_empty_content_when_no_ufw_entries(self):
         mock_result = MagicMock()
+        mock_result.returncode = 0
         mock_result.stdout = "2026-04-13T18:00:00+0200 debian13vm kernel: some other kernel log\n"
         with patch("subprocess.run", return_value=mock_result):
-            content = _read_from_journald(7)
+            content, reachable = _read_from_journald(7)
         assert content == ""
+        assert reachable is True
 
-    def test_returns_empty_on_exception(self):
+    def test_returns_false_on_exception(self):
         with patch("subprocess.run", side_effect=FileNotFoundError):
-            content = _read_from_journald(7)
+            content, reachable = _read_from_journald(7)
         assert content == ""
+        assert reachable is False
 
     def test_journald_entries_parsed_by_parse_log(self):
         cutoff = datetime(2026, 1, 1)
@@ -646,15 +651,25 @@ class TestLogsSnapshotFromSystem:
     def test_journald_fallback_when_no_logfile(self, tmp_path):
         missing = tmp_path / "ufw.log"  # does not exist
         with patch("ufw_audit.checks.logs._read_from_journald",
-                   return_value=_JOURNALD_SAMPLE):
+                   return_value=(_JOURNALD_SAMPLE, True)):
             snap = LogsSnapshot.from_system(log_days=7, log_path=missing)
         assert snap.log_found is True
         assert snap.log_source == "journald"
         assert len(snap.entries) == 1
 
+    def test_journald_reachable_no_ufw_entries(self, tmp_path):
+        missing = tmp_path / "ufw.log"
+        with patch("ufw_audit.checks.logs._read_from_journald",
+                   return_value=("", True)):
+            snap = LogsSnapshot.from_system(log_days=7, log_path=missing)
+        assert snap.log_found is True
+        assert snap.log_source == "journald"
+        assert snap.entries == []
+
     def test_no_source_when_both_missing(self, tmp_path):
         missing = tmp_path / "ufw.log"
-        with patch("ufw_audit.checks.logs._read_from_journald", return_value=""):
+        with patch("ufw_audit.checks.logs._read_from_journald",
+                   return_value=("", False)):
             snap = LogsSnapshot.from_system(log_days=7, log_path=missing)
         assert snap.log_found is False
         assert snap.log_source == "none"

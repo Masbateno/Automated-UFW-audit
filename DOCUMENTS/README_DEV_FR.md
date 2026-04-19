@@ -95,6 +95,9 @@ Cette séparation permet de tester toute la logique métier en instanciant direc
 | `auditd.py` | Linux Audit Framework : installation, état service, règles chargées, surveillance fichiers sensibles |
 | `secure_boot.py` | Secure Boot : état UEFI via mokutil/efivars/bootctl ; scoring adapté au profil |
 | `file_integrity.py` | Intégrité des fichiers : installation AIDE/Tripwire, existence BDD, récence du dernier check |
+| `ssl_certs.py` | Expiration certificats TLS/SSL : Let's Encrypt, `/etc/ssl/private`, configs nginx/apache2/postfix |
+| `systemd_timers.py` | Sécurité timers systemd : pipe-to-shell dans ExecStart, scripts world-writable, timers root utilisateur |
+| `firmware.py` | Firmware & microcode : mises à jour fwupdmgr, paquet microcode CPU via dpkg |
 
 ---
 
@@ -147,7 +150,11 @@ ufw_audit/
 │   ├── desktop_apps.py  # DesktopAppsSnapshot + check_desktop_apps() — détection applis GUI
 │   ├── ntp.py           # NtpSnapshot + check_ntp() — état synchronisation NTP
 │   ├── fail2ban.py      # Fail2banSnapshot + check_fail2ban() — service, jails, jail SSH
-│   └── rootkit.py       # RootkitSnapshot + check_rootkit() — rkhunter/chkrootkit
+│   ├── rootkit.py       # RootkitSnapshot + check_rootkit() — rkhunter/chkrootkit
+│   ├── ssl_certs.py     # SslCertsSnapshot + check_ssl_certs() — expiration certs (CHECK 43)
+│   ├── systemd_timers.py # SystemdTimersSnapshot + check_systemd_timers() — sécurité timers (CHECK 44)
+│   └── firmware.py      # FirmwareSnapshot + check_firmware() — fwupd + microcode (CHECK 45)
+├── html_output.py       # build_html_output() — export HTML autonome (--html)
 ├── compare.py           # AuditBaseline + AuditDelta + rapport comparatif
 ├── plugin_checks.py     # PluginCheck + load_plugin_checks()
 ├── explain.py           # run_explain(), normalize_key(), EXPLAIN_KEYS — 76 clés dans 19 groupes
@@ -200,7 +207,11 @@ tests/
 ├── test_ntp.py
 ├── test_fail2ban.py
 ├── test_rootkit.py
-└── test_exit_codes.py
+├── test_exit_codes.py
+├── test_ssl_certs.py
+├── test_systemd_timers.py
+├── test_firmware.py
+└── test_html_output.py
 
 pyproject.toml           # Config de build (setuptools, installation pip/pipx)
 README.md / README_FR.md           # Documentation utilisateur (EN/FR)

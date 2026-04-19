@@ -121,9 +121,20 @@ def prompt_path(prompt_label: str, default: Path, allow_cancel: bool = False) ->
 def get_or_prompt_log_dir(user_config, config, t) -> Path:
     """Return the configured log directory, prompting at first use.
 
+    Priority: --output-dir CLI flag > saved config > interactive prompt.
     In non-interactive contexts (cron, pipes) the default path is used
     silently so that the process never hangs waiting for input.
     """
+    # --output-dir takes highest priority — no prompt, no save
+    if getattr(config, "output_dir", ""):
+        d = Path(config.output_dir)
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            print(f"  ✖ Cannot create directory {d}: {exc} — falling back to cwd")
+            d = Path.cwd()
+        return d
+
     saved = user_config.get("log_dir")
     if saved:
         d = Path(saved)

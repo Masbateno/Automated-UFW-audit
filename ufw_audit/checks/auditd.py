@@ -130,7 +130,7 @@ def check_auditd(snapshot: AuditdSnapshot, t=None,
     Findings:
       - Not installed:                   INFO  (no deduction)
       - Service not running:             WARN  −1 pt
-      - Running, no rules loaded:        WARN  −1 pt
+      - Running, no rules loaded:        WARN  −1 pt (server) / INFO (desktop)
       - Running, sensitive files missing from rules:
             WARN −1 pt on server ; INFO on desktop (profile_name in desktop/workstation)
       - Running with all sensitive files watched: OK
@@ -165,20 +165,39 @@ def check_auditd(snapshot: AuditdSnapshot, t=None,
         return result
 
     if snapshot.rule_count == 0:
-        result.warn(
-            message=_t("auditd.no_rules"),
-            detail=_t("auditd.no_rules_detail"),
-            cmd="sudo auditctl -l",
-            cmd_type="check",
-            nature="improvement",
-            key="auditd.no_rules",
+        _no_rules_cmd = (
+            "sudo tee /etc/audit/rules.d/hardening.rules << 'EOF'\n"
+            "-w /etc/passwd -p wa -k identity\n"
+            "-w /etc/shadow -p wa -k identity\n"
+            "-w /etc/sudoers -p wa -k privilege\n"
+            "-w /etc/sudoers.d/ -p wa -k privilege\n"
+            "-w /var/log/auth.log -p wa -k auth\n"
+            "EOF\n"
+            "sudo augenrules --load"
         )
-        result.add_deduction(
-            reason=_t("auditd.no_rules_reason"),
-            points=1,
-            context="local",
-            key="auditd.no_rules",
-        )
+        if is_desktop:
+            result.info(
+                message=_t("auditd.no_rules"),
+                detail=_t("auditd.no_rules_detail"),
+                cmd=_no_rules_cmd,
+                cmd_type="fix",
+                key="auditd.no_rules",
+            )
+        else:
+            result.warn(
+                message=_t("auditd.no_rules"),
+                detail=_t("auditd.no_rules_detail"),
+                cmd=_no_rules_cmd,
+                cmd_type="fix",
+                nature="improvement",
+                key="auditd.no_rules",
+            )
+            result.add_deduction(
+                reason=_t("auditd.no_rules_reason"),
+                points=1,
+                context="local",
+                key="auditd.no_rules",
+            )
         return result
 
     # Check for sensitive file coverage

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import difflib
+import sys
 from typing import NamedTuple
 
 from ufw_audit import output
@@ -62,7 +64,68 @@ from ufw_audit.checks.file_integrity import FileIntegritySnapshot, check_file_in
 from ufw_audit.checks.ntp import NtpSnapshot, check_ntp
 from ufw_audit.checks.fail2ban import Fail2banSnapshot, check_fail2ban
 from ufw_audit.checks.rootkit import RootkitSnapshot, check_rootkit
+from ufw_audit.checks.ssl_certs import SslCertsSnapshot, check_ssl_certs
+from ufw_audit.checks.systemd_timers import SystemdTimersSnapshot, check_systemd_timers
+from ufw_audit.checks.firmware import FirmwareSnapshot, check_firmware
 from ufw_audit.plugin_checks import load_plugin_checks
+
+
+_ALL_SECTIONS: tuple[str, ...] = (
+    "ipv6", "smtp", "ssh", "auth_log", "user_accounts", "password_policy",
+    "file_perms", "hardening", "kernel_hardening", "suid_audit", "docker_audit",
+    "log_rotation", "kernel_modules", "mac_policy", "cron_audit", "services_state",
+    "updates", "umask", "memory", "disk", "backup", "auditd", "secure_boot",
+    "fail2ban", "clamav", "file_integrity", "rootkit", "systemd_timers",
+    "ssl_certs", "firmware",
+)
+
+
+def _section_enabled(section: str, config: "AuditConfig", profile: "AuditProfile | None") -> bool:
+    """Return True if the section should be run given config filters and the active profile.
+
+    Token matching is prefix-aware: a token matches a section when the section
+    name equals the token OR starts with it (e.g. "kernel" matches both
+    "kernel_hardening" and "kernel_modules").
+    """
+    if config.check_only:
+        if not any(section == tok or section.startswith(tok) for tok in config.check_only):
+            return False
+    if config.skip_checks:
+        if any(section == tok or section.startswith(tok) for tok in config.skip_checks):
+            return False
+    return profile is None or not profile.should_skip_section(section)
+
+
+def validate_check_filters(config: "AuditConfig") -> str | None:
+    """Validate --check / --skip tokens against known sections.
+
+    Prints warnings to stderr for unrecognised tokens and returns a fatal error
+    string when every --check token is unrecognised (nothing would run).
+    Returns None when all is well.
+    """
+    def _matches(tok: str) -> bool:
+        return any(s == tok or s.startswith(tok) for s in _ALL_SECTIONS)
+
+    def _suggest(tok: str) -> str:
+        matches = difflib.get_close_matches(tok, _ALL_SECTIONS, n=3, cutoff=0.5)
+        if matches:
+            return f"Did you mean: {', '.join(matches)}"
+        return f"Available sections: {', '.join(_ALL_SECTIONS)}"
+
+    if config.check_only:
+        bad = sorted(tok for tok in config.check_only if not _matches(tok))
+        if bad:
+            for tok in bad:
+                print(f"Warning: --check '{tok}' matches no known section — {_suggest(tok)}", file=sys.stderr)
+            if len(bad) == len(config.check_only):
+                return "--check matched no known sections. Run 'ufw-audit --help' to list available checks."
+
+    if config.skip_checks:
+        for tok in sorted(config.skip_checks):
+            if not _matches(tok):
+                print(f"Warning: --skip '{tok}' matches no known section — {_suggest(tok)}", file=sys.stderr)
+
+    return None
 
 
 class ChecksResult(NamedTuple):
@@ -166,7 +229,7 @@ def run_checks(
 
     # ---- CHECK 10 — IPv6 consistency ----
     ipv6_snapshot = IPv6Snapshot.from_system()
-    if profile is None or not profile.should_skip_section("ipv6"):
+    if _section_enabled("ipv6", config, profile):
         if not config.quiet:
             print_section(t("sections.ipv6"))
         report.write_section(t("sections.ipv6"))
@@ -199,6 +262,13 @@ def run_checks(
             ddns_snapshot, ufw_numbered, loopback_only_ports, active_external_ports,
         )
 
+    # SSH exposure known here: used both in services loop (risk context note)
+    # and later in CHECK 11 (ssh_exposed flag).
+    _ssh_exposed = (
+        network_context != "local"
+        or fw_status.incoming_policy not in ("deny", "reject")
+    )
+
     if not config.quiet:
         print_section(t("sections.services"))
     report.write_section(t("sections.services"))
@@ -229,7 +299,13 @@ def run_checks(
             print_service_header(snap.label)
         report.write_raw(f"\n  > {snap.label}")
         if snap.is_active:
-            display_risk_context(snap.service.label, config.lang, t, report)
+            _risk_note = (
+                t("service_risk.local_exposure_note")
+                if snap.service.id == "ssh" and not _ssh_exposed
+                else None
+            )
+            display_risk_context(snap.service.label, config.lang, t, report,
+                                 context_note=_risk_note)
         svc_result = check_single_service_display(
             snap, network_context, t, report, config.verbose, quiet=config.quiet,
         )
@@ -330,7 +406,7 @@ def run_checks(
 
     # ---- CHECK 26 — SMTP local exposure ----
     smtp_snapshot = SmtpSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("smtp"):
+    if _section_enabled("smtp", config, profile):
         if not config.quiet:
             print_section(t("sections.smtp"))
         report.write_section(t("sections.smtp"))
@@ -351,11 +427,11 @@ def run_checks(
 
     # ---- CHECK 11 — SSH security ----
     ssh_snapshot = SSHSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("ssh"):
+    if _section_enabled("ssh", config, profile):
         if not config.quiet:
             print_section(t("sections.ssh"))
         report.write_section(t("sections.ssh"))
-        ssh_result = check_ssh(ssh_snapshot, t=t)
+        ssh_result = check_ssh(ssh_snapshot, t=t, ssh_exposed=_ssh_exposed)
         if profile is not None:
             apply_profile(ssh_result, profile)
         engine.apply(ssh_result)
@@ -365,7 +441,7 @@ def run_checks(
 
     # ---- CHECK 42 — SSH auth.log login analysis ----
     auth_log_snapshot = AuthLogSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("auth_log"):
+    if _section_enabled("auth_log", config, profile):
         if not config.quiet:
             print_section(t("sections.auth_log"))
         report.write_section(t("sections.auth_log"))
@@ -377,7 +453,7 @@ def run_checks(
 
     # ---- CHECK 17 — User account audit ----
     user_accounts_snapshot = UserAccountsSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("user_accounts"):
+    if _section_enabled("user_accounts", config, profile):
         if not config.quiet:
             print_section(t("sections.user_accounts"))
         report.write_section(t("sections.user_accounts"))
@@ -391,7 +467,7 @@ def run_checks(
 
     # ---- CHECK 18 — Password policy audit ----
     password_policy_snapshot = PasswordPolicySnapshot.from_system()
-    if profile is None or not profile.should_skip_section("password_policy"):
+    if _section_enabled("password_policy", config, profile):
         if not config.quiet:
             print_section(t("sections.password_policy"))
         report.write_section(t("sections.password_policy"))
@@ -405,7 +481,7 @@ def run_checks(
 
     # ---- CHECK 12 — Sensitive file permissions + sudoers ----
     file_perms_snapshot = FilePermsSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("file_perms"):
+    if _section_enabled("file_perms", config, profile):
         if not config.quiet:
             print_section(t("sections.file_perms"))
         report.write_section(t("sections.file_perms"))
@@ -426,7 +502,7 @@ def run_checks(
 
     # ---- CHECK 9 — System hardening ----
     hardening_snapshot = HardeningSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("hardening"):
+    if _section_enabled("hardening", config, profile):
         if not config.quiet:
             print_section(t("sections.hardening"))
         report.write_section(t("sections.hardening"))
@@ -440,7 +516,7 @@ def run_checks(
 
     # ---- CHECK 36 — Kernel hardening ----
     kernel_hardening_snapshot = KernelHardeningSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("kernel_hardening"):
+    if _section_enabled("kernel_hardening", config, profile):
         if not config.quiet:
             print_section(t("sections.kernel_hardening"))
         report.write_section(t("sections.kernel_hardening"))
@@ -454,7 +530,7 @@ def run_checks(
 
     # ---- CHECK 37 — SUID/SGID binary audit ----
     suid_snapshot = SuidSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("suid_audit"):
+    if _section_enabled("suid_audit", config, profile):
         if not config.quiet:
             print_section(t("sections.suid_audit"))
         report.write_section(t("sections.suid_audit"))
@@ -469,7 +545,7 @@ def run_checks(
     # ---- CHECK 38 — Docker container security audit ----
     docker_audit_snapshot = DockerAuditSnapshot.from_system()
     if docker_audit_snapshot.docker_installed:
-        if profile is None or not profile.should_skip_section("docker_audit"):
+        if _section_enabled("docker_audit", config, profile):
             if not config.quiet:
                 print_section(t("sections.docker_audit"))
             report.write_section(t("sections.docker_audit"))
@@ -483,7 +559,7 @@ def run_checks(
 
     # ---- CHECK 39 — Log rotation & system journaling ----
     log_rotation_snapshot = LogRotationSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("log_rotation"):
+    if _section_enabled("log_rotation", config, profile):
         if not config.quiet:
             print_section(t("sections.log_rotation"))
         report.write_section(t("sections.log_rotation"))
@@ -497,7 +573,7 @@ def run_checks(
 
     # ---- CHECK 14 — Kernel module audit ----
     kernel_modules_snapshot = KernelModulesSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("kernel_modules"):
+    if _section_enabled("kernel_modules", config, profile):
         if not config.quiet:
             print_section(t("sections.kernel_modules"))
         report.write_section(t("sections.kernel_modules"))
@@ -514,7 +590,7 @@ def run_checks(
 
     # ---- CHECK 34 — MAC policy (AppArmor / SELinux) ----
     mac_policy_snapshot = MacPolicySnapshot.from_system()
-    if profile is None or not profile.should_skip_section("mac_policy"):
+    if _section_enabled("mac_policy", config, profile):
         if not config.quiet:
             print_section(t("sections.mac_policy"))
         report.write_section(t("sections.mac_policy"))
@@ -531,7 +607,7 @@ def run_checks(
 
     # ---- CHECK 15 — Cron job audit ----
     cron_audit_snapshot = CronAuditSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("cron_audit"):
+    if _section_enabled("cron_audit", config, profile):
         if not config.quiet:
             print_section(t("sections.cron_audit"))
         report.write_section(t("sections.cron_audit"))
@@ -545,7 +621,7 @@ def run_checks(
 
     # ---- CHECK 16 — Service state audit ----
     services_state_snapshot = ServicesStateSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("services_state"):
+    if _section_enabled("services_state", config, profile):
         if not config.quiet:
             print_section(t("sections.services_state"))
         report.write_section(t("sections.services_state"))
@@ -559,7 +635,7 @@ def run_checks(
 
     # ---- CHECK 13 — System updates ----
     updates_snapshot = UpdatesSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("updates"):
+    if _section_enabled("updates", config, profile):
         if not config.quiet:
             print_section(t("sections.updates"))
         report.write_section(t("sections.updates"))
@@ -576,7 +652,7 @@ def run_checks(
 
     # ---- CHECK 41 — System umask ----
     umask_snapshot = UmaskSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("umask"):
+    if _section_enabled("umask", config, profile):
         if not config.quiet:
             print_section(t("sections.umask"))
         report.write_section(t("sections.umask"))
@@ -590,7 +666,7 @@ def run_checks(
 
     # ---- CHECK 23 — Memory & Swap ----
     memory_snapshot = MemorySnapshot.from_system()
-    if profile is None or not profile.should_skip_section("memory"):
+    if _section_enabled("memory", config, profile):
         if not config.quiet:
             print_section(t("sections.memory"))
         report.write_section(t("sections.memory"))
@@ -607,7 +683,7 @@ def run_checks(
 
     # ---- CHECK 22 — Disk health (SMART + partition usage) ----
     disk_snapshot = DiskSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("disk"):
+    if _section_enabled("disk", config, profile):
         if not config.quiet:
             print_section(t("sections.disk"))
         report.write_section(t("sections.disk"))
@@ -629,7 +705,7 @@ def run_checks(
 
     # ---- CHECK 35 — Backup solution ----
     backup_snapshot = BackupSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("backup"):
+    if _section_enabled("backup", config, profile):
         if not config.quiet:
             print_section(t("sections.backup"))
         report.write_section(t("sections.backup"))
@@ -646,7 +722,7 @@ def run_checks(
 
     # ---- CHECK 31 — Linux Audit Framework (auditd) ----
     auditd_snapshot = AuditdSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("auditd"):
+    if _section_enabled("auditd", config, profile):
         if not config.quiet:
             print_section(t("sections.auditd"))
         report.write_section(t("sections.auditd"))
@@ -663,7 +739,7 @@ def run_checks(
 
     # ---- CHECK 32 — Secure Boot ----
     secure_boot_snapshot = SecureBootSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("secure_boot"):
+    if _section_enabled("secure_boot", config, profile):
         if not config.quiet:
             print_section(t("sections.secure_boot"))
         report.write_section(t("sections.secure_boot"))
@@ -680,7 +756,7 @@ def run_checks(
 
     # ---- CHECK 29 — Fail2ban intrusion prevention ----
     fail2ban_snapshot = Fail2banSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("fail2ban"):
+    if _section_enabled("fail2ban", config, profile):
         if not config.quiet:
             print_section(t("sections.fail2ban"))
         report.write_section(t("sections.fail2ban"))
@@ -694,7 +770,7 @@ def run_checks(
 
     # ---- CHECK 25 — ClamAV antivirus audit ----
     clamav_snapshot = ClamAVSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("clamav"):
+    if _section_enabled("clamav", config, profile):
         if not config.quiet:
             print_section(t("sections.clamav"))
         report.write_section(t("sections.clamav"))
@@ -708,7 +784,7 @@ def run_checks(
 
     # ---- CHECK 33 — File integrity monitoring (AIDE / Tripwire) ----
     file_integrity_snapshot = FileIntegritySnapshot.from_system()
-    if profile is None or not profile.should_skip_section("file_integrity"):
+    if _section_enabled("file_integrity", config, profile):
         if not config.quiet:
             print_section(t("sections.file_integrity"))
         report.write_section(t("sections.file_integrity"))
@@ -722,7 +798,7 @@ def run_checks(
 
     # ---- CHECK 30 — Rootkit & integrity scan ----
     rootkit_snapshot = RootkitSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("rootkit"):
+    if _section_enabled("rootkit", config, profile):
         if not config.quiet:
             print_section(t("sections.rootkit"))
         report.write_section(t("sections.rootkit"))
@@ -736,7 +812,7 @@ def run_checks(
 
     # ---- CHECK 28 — NTP time synchronisation ----
     ntp_snapshot = NtpSnapshot.from_system()
-    if profile is None or not profile.should_skip_section("ntp"):
+    if _section_enabled("ntp", config, profile):
         if not config.quiet:
             print_section(t("sections.ntp"))
         report.write_section(t("sections.ntp"))
@@ -759,6 +835,48 @@ def run_checks(
             apply_profile(desktop_result, profile)
         engine.apply(desktop_result)
         display_result(desktop_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 45 — Firmware & microcode audit ----
+    firmware_snapshot = FirmwareSnapshot.from_system()
+    if _section_enabled("firmware", config, profile):
+        if not config.quiet:
+            print_section(t("sections.firmware"))
+        report.write_section(t("sections.firmware"))
+        firmware_result = check_firmware(firmware_snapshot, t=t)
+        if profile is not None:
+            apply_profile(firmware_result, profile)
+        engine.apply(firmware_result)
+        display_result(firmware_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 44 — Systemd timers audit ----
+    timers_snapshot = SystemdTimersSnapshot.from_system()
+    if _section_enabled("systemd_timers", config, profile):
+        if not config.quiet:
+            print_section(t("sections.systemd_timers"))
+        report.write_section(t("sections.systemd_timers"))
+        timers_result = check_systemd_timers(timers_snapshot, t=t)
+        if profile is not None:
+            apply_profile(timers_result, profile)
+        engine.apply(timers_result)
+        display_result(timers_result, report, config.verbose, quiet=config.quiet)
+        if not config.quiet:
+            print()
+
+    # ---- CHECK 43 — TLS/SSL certificate expiry ----
+    ssl_certs_snapshot = SslCertsSnapshot.from_system()
+    if _section_enabled("ssl_certs", config, profile):
+        if not config.quiet:
+            print_section(t("sections.ssl_certs"))
+        report.write_section(t("sections.ssl_certs"))
+        ssl_certs_result = check_ssl_certs(ssl_certs_snapshot, t=t)
+        if profile is not None:
+            apply_profile(ssl_certs_result, profile)
+        engine.apply(ssl_certs_result)
+        display_result(ssl_certs_result, report, config.verbose, quiet=config.quiet)
         if not config.quiet:
             print()
 

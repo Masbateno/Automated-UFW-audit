@@ -430,3 +430,195 @@ class TestTargetFlag:
         config = parse_args(["--target=9", "--profile=server"])
         assert config.target == 9
         assert config.profile == "server"
+
+
+class TestCheckSkipFlags:
+    def test_check_only_single(self):
+        config = parse_args(["--check=ssh"])
+        assert config.check_only == frozenset({"ssh"})
+
+    def test_check_only_multiple(self):
+        config = parse_args(["--check=ssh,firewall,ports"])
+        assert config.check_only == frozenset({"ssh", "firewall", "ports"})
+
+    def test_check_with_equals(self):
+        config = parse_args(["--check=ssl_certs"])
+        assert "ssl_certs" in config.check_only
+
+    def test_check_with_space(self):
+        config = parse_args(["--check", "ssh,firewall"])
+        assert config.check_only == frozenset({"ssh", "firewall"})
+
+    def test_skip_single(self):
+        config = parse_args(["--skip=clamav"])
+        assert config.skip_checks == frozenset({"clamav"})
+
+    def test_skip_multiple(self):
+        config = parse_args(["--skip=clamav,rootkit,backup"])
+        assert config.skip_checks == frozenset({"clamav", "rootkit", "backup"})
+
+    def test_skip_with_space(self):
+        config = parse_args(["--skip", "clamav,rootkit"])
+        assert config.skip_checks == frozenset({"clamav", "rootkit"})
+
+    def test_check_and_skip_mutually_exclusive(self):
+        with pytest.raises(CLIError):
+            parse_args(["--check=ssh", "--skip=clamav"])
+
+    def test_check_empty_value_raises(self):
+        with pytest.raises(CLIError):
+            parse_args(["--check="])
+
+    def test_skip_empty_value_raises(self):
+        with pytest.raises(CLIError):
+            parse_args(["--skip="])
+
+    def test_check_defaults_empty(self):
+        config = parse_args([])
+        assert config.check_only == frozenset()
+        assert config.skip_checks == frozenset()
+
+    def test_check_strips_spaces(self):
+        config = parse_args(["--check=ssh, firewall , ports"])
+        assert config.check_only == frozenset({"ssh", "firewall", "ports"})
+
+
+class TestSectionEnabled:
+    """Tests for _section_enabled helper in runner.py."""
+
+    def test_no_filters_always_enabled(self):
+        from ufw_audit.runner import _section_enabled
+        config = AuditConfig()
+        assert _section_enabled("ssh", config, None)
+
+    def test_check_only_filters_out(self):
+        from ufw_audit.runner import _section_enabled
+        config = AuditConfig(check_only=frozenset({"ssh"}))
+        assert _section_enabled("ssh", config, None)
+        assert not _section_enabled("firewall", config, None)
+
+    def test_skip_blocks_section(self):
+        from ufw_audit.runner import _section_enabled
+        config = AuditConfig(skip_checks=frozenset({"clamav"}))
+        assert not _section_enabled("clamav", config, None)
+        assert _section_enabled("ssh", config, None)
+
+    def test_profile_skip_respected(self):
+        from ufw_audit.runner import _section_enabled
+        from unittest.mock import MagicMock
+        config = AuditConfig()
+        profile = MagicMock()
+        profile.should_skip_section.return_value = True
+        assert not _section_enabled("samba", config, profile)
+
+    def test_check_only_overrides_profile_skip(self):
+        from ufw_audit.runner import _section_enabled
+        from unittest.mock import MagicMock
+        config = AuditConfig(check_only=frozenset({"ssh"}))
+        profile = MagicMock()
+        profile.should_skip_section.return_value = False
+        # "firewall" not in check_only → disabled regardless of profile
+        assert not _section_enabled("firewall", config, profile)
+
+    def test_prefix_check_matches_multiple(self):
+        from ufw_audit.runner import _section_enabled
+        config = AuditConfig(check_only=frozenset({"kernel"}))
+        assert _section_enabled("kernel_hardening", config, None)
+        assert _section_enabled("kernel_modules", config, None)
+        assert not _section_enabled("ssh", config, None)
+
+    def test_prefix_skip_blocks_multiple(self):
+        from ufw_audit.runner import _section_enabled
+        config = AuditConfig(skip_checks=frozenset({"kernel"}))
+        assert not _section_enabled("kernel_hardening", config, None)
+        assert not _section_enabled("kernel_modules", config, None)
+        assert _section_enabled("ssh", config, None)
+
+    def test_prefix_does_not_overmatch(self):
+        from ufw_audit.runner import _section_enabled
+        config = AuditConfig(check_only=frozenset({"ssh"}))
+        # ssl_certs starts with 's' but not 'ssh'
+        assert _section_enabled("ssh", config, None)
+        assert not _section_enabled("ssl_certs", config, None)
+        assert not _section_enabled("suid_audit", config, None)
+
+    def test_prefix_file_matches_both(self):
+        from ufw_audit.runner import _section_enabled
+        config = AuditConfig(check_only=frozenset({"file"}))
+        assert _section_enabled("file_perms", config, None)
+        assert _section_enabled("file_integrity", config, None)
+
+
+class TestValidateCheckFilters:
+    """Tests for validate_check_filters in runner.py."""
+
+    def test_valid_exact_check_returns_none(self):
+        from ufw_audit.runner import validate_check_filters
+        config = AuditConfig(check_only=frozenset({"ssh"}))
+        assert validate_check_filters(config) is None
+
+    def test_valid_prefix_check_returns_none(self):
+        from ufw_audit.runner import validate_check_filters
+        config = AuditConfig(check_only=frozenset({"kernel"}))
+        assert validate_check_filters(config) is None
+
+    def test_all_bad_tokens_returns_error(self):
+        from ufw_audit.runner import validate_check_filters
+        config = AuditConfig(check_only=frozenset({"sshh", "firewallx"}))
+        result = validate_check_filters(config)
+        assert result is not None
+        assert "matched no known" in result
+
+    def test_partial_bad_returns_none(self, capsys):
+        from ufw_audit.runner import validate_check_filters
+        config = AuditConfig(check_only=frozenset({"ssh", "zzz_nonexistent"}))
+        result = validate_check_filters(config)
+        # ssh matches → not fatal
+        assert result is None
+        # but a warning should be printed to stderr
+        captured = capsys.readouterr()
+        assert "zzz_nonexistent" in captured.err
+
+    def test_bad_skip_prints_warning_not_error(self, capsys):
+        from ufw_audit.runner import validate_check_filters
+        config = AuditConfig(skip_checks=frozenset({"nonexistent_check"}))
+        result = validate_check_filters(config)
+        assert result is None
+        captured = capsys.readouterr()
+        assert "nonexistent_check" in captured.err
+
+    def test_no_filters_returns_none(self):
+        from ufw_audit.runner import validate_check_filters
+        config = AuditConfig()
+        assert validate_check_filters(config) is None
+
+    def test_difflib_suggestion_included(self, capsys):
+        from ufw_audit.runner import validate_check_filters
+        config = AuditConfig(check_only=frozenset({"sshh"}))
+        validate_check_filters(config)
+        captured = capsys.readouterr()
+        # difflib should suggest "ssh" for "sshh"
+        assert "ssh" in captured.err
+
+
+class TestOutputDirFlag:
+    def test_output_dir_with_equals(self):
+        config = parse_args(["--output-dir=/var/log/ufw-audit"])
+        assert config.output_dir == "/var/log/ufw-audit"
+
+    def test_output_dir_with_space(self):
+        config = parse_args(["--output-dir", "/tmp/reports"])
+        assert config.output_dir == "/tmp/reports"
+
+    def test_output_dir_default_empty(self):
+        config = parse_args([])
+        assert config.output_dir == ""
+
+    def test_output_dir_empty_value_raises(self):
+        with pytest.raises(CLIError):
+            parse_args(["--output-dir="])
+
+    def test_output_dir_combined_with_detailed(self):
+        config = parse_args(["-d", "--output-dir=/tmp/audit"])
+        assert config.detailed
+        assert config.output_dir == "/tmp/audit"

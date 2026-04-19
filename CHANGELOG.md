@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.21.0](#v1210) | 2026-04-19 | CHECK 43 (TLS/SSL cert expiry); CHECK 44 (systemd timers); CHECK 45 (firmware & microcode); `--html` standalone HTML export; `--check`/`--skip` run-only/exclude checks; `--output-dir`; SSH context note bug fix; quality pass (firmware + systemd_timers); 3778/3778 tests (+284) |
 | [v1.20.0](#v1200) | 2026-04-18 | CHECK 40 (UFW logging level); CHECK 41 (system umask); CHECK 42 (auth.log login analysis); score history (`--history` + sparkline); ignore list (`--ignore`/`--show-ignored`/`ignore.yml`); process-aware system port classification; auth_log `days=0` fix; 3494/3494 tests (+235) |
 | [v1.19.0](#v1190) | 2026-04-17 | SSH `PermitRootLogin` OK cases (no/prohibit-password/forced-commands-only); SUID scan performance (targeted roots); IoT dominance display fix; domain score labels i18n; hardening: 6 new sysctl checks (tcp_syncookies, accept_source_route, accept_redirects_v6, send_redirects, protected_hardlinks, protected_symlinks); SGID whitelist expansion; 3259/3259 tests (+530) |
 | [v1.18.0](#v1180) | 2026-04-16 | CHECK 34 (AppArmor/SELinux MAC policy); CHECK 35 (backup solution audit); kernel listing (always shown); profile override fix (nature cleared on INFO downgrade); summary box cleanup (structural section removed); profile pass (desktop 6 overrides, container 12 skip_sections); `--explain` 76→86 keys; bash-completion Debian fix; `--manage-logs` UX (move prompt + multi-dir view); 2729/2729 tests |
@@ -54,6 +55,88 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.21.0
+
+**2026-04-19**
+
+### CHECK 43 — TLS/SSL certificate expiry (`checks/ssl_certs.py`)
+
+- `SslCertsSnapshot`: scans certificate files from five sources — Let's Encrypt (`/etc/letsencrypt/live/*/fullchain.pem`), `/etc/ssl/private/*.{pem,crt,cert}`, nginx `ssl_certificate` directives, apache2 `SSLCertificateFile` directives, postfix `smtpd_tls_cert_file`
+- `check_ssl_certs()`: expired cert → ALERT −2 pts; expires < 7 days → ALERT −2 pts; expires < 30 days → WARN −1 pt; valid cert → OK
+- Total deduction capped at −4 pts regardless of how many certs are affected
+- `_MAX_CERTS=30`, `_MAX_CONF_FILES=100`, `_MAX_CERT_SIZE=50 000 B` — guards against CA bundles and large deployments
+- Quoted paths in nginx/apache config correctly stripped (`ssl_certificate "/path/to/cert.pem"`)
+- Broken symlinks skipped gracefully
+- 59 tests in `tests/test_ssl_certs.py`
+
+### CHECK 44 — Systemd timers audit (`checks/systemd_timers.py`)
+
+- `SystemdTimersSnapshot`: discovers all timer units via `systemctl list-timers --all --no-pager`; reads associated service unit files
+- Pipe-to-shell detection: two-part regex — `_DOWNLOADER_RE` (`\b(curl|wget)\b`) + `_PIPE_TO_SHELL_RE` (`|\s*(/[a-z/]*/)?(?:ba)?sh\b`); both must be present → WARN −2 pts (flat)
+- World-writable `.sh` scripts referenced in `ExecStart=` → WARN −1 pt (flat); `chmod o-w` fix command
+- User-created timers in `/etc/systemd/system/` running without a `User=` directive → INFO only
+- `_MAX_TIMERS=100`, `_MAX_EXEC_LENGTH=200` hard caps
+- `svc_path.resolve()` used for symlink-safe user-created detection
+- `lstrip("-@")` strips systemd ignore-fail (`-`) and argv0-override (`@`) prefixes from `ExecStart`
+- Last `.service` on ambiguous timer lines (multiple services on one line) used
+- 58 tests in `tests/test_systemd_timers.py`
+
+### CHECK 45 — Firmware & microcode audit (`checks/firmware.py`)
+
+- `FirmwareSnapshot`: two independent sub-checks
+  - **fwupd**: `fwupdmgr get-updates` (cached result, no forced network call); pending updates → WARN −1 pt; fwupd absent → INFO; command error reported independently from updates
+  - **CPU microcode**: `dpkg -l intel-microcode|amd64-microcode`; exact column match (handles arch-qualified output like `intel-microcode:amd64`); missing → WARN −1 pt; non-Intel/AMD → INFO
+- `_detect_cpu_vendor()`: three clean states — `"intel"` | `"amd"` | `"unknown"`
+- `_FWUPD_TIMEOUT=30` s, `_MAX_ERROR_LEN=200`, `_FWUPD_ERROR_RE` for structured error parsing
+- Error and updates results reported independently (both can coexist)
+- 54 tests in `tests/test_firmware.py`
+
+### `--html` — Standalone HTML export (`html_output.py`)
+
+- `build_html_output(engine, sys_info)` produces a self-contained HTML file (no JS, no external resources)
+- Embedded CSS: `code{}` monospace, `.score-circle` colored badge, `.badge` level labels (ALERT/WARN/INFO/OK)
+- Score deductions table; findings grouped by severity; footer with GitHub link
+- `_h()` HTML-escapes all user data (`html.escape(quote=True)`) — XSS-safe
+- `level_label` safely handles `None` engine level (`"UNKNOWN"` fallback)
+- Dual-attribute deduction access: `getattr(engine, "deductions", getattr(engine, "_deductions", []))`
+- 56 tests in `tests/test_html_output.py`
+
+### `--check LIST` / `--skip LIST` — Check-level CLI filters
+
+- `--check=ssh,firewall,ports` — run only the named checks; `--skip=clamav,rootkit` — exclude named checks
+- Mutually exclusive (using both raises `CLIError`)
+- `_section_enabled(section, config, profile)` helper in `runner.py` replaced 31 individual guards
+- `validate_check_filters(config)` warns if an unknown check name is passed
+- Profile `skip_sections` respected: `--check` can force a section even if the profile normally skips it
+- Tests: 17 new tests across `test_cli.py` and `test_runner.py`
+
+### `--output-dir PATH`
+
+- `get_or_prompt_log_dir()` now prioritises `config.output_dir` when set — no interactive prompt, no write to user config
+- `--output-dir` does not persist; it overrides the saved directory for the current run only
+- 5 new tests in `test_cli.py`
+
+### Bug fixes
+
+- **SSH context note**: `runner.py` — the "SSH not publicly accessible" context note in the services section was never shown. Root cause: `_svc_id` was derived from the service label ("SSH Server" → `"ssh_server"`) and compared against `"openssh"`. Fixed by using `snap.service.id == "ssh"` (the canonical registry identifier).
+- **auditd**: `no_rules` finding downgraded from WARN to INFO on `desktop` profile (server keeps WARN −1 pt)
+
+### Quality pass
+
+- **`firmware.py`**: `_detect_cpu_vendor()` simplified to 3 clean states; `_dpkg_installed()` uses exact column match for arch-qualified packages; fwupd error and updates results fully decoupled
+- **`systemd_timers.py`**: pipe-to-shell detection split into two focused regexes (eliminates false negatives for `/bin/bash`, `bash -c`); `svc_path.resolve()` for symlink safety; `lstrip("-@")` for systemd prefixes; last service on ambiguous lines
+
+### Tests
+
+- `tests/test_ssl_certs.py` — 59 tests
+- `tests/test_systemd_timers.py` — 58 tests
+- `tests/test_firmware.py` — 54 tests
+- `tests/test_html_output.py` — 56 tests
+- Existing files: +57 tests (`test_cli.py` / `test_runner.py` — `--check`/`--skip`/`--output-dir`/`--html`; `test_auditd.py` — desktop INFO; quality pass assertions)
+- ✅ 3778/3778 unit tests (+284 from v1.20.0)
 
 ---
 
