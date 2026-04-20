@@ -98,6 +98,25 @@ class TestInternetFacing:
         assert item.color == "ok"
         assert item.icon == "✔"
 
+    def test_ddns_warn_is_warn(self):
+        engine = _make_engine(("ddns.warn", FindingLevel.WARN))
+        items = _call(engine=engine, network_context="local")
+        item = _item(items, "internet_facing")
+        assert item.color == "warn"
+        assert item.icon == "⚠"
+
+    def test_ddns_warn_detail_contains_ddns(self):
+        engine = _make_engine(("ddns.warn", FindingLevel.WARN))
+        items = _call(engine=engine, network_context="local")
+        item = _item(items, "internet_facing")
+        assert "ddns" in item.detail.lower()
+
+    def test_public_overrides_ddns(self):
+        engine = _make_engine(("ddns.warn", FindingLevel.WARN))
+        items = _call(engine=engine, network_context="public")
+        item = _item(items, "internet_facing")
+        assert item.color == "alert"
+
 
 # ---------------------------------------------------------------------------
 # Firewall item
@@ -155,11 +174,13 @@ class TestOpenPorts:
         item = _item(items, "open_ports")
         assert "22/tcp" in item.detail
 
-    def test_ephemeral_port_excluded(self):
+    def test_high_numbered_listen_port_is_shown(self):
+        # LISTEN-state ports on all-interfaces are shown regardless of number —
+        # there are no "ephemeral" server ports in ss LISTEN output.
         ports = _make_ports((49152, "udp", "0.0.0.0"))
         items = _call(ports=ports)
         item = _item(items, "open_ports")
-        assert item.color == "ok"
+        assert "49152/udp" in item.detail
 
     def test_stable_ports_sorted(self):
         ports = _make_ports(
@@ -195,17 +216,19 @@ class TestOpenPorts:
         item = _item(items, "open_ports")
         assert item.color == "alert"
 
-    def test_port_32767_is_stable(self):
+    def test_port_32767_is_shown(self):
         ports = _make_ports((32767, "tcp", "0.0.0.0"))
         items = _call(ports=ports)
         item = _item(items, "open_ports")
         assert "32767/tcp" in item.detail
 
-    def test_port_32768_is_ephemeral(self):
+    def test_port_32768_is_shown(self):
+        # All-interfaces LISTEN ports are shown regardless of port number —
+        # high-numbered listening ports (e.g. SSH on 49732) must appear.
         ports = _make_ports((32768, "tcp", "0.0.0.0"))
         items = _call(ports=ports)
         item = _item(items, "open_ports")
-        assert item.color == "ok"
+        assert "32768/tcp" in item.detail
 
 
 # ---------------------------------------------------------------------------

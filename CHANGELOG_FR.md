@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.22.2](#v1222) | 2026-04-20 | Correctifs : filtre snakeoil étendu aux chemins nginx/apache/postfix ; DDNS reflété dans la vue d'exposition internet ; ports en écoute à numéro élevé affichés ; double préfixe `ℹ` supprimé dans les notes SSH ; 4004/4004 tests (+3) |
 | [v1.22.1](#v1221) | 2026-04-20 | Politique float unifiée dans `recurrence.py` (`update_recurrence` normalise comme `load_recurrence`) ; `import os` supprimé ; durcissement suite de tests (+5 tests) ; 4001/4001 tests |
 | [v1.22.0](#v1220) | 2026-04-20 | Moteur de corrélation de signaux (5 règles de risque composé) ; suivi des findings récurrents ; analyse d'exposition des ports ; diff de clés de findings dans le rapport comparatif ; correctif faux positif IPv6 link-local ; filtre certificat snakeoil ; `--explain` 87→112 clés ; correctif message noyaux en double ; domaine `backup` déplacé vers `disk` ; passage qualité (compare, display, runner, domain_scores) ; 3996/3996 tests (+218) |
 | [v1.21.0](#v1210) | 2026-04-19 | CHECK 43 (expiration certificats TLS/SSL) ; CHECK 44 (timers systemd) ; CHECK 45 (firmware & microcode) ; export `--html` autonome ; `--check`/`--skip` filtres par check ; `--output-dir` ; correctif note de contexte SSH ; passage qualité (firmware + systemd_timers) ; 3778/3778 tests (+284) |
@@ -57,6 +58,25 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.22.2
+
+**2026-04-20**
+
+### Correctifs
+
+- **`ssl_certs.py`** : filtre snakeoil appliqué globalement après collecte de tous les chemins — auparavant limité à `/etc/ssl/private` ; les références via nginx/apache/postfix n'étaient pas exclues
+- **`exposure.py`** : `compute_exposure` reflète désormais l'activité DDNS (clé `ddns.warn`) dans la ligne exposition internet — affiche `⚠ warn` au lieu de `✔ ok` quand DDNS est actif
+- **`exposure.py`** : suppression du filtre heuristique `port < 32768` — un port en écoute est toujours un port serveur quel que soit son numéro
+- **`runner.py`** : la note port non-standard SSH et la note d'exposition locale sont désormais deux appels `print_info` séparés — auparavant concaténées sur une ligne
+- **`locales/en.json`, `locales/fr.json`** : préfixe `ℹ ` supprimé de `local_exposure_note` (doublon avec `print_info`) ; clé `internet_facing_ddns` ajoutée
+
+### Tests
+
+- `tests/test_exposure.py` — `test_ephemeral_port_excluded` → `test_high_numbered_listen_port_is_shown` + `test_port_32768_is_shown` ; +3 tests DDNS dans `TestInternetFacing` (54 tests total)
+- ✅ 4004/4004 tests unitaires (+3 depuis v1.22.1)
 
 ---
 

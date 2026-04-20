@@ -21,7 +21,7 @@ from ufw_audit.display import (
     display_risk_context,
     display_services_panorama,
 )
-from ufw_audit.output import print_group, print_section, print_service_header
+from ufw_audit.output import print_group, print_info, print_section, print_service_header
 from ufw_audit.registry import ServiceRegistry
 from ufw_audit.report import AuditReport
 from ufw_audit.scoring import ScoreEngine
@@ -308,13 +308,15 @@ def run_checks(
                 if snap.service.id == "ssh" and not _ssh_exposed
                 else None
             )
+            _port_note = None
             if snap.service.id == "ssh" and snap.ports and not any(
                 p.startswith("22/") for p in snap.ports
             ):
                 _port_note = t("service_risk.nonstandard_port_note")
-                _risk_note = f"{_risk_note}  {_port_note}" if _risk_note else _port_note
             display_risk_context(snap.service.label, config.lang, t, report,
                                  context_note=_risk_note)
+            if _port_note and not config.quiet:
+                print_info(_port_note)
         svc_result = check_single_service_display(
             snap, network_context, t, report, config.verbose, quiet=config.quiet,
         )

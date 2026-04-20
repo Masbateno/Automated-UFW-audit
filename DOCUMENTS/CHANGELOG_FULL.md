@@ -6,6 +6,26 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.22.2] — 2026-04-20
+
+### Bugfixes
+
+- **`ssl_certs.py`**: snakeoil cert filter moved to a global post-collection step — previously only applied to `/etc/ssl/private` glob; certs referenced from nginx/apache/postfix config were not excluded, causing false ALERT on Ubuntu/Mint systems with default nginx install
+- **`exposure.py`**: `compute_exposure` now checks `ddns.warn` in `bad_keys` — adds an `elif` branch returning `⚠ warn` with `internet_facing_ddns` detail when DDNS is active (was unconditionally `✔ ok` for local networks regardless of DDNS)
+- **`exposure.py`**: removed `lp.port < 32768` ephemeral-port heuristic from the `exposed` port set — LISTEN-state sockets are always server-side; the filter was incorrectly hiding high-numbered servers (e.g. 49732/tcp for non-standard SSH)
+- **`runner.py`**: SSH `local_exposure_note` and `nonstandard_port_note` now emitted as two separate `print_info` calls — previously both were passed as a single string to `display_risk_context`, causing them to appear concatenated on one line
+- **`locales/en.json`, `locales/fr.json`**: removed `ℹ ` prefix from `service_risk.local_exposure_note` (double prefix since `print_info` already prepends `ℹ [INFO]`); added `exposure.internet_facing_ddns` key
+
+### Tests
+
+| File | Change | Detail |
+|------|--------|--------|
+| `tests/test_exposure.py` | 2 tests renamed + 3 added (54 total) | `test_ephemeral_port_excluded` → `test_high_numbered_listen_port_is_shown` (assert port IS in detail); `test_port_32768_is_ephemeral` → `test_port_32768_is_shown` (assert port IS in detail); +3 DDNS tests: `test_ddns_warn_is_warn`, `test_ddns_warn_detail_contains_ddns`, `test_public_overrides_ddns` |
+
+✅ 4004/4004 unit tests (+3 from v1.22.1)
+
+---
+
 ## [v1.22.1] — 2026-04-20
 
 ### Source fix

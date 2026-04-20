@@ -59,6 +59,12 @@ def compute_exposure(
             icon="✖", color="alert",
             detail=t("exposure.internet_facing_detail"),
         ))
+    elif "ddns.warn" in bad_keys:
+        items.append(ExposureItem(
+            label=t("exposure.internet_facing"),
+            icon="⚠", color="warn",
+            detail=t("exposure.internet_facing_ddns"),
+        ))
     else:
         items.append(ExposureItem(
             label=t("exposure.internet_facing"),
@@ -92,7 +98,7 @@ def compute_exposure(
         {
             lp.port_proto
             for lp in ports_snapshot.ports
-            if lp.is_all_interfaces and lp.port < 32768
+            if lp.is_all_interfaces
         },
         key=lambda s: int(s.split("/")[0]),
     )

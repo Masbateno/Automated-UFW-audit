@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.22.2](#v1222) | 2026-04-20 | Bugfixes: snakeoil cert filter now covers nginx/apache/postfix paths; DDNS reflected in internet exposure view; high-numbered listen ports shown in exposure table; double `ℹ` prefix removed from SSH notes; 4004/4004 tests (+3) |
 | [v1.22.1](#v1221) | 2026-04-20 | `recurrence.py` float policy unified (`update_recurrence` now normalizes like `load_recurrence`); `import os` removed; test suite hardening (+5 tests); 4001/4001 tests |
 | [v1.22.0](#v1220) | 2026-04-20 | Signal correlation engine (5 compound-risk rules); recurring finding tracker; port exposure analysis; comparative report finding-key diff; IPv6 link-local false-positive fix; snakeoil cert filter; `--explain` 87→112 keys; kernel duplicate-kernel message fix; `backup` domain moved to `disk`; quality pass (compare, display, runner, domain_scores); 3996/3996 tests (+218) |
 | [v1.21.0](#v1210) | 2026-04-19 | CHECK 43 (TLS/SSL cert expiry); CHECK 44 (systemd timers); CHECK 45 (firmware & microcode); `--html` standalone HTML export; `--check`/`--skip` run-only/exclude checks; `--output-dir`; SSH context note bug fix; quality pass (firmware + systemd_timers); 3778/3778 tests (+284) |
@@ -57,6 +58,25 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.22.2
+
+**2026-04-20**
+
+### Bugfixes
+
+- **`ssl_certs.py`**: snakeoil cert filter now applied globally after all paths are collected — previously only filtered `/etc/ssl/private`; nginx/apache/postfix references to snakeoil certs were not excluded
+- **`exposure.py`**: `compute_exposure` now reflects DDNS activity (`ddns.warn` key) in the internet-facing row — shows `⚠ warn` instead of `✔ ok` when DDNS is active
+- **`exposure.py`**: removed `port < 32768` ephemeral-port heuristic — LISTEN-state ports are always server ports regardless of port number
+- **`runner.py`**: SSH non-standard port note and local-exposure note now printed as separate `print_info` calls — previously concatenated on one line causing garbled output
+- **`locales/en.json`, `locales/fr.json`**: removed `ℹ ` prefix from `local_exposure_note` (double prefix with `print_info`); added `internet_facing_ddns` key
+
+### Tests
+
+- `tests/test_exposure.py` — `test_ephemeral_port_excluded` → `test_high_numbered_listen_port_is_shown` + `test_port_32768_is_shown`; +3 DDNS tests in `TestInternetFacing` (54 tests total)
+- ✅ 4004/4004 unit tests (+3 from v1.22.1)
 
 ---
 

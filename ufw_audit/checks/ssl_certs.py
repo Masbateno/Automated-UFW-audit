@@ -91,8 +91,7 @@ class SslCertsSnapshot:
         if priv.is_dir():
             for ext in ("*.pem", "*.crt", "*.cert"):
                 for cert in priv.glob(ext):
-                    if "snakeoil" not in cert.name.lower():
-                        _add_path(cert, paths)
+                    _add_path(cert, paths)
 
         # --- nginx ---
         for conf_dir in (Path("/etc/nginx/sites-enabled"), Path("/etc/nginx")):
@@ -111,6 +110,8 @@ class SslCertsSnapshot:
                     _add_path(Path(m.group(1).strip()), paths)
             except OSError:
                 pass
+
+        paths = {p for p in paths if "snakeoil" not in Path(p).name.lower()}
 
         for path_str in list(paths)[:_MAX_CERTS]:
             days_left, expiry_str, error = _read_cert_expiry(Path(path_str))

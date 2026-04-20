@@ -420,7 +420,7 @@
     "local_network": "local network"
   },
   "service_risk": {
-    "local_exposure_note": "ℹ Intrinsic risk (see above) — actual exposure: LOW (SSH not reachable from the internet on this network)",
+    "local_exposure_note": "Intrinsic risk (see above) — actual exposure: LOW (SSH not reachable from the internet on this network)",
     "nonstandard_port_note": "Non-standard port — reduced exposure to automated scanners",
     "ssh_server": {
       "level": "CRITICAL",
@@ -2096,6 +2096,7 @@
     "internet_facing": "Internet-facing",
     "internet_facing_detail": "machine has a direct public IP",
     "internet_facing_local": "behind NAT / no direct public IP",
+    "internet_facing_ddns": "DDNS active — ports reachable from internet",
     "firewall": "Firewall",
     "firewall_inactive": "UFW is inactive — all ports unfiltered",
     "firewall_allow_all": "default policy is ALLOW — no filtering",

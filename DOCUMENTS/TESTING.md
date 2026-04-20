@@ -11,6 +11,7 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 
 | Version | Tests | Notes |
 |---------|-------|-------|
+| v1.22.2 | 4004  | +3 tests — `test_exposure.py`: 2 renamed + 3 DDNS tests; bugfixes: snakeoil global filter, DDNS exposure, high-port server, SSH double-prefix, runner note split |
 | v1.22.1 | 4001  | +5 tests — `test_correlation.py` +1 (`test_message_uses_translation_key`); `test_recurrence.py` +1 (`test_float_value_in_prev_is_normalized`); `test_exposure.py` assertion strengthened (`fw_policy=None → alert`); `recurrence.py` float policy unified |
 | v1.22.0 | 3996  | +218 tests — `test_correlation.py` (49), `test_exposure.py` (50), `test_recurrence.py` (27); `test_ipv6.py` +26 (`TestReadGlobalIPv6`); `test_explain.py` updated (87→112 keys); `test_exposure.py` +7 (policy/boundary/design-contract hardening); `test_correlation.py` +7 (empty all_of + any_of, mixed INFO+WARN, triggered_by full any_of, exact result set) |
 | v1.21.0 | 3778  | +284 tests — `test_ssl_certs.py` (59), `test_systemd_timers.py` (58), `test_firmware.py` (54), `test_html_output.py` (56); existing files: +57 (`test_cli.py`/`test_runner.py` — `--check`/`--skip`/`--output-dir`/`--html`; `test_auditd.py` — desktop INFO; quality pass assertions) |
@@ -44,6 +45,23 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v0.18   | 531   | 26 new tests for `fixes.py`; `run_fixes()` fully covered |
 | v0.17   | 505   | 15 pre-existing failures fixed; suite fully green |
 | v0.9    | 421   | First full suite |
+
+### v1.22.2 — 4004/4004 (2026-04-20)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+4004 passed in 4.74s
+```
+
+#### New / modified tests (+3)
+
+| File | Change | Coverage |
+|------|--------|----------|
+| `tests/test_exposure.py` | renamed + 3 added (54 total) | `test_high_numbered_listen_port_is_shown` — port 49152 appears in detail; `test_port_32768_is_shown` — port 32768 appears in detail; `test_ddns_warn_is_warn` / `test_ddns_warn_detail_contains_ddns` / `test_public_overrides_ddns` |
+
+---
 
 ### v1.22.1 — 4001/4001 (2026-04-20)
 

@@ -162,7 +162,15 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ---
 
-## 🆕 v1.22.1
+## 🆕 v1.22.2
+
+- 🐛 **Snakeoil cert filter extended** — now covers nginx/apache/postfix config paths (previously only `/etc/ssl/private`)
+- 🐛 **DDNS reflected in exposure view** — internet-facing row shows `⚠ warn` when DDNS is active
+- 🐛 **High-numbered listen ports shown** — removed incorrect `port < 32768` ephemeral filter
+- 🐛 **SSH notes display fixed** — local-exposure and non-standard-port notes no longer concatenated on one line
+- ✅ 4004/4004 unit tests (+3)
+
+### v1.22.1
 
 - 🔧 **`recurrence.py` float policy unified** — `update_recurrence` now normalizes floats to `int` (consistent with `load_recurrence`); `import os` removed
 - 🧪 **Test suite hardening** — `test_message_uses_translation_key`; `fw_policy=None → alert` asserted; `test_float_value_in_prev_is_normalized`

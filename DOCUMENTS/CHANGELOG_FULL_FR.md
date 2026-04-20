@@ -6,6 +6,26 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.22.2] — 2026-04-20
+
+### Correctifs
+
+- **`ssl_certs.py`** : filtre snakeoil déplacé en étape globale post-collecte — auparavant limité au glob `/etc/ssl/private` ; les certificats référencés depuis les configs nginx/apache/postfix n'étaient pas exclus, provoquant un faux ALERT sur les systèmes Ubuntu/Mint avec nginx installé par défaut
+- **`exposure.py`** : `compute_exposure` vérifie désormais `ddns.warn` dans `bad_keys` — branche `elif` ajoutée retournant `⚠ warn` avec le détail `internet_facing_ddns` quand DDNS est actif (était inconditionnellement `✔ ok` pour les réseaux locaux quelle que soit l'activité DDNS)
+- **`exposure.py`** : suppression du filtre heuristique `lp.port < 32768` dans l'ensemble des ports exposés — un socket en écoute est toujours côté serveur ; le filtre masquait à tort les serveurs à numéro élevé (ex. 49732/tcp pour SSH non-standard)
+- **`runner.py`** : `local_exposure_note` et `nonstandard_port_note` SSH émises en deux appels `print_info` séparés — auparavant combinées en une seule chaîne passée à `display_risk_context`, causant leur affichage sur une ligne
+- **`locales/en.json`, `locales/fr.json`** : préfixe `ℹ ` supprimé de `service_risk.local_exposure_note` (doublon avec `print_info` qui préfixe déjà `ℹ [INFO]`) ; clé `exposure.internet_facing_ddns` ajoutée
+
+### Tests
+
+| Fichier | Changement | Détail |
+|---------|------------|--------|
+| `tests/test_exposure.py` | 2 tests renommés + 3 ajoutés (54 au total) | `test_ephemeral_port_excluded` → `test_high_numbered_listen_port_is_shown` (assert port présent dans detail) ; `test_port_32768_is_ephemeral` → `test_port_32768_is_shown` (idem) ; +3 tests DDNS : `test_ddns_warn_is_warn`, `test_ddns_warn_detail_contains_ddns`, `test_public_overrides_ddns` |
+
+✅ 4004/4004 tests unitaires (+3 depuis v1.22.1)
+
+---
+
 ## [v1.22.1] — 2026-04-20
 
 ### Correction source
