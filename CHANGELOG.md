@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.22.0](#v1220) | 2026-04-20 | Signal correlation engine (5 compound-risk rules); recurring finding tracker; port exposure analysis; comparative report finding-key diff; IPv6 link-local false-positive fix; snakeoil cert filter; `--explain` 87→112 keys; kernel duplicate-kernel message fix; `backup` domain moved to `disk`; quality pass (compare, display, runner, domain_scores); 3996/3996 tests (+218) |
 | [v1.21.0](#v1210) | 2026-04-19 | CHECK 43 (TLS/SSL cert expiry); CHECK 44 (systemd timers); CHECK 45 (firmware & microcode); `--html` standalone HTML export; `--check`/`--skip` run-only/exclude checks; `--output-dir`; SSH context note bug fix; quality pass (firmware + systemd_timers); 3778/3778 tests (+284) |
 | [v1.20.0](#v1200) | 2026-04-18 | CHECK 40 (UFW logging level); CHECK 41 (system umask); CHECK 42 (auth.log login analysis); score history (`--history` + sparkline); ignore list (`--ignore`/`--show-ignored`/`ignore.yml`); process-aware system port classification; auth_log `days=0` fix; 3494/3494 tests (+235) |
 | [v1.19.0](#v1190) | 2026-04-17 | SSH `PermitRootLogin` OK cases (no/prohibit-password/forced-commands-only); SUID scan performance (targeted roots); IoT dominance display fix; domain score labels i18n; hardening: 6 new sysctl checks (tcp_syncookies, accept_source_route, accept_redirects_v6, send_redirects, protected_hardlinks, protected_symlinks); SGID whitelist expansion; 3259/3259 tests (+530) |
@@ -55,6 +56,72 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.22.0
+
+**2026-04-20**
+
+### Signal correlation engine (`correlation.py`)
+
+- `CorrelationRule`: `all_of` / `any_of` frozensets of finding keys; fires when `all_of ⊆ active` AND (`any_of` empty OR `any_of ∩ active ≠ ∅`)
+- `run_correlations(engine, t)` → list of `CorrelatedFinding` (key, level, message, triggered_by)
+- 5 built-in rules:
+  - `corr.root_no_protection` — SSH PermitRootLogin + no Fail2ban → ALERT
+  - `corr.password_auth_under_attack` — password auth enabled + brute-force detected → ALERT
+  - `corr.ssh_root_password` — root login + password auth → ALERT
+  - `corr.privilege_escalation` — NOPASSWD sudoers + unexpected SUID → WARN
+  - `corr.stale_unmonitored` — security updates pending + no Fail2ban → WARN
+  - `corr.fully_blind` — UFW logging off + no Fail2ban + no auditd → WARN
+- 49 tests in `tests/test_correlation.py`
+
+### Recurring finding tracker (`recurrence.py`)
+
+- `load_recurrence()` / `save_recurrence()` — JSONL counters at `~/.config/ufw-audit/recurrence.json`
+- `update_recurrence(prev, active_keys)` — increments per key; keys not present are dropped (resolved)
+- Corrupted / negative values normalized to 0 before increment; empty-string keys and negative values filtered on load
+- Atomic write with `tmp.unlink(missing_ok=True)` cleanup on failure
+- 27 tests in `tests/test_recurrence.py`
+
+### Port exposure analysis (`exposure.py`)
+
+- Groups exposed listening services by interface scope and risk level
+- `fw_policy` allowlist fix: uses `not in ("deny", "reject")` — unknown/None policy treated as permissive
+- Direct `lp.port` attribute for ephemeral-port filter (was reparsing `port_proto` string)
+- 43 tests in `tests/test_exposure.py`
+
+### Comparative report — finding-key diff (`compare.py`)
+
+- `AuditBaseline.finding_keys` — new field: sorted list of active ALERT/WARN keys saved with each baseline
+- `AuditDelta.new_finding_keys` / `resolved_finding_keys` — keys that appeared or resolved since last audit
+- Migration guard: when `prev.finding_keys` is empty (baseline pre-v1.22), key diff is skipped — prevents false-positive flood on first upgrade run
+- `display_delta()` shows each new key (WARN) and each resolved key (OK)
+
+### Bug fixes
+
+- **Port exposure color (`exposure.py`)**: open ports colored `alert` when `fw_policy` is not `deny`/`reject` (was `"allow"` only — `"unknown"` and `None` incorrectly produced `warn`)
+
+- **IPv6 false positive (`checks/ipv6.py`)**: `has_global_ipv6` field + `_read_global_ipv6()` parser; when UFW IPv6 is disabled and listeners exist but only link-local/ULA addresses are assigned, the WARN −2 pts is downgraded to INFO — the machine cannot be reached via IPv6 from the internet
+- **Kernel obsolete message (`checks/kernel_modules.py`)**: when running kernel equals most-recent installed, the redundant "(running: X, latest: X)" parenthetical is suppressed — uses new `kernels_obsolete_same` locale key
+- **Snakeoil cert (`checks/ssl_certs.py`)**: Debian/Ubuntu `ssl-cert-snakeoil.pem` filtered from `/etc/ssl/private` scan — system test certificate no longer triggers TLS audit
+- **Implicit services warning (`display.py`)**: `implicit_svcs` message suppressed when `fw_policy` is `deny` or `reject` — default-deny policies already block undeclared services
+- **SSH non-standard port note (`runner.py`)**: note "Non-standard port — reduced exposure to automated scanners" shown in service section when SSH runs on a non-22 port
+
+### Quality pass
+
+- **`domain_scores.py`**: `backup` domain moved from `hardening` to `disk` — backup solutions belong with disk health scoring
+- **`explain.py`**: 87→112 keys (+25 across 7 new groups: Authentication Logs, Umask, Firewall Logging, TLS / SSL Certificates, Systemd Timers, Firmware, Docker)
+- **`__main__.py`**: `fw_policy` passed through to `print_audit_summary`
+
+### Tests
+
+- `tests/test_correlation.py` — 49 tests (new)
+- `tests/test_exposure.py` — 50 tests (new)
+- `tests/test_recurrence.py` — 27 tests (new)
+- `tests/test_ipv6.py` — +26 tests (`TestReadGlobalIPv6`: global unicast, link-local, ULA, loopback, monkey-patch `_run`)
+- `tests/test_explain.py` — updated key count assertion (87→112)
+- ✅ 3996/3996 unit tests (+218 from v1.21.0)
 
 ---
 

@@ -6,6 +6,156 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.22.0] — 2026-04-20
+
+### Résumé
+- **Corrélation de signaux** — 5 règles de risque composé (root+sans-fail2ban, password-auth+brute-force, root+password, NOPASSWD+SUID, stale+non-surveillé, fully-blind) ; s'évalue post-finalize sur les combinaisons de clés ALERT/WARN
+- **Suivi récurrences** — compteurs consécutifs par clé ; `~/.config/ufw-audit/recurrence.json` ; écriture atomique ; chargement avec filtre des entrées invalides
+- **Analyse exposition** — regroupement d'exposition des ports ; correctif allowlist `fw_policy` ; attribut direct `lp.port`
+- **Rapport comparatif** — `finding_keys` dans la baseline ; `new_finding_keys`/`resolved_finding_keys` dans le delta ; garde de migration pour les baselines antérieures à v1.22
+- **Correctif IPv6** — link-local/ULA uniquement : WARN −2 rétrogradé en INFO (pas d'IPv6 global → machine non joignable depuis internet)
+- **Correctif message noyaux** — parenthèse redondante "(actif : X, récent : X)" supprimée quand running == most_recent
+- **Certificat snakeoil** — filtré lors du scan de `/etc/ssl/private` sur Debian/Ubuntu
+- **`--explain`** — 87→112 clés (+25 sur 7 nouveaux groupes)
+- **Domaine `backup`** — déplacé de `hardening` vers `disk`
+
+### Moteur de corrélation de signaux (`correlation.py`)
+
+**Nouveau fichier.** Évalue les patterns de risque composé post-finalize.
+
+**`CorrelationRule` :**
+- `all_of: frozenset[str]` — chaque clé doit être dans les findings actifs ALERT/WARN
+- `any_of: frozenset[str]` — au moins une doit être active (vide = pas de contrainte OR)
+- `matches(active: set[str]) -> bool` — prédicat pur
+
+**`CorrelatedFinding` :**
+- `key`, `level`, `message`, `triggered_by: list[str]` — union triée des clés déclenchantes
+
+**`run_correlations(engine, t)` :**
+- Collecte les clés actives depuis `engine.findings` (ALERT/WARN uniquement)
+- Évalue la liste `_RULES` ; déduplique par clé de règle
+- Retourne `list[CorrelatedFinding]`
+
+**Règles intégrées (`_RULES`) :**
+
+| Clé | all_of | any_of | Niveau |
+|-----|--------|--------|--------|
+| `corr.root_no_protection` | `ssh.permit_root_login` | `fail2ban.not_installed`, `fail2ban.service_inactive` | ALERT |
+| `corr.password_auth_under_attack` | `ssh.password_auth`, `auth_log.brute_force` | — | ALERT |
+| `corr.ssh_root_password` | `ssh.permit_root_login`, `ssh.password_auth` | — | ALERT |
+| `corr.privilege_escalation` | `file_perms.sudoers_nopasswd_all`, `suid_audit.unexpected_suid` | — | WARN |
+| `corr.stale_unmonitored` | `updates.security_pending` | `fail2ban.not_installed`, `fail2ban.service_inactive` | WARN |
+| `corr.fully_blind` | `firewall.logging_off`, `fail2ban.not_installed` | `auditd.not_installed`, `auditd.service_inactive` | WARN |
+
+**Tests :** 49 tests dans `tests/test_correlation.py`
+
+### Suivi des findings récurrents (`recurrence.py`)
+
+**Nouveau fichier.** Compte les apparitions consécutives par clé de finding.
+
+**Stockage :** `~/.config/ufw-audit/recurrence.json` — `{"finding.key": N, ...}`
+
+**`load_recurrence(path=None) -> dict[str, int]` :**
+- Filtres : clé doit être une chaîne non vide ; valeur doit être `int|float` et `>= 0` ; convertie en `int`
+- Retourne `{}` en cas d'erreur de lecture/parsing
+
+**`save_recurrence(data, path=None) -> None` :**
+- Écriture atomique : `tmp = dest.with_name(dest.name + ".tmp")` défini avant le `try`
+- `tmp.replace(dest)` en cas de succès ; `tmp.unlink(missing_ok=True)` sur `OSError`
+
+**`update_recurrence(prev, active_keys) -> dict[str, int]` :**
+- Pour chaque clé dans `active_keys` : `val = prev.get(key, 0)` ; si pas `int` ou `< 0`, `val = 0` ; résultat `val + 1`
+- Les clés absentes de `active_keys` sont supprimées (finding résolu)
+
+**Tests :** 27 tests dans `tests/test_recurrence.py`
+
+### Analyse d'exposition des ports (`exposure.py`)
+
+**Nouveau fichier.** Regroupe les services en écoute exposés par portée d'interface et niveau de risque.
+
+**Correctifs :**
+- Vérification `fw_policy` : `elif fw_policy not in ("deny", "reject")` — politique inconnue/None traitée comme permissive (était `== "allow"`)
+- Filtre ports éphémères : `lp.port < 32768` (attribut direct, était `int(lp.port_proto.split("/")[0]) < 32768`)
+
+**Tests :** 43 tests dans `tests/test_exposure.py`
+
+### Rapport comparatif — diff de clés de findings (`compare.py`)
+
+**`AuditBaseline` :**
+- Nouveau champ : `finding_keys: list[str] = field(default_factory=list)` — clés ALERT/WARN triées depuis `engine.findings`
+- `load_baseline()` lit et peuple désormais `finding_keys` depuis le JSON
+
+**`AuditDelta` :**
+- Nouveaux champs : `new_finding_keys: list[str]` / `resolved_finding_keys: list[str]` — avec `field(default_factory=list)` pour la compatibilité descendante
+- `is_empty()` mis à jour pour inclure les deux nouveaux champs
+
+**`compute_delta(prev, curr)` :**
+- Garde de migration : `if prev_keys:` — si `prev.finding_keys` est vide (baseline ancienne), le diff est ignoré entièrement
+- Évite le flood de faux "nouveaux findings" à la première exécution après mise à jour vers v1.22
+
+**`display_delta(delta, t, output_mod)` :**
+- Nouvelles boucles : `print_warn` pour chaque `new_finding_keys` ; `print_ok` pour chaque `resolved_finding_keys`
+
+### Correctifs
+
+**Cohérence couleur exposition des ports (`exposure.py`) :**
+- Couleur open_ports : `color = "alert" if not fw_active or fw_policy not in ("deny", "reject") else "warn"` — était `fw_policy == "allow"`, ce qui faisait produire `warn` au lieu d'`alert` pour les politiques `"unknown"` et `None`, incohérent avec la logique de l'item firewall
+- Nouveaux tests : `test_with_fw_allow_policy_port_is_alert`, `test_with_fw_unknown_policy_port_is_alert`, `test_port_32767_is_stable`, `test_port_32768_is_ephemeral`, `test_not_installed_overrides_password_auth`, `test_info_findings_do_not_affect_ssh`, `test_items_order`
+
+**Faux positif IPv6 (`checks/ipv6.py`) :**
+- Nouveau champ `IPv6Snapshot.has_global_ipv6: bool = False`
+- `_read_global_ipv6()` : parse `ip -6 addr show` ; retourne `True` si une adresse correspond à `2000::/3` ; exclut `::1`, `fe80::/10`, `fc00::/7`
+- Dans `check_ipv6()` : quand UFW IPv6 désactivé + listeners présents + `not has_global_ipv6` → INFO au lieu de WARN −2 pts ; utilise la nouvelle clé locale `ipv6.ufw_disabled_listeners_link_local`
+
+**Message noyaux obsolètes (`checks/kernel_modules.py`) :**
+- Quand `running == most_recent` : utilise la clé `kernels_obsolete_same` (sans parenthèse)
+- Quand différents : utilise la clé `kernels_obsolete` existante avec les deux valeurs
+- Nouvelles clés locales : `kernel_modules.kernels_obsolete_same` (EN + FR)
+
+**Certificat snakeoil (`checks/ssl_certs.py`) :**
+- `if "snakeoil" not in cert.name.lower():` ajouté avant l'appel `_add_path()` dans la boucle glob `/etc/ssl/private`
+- Empêche le certificat de test système `ssl-cert-snakeoil.pem` de Debian/Ubuntu de déclencher l'audit TLS
+
+**Avertissement services implicites (`display.py`) :**
+- `print_audit_summary()` reçoit le paramètre `fw_policy: str = "deny"`
+- Condition : `if implicit_svcs and fw_policy not in ("deny", "reject"):` — supprime le message sur les politiques default-deny
+- `__main__.py` transmet `fw_policy` à `print_audit_summary()`
+
+**Note port SSH non-standard (`runner.py`) :**
+- Quand `snap.service.id == "ssh"` et aucun port ne commence par `"22/"` : ajoute `service_risk.nonstandard_port_note` à la note de risque
+- Nouvelles clés locales : `service_risk.nonstandard_port_note` (EN + FR)
+
+### Passage qualité
+
+**`domain_scores.py` :**
+- `"backup": "disk"` — déplacé depuis le catch-all `"hardening"` ; les solutions de sauvegarde correctement groupées avec la santé disque
+
+**`explain.py` :**
+- 87 → 112 clés (+25)
+- Nouveaux groupes : Journaux d'authentification (2), Umask (2), Journalisation du pare-feu (1), Certificats TLS/SSL (3), Timers Systemd (3), Firmware (2), Docker (4 déplacés/ajoutés)
+
+**Ajouts locales (`en.json` / `fr.json`) :**
+- `compare.key_appeared` / `compare.key_resolved`
+- `service_risk.nonstandard_port_note`
+- `kernel_modules.kernels_obsolete_same`
+- `ipv6.ufw_disabled_listeners_link_local`
+- `auth_log.no_logins` mis à jour (affiche le nombre de jours)
+- Clés messages règles de corrélation (`corr.*`)
+
+### Tests
+
+| Fichier | Nombre | Notes |
+|---------|--------|-------|
+| `tests/test_correlation.py` | 42 | Nouveau ; `TestCorrelationRuleMatches` (8) ; `TestRunCorrelationsNoMatch` (2) ; règles individuelles + multi-règles + dédup ; cas limites |
+| `tests/test_exposure.py` | 50 | Nouveau ; `FakeEngine` + `_FakePortsSnapshot` ; allowlist fw_policy (deny/reject/allow/unknown/None) ; bornes 32767 inclus / 32768 exclu ; `test_not_installed_overrides_password_auth` ; `test_info_findings_do_not_affect_ssh` ; `test_items_order` ; scénario pleine exposition |
+| `tests/test_recurrence.py` | 27 | Nouveau ; normalisation/filtrage/écriture atomique ; `test_no_tmp_file_leftover` ; `test_large_volume_round_trip` (10k clés) |
+| `tests/test_ipv6.py` | 57 (+26) | `TestReadGlobalIPv6` : unicast global, link-local, ULA fc/fd, loopback, vide, monkey-patch `_run` |
+| `tests/test_explain.py` | 63 | Assertion nombre de clés mise à jour (87→112) |
+
+✅ **3996/3996 tests unitaires (+218 depuis v1.21.0)**
+
+---
+
 ## [v1.21.0] — 2026-04-19
 
 ### Résumé

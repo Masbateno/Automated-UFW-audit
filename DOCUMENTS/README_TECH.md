@@ -1,9 +1,9 @@
 *[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
-# ufw-audit v1.21.0
+# ufw-audit v1.22.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.21.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.22.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -78,6 +78,14 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **`--html` HTML export** — `build_html_output()` produces a self-contained HTML file (no JS, no external resources); embedded CSS; colored score circle; ALERT/WARN/INFO/OK badges; deductions table; `_h()` applies `html.escape(quote=True)` to all user data — XSS-safe
 - **`--check LIST` / `--skip LIST`** — run only named checks (`--check=ssh,firewall`) or exclude them (`--skip=clamav,rootkit`); mutually exclusive; `_section_enabled()` helper in `runner.py`; `validate_check_filters()` warns on unknown names; profile `skip_sections` respected
 - **`--output-dir PATH`** — override report save directory for the current run; `get_or_prompt_log_dir()` prioritises this over saved config; no persist
+- **Signal correlation engine** — `correlation.py`: 5 compound-risk rules (root+no-fail2ban → ALERT; password-auth+brute-force → ALERT; root+password → ALERT; NOPASSWD+SUID → WARN; stale+no-fail2ban → WARN; logging-off+no-fail2ban+no-auditd → WARN); `CorrelationRule` with `all_of`/`any_of` frozensets; evaluated post-finalize on ALERT+WARN finding keys; `triggered_by` list identifies contributing findings
+- **Recurring finding tracker** — `recurrence.py`: consecutive-audit appearance counter per ALERT/WARN key; `~/.config/ufw-audit/recurrence.json`; atomic write; corrupted/negative values normalised; empty-key entries filtered on load
+- **Port exposure analysis** — `exposure.py`: groups exposed listening services by interface scope and risk level; `fw_policy not in ("deny", "reject")` allowlist; direct `lp.port` attribute for ephemeral-port filter
+- **Comparative report — finding-key diff** — `AuditBaseline.finding_keys` persists active ALERT+WARN keys; `AuditDelta` adds `new_finding_keys` / `resolved_finding_keys`; migration guard prevents false-positive flood on first run after upgrade; `display_delta()` shows each appeared/resolved key
+- **IPv6 link-local false-positive fix** — `_read_global_ipv6()` parser; `has_global_ipv6` field; WARN −2 pts downgraded to INFO when only link-local (fe80::/10) or ULA (fc/fd::/7) addresses assigned — machine not internet-reachable via IPv6
+- **Kernel obsolete message fix** — `kernels_obsolete_same` locale key; suppresses redundant "(running: X, latest: X)" parenthetical when running kernel equals most-recent installed
+- **Snakeoil cert filter** — `ssl-cert-snakeoil.pem` excluded from `/etc/ssl/private` scan; prevents Debian/Ubuntu system test cert from triggering TLS audit
+- **`--explain`** — 87→112 keys (+25 across 7 new groups: Authentication Logs, Umask, Firewall Logging, TLS / SSL Certificates, Systemd Timers, Firmware, Docker)
 
 ---
 

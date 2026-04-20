@@ -135,6 +135,8 @@ class ChecksResult(NamedTuple):
     net_snapshot:       NetworkContextSnapshot
     hardening_snapshot: HardeningSnapshot
     ipv6_snapshot:      IPv6Snapshot
+    fw_active:          bool = False
+    fw_policy:          str  = "unknown"
 
 
 def init_report(config: AuditConfig, user_config: UserConfig, t, version: str) -> AuditReport:
@@ -158,8 +160,10 @@ def run_checks(
     registry: ServiceRegistry,
     network_context: str,
     profile: AuditProfile | None = None,
+    prev_recurrence: "dict[str, int] | None" = None,
 ) -> ChecksResult:
     """Run all audit checks in sequence."""
+    _pr: dict[str, int] = prev_recurrence or {}
 
     # =========================================================================
     # GROUP 1 — FIREWALL & RÉSEAU
@@ -176,7 +180,7 @@ def run_checks(
     fw_status  = FirewallStatus.from_system()
     fw_result  = check_firewall(fw_status, t=t)
     engine.apply(fw_result)
-    display_result(fw_result, report, config.verbose, quiet=config.quiet)
+    display_result(fw_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
 
     if fw_status.ufw_output:
         report.write_section("UFW STATUS")
@@ -192,7 +196,7 @@ def run_checks(
 
     rules_result = check_rules(ufw_verbose, ufw_numbered, t, fw_status.ipv6_ufw_enabled)
     engine.apply(rules_result)
-    display_result(rules_result, report, config.verbose, quiet=config.quiet)
+    display_result(rules_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
 
     # ---- CHECK 40 — UFW logging level ----
     if not config.quiet:
@@ -201,7 +205,7 @@ def run_checks(
 
     ufw_logging_result = check_ufw_logging(fw_status, t=t)
     engine.apply(ufw_logging_result)
-    display_result(ufw_logging_result, report, config.verbose, quiet=config.quiet)
+    display_result(ufw_logging_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
 
     # ---- CHECK 2b — Firewall stack analysis ----
     if not config.quiet:
@@ -211,7 +215,7 @@ def run_checks(
     stack_snapshot = FirewallStackSnapshot.from_system()
     stack_result   = check_firewall_stack(stack_snapshot, t=t)
     engine.apply(stack_result)
-    display_result(stack_result, report, config.verbose, quiet=config.quiet)
+    display_result(stack_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
     if not config.quiet:
         print()
 
@@ -223,7 +227,7 @@ def run_checks(
     net_snapshot = NetworkContextSnapshot.from_system()
     net_result   = check_network_context(net_snapshot, t=t)
     engine.apply(net_result)
-    display_result(net_result, report, config.verbose, quiet=config.quiet)
+    display_result(net_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
     if not config.quiet:
         display_network_context(net_snapshot, t, output)
 
@@ -237,7 +241,7 @@ def run_checks(
         if profile is not None:
             apply_profile(ipv6_result, profile)
         engine.apply(ipv6_result)
-        display_result(ipv6_result, report, config.verbose, quiet=config.quiet)
+        display_result(ipv6_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -304,6 +308,11 @@ def run_checks(
                 if snap.service.id == "ssh" and not _ssh_exposed
                 else None
             )
+            if snap.service.id == "ssh" and snap.ports and not any(
+                p.startswith("22/") for p in snap.ports
+            ):
+                _port_note = t("service_risk.nonstandard_port_note")
+                _risk_note = f"{_risk_note}  {_port_note}" if _risk_note else _port_note
             display_risk_context(snap.service.label, config.lang, t, report,
                                  context_note=_risk_note)
         svc_result = check_single_service_display(
@@ -329,7 +338,7 @@ def run_checks(
         t=t,
     )
     engine.apply(ports_result)
-    display_result(ports_result, report, config.verbose, quiet=config.quiet)
+    display_result(ports_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
     display_ports_overview(ports_snapshot, config, t, report, output)
 
     # ---- CHECK 5 — UFW log analysis ----
@@ -353,7 +362,7 @@ def run_checks(
         active_ports=active_external_ports,
     )
     engine.apply(ddns_result)
-    display_result(ddns_result, report, config.verbose, quiet=config.quiet)
+    display_result(ddns_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
     for port in ddns_result.open_ports:
         output.print_dim(f"  → {port}")
 
@@ -365,7 +374,7 @@ def run_checks(
     docker_snapshot = DockerSnapshot.from_system()
     docker_result   = check_docker(docker_snapshot, network_context=network_context, t=t)
     engine.apply(docker_result)
-    display_result(docker_result, report, config.verbose, quiet=config.quiet)
+    display_result(docker_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
 
     if docker_snapshot.exposed_ports:
         output.print_dim(t("docker.exposed_ports") + " :")
@@ -386,7 +395,7 @@ def run_checks(
     virt_snapshot = VirtSnapshot.from_system()
     virt_result   = check_virtualization(virt_snapshot, t=t)
     engine.apply(virt_result)
-    display_result(virt_result, report, config.verbose, quiet=config.quiet)
+    display_result(virt_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
     if not config.quiet:
         print()
 
@@ -400,7 +409,7 @@ def run_checks(
         if profile is not None:
             apply_profile(samba_result, profile)
         engine.apply(samba_result)
-        display_result(samba_result, report, config.verbose, quiet=config.quiet)
+        display_result(samba_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -414,7 +423,7 @@ def run_checks(
         if profile is not None:
             apply_profile(smtp_result, profile)
         engine.apply(smtp_result)
-        display_result(smtp_result, report, config.verbose, quiet=config.quiet)
+        display_result(smtp_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -435,7 +444,7 @@ def run_checks(
         if profile is not None:
             apply_profile(ssh_result, profile)
         engine.apply(ssh_result)
-        display_result(ssh_result, report, config.verbose, quiet=config.quiet)
+        display_result(ssh_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -447,7 +456,7 @@ def run_checks(
         report.write_section(t("sections.auth_log"))
         auth_log_result = check_auth_log(auth_log_snapshot, t=t)
         engine.apply(auth_log_result)
-        display_result(auth_log_result, report, config.verbose, quiet=config.quiet)
+        display_result(auth_log_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -461,7 +470,7 @@ def run_checks(
         if profile is not None:
             apply_profile(user_accounts_result, profile)
         engine.apply(user_accounts_result)
-        display_result(user_accounts_result, report, config.verbose, quiet=config.quiet)
+        display_result(user_accounts_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -475,7 +484,7 @@ def run_checks(
         if profile is not None:
             apply_profile(password_policy_result, profile)
         engine.apply(password_policy_result)
-        display_result(password_policy_result, report, config.verbose, quiet=config.quiet)
+        display_result(password_policy_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -489,7 +498,7 @@ def run_checks(
         if profile is not None:
             apply_profile(file_perms_result, profile)
         engine.apply(file_perms_result)
-        display_result(file_perms_result, report, config.verbose, quiet=config.quiet)
+        display_result(file_perms_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -510,7 +519,7 @@ def run_checks(
         if profile is not None:
             apply_profile(hardening_result, profile)
         engine.apply(hardening_result)
-        display_result(hardening_result, report, config.verbose, quiet=config.quiet)
+        display_result(hardening_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -524,7 +533,7 @@ def run_checks(
         if profile is not None:
             apply_profile(kernel_hardening_result, profile)
         engine.apply(kernel_hardening_result)
-        display_result(kernel_hardening_result, report, config.verbose, quiet=config.quiet)
+        display_result(kernel_hardening_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -538,7 +547,7 @@ def run_checks(
         if profile is not None:
             apply_profile(suid_result, profile)
         engine.apply(suid_result)
-        display_result(suid_result, report, config.verbose, quiet=config.quiet)
+        display_result(suid_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -553,7 +562,7 @@ def run_checks(
             if profile is not None:
                 apply_profile(docker_audit_result, profile)
             engine.apply(docker_audit_result)
-            display_result(docker_audit_result, report, config.verbose, quiet=config.quiet)
+            display_result(docker_audit_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
             if not config.quiet:
                 print()
 
@@ -567,7 +576,7 @@ def run_checks(
         if profile is not None:
             apply_profile(log_rotation_result, profile)
         engine.apply(log_rotation_result)
-        display_result(log_rotation_result, report, config.verbose, quiet=config.quiet)
+        display_result(log_rotation_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -584,7 +593,7 @@ def run_checks(
         if profile is not None:
             apply_profile(kernel_modules_result, profile)
         engine.apply(kernel_modules_result)
-        display_result(kernel_modules_result, report, config.verbose, quiet=config.quiet)
+        display_result(kernel_modules_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -601,7 +610,7 @@ def run_checks(
         if profile is not None:
             apply_profile(mac_policy_result, profile)
         engine.apply(mac_policy_result)
-        display_result(mac_policy_result, report, config.verbose, quiet=config.quiet)
+        display_result(mac_policy_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -615,7 +624,7 @@ def run_checks(
         if profile is not None:
             apply_profile(cron_audit_result, profile)
         engine.apply(cron_audit_result)
-        display_result(cron_audit_result, report, config.verbose, quiet=config.quiet)
+        display_result(cron_audit_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -629,7 +638,7 @@ def run_checks(
         if profile is not None:
             apply_profile(services_state_result, profile)
         engine.apply(services_state_result)
-        display_result(services_state_result, report, config.verbose, quiet=config.quiet)
+        display_result(services_state_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -646,7 +655,7 @@ def run_checks(
         if profile is not None:
             apply_profile(updates_result, profile)
         engine.apply(updates_result)
-        display_result(updates_result, report, config.verbose, quiet=config.quiet)
+        display_result(updates_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -660,7 +669,7 @@ def run_checks(
         if profile is not None:
             apply_profile(umask_result, profile)
         engine.apply(umask_result)
-        display_result(umask_result, report, config.verbose, quiet=config.quiet)
+        display_result(umask_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -677,7 +686,7 @@ def run_checks(
         if profile is not None:
             apply_profile(memory_result, profile)
         engine.apply(memory_result)
-        display_result(memory_result, report, config.verbose, quiet=config.quiet)
+        display_result(memory_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -691,7 +700,7 @@ def run_checks(
         if profile is not None:
             apply_profile(disk_result, profile)
         engine.apply(disk_result)
-        display_result(disk_result, report, config.verbose, quiet=config.quiet)
+        display_result(disk_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             display_disk_partitions(disk_snapshot, t, output)
             print()
@@ -716,7 +725,7 @@ def run_checks(
         if profile is not None:
             apply_profile(backup_result, profile)
         engine.apply(backup_result)
-        display_result(backup_result, report, config.verbose, quiet=config.quiet)
+        display_result(backup_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -733,7 +742,7 @@ def run_checks(
         if profile is not None:
             apply_profile(auditd_result, profile)
         engine.apply(auditd_result)
-        display_result(auditd_result, report, config.verbose, quiet=config.quiet)
+        display_result(auditd_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -750,7 +759,7 @@ def run_checks(
         if profile is not None:
             apply_profile(secure_boot_result, profile)
         engine.apply(secure_boot_result)
-        display_result(secure_boot_result, report, config.verbose, quiet=config.quiet)
+        display_result(secure_boot_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -764,7 +773,7 @@ def run_checks(
         if profile is not None:
             apply_profile(fail2ban_result, profile)
         engine.apply(fail2ban_result)
-        display_result(fail2ban_result, report, config.verbose, quiet=config.quiet)
+        display_result(fail2ban_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -778,7 +787,7 @@ def run_checks(
         if profile is not None:
             apply_profile(clamav_result, profile)
         engine.apply(clamav_result)
-        display_result(clamav_result, report, config.verbose, quiet=config.quiet)
+        display_result(clamav_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -792,7 +801,7 @@ def run_checks(
         if profile is not None:
             apply_profile(file_integrity_result, profile)
         engine.apply(file_integrity_result)
-        display_result(file_integrity_result, report, config.verbose, quiet=config.quiet)
+        display_result(file_integrity_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -806,7 +815,7 @@ def run_checks(
         if profile is not None:
             apply_profile(rootkit_result, profile)
         engine.apply(rootkit_result)
-        display_result(rootkit_result, report, config.verbose, quiet=config.quiet)
+        display_result(rootkit_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -820,7 +829,7 @@ def run_checks(
         if profile is not None:
             apply_profile(ntp_result, profile)
         engine.apply(ntp_result)
-        display_result(ntp_result, report, config.verbose, quiet=config.quiet)
+        display_result(ntp_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -834,7 +843,7 @@ def run_checks(
         if profile is not None:
             apply_profile(desktop_result, profile)
         engine.apply(desktop_result)
-        display_result(desktop_result, report, config.verbose, quiet=config.quiet)
+        display_result(desktop_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -848,7 +857,7 @@ def run_checks(
         if profile is not None:
             apply_profile(firmware_result, profile)
         engine.apply(firmware_result)
-        display_result(firmware_result, report, config.verbose, quiet=config.quiet)
+        display_result(firmware_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -862,7 +871,7 @@ def run_checks(
         if profile is not None:
             apply_profile(timers_result, profile)
         engine.apply(timers_result)
-        display_result(timers_result, report, config.verbose, quiet=config.quiet)
+        display_result(timers_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -876,7 +885,7 @@ def run_checks(
         if profile is not None:
             apply_profile(ssl_certs_result, profile)
         engine.apply(ssl_certs_result)
-        display_result(ssl_certs_result, report, config.verbose, quiet=config.quiet)
+        display_result(ssl_certs_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -891,7 +900,7 @@ def run_checks(
         if profile is not None:
             apply_profile(plugin_result, profile)
         engine.apply(plugin_result)
-        display_result(plugin_result, report, config.verbose, quiet=config.quiet)
+        display_result(plugin_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
         if not config.quiet:
             print()
 
@@ -902,4 +911,6 @@ def run_checks(
         net_snapshot=net_snapshot,
         hardening_snapshot=hardening_snapshot,
         ipv6_snapshot=ipv6_snapshot,
+        fw_active=fw_status.active,
+        fw_policy=fw_status.incoming_policy or "unknown",
     )

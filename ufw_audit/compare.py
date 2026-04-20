@@ -68,6 +68,7 @@ class AuditBaseline:
     info_count:      int = 0
     open_ports:      list[str] = field(default_factory=list)
     active_services: list[str] = field(default_factory=list)
+    finding_keys:    list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -87,6 +88,8 @@ class AuditDelta:
     closed_ports:     list[str]   # gone since last audit
     new_services:     list[str]   # became active
     stopped_services: list[str]   # became inactive
+    new_finding_keys:      list[str] = field(default_factory=list)  # ALERT/WARN keys new since last audit
+    resolved_finding_keys: list[str] = field(default_factory=list)  # ALERT/WARN keys resolved
 
     def is_empty(self) -> bool:
         """Return True when no changes were detected since the previous audit."""
@@ -99,6 +102,8 @@ class AuditDelta:
             and not self.closed_ports
             and not self.new_services
             and not self.stopped_services
+            and not self.new_finding_keys
+            and not self.resolved_finding_keys
         )
 
 
@@ -136,6 +141,13 @@ def build_baseline(
         if snap.installed and snap.state and snap.state.is_active
     })
 
+    from ufw_audit.scoring import FindingLevel
+    finding_keys = sorted({
+        f.key
+        for f in engine.findings
+        if f.key and f.level in (FindingLevel.ALERT, FindingLevel.WARN)
+    })
+
     return AuditBaseline(
         timestamp=datetime.now(timezone.utc).isoformat(timespec="seconds"),
         score=engine.score,
@@ -144,6 +156,7 @@ def build_baseline(
         info_count=engine.info_count,
         open_ports=open_ports,
         active_services=active_services,
+        finding_keys=finding_keys,
     )
 
 
@@ -183,6 +196,7 @@ def load_baseline(path: Path | None = None) -> AuditBaseline | None:
             info_count=int(raw.get("info_count", 0)),
             open_ports=list(raw.get("open_ports", [])),
             active_services=list(raw.get("active_services", [])),
+            finding_keys=list(raw.get("finding_keys", [])),
         )
     except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
         logger.debug("load_baseline: could not read %s: %s", src, exc)
@@ -210,6 +224,18 @@ def compute_delta(prev: AuditBaseline, curr: AuditBaseline) -> AuditDelta:
     prev_svcs = set(prev.active_services)
     curr_svcs = set(curr.active_services)
 
+    prev_keys = set(prev.finding_keys)
+    curr_keys = set(curr.finding_keys)
+    # Only diff finding keys when the previous baseline actually had them.
+    # An empty prev.finding_keys means an older baseline (pre-v1.22) — computing
+    # the diff would falsely mark all current findings as "new".
+    if prev_keys:
+        new_finding_keys      = sorted(curr_keys - prev_keys)
+        resolved_finding_keys = sorted(prev_keys - curr_keys)
+    else:
+        new_finding_keys      = []
+        resolved_finding_keys = []
+
     return AuditDelta(
         prev_timestamp=prev.timestamp,
         score_delta=curr.score - prev.score,
@@ -220,6 +246,8 @@ def compute_delta(prev: AuditBaseline, curr: AuditBaseline) -> AuditDelta:
         closed_ports=sorted(prev_ports - curr_ports),
         new_services=sorted(curr_svcs - prev_svcs),
         stopped_services=sorted(prev_svcs - curr_svcs),
+        new_finding_keys=new_finding_keys,
+        resolved_finding_keys=resolved_finding_keys,
     )
 
 
@@ -268,6 +296,12 @@ def display_delta(delta: AuditDelta, t, output_mod) -> None:
         output_mod.print_ok(t("compare.info_decreased", delta=abs(delta.info_delta)))
     elif delta.info_delta > 0:
         output_mod.print_info(t("compare.info_increased", delta=delta.info_delta))
+
+    # --- New / resolved ALERT+WARN finding keys ---
+    for key in delta.new_finding_keys:
+        output_mod.print_warn(t("compare.key_appeared", key=key))
+    for key in delta.resolved_finding_keys:
+        output_mod.print_ok(t("compare.key_resolved", key=key))
 
     # --- Ports ---
     for port in delta.new_ports:

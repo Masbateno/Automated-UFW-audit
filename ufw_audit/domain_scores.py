@@ -67,7 +67,7 @@ _PREFIX_TO_DOMAIN: dict[str, str] = {
     "clamav":           "hardening",
     "auditd":           "hardening",
     "secure_boot":      "hardening",
-    "backup":           "hardening",
+    "backup":           "disk",
     "file_integrity":   "hardening",
     "log_rotation":     "hardening",
     "mac_policy":       "hardening",

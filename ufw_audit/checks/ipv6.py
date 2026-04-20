@@ -43,11 +43,17 @@ class IPv6Snapshot:
         ipv6_listeners:      Port/proto strings (e.g. "22/tcp") for services
                              that bind to the IPv6 wildcard address (::).
         ufw_v6_covered:      Port/proto strings that have a (v6) UFW rule.
+        has_global_ipv6:     True if at least one global-scope IPv6 address is
+                             assigned (2000::/3). False when only link-local
+                             (fe80::/10), ULA (fc/fd::/7), or loopback (::1)
+                             addresses are present — the machine cannot be
+                             reached via IPv6 from the internet in that case.
     """
     kernel_ipv6_enabled: bool       = True
     ufw_ipv6_enabled:    bool       = True
     ipv6_listeners:      list[str]  = field(default_factory=list)
     ufw_v6_covered:      list[str]  = field(default_factory=list)
+    has_global_ipv6:     bool       = False
 
     @classmethod
     def from_system(cls) -> "IPv6Snapshot":
@@ -60,6 +66,7 @@ class IPv6Snapshot:
         """
         kernel_ipv6_enabled = _read_kernel_ipv6()
         ufw_ipv6_enabled    = _read_ufw_ipv6()
+        has_global_ipv6     = _read_global_ipv6()
 
         ss_out = _run("ss", "-tulnp") or ""
         ipv6_listeners = sorted(_extract_ipv6_listeners(ss_out))
@@ -72,6 +79,7 @@ class IPv6Snapshot:
             ufw_ipv6_enabled=ufw_ipv6_enabled,
             ipv6_listeners=ipv6_listeners,
             ufw_v6_covered=ufw_v6_covered,
+            has_global_ipv6=has_global_ipv6,
         )
 
 
@@ -106,24 +114,33 @@ def check_ipv6(snapshot: IPv6Snapshot, t=None) -> CheckResult:
 
     elif snapshot.kernel_ipv6_enabled and not snapshot.ufw_ipv6_enabled:
         if snapshot.ipv6_listeners:
-            # Real gap: ports listen on :: but UFW has no IPv6 rules at all.
             listeners_str = ", ".join(snapshot.ipv6_listeners)
-            result.warn(
-                message=_t("ipv6.ufw_disabled_listeners_present",
-                           count=len(snapshot.ipv6_listeners)),
-                detail=_t("ipv6.listeners_list", ports=listeners_str),
-                nature="improvement",
-                cmd="sudo nano /etc/default/ufw  # set IPV6=yes, then: sudo ufw reload",
-                key="ipv6.ufw_disabled_listeners_present",
-            )
-            result.add_deduction(
-                reason=_t("ipv6.ufw_disabled_listeners_present",
-                          count=len(snapshot.ipv6_listeners)),
-                points=2,
-                context="local",
-                key="ipv6.ufw_disabled_listeners_present",
-            )
-            found_issue = True
+            if snapshot.has_global_ipv6:
+                # Real gap: globally-routable IPv6 + listeners + no UFW IPv6 rules.
+                result.warn(
+                    message=_t("ipv6.ufw_disabled_listeners_present",
+                               count=len(snapshot.ipv6_listeners)),
+                    detail=_t("ipv6.listeners_list", ports=listeners_str),
+                    nature="improvement",
+                    cmd="sudo nano /etc/default/ufw  # set IPV6=yes, then: sudo ufw reload",
+                    key="ipv6.ufw_disabled_listeners_present",
+                )
+                result.add_deduction(
+                    reason=_t("ipv6.ufw_disabled_listeners_present",
+                              count=len(snapshot.ipv6_listeners)),
+                    points=2,
+                    context="local",
+                    key="ipv6.ufw_disabled_listeners_present",
+                )
+                found_issue = True
+            else:
+                # Link-local / ULA only — machine not reachable via IPv6 from internet.
+                result.info(
+                    message=_t("ipv6.ufw_disabled_listeners_link_local",
+                               count=len(snapshot.ipv6_listeners)),
+                    detail=_t("ipv6.listeners_list", ports=listeners_str),
+                    key="ipv6.ufw_disabled_listeners_link_local",
+                )
         else:
             result.info(message=_t("ipv6.ufw_disabled_no_listeners"),
                         key="ipv6.ufw_disabled_no_listeners")
@@ -173,6 +190,34 @@ def check_ipv6(snapshot: IPv6Snapshot, t=None) -> CheckResult:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+_INET6_ADDR_RE = re.compile(r"\binet6\s+([0-9a-f:]+)/", re.IGNORECASE)
+
+
+def _read_global_ipv6() -> bool:
+    """
+    Return True if at least one globally-routable IPv6 address is assigned.
+
+    Excludes:
+      - ::1              loopback
+      - fe80::/10        link-local (not routable beyond the local link)
+      - fc00::/7 (fc/fd) unique local (ULA — not routable on the public internet)
+    """
+    out = _run("ip", "-6", "addr", "show") or ""
+    for line in out.splitlines():
+        m = _INET6_ADDR_RE.search(line)
+        if not m:
+            continue
+        addr = m.group(1).lower()
+        if addr == "::1":
+            continue
+        if addr.startswith("fe80:"):
+            continue
+        if addr.startswith("fc") or addr.startswith("fd"):
+            continue
+        return True
+    return False
+
 
 def _read_kernel_ipv6() -> bool:
     """Return True if the kernel IPv6 stack is enabled."""

@@ -51,11 +51,14 @@ Cette séparation permet de tester toute la logique métier en instanciant direc
 | `report_markdown.py` | Rapport markdown/HTML pour email — `MarkdownReport`, `send_html_email()` |
 | `scoring.py` | Moteur de score — `ScoreEngine`, `CheckResult`, `Finding`, `Deduction` |
 | `sysinfo.py` | Info système — `collect_system_info()`, `detect_network_context()`, `get_user_home()` |
-| `compare.py` | Rapport comparatif — `AuditBaseline`, `AuditDelta`, `build_baseline()`, `save_baseline()`, `load_baseline()`, `compute_delta()`, `display_delta()` |
+| `compare.py` | Rapport comparatif — `AuditBaseline` (avec `finding_keys`), `AuditDelta` (avec `new_finding_keys`/`resolved_finding_keys`), `build_baseline()`, `save_baseline()`, `load_baseline()`, `compute_delta()`, `display_delta()` |
 | `plugin_checks.py` | Chargeur de plugins — `PluginCheck`, `load_plugin_checks()`, sanitisation ANSI |
-| `explain.py` | `--explain KEY` — `normalize_key()`, `run_explain()`, 76 clés canoniques dans 19 groupes, variantes par profil (17 clés × 3 profils), lookup référence CIS |
-| `domain_scores.py` | Sous-scores par domaine — `compute_domain_scores()`, `render_domain_scores()`, attribution 6 domaines |
+| `explain.py` | `--explain KEY` — `normalize_key()`, `run_explain()`, 112 clés canoniques dans 26 groupes, variantes par profil (17 clés × 3 profils), lookup référence CIS |
+| `domain_scores.py` | Sous-scores par domaine — `compute_domain_scores()`, `render_domain_scores()`, attribution 7 domaines (`backup` → `disk`) |
 | `webhook.py` | Envoi webhook — `build_generic_payload()`, `build_slack_payload()`, `send_webhook()`, auto-détection format |
+| `correlation.py` | Moteur de corrélation — `CorrelationRule` (frozensets all_of/any_of), `CorrelatedFinding`, `run_correlations()`, 5 règles de risque composé intégrées |
+| `exposure.py` | Analyse d'exposition des ports — regroupe par portée d'interface et niveau de risque ; allowlist fw_policy |
+| `recurrence.py` | Suivi findings récurrents — `load_recurrence()`, `save_recurrence()`, `update_recurrence()` ; compteurs consécutifs dans `~/.config/ufw-audit/recurrence.json` |
 
 ### Module cron
 
@@ -95,9 +98,10 @@ Cette séparation permet de tester toute la logique métier en instanciant direc
 | `auditd.py` | Linux Audit Framework : installation, état service, règles chargées, surveillance fichiers sensibles |
 | `secure_boot.py` | Secure Boot : état UEFI via mokutil/efivars/bootctl ; scoring adapté au profil |
 | `file_integrity.py` | Intégrité des fichiers : installation AIDE/Tripwire, existence BDD, récence du dernier check |
-| `ssl_certs.py` | Expiration certificats TLS/SSL : Let's Encrypt, `/etc/ssl/private`, configs nginx/apache2/postfix |
+| `ssl_certs.py` | Expiration certificats TLS/SSL : Let's Encrypt, `/etc/ssl/private` (snakeoil filtré), configs nginx/apache2/postfix |
 | `systemd_timers.py` | Sécurité timers systemd : pipe-to-shell dans ExecStart, scripts world-writable, timers root utilisateur |
 | `firmware.py` | Firmware & microcode : mises à jour fwupdmgr, paquet microcode CPU via dpkg |
+| `ipv6.py` | Cohérence ports IPv6 / règles UFW v6 ; champ `has_global_ipv6` ; link-local/ULA uniquement → INFO (pas WARN) |
 
 ---
 
@@ -155,10 +159,13 @@ ufw_audit/
 │   ├── systemd_timers.py # SystemdTimersSnapshot + check_systemd_timers() — sécurité timers (CHECK 44)
 │   └── firmware.py      # FirmwareSnapshot + check_firmware() — fwupd + microcode (CHECK 45)
 ├── html_output.py       # build_html_output() — export HTML autonome (--html)
-├── compare.py           # AuditBaseline + AuditDelta + rapport comparatif
+├── compare.py           # AuditBaseline (finding_keys) + AuditDelta (new/resolved keys) + rapport comparatif
+├── correlation.py       # CorrelationRule + run_correlations() — 5 règles de risque composé
+├── exposure.py          # Regroupement exposition ports — portée d'interface + niveau de risque
+├── recurrence.py        # Suivi findings récurrents — compteurs consécutifs
 ├── plugin_checks.py     # PluginCheck + load_plugin_checks()
-├── explain.py           # run_explain(), normalize_key(), EXPLAIN_KEYS — 76 clés dans 19 groupes
-├── domain_scores.py     # compute_domain_scores(), render_domain_scores()
+├── explain.py           # run_explain(), normalize_key(), EXPLAIN_KEYS — 112 clés dans 26 groupes
+├── domain_scores.py     # compute_domain_scores(), render_domain_scores() — backup→disk
 ├── webhook.py           # build_generic_payload(), build_slack_payload(), send_webhook()
 ├── data/
 │   ├── services.json            # Registre déclaratif des 22 services
@@ -211,7 +218,10 @@ tests/
 ├── test_ssl_certs.py
 ├── test_systemd_timers.py
 ├── test_firmware.py
-└── test_html_output.py
+├── test_html_output.py
+├── test_correlation.py
+├── test_exposure.py
+└── test_recurrence.py
 
 pyproject.toml           # Config de build (setuptools, installation pip/pipx)
 README.md / README_FR.md           # Documentation utilisateur (EN/FR)

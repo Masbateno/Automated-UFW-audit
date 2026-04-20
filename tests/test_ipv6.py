@@ -13,6 +13,7 @@ from ufw_audit.checks.ipv6 import (
     IPv6Snapshot,
     _extract_ipv6_listeners,
     _extract_ufw_v6_covered,
+    _read_global_ipv6,
     check_ipv6,
 )
 
@@ -31,6 +32,7 @@ def make_snapshot(**overrides) -> IPv6Snapshot:
         ufw_ipv6_enabled=True,
         ipv6_listeners=["22/tcp", "80/tcp"],
         ufw_v6_covered=["22/tcp", "80/tcp"],
+        has_global_ipv6=True,
     )
     defaults.update(overrides)
     return IPv6Snapshot(**defaults)
@@ -373,3 +375,146 @@ class TestExtractUfwV6Covered:
 
     def test_malformed_ufw_lines_returns_empty(self):
         assert _extract_ufw_v6_covered("[ x] invalid line") == set()
+
+
+# ---------------------------------------------------------------------------
+# _read_global_ipv6 — unit tests for the ip -6 addr parser
+# ---------------------------------------------------------------------------
+
+class TestReadGlobalIPv6:
+    """Tests for the _read_global_ipv6() parser (called with fake ip output)."""
+
+    def _parse(self, output: str) -> bool:
+        """Monkey-patch _run so _read_global_ipv6 uses our fake output."""
+        import ufw_audit.checks.ipv6 as mod
+        original = mod._run
+
+        def fake_run(*_args, **_kwargs):
+            return output
+
+        mod._run = fake_run
+        try:
+            return _read_global_ipv6()
+        finally:
+            mod._run = original
+
+    def test_global_unicast_detected(self):
+        output = "    inet6 2001:db8::1/64 scope global dynamic\n"
+        assert self._parse(output) is True
+
+    def test_3000_prefix_is_global(self):
+        output = "    inet6 3ffe:501::/32 scope global\n"
+        assert self._parse(output) is True
+
+    def test_loopback_not_global(self):
+        output = "    inet6 ::1/128 scope host\n"
+        assert self._parse(output) is False
+
+    def test_link_local_not_global(self):
+        output = "    inet6 fe80::1/64 scope link\n"
+        assert self._parse(output) is False
+
+    def test_ula_fc_not_global(self):
+        output = "    inet6 fc00::1/7 scope global\n"
+        assert self._parse(output) is False
+
+    def test_ula_fd_not_global(self):
+        output = "    inet6 fd12:3456:789a::1/48 scope global\n"
+        assert self._parse(output) is False
+
+    def test_mixed_only_link_local(self):
+        output = (
+            "    inet6 ::1/128 scope host\n"
+            "    inet6 fe80::a1b2:c3d4/64 scope link\n"
+        )
+        assert self._parse(output) is False
+
+    def test_mixed_global_wins(self):
+        output = (
+            "    inet6 fe80::1/64 scope link\n"
+            "    inet6 2001:db8::42/64 scope global\n"
+        )
+        assert self._parse(output) is True
+
+    def test_empty_output_returns_false(self):
+        assert self._parse("") is False
+
+    def test_no_inet6_lines_returns_false(self):
+        assert self._parse("    inet 192.168.1.1/24 brd 192.168.1.255 scope global eth0\n") is False
+
+
+# ---------------------------------------------------------------------------
+# UFW disabled + link-local only (no global IPv6)
+# ---------------------------------------------------------------------------
+
+class TestUfwDisabledLinkLocalOnly:
+    """When UFW IPv6 is disabled but the machine has no global IPv6 address,
+    the finding is INFO (not WARN) with no deduction — link-local listeners
+    are not reachable from the internet."""
+
+    def _snap(self, listeners=None):
+        return make_snapshot(
+            ufw_ipv6_enabled=False,
+            has_global_ipv6=False,
+            ipv6_listeners=listeners if listeners is not None else ["22/tcp", "80/tcp"],
+            ufw_v6_covered=[],
+        )
+
+    def test_is_info_not_warn(self):
+        result = check_ipv6(self._snap(), t=_t)
+        assert has_level(result, "info")
+        assert not has_level(result, "warn")
+
+    def test_no_deduction(self):
+        result = check_ipv6(self._snap(), t=_t)
+        assert total_deductions(result) == 0
+
+    def test_key_is_link_local(self):
+        result = check_ipv6(self._snap(), t=_t)
+        keys = [f.key for f in result.findings]
+        assert "ipv6.ufw_disabled_listeners_link_local" in keys
+
+    def test_listeners_in_detail(self):
+        captured = {}
+
+        def _cap(key, **kwargs):
+            captured[key] = kwargs
+            return key
+
+        check_ipv6(self._snap(["22/tcp", "443/tcp"]), t=_cap)
+        ports = captured.get("ipv6.listeners_list", {}).get("ports", "")
+        assert "22/tcp" in ports
+        assert "443/tcp" in ports
+
+    def test_count_passed_to_t(self):
+        received = {}
+
+        def _cap(key, **kwargs):
+            if "count" in kwargs:
+                received.update(kwargs)
+            return key
+
+        check_ipv6(self._snap(["22/tcp", "80/tcp", "443/tcp"]), t=_cap)
+        assert received.get("count") == 3
+
+    def test_global_ipv6_true_still_warns(self):
+        snap = make_snapshot(
+            ufw_ipv6_enabled=False,
+            has_global_ipv6=True,
+            ipv6_listeners=["22/tcp"],
+            ufw_v6_covered=[],
+        )
+        result = check_ipv6(snap, t=_t)
+        assert has_level(result, "warn")
+        assert total_deductions(result) == 2
+
+    def test_global_ipv6_true_key_is_present(self):
+        snap = make_snapshot(
+            ufw_ipv6_enabled=False,
+            has_global_ipv6=True,
+            ipv6_listeners=["22/tcp"],
+            ufw_v6_covered=[],
+        )
+        result = check_ipv6(snap, t=_t)
+        keys = [f.key for f in result.findings]
+        assert "ipv6.ufw_disabled_listeners_present" in keys

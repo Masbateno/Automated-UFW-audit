@@ -11,6 +11,7 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 
 | Version | Tests | Notes |
 |---------|-------|-------|
+| v1.22.0 | 3996  | +218 tests — `test_correlation.py` (49), `test_exposure.py` (50), `test_recurrence.py` (27); `test_ipv6.py` +26 (`TestReadGlobalIPv6`); `test_explain.py` updated (87→112 keys); `test_exposure.py` +7 (policy/boundary/design-contract hardening); `test_correlation.py` +7 (empty all_of + any_of, mixed INFO+WARN, triggered_by full any_of, exact result set) |
 | v1.21.0 | 3778  | +284 tests — `test_ssl_certs.py` (59), `test_systemd_timers.py` (58), `test_firmware.py` (54), `test_html_output.py` (56); existing files: +57 (`test_cli.py`/`test_runner.py` — `--check`/`--skip`/`--output-dir`/`--html`; `test_auditd.py` — desktop INFO; quality pass assertions) |
 | v1.20.0 | 3494  | +235 tests — `test_auth_log.py` (62), `test_history.py` (36), `test_ignore.py` (44), `test_umask.py` (54), `test_ufw_logging.py` (32); bug fixes: auth_log days=0, process-aware system ports, port process name in messages |
 | v1.19.0 | 3259  | +530 tests — `test_hardening.py` +29 (6 new sysctl checks); `test_ssh.py` +7 (PermitRootLogin OK); new: `test_suid_audit.py`, `test_kernel_hardening.py`, `test_docker_audit.py`, `test_log_rotation.py`, `test_csv_output.py`, `test_markdown_output.py`, `test_min_level.py`, `test_watch.py` |
@@ -42,6 +43,27 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v0.18   | 531   | 26 new tests for `fixes.py`; `run_fixes()` fully covered |
 | v0.17   | 505   | 15 pre-existing failures fixed; suite fully green |
 | v0.9    | 421   | First full suite |
+
+### v1.22.0 — 3996/3996 (2026-04-20)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+3996 passed in 4.29s
+```
+
+#### New / modified tests (+218)
+
+| File | Change | Coverage |
+|------|--------|----------|
+| `tests/test_correlation.py` | New — 49 tests | `TestCorrelationRuleMatches` (13): all_of satisfied, all_of missing, any_of satisfied/not, empty active, any_of empty = no constraint, both satisfied, partial any_of; empty all_of + any_of (both empty → True even on empty active); empty all_of + nonempty any_of + empty active → False; `TestRunCorrelationsNoMatch` (5): empty engine, OK findings ignored, INFO findings ignored, keyless finding ignored, INFO for all_of key does not fire rule; per-rule tests: root_no_protection (both fail2ban variants + triggered_by full any_of), password_auth_under_attack, ssh_root_password, privilege_escalation, stale_unmonitored (both fail2ban variants), fully_blind; `TestMultiRuleCoexistence` (5, three_rules_fire uses exact set); `TestCorrelatedFindingStructure` (2); `TestRulesSanity` (5) |
+| `tests/test_exposure.py` | New — 50 tests | `FakeEngine` + `_FakePortsSnapshot`; firewall item: allow/unknown/None → alert, deny/reject → ok; open ports color: allow/unknown → alert, deny → warn; boundary: 32767 included, 32768 excluded; `test_not_installed_overrides_password_auth` (documents design intent); `test_info_findings_do_not_affect_ssh`; `test_items_order` (contract); `TestPortDeduplication`; `TestEdgeCases`; `TestSshAllIssues`; `TestIconColorInvariant`; `TestFullyExposedScenario` |
+| `tests/test_recurrence.py` | New — 27 tests | `load_recurrence`: missing file (empty dict), valid JSON, corrupted values skipped, empty-string key skipped, negative value skipped, float coerced to int; `save_recurrence`: creates file, overwrites, no tmp leftover on success (`test_no_tmp_file_leftover`); `update_recurrence`: new key starts at 1, existing key incremented, resolved key dropped, negative prev clamped to 1 (`test_negative_counter_clamped_to_one`), non-int prev resets to 1, result keys == active keys, 3 consecutive runs, 10k keys round-trip, repeated overwrite preserves last |
+| `tests/test_ipv6.py` | +26 tests (57 total) | `TestReadGlobalIPv6`: global unicast 2001:db8, 3ffe prefix, loopback ::1 → False, fe80 link-local → False, fc00 ULA → False, fd00 ULA → False, empty output → False, multiple addresses (global wins), monkey-patch `_run` via module attribute; `make_snapshot()` updated with `has_global_ipv6=True` default |
+| `tests/test_explain.py` | Updated | `test_has_one_hundred_twelve_keys`: asserts `len(EXPLAIN_KEYS) == 112` (was 87) |
+
+---
 
 ### v1.21.0 — 3778/3778 (2026-04-19)
 

@@ -11,6 +11,7 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 
 | Version | Tests | Notes |
 |---------|-------|-------|
+| v1.22.0 | 3996  | +218 tests — `test_correlation.py` (49), `test_exposure.py` (50), `test_recurrence.py` (27) ; `test_ipv6.py` +26 (`TestReadGlobalIPv6`) ; `test_explain.py` mis à jour (87→112 clés) ; `test_exposure.py` +7 (durcissement politique/bornes/contrats) ; `test_correlation.py` +7 (all_of/any_of vides, any_of vide + active vide, triggered_by tous les any_of actifs, résultat exact) |
 | v1.21.0 | 3778  | +284 tests — `test_ssl_certs.py` (59), `test_systemd_timers.py` (58), `test_firmware.py` (54), `test_html_output.py` (56) ; fichiers existants : +57 (`test_cli.py`/`test_runner.py` — `--check`/`--skip`/`--output-dir`/`--html` ; `test_auditd.py` — INFO desktop ; assertions passage qualité) |
 | v1.20.0 | 3494  | +235 tests — `test_auth_log.py` (62), `test_history.py` (36), `test_ignore.py` (44), `test_umask.py` (54), `test_ufw_logging.py` (32) ; corrections : auth_log days=0, ports système process-aware, nom de processus dans les messages |
 | v1.19.0 | 3259  | +530 tests — `test_hardening.py` +29 (6 nouvelles classes sysctl) ; `test_ssh.py` +7 (cas OK PermitRootLogin) ; nouveaux : `test_suid_audit.py`, `test_kernel_hardening.py`, `test_docker_audit.py`, `test_log_rotation.py`, `test_csv_output.py`, `test_markdown_output.py`, `test_min_level.py`, `test_watch.py` |
@@ -42,6 +43,27 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v0.18   | 531   | 26 nouveaux tests pour `fixes.py` ; `run_fixes()` entièrement couvert |
 | v0.17   | 505   | 15 échecs préexistants corrigés ; suite entièrement verte |
 | v0.9    | 421   | Première suite complète |
+
+### v1.22.0 — 3996/3996 (2026-04-20)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+3996 passed in 4.29s
+```
+
+#### Nouveaux / tests modifiés (+218)
+
+| Fichier | Changement | Couverture |
+|---------|------------|------------|
+| `tests/test_correlation.py` | Nouveau — 49 tests | `TestCorrelationRuleMatches` (13) : all_of satisfait, all_of incomplet, any_of satisfait/non, active vide, any_of vide = pas de contrainte, les deux satisfaits, any_of partiel ; all_of + any_of tous vides → True même sur active vide ; all_of vide + any_of non vide + active vide → False ; `TestRunCorrelationsNoMatch` (5) : moteur vide, findings OK ignorés, findings INFO ignorés, finding sans clé ignoré, clé all_of au niveau INFO ne déclenche pas la règle ; tests par règle : root_no_protection (deux variantes fail2ban + triggered_by tous les any_of actifs), password_auth_under_attack, ssh_root_password, privilege_escalation, stale_unmonitored (deux variantes), fully_blind ; `TestMultiRuleCoexistence` (5, trois règles avec vérification d'ensemble exact) ; `TestCorrelatedFindingStructure` (2) ; `TestRulesSanity` (5) |
+| `tests/test_exposure.py` | Nouveau — 50 tests | `FakeEngine` + `_FakePortsSnapshot` ; item firewall : allow/unknown/None → alert, deny/reject → ok ; couleur open_ports : allow/unknown → alert, deny → warn ; bornes : 32767 inclus, 32768 exclu ; `test_not_installed_overrides_password_auth` (documente l'intention) ; `test_info_findings_do_not_affect_ssh` ; `test_items_order` (contrat) ; `TestPortDeduplication` ; `TestEdgeCases` ; `TestSshAllIssues` ; `TestIconColorInvariant` ; `TestFullyExposedScenario` |
+| `tests/test_recurrence.py` | Nouveau — 27 tests | `load_recurrence` : fichier absent (dict vide), JSON valide, valeurs corrompues ignorées, clé vide ignorée, valeur négative ignorée, float converti en int ; `save_recurrence` : crée le fichier, écrase, pas de fichier tmp restant (`test_no_tmp_file_leftover`) ; `update_recurrence` : nouvelle clé commence à 1, clé existante incrémentée, clé résolue supprimée, prev négatif ramené à 1 (`test_negative_counter_clamped_to_one`), prev non-int réinitialisé à 1, clés résultat == clés actives, 3 exécutions consécutives, 10k clés aller-retour, écrasements répétés conservent le dernier |
+| `tests/test_ipv6.py` | +26 tests (57 total) | `TestReadGlobalIPv6` : unicast global 2001:db8, préfixe 3ffe, loopback ::1 → False, fe80 link-local → False, fc00 ULA → False, fd00 ULA → False, sortie vide → False, adresses multiples (global gagne), monkey-patch `_run` via attribut module ; `make_snapshot()` mis à jour avec `has_global_ipv6=True` par défaut |
+| `tests/test_explain.py` | Mis à jour | `test_has_one_hundred_twelve_keys` : assert `len(EXPLAIN_KEYS) == 112` (était 87) |
+
+---
 
 ### v1.21.0 — 3778/3778 (2026-04-19)
 

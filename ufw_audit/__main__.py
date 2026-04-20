@@ -21,7 +21,9 @@ from ufw_audit import i18n, output
 from ufw_audit.cli import AuditConfig, CLIError, parse_args, print_help  # noqa: F401
 from ufw_audit.completion import install_completion
 from ufw_audit.config import UserConfig
-from ufw_audit.display import build_risk_context_entries, print_audit_summary
+from ufw_audit.display import build_risk_context_entries, print_audit_summary, print_correlations, print_exposure
+from ufw_audit.correlation import run_correlations
+from ufw_audit.exposure import compute_exposure
 from ufw_audit.compare import build_baseline, compute_delta, display_delta, load_baseline, save_baseline, _BASELINE_PATH
 from ufw_audit.json_output import build_json_data
 from ufw_audit.output import print_banner
@@ -29,6 +31,7 @@ from ufw_audit.profiles import load_profile
 from ufw_audit.registry import ServiceRegistry
 from ufw_audit.history import display_history, save_score
 from ufw_audit.ignore import add_ignore_key, load_ignore_keys, _ignore_file_path
+from ufw_audit.recurrence import load_recurrence, save_recurrence, update_recurrence
 from ufw_audit.runner import (
     _ALL_SECTIONS, _section_enabled as _se, init_report, run_checks,
     validate_check_filters,
@@ -171,7 +174,8 @@ def _run(argv=None) -> int:
                     registry, active_profile, VERSION,
                 )
 
-            prev_baseline = load_baseline()
+            prev_baseline   = load_baseline()
+            prev_recurrence = load_recurrence()
 
             report   = init_report(config, user_config, t, VERSION)
             engine   = ScoreEngine()
@@ -205,15 +209,27 @@ def _run(argv=None) -> int:
             network_context, public_ip = detect_network_context(offline=config.offline)
 
             result             = run_checks(config, t, engine, report, registry, network_context,
-                                           profile=active_profile)
+                                           profile=active_profile,
+                                           prev_recurrence=prev_recurrence)
             snapshots          = result.snapshots
             ports_snapshot     = result.ports_snapshot
             stack_snapshot     = result.stack_snapshot
             net_snapshot       = result.net_snapshot
             hardening_snapshot = result.hardening_snapshot
             ipv6_snapshot      = result.ipv6_snapshot
+            fw_active          = result.fw_active
+            fw_policy          = result.fw_policy
 
             engine.finalize()
+
+            from ufw_audit.scoring import FindingLevel as _FL
+            _active_keys = {
+                f.key for f in engine.findings
+                if f.key and f.level in (_FL.ALERT, _FL.WARN)
+            }
+            save_recurrence(update_recurrence(prev_recurrence, _active_keys))
+
+            correlations = run_correlations(engine, t)
 
             # ---- Webhook notification (non-fatal) ----------------------------------
             _webhook_url = config.webhook_url or user_config.get_webhook_url()
@@ -245,7 +261,8 @@ def _run(argv=None) -> int:
             if not config.quiet:
                 print_audit_summary(engine, network_context, public_ip, config, t, report, snapshots,
                                     profile_name=active_profile.name,
-                                    prev_score=prev_baseline.score if prev_baseline else None)
+                                    prev_score=prev_baseline.score if prev_baseline else None,
+                                    fw_policy=fw_policy)
                 from ufw_audit.domain_scores import (
                     compute_domain_scores, render_domain_scores,
                     active_domains_from_engine,
@@ -255,6 +272,11 @@ def _run(argv=None) -> int:
                 for _line in render_domain_scores(_domain_scores, t, active_domains=_active):
                     print(_line)
                 print()
+                _exposure = compute_exposure(engine, ports_snapshot, network_context,
+                                             fw_active, fw_policy, t)
+                print_exposure(_exposure, t, output)
+                if correlations:
+                    print_correlations(correlations, t, output)
                 if prev_baseline:
                     print()
                     display_delta(compute_delta(prev_baseline, curr_baseline), t, output)

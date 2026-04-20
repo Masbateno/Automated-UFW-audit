@@ -1,9 +1,9 @@
 *[Read in English](README_TECH.md)* · *[Vue d'ensemble](../README_FR.md)*
 
-# ufw-audit v1.21.0
+# ufw-audit v1.22.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.21.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.22.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -78,6 +78,14 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 - **Export HTML `--html`** — `build_html_output()` produit un fichier HTML autosuffisant (sans JS, sans ressources externes) ; CSS embarqué ; cercle de score coloré ; badges ALERT/WARN/INFO/OK ; tableau déductions ; `_h()` applique `html.escape(quote=True)` à toutes les données utilisateur — protection XSS
 - **`--check LIST` / `--skip LIST`** — n'exécuter que les checks nommés (`--check=ssh,firewall`) ou les exclure (`--skip=clamav,rootkit`) ; mutuellement exclusifs ; helper `_section_enabled()` dans `runner.py` ; `validate_check_filters()` avertit sur les noms inconnus ; `skip_sections` du profil respecté
 - **`--output-dir PATH`** — surcharger le répertoire de sauvegarde du rapport pour l'exécution courante ; `get_or_prompt_log_dir()` priorise ce paramètre sur la config sauvegardée ; sans persistance
+- **Moteur de corrélation de signaux** — `correlation.py` : 5 règles de risque composé (root+sans-fail2ban → ALERT ; auth-mot-de-passe+brute-force → ALERT ; root+password → ALERT ; NOPASSWD+SUID → WARN ; stale+sans-fail2ban → WARN ; logging-off+sans-fail2ban+sans-auditd → WARN) ; `CorrelationRule` avec frozensets `all_of`/`any_of` ; évalué post-finalize sur les clés ALERT+WARN ; liste `triggered_by` identifie les findings déclencheurs
+- **Suivi des findings récurrents** — `recurrence.py` : compteur d'apparitions consécutives par clé ALERT/WARN ; `~/.config/ufw-audit/recurrence.json` ; écriture atomique ; valeurs corrompues/négatives normalisées ; clés vides filtrées au chargement
+- **Analyse d'exposition des ports** — `exposure.py` : regroupe les services en écoute exposés par portée d'interface et niveau de risque ; allowlist `fw_policy not in ("deny", "reject")` ; attribut direct `lp.port` pour le filtre ports éphémères
+- **Rapport comparatif — diff de clés de findings** — `AuditBaseline.finding_keys` persiste les clés ALERT+WARN actives ; `AuditDelta` ajoute `new_finding_keys` / `resolved_finding_keys` ; garde de migration contre le flood de faux positifs à la première exécution après mise à jour ; `display_delta()` affiche chaque clé apparue/résolue
+- **Correctif faux positif IPv6 link-local** — parseur `_read_global_ipv6()` ; champ `has_global_ipv6` ; WARN −2 pts rétrogradé en INFO quand seules des adresses link-local (fe80::/10) ou ULA (fc/fd::/7) sont assignées — machine non joignable via IPv6 depuis internet
+- **Correctif message noyaux obsolètes** — clé locale `kernels_obsolete_same` ; supprime la parenthèse redondante "(actif : X, récent : X)" quand le noyau actif est identique au plus récent installé
+- **Filtre certificat snakeoil** — `ssl-cert-snakeoil.pem` exclu du scan `/etc/ssl/private` ; empêche le certificat de test Debian/Ubuntu de déclencher l'audit TLS
+- **`--explain`** — 87→112 clés (+25 sur 7 nouveaux groupes : Journaux d'authentification, Umask, Journalisation du pare-feu, Certificats TLS/SSL, Timers Systemd, Firmware, Docker)
 
 ---
 

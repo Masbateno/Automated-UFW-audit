@@ -91,7 +91,8 @@ class SslCertsSnapshot:
         if priv.is_dir():
             for ext in ("*.pem", "*.crt", "*.cert"):
                 for cert in priv.glob(ext):
-                    _add_path(cert, paths)
+                    if "snakeoil" not in cert.name.lower():
+                        _add_path(cert, paths)
 
         # --- nginx ---
         for conf_dir in (Path("/etc/nginx/sites-enabled"), Path("/etc/nginx")):

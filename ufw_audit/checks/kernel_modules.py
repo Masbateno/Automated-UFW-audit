@@ -334,9 +334,14 @@ def _check_installed_kernels(
     to_remove = [k for k in kernels if k not in to_keep]
 
     if to_remove:
+        if running == most_recent:
+            _msg = _t("kernel_modules.kernels_obsolete_same",
+                      count=len(to_remove), running=running)
+        else:
+            _msg = _t("kernel_modules.kernels_obsolete",
+                      count=len(to_remove), running=running, recent=most_recent)
         result.info(
-            message=_t("kernel_modules.kernels_obsolete",
-                       count=len(to_remove), running=running, recent=most_recent),
+            message=_msg,
             detail=_t("kernel_modules.kernels_obsolete_detail",
                       installed=installed_str,
                       to_remove=", ".join(to_remove),

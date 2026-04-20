@@ -7,6 +7,16 @@ log analysis, and the final audit summary.
 
 from __future__ import annotations
 
+
+def _print_recurrence(prev_count: int) -> None:
+    """Print a ↩ N× annotation when a finding has been seen in previous audits."""
+    if prev_count <= 0:
+        return
+    from ufw_audit.output import _c
+    total = prev_count + 1
+    print(f"  {_c.cyan}↩ {total}×{_c.reset}")
+
+
 def _wrap_for_box(prefix: str, text: str, inner: int) -> list[tuple[str, str]]:
     """Wrap text to fit inside a summary box of given inner width.
 
@@ -48,7 +58,13 @@ def _wrap_for_box(prefix: str, text: str, inner: int) -> list[tuple[str, str]]:
 # Check result display
 # ---------------------------------------------------------------------------
 
-def display_result(result, report, verbose: bool, quiet: bool = False) -> None:
+def display_result(
+    result,
+    report,
+    verbose: bool,
+    quiet: bool = False,
+    recurrence: "dict[str, int] | None" = None,
+) -> None:
     """Print all findings from a CheckResult to terminal and report."""
     from ufw_audit.scoring import FindingLevel
     from ufw_audit.output import (
@@ -71,6 +87,8 @@ def display_result(result, report, verbose: bool, quiet: bool = False) -> None:
             if not _passes_threshold("warn"):
                 continue
             print_warn(finding.message)
+            if recurrence and finding.key:
+                _print_recurrence(recurrence.get(finding.key, 0))
             if verbose:
                 detail = finding.detail.splitlines() if finding.detail else []
                 if finding.cmd:
@@ -87,6 +105,8 @@ def display_result(result, report, verbose: bool, quiet: bool = False) -> None:
             if not _passes_threshold("alert"):
                 continue
             print_alert(finding.message)
+            if recurrence and finding.key:
+                _print_recurrence(recurrence.get(finding.key, 0))
             detail = finding.detail.splitlines() if finding.detail else []
             if finding.cmd and verbose:
                 if finding.cmd_type == "check":
@@ -353,7 +373,8 @@ def display_network_context(snapshot, t, output_mod) -> None:
 
 def print_audit_summary(engine, network_context, public_ip, config, t,
                          report, snapshots, profile_name: str = "server",
-                         prev_score: "int | None" = None) -> None:
+                         prev_score: "int | None" = None,
+                         fw_policy: str = "deny") -> None:
     """Print the audit summary box and write to report."""
     from ufw_audit.output import print_summary_box, _TERM_WIDTH, _c
     from ufw_audit.scoring import RiskLevel
@@ -464,7 +485,7 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
         and snap.service.is_high_or_critical
         and all(e.value == "no_rule" for e in snap.exposures.values())
     ]
-    if implicit_svcs:
+    if implicit_svcs and fw_policy not in ("deny", "reject"):
         print()
         print(f"  ℹ {t('summary.implicit_policy')}")
         print(f"    {t('summary.implicit_svcs')} : {', '.join(implicit_svcs)}")
@@ -708,4 +729,41 @@ def display_disk_partitions(snapshot, t, output_module) -> None:
         )
         suffix = f"  {free_str:>{w_free}}"
         print(f"  {c.dim}{prefix}{bar}{suffix}{c.reset}")
+    print()
+
+
+def print_exposure(items, t, output_mod) -> None:
+    """Print the attack-surface table produced by compute_exposure()."""
+    if not items:
+        return
+    from ufw_audit.output import _c
+    output_mod.print_section(t("exposure.section_title"))
+    label_width = max(len(item.label) for item in items)
+    for item in items:
+        label = item.label.ljust(label_width)
+        if item.color == "ok":
+            color = _c.green
+        elif item.color == "alert":
+            color = _c.red
+        else:
+            color = _c.yellow
+        print(f"  {color}{item.icon}{_c.reset}  {_c.dim}{label}{_c.reset}  {item.detail}")
+    print()
+
+
+def print_correlations(correlations, t, output_mod) -> None:
+    """Print compound risk findings produced by the correlation engine."""
+    if not correlations:
+        return
+    output_mod.print_section(t("corr.section_title"))
+    from ufw_audit.scoring import FindingLevel
+    for cf in correlations:
+        msg = f"[COMPOUND] {cf.message}"
+        if cf.level == FindingLevel.ALERT:
+            output_mod.print_alert(msg)
+        else:
+            output_mod.print_warn(msg)
+        if cf.triggered_by:
+            keys_str = ", ".join(cf.triggered_by)
+            output_mod.print_dim(t("corr.triggered_by", keys=keys_str))
     print()

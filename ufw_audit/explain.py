@@ -161,6 +161,49 @@ _EXPLAIN_GROUPS: list[tuple[str, list[str]]] = [
     ("Virtualisation", [
         "virt.bypass_risk",
     ]),
+    ("Authentication Logs", [
+        "auth_log.brute_force",
+        "auth_log.public_login",
+    ]),
+    ("Umask", [
+        "umask.world_writable",
+        "umask.group_writable",
+    ]),
+    ("Firewall Logging", [
+        "firewall.logging_off",
+    ]),
+    ("TLS / SSL Certificates", [
+        "ssl_certs.expired",
+        "ssl_certs.expiring_critical",
+        "ssl_certs.expiring_soon",
+    ]),
+    ("Systemd Timers", [
+        "systemd_timers.pipe_to_shell",
+        "systemd_timers.world_writable",
+        "systemd_timers.user_created_root",
+    ]),
+    ("Firmware", [
+        "firmware.fwupd_updates",
+        "firmware.microcode_missing",
+    ]),
+    ("Docker", [
+        "docker_audit.privileged",
+        "docker_audit.root_containers",
+        "docker_audit.socket_mounted",
+        "docker_audit.host_network",
+    ]),
+    ("Kernel Hardening", [
+        "kernel_hardening.aslr_disabled",
+        "kernel_hardening.aslr_conservative",
+        "kernel_hardening.ptrace_unrestricted",
+        "kernel_hardening.dmesg_exposed",
+        "kernel_hardening.kptr_exposed",
+        "kernel_hardening.suid_dump_all",
+    ]),
+    ("SUID / SGID", [
+        "suid_audit.unexpected_suid",
+        "suid_audit.unexpected_sgid",
+    ]),
 ]
 
 # Flat list derived from groups — used externally and for key lookup

@@ -421,6 +421,7 @@
   },
   "service_risk": {
     "local_exposure_note": "ℹ Intrinsic risk (see above) — actual exposure: LOW (SSH not reachable from the internet on this network)",
+    "nonstandard_port_note": "Non-standard port — reduced exposure to automated scanners",
     "ssh_server": {
       "level": "CRITICAL",
       "exposure": "Heavily targeted by automated scanners and brute-force attacks — internet-exposed by default",
@@ -628,7 +629,9 @@
     "service_stopped": "Service became inactive: {service}",
     "no_changes": "No changes detected since last audit",
     "info_decreased": "{delta} info notice(s) resolved since last audit",
-    "info_increased": "{delta} new info notice(s) since last audit"
+    "info_increased": "{delta} new info notice(s) since last audit",
+    "key_appeared": "New finding: {key}",
+    "key_resolved": "Resolved: {key}"
   },
   "watch": {
     "header": "ufw-audit --watch  │  Interval: {interval}s  │  Ctrl+C to quit",
@@ -645,7 +648,8 @@
     "ufw_disabled_listeners_present": "{count} service(s) listening on IPv6 (::) but UFW is not configured for IPv6 (IPV6=no)",
     "listeners_list": "Listening port(s): {ports}",
     "port_no_v6_rule": "Port {port} listening on IPv6 (::) without a UFW (v6) rule",
-    "all_ports_covered": "All {count} IPv6 listener(s) are covered by UFW (v6) rules"
+    "all_ports_covered": "All {count} IPv6 listener(s) are covered by UFW (v6) rules",
+    "ufw_disabled_listeners_link_local": "{count} service(s) listening on IPv6 (::) but UFW IPv6 is disabled — link-local addresses only, no internet exposure"
   },
   "audit": {
     "starting": "Starting audit",
@@ -824,6 +828,7 @@
     "kernels_reboot_pending": "Reboot pending — running kernel ({running}) is not the latest installed ({recent})",
     "kernels_reboot_pending_detail": "Installed: {installed}\nDo not remove old kernels yet. Reboot into {recent} first and verify the system works correctly.",
     "kernels_obsolete": "{count} obsolete kernel(s) detected (running: {running}, latest: {recent})",
+    "kernels_obsolete_same": "{count} obsolete kernel(s) detected (running: {running})",
     "kernels_obsolete_detail": "Installed : {installed}\nObsolete  : {to_remove}\nThis command removes the kernel image only. Run sudo apt autoremove --purge afterwards to clean up associated headers and modules. Execute only after verifying the system boots correctly on {recent}.",
     "kernels_listed": "{count} kernel(s) installed: {installed} — no cleanup needed"
   },
@@ -1507,6 +1512,149 @@
         "why": "Hypervisors such as libvirt/KVM, VirtualBox, and VMware create Linux bridge interfaces (virbr0, vboxnet*, etc.) and inject their own iptables rules directly into the FORWARD chain. These rules can allow traffic between VMs and the host — or between VMs and the internet — independently of UFW's FORWARD policy. UFW manages only its own ruleset and cannot prevent bridge-injected rules from permitting forwarded traffic.",
         "how": "Audit the FORWARD rules inserted by the bridge:\n  sudo iptables -L FORWARD -v --line-numbers | grep virbr0\n\nThis is expected behaviour for a VM host — review the output to confirm only legitimate VM traffic is forwarded.\n\nTo isolate VMs from the internet while keeping local host access, configure libvirt's network in isolated mode:\n  virsh net-edit default  # set <forward mode='none'/> for isolated networks\n\nIf you no longer use virtual machines:\n  sudo systemctl disable --now libvirtd"
       }
+    },
+    "auth_log": {
+      "brute_force": {
+        "title": "Brute-force attacks detected in authentication logs",
+        "why": "Repeated failed login attempts indicate active automated attacks against this machine. If password authentication or weak credentials are in use, persistent brute-force campaigns will eventually succeed. Even with strong passwords, flood attacks consume CPU and lock out legitimate users.",
+        "how": "1. Install and configure fail2ban:\n   sudo apt install fail2ban\n   sudo systemctl enable --now fail2ban\n2. Verify the SSH jail is active:\n   sudo fail2ban-client status sshd\n3. Disable password authentication (use keys only):\n   sudo nano /etc/ssh/sshd_config  →  PasswordAuthentication no\n4. Reduce MaxAuthTries:\n   MaxAuthTries 3\n5. Restart SSH:\n   sudo systemctl restart ssh"
+      },
+      "public_login": {
+        "title": "Successful logins from public IP addresses detected",
+        "why": "Remote logins from public IPs visible in auth logs confirm the machine is internet-reachable and actively accessed. Any credential compromise — brute force, stolen key, leaked password — would give an attacker an immediate shell on a live system.",
+        "how": "1. Restrict SSH access to known IPs via UFW:\n   sudo ufw allow from <your-ip> to any port 22\n   sudo ufw delete allow 22\n2. Use key-only authentication:\n   sudo nano /etc/ssh/sshd_config  →  PasswordAuthentication no\n3. Review who is logging in:\n   sudo last | head -20\n4. Consider a VPN or port-knocking if remote access must be maintained"
+      }
+    },
+    "umask": {
+      "world_writable": {
+        "title": "Default umask allows world-writable file creation (umask 0000 or 0002)",
+        "why": "A world-writable umask means every new file created by any user is writable by all users on the system. Attackers with any local account can modify scripts, configs, and data files created by privileged processes — enabling privilege escalation and persistent backdoors.",
+        "how": "1. Set a secure default umask in /etc/profile and /etc/bash.bashrc:\n   umask 0022\n2. For stricter environments:\n   umask 0027\n3. Verify the change takes effect:\n   umask  # should return 0022 or stricter\n4. Check /etc/login.defs:\n   UMASK 022"
+      },
+      "group_writable": {
+        "title": "Default umask allows group-writable file creation (umask 002)",
+        "why": "A group-writable umask means every new file is writable by any member of the creating user's group. On multi-user systems or systems with shared service accounts, this can allow horizontal privilege escalation between users sharing a group.",
+        "how": "1. Set umask to 0022 in /etc/profile:\n   umask 0022\n2. Verify:\n   umask  # should return 0022"
+      }
+    },
+    "firewall": {
+      "logging_off": {
+        "title": "UFW firewall logging is disabled",
+        "why": "Without firewall logs, blocked connection attempts, port scans, and intrusion attempts leave no trace. Forensic investigation after an incident becomes impossible — you cannot determine when an attack started, which ports were probed, or where traffic came from.",
+        "how": "1. Enable UFW logging:\n   sudo ufw logging on\n2. For more detail:\n   sudo ufw logging medium\n   # or: sudo ufw logging high\n3. Verify:\n   sudo ufw status verbose | grep Logging\n4. Logs appear in:\n   /var/log/ufw.log  (or journald)"
+      }
+    },
+    "ssl_certs": {
+      "expired": {
+        "title": "TLS/SSL certificate has expired",
+        "why": "An expired certificate causes browsers and clients to display hard trust errors and refuse connections. Services may become completely inaccessible. Expired certificates are also a signal of poor certificate lifecycle management — attackers specifically look for expired certificates to exploit.",
+        "how": "1. Identify which certificate is expired:\n   sudo ufw-audit --check ssl_certs --verbose\n2. For Let's Encrypt:\n   sudo certbot renew --force-renewal\n3. For manually managed certificates:\n   openssl x509 -in /path/to/cert.pem -noout -dates\n   Replace with a new certificate from your CA\n4. Verify:\n   openssl x509 -in /path/to/cert.pem -noout -enddate"
+      },
+      "expiring_critical": {
+        "title": "TLS/SSL certificate expires within 7 days",
+        "why": "A certificate expiring in under a week requires immediate action. Once expired, services stop working for all clients. Automated renewal may have failed silently — manual intervention is needed now to avoid an outage.",
+        "how": "1. For Let's Encrypt:\n   sudo certbot renew --force-renewal\n   sudo systemctl reload nginx  # or apache2\n2. Check renewal timer:\n   sudo systemctl status certbot.timer\n3. For manual certs, contact your CA immediately for a replacement\n4. Verify the new expiry:\n   openssl x509 -in /path/to/cert.pem -noout -enddate"
+      },
+      "expiring_soon": {
+        "title": "TLS/SSL certificate expires within 30 days",
+        "why": "Certificates expiring in under a month need attention before they expire. Automated renewal tools (certbot, acme.sh) should have already renewed them. A failure to renew automatically often indicates a misconfigured renewal job or DNS/port issue.",
+        "how": "1. Force-renew Let's Encrypt certificates:\n   sudo certbot renew\n2. Check renewal logs:\n   sudo journalctl -u certbot\n3. Verify timer is active:\n   sudo systemctl status certbot.timer\n4. For manual certificates, request a renewal from your CA"
+      }
+    },
+    "systemd_timers": {
+      "pipe_to_shell": {
+        "title": "Systemd timer unit pipes downloaded content to a shell",
+        "why": "Piping curl or wget output directly to bash/sh executes arbitrary code from a remote server without any integrity verification. If the remote server is compromised, misconfigured, or the connection is intercepted, an attacker can execute any command as the user running the timer.",
+        "how": "1. Identify the timer unit:\n   sudo ufw-audit --check systemd_timers --verbose\n2. Edit the unit to download first, verify, then execute:\n   systemctl edit <unit>.service\n3. Use checksums or package managers instead of curl-to-shell patterns\n4. Consider using signed packages or configuration management tools"
+      },
+      "world_writable": {
+        "title": "Systemd timer ExecStart script is world-writable",
+        "why": "Any local user can modify a world-writable script that is executed by a privileged systemd timer. This is a direct privilege escalation path — write your code into the script and wait for the timer to fire as root.",
+        "how": "1. Fix permissions on the script:\n   sudo chmod 755 /path/to/script.sh\n   sudo chown root:root /path/to/script.sh\n2. Verify:\n   ls -la /path/to/script.sh  # should show -rwxr-xr-x root root\n3. Audit all timer scripts regularly:\n   find /etc/systemd/system -name '*.service' | xargs grep -l ExecStart"
+      },
+      "user_created_root": {
+        "title": "User-created systemd timer runs as root",
+        "why": "A non-package timer running as root that was created by a regular user is a strong indicator of a persistence mechanism or privilege escalation backdoor. Legitimate system services are installed by packages; user-created root timers are unusual and warrant immediate investigation.",
+        "how": "1. Identify and inspect the timer:\n   systemctl list-timers --all\n   systemctl cat <suspicious-timer>.service\n2. Check who created the file:\n   ls -la /etc/systemd/system/<unit>.service\n3. If not a known legitimate service, disable and remove:\n   sudo systemctl disable --now <unit>.timer\n   sudo rm /etc/systemd/system/<unit>.*"
+      }
+    },
+    "firmware": {
+      "fwupd_updates": {
+        "title": "Firmware updates available via fwupd",
+        "why": "Firmware vulnerabilities (UEFI, NVMe, Thunderbolt, etc.) run below the operating system and cannot be patched by the OS. Unpatched firmware enables persistent rootkits that survive OS reinstallation, and can bypass Secure Boot, TPM attestation, and kernel mitigations.",
+        "how": "1. List available firmware updates:\n   fwupdmgr get-updates\n2. Apply updates:\n   sudo fwupdmgr update\n3. Reboot if required:\n   sudo reboot\n4. Automate future checks:\n   sudo systemctl enable --now fwupd-refresh.timer"
+      },
+      "microcode_missing": {
+        "title": "CPU microcode update package not installed",
+        "why": "CPU microcode patches critical hardware vulnerabilities including Spectre, Meltdown, MDS, TAA, and many others. Without microcode updates, these side-channel attacks can allow unprivileged processes to read kernel memory, cross VM boundaries, and extract cryptographic keys.",
+        "how": "1. Install the appropriate microcode package:\n   # Intel CPU:\n   sudo apt install intel-microcode\n   # AMD CPU:\n   sudo apt install amd64-microcode\n2. Reboot to apply:\n   sudo reboot\n3. Verify microcode is loaded:\n   grep microcode /proc/cpuinfo | head -1"
+      }
+    },
+    "docker_audit": {
+      "privileged": {
+        "title": "Docker container running in privileged mode",
+        "why": "A privileged container has full access to the host's devices and capabilities — it is effectively running as root on the host with all restrictions removed. Any process inside a privileged container can escape to the host, modify kernel parameters, mount host filesystems, and compromise the entire system.",
+        "how": "1. Identify the privileged container:\n   docker ps --quiet | xargs docker inspect --format '{{.Name}} privileged={{.HostConfig.Privileged}}'\n2. Remove the --privileged flag and grant only the specific capabilities needed:\n   docker run --cap-add NET_ADMIN (instead of --privileged)\n3. If the container genuinely needs privileged access, isolate it on a dedicated host\n4. Use seccomp profiles and AppArmor policies"
+      },
+      "root_containers": {
+        "title": "Docker containers running as root (no user namespace remapping)",
+        "why": "Containers running as UID 0 inside the container map directly to root on the host when user namespace remapping is not configured. A container escape vulnerability — of which Docker has had several — gives an attacker immediate root on the host.",
+        "how": "1. Add a non-root USER in your Dockerfile:\n   USER 1000:1000\n2. Or enable user namespace remapping globally:\n   sudo nano /etc/docker/daemon.json\n   { \"userns-remap\": \"default\" }\n   sudo systemctl restart docker\n3. Verify:\n   docker run alpine id  # should not return uid=0"
+      },
+      "socket_mounted": {
+        "title": "Docker socket mounted inside a container",
+        "why": "Mounting /var/run/docker.sock into a container gives it full control of the Docker daemon — and therefore the host. From inside the container, an attacker can start a new privileged container, mount the host filesystem, and escape with a single docker command. This is a complete container isolation bypass.",
+        "how": "1. Remove the socket mount from the container:\n   Remove -v /var/run/docker.sock:/var/run/docker.sock from docker run\n2. If the container needs to manage Docker (CI agents, Portainer), use:\n   - Docker-in-Docker (dind) with explicit isolation\n   - A Docker TCP socket with TLS authentication instead of the Unix socket\n3. Audit running containers:\n   docker ps -q | xargs docker inspect --format '{{.Name}}: {{.Mounts}}' | grep docker.sock"
+      },
+      "host_network": {
+        "title": "Docker container using host network mode",
+        "why": "A container with --network=host shares the host's network namespace entirely. It can bind to any port on the host, listen on all interfaces, and access any network service running on localhost. Network-based container isolation does not exist for such containers.",
+        "how": "1. Remove --network=host and use explicit port publishing:\n   docker run -p 8080:80 myimage  (instead of --network=host)\n2. If host networking is required for performance (e.g. latency-sensitive apps), restrict capabilities and use AppArmor/seccomp profiles\n3. Audit host-networked containers:\n   docker ps -q | xargs docker inspect --format '{{.Name}}: {{.HostConfig.NetworkMode}}' | grep host"
+      }
+    },
+    "kernel_hardening": {
+      "aslr_disabled": {
+        "title": "ASLR (Address Space Layout Randomisation) is disabled",
+        "why": "ASLR randomises the memory address layout of processes, making it significantly harder to exploit memory corruption vulnerabilities (buffer overflows, use-after-free). Without ASLR, an attacker can predict the exact address of shellcode, ROP gadgets, and heap allocations, making exploits far more reliable.",
+        "how": "1. Enable ASLR permanently:\n   sudo sysctl -w kernel.randomize_va_space=2\n   echo 'kernel.randomize_va_space = 2' | sudo tee /etc/sysctl.d/99-aslr.conf\n2. Verify:\n   cat /proc/sys/kernel/randomize_va_space  # should return 2"
+      },
+      "aslr_conservative": {
+        "title": "ASLR set to conservative mode (randomize_va_space=1)",
+        "why": "Conservative ASLR (value 1) randomises stack and mmap() allocations but not the heap. Heap spray and heap-based exploitation techniques remain more reliable against a target with conservative ASLR than with full ASLR (value 2).",
+        "how": "1. Enable full ASLR:\n   sudo sysctl -w kernel.randomize_va_space=2\n   echo 'kernel.randomize_va_space = 2' | sudo tee /etc/sysctl.d/99-aslr.conf\n2. Verify:\n   cat /proc/sys/kernel/randomize_va_space  # should return 2"
+      },
+      "ptrace_unrestricted": {
+        "title": "ptrace is unrestricted (kernel.yama.ptrace_scope=0)",
+        "why": "With unrestricted ptrace, any process can attach to and read/write the memory of any other process owned by the same user. An attacker with a low-privilege shell can extract credentials from browser sessions, SSH agents, gpg-agent, and sudo credential caches running in the same user session.",
+        "how": "1. Restrict ptrace to parent processes only:\n   sudo sysctl -w kernel.yama.ptrace_scope=1\n   echo 'kernel.yama.ptrace_scope = 1' | sudo tee /etc/sysctl.d/99-ptrace.conf\n2. For stricter environments (admins only):\n   kernel.yama.ptrace_scope = 2\n3. Verify:\n   cat /proc/sys/kernel/yama/ptrace_scope"
+      },
+      "dmesg_exposed": {
+        "title": "Kernel log (dmesg) accessible by unprivileged users",
+        "why": "The kernel ring buffer contains memory addresses, driver information, device names, and sometimes credentials passed as kernel parameters. Unprivileged access to dmesg significantly helps attackers defeat ASLR, identify kernel version and modules, and find attack surface.",
+        "how": "1. Restrict dmesg to root:\n   sudo sysctl -w kernel.dmesg_restrict=1\n   echo 'kernel.dmesg_restrict = 1' | sudo tee /etc/sysctl.d/99-dmesg.conf\n2. Verify:\n   cat /proc/sys/kernel/dmesg_restrict  # should return 1"
+      },
+      "kptr_exposed": {
+        "title": "Kernel pointer addresses exposed to unprivileged users (kptr_restrict=0)",
+        "why": "Kernel pointer addresses in /proc/kallsyms, /proc/modules, and similar interfaces help attackers locate kernel code and data structures when attempting kernel exploitation. Exposing them makes bypassing kernel ASLR much easier.",
+        "how": "1. Restrict kernel pointer exposure:\n   sudo sysctl -w kernel.kptr_restrict=2\n   echo 'kernel.kptr_restrict = 2' | sudo tee /etc/sysctl.d/99-kptr.conf\n2. Verify:\n   cat /proc/sys/kernel/kptr_restrict  # should return 1 or 2"
+      },
+      "suid_dump_all": {
+        "title": "Core dumps enabled for SUID processes (fs.suid_dumpable=2)",
+        "why": "When suid_dumpable is set to 2, SUID processes can produce core dumps readable by all users. Core dumps of SUID programs contain the full process memory — including any secrets, keys, or elevated-privilege data held in memory at crash time.",
+        "how": "1. Disable SUID core dumps:\n   sudo sysctl -w fs.suid_dumpable=0\n   echo 'fs.suid_dumpable = 0' | sudo tee /etc/sysctl.d/99-suid-dump.conf\n2. Verify:\n   cat /proc/sys/fs/suid_dumpable  # should return 0"
+      }
+    },
+    "suid_audit": {
+      "unexpected_suid": {
+        "title": "Unexpected SUID binary detected",
+        "why": "SUID (Set User ID) binaries execute with the file owner's privileges (typically root) regardless of who runs them. An unexpected SUID binary is either a privilege escalation backdoor planted by an attacker, or a legitimate tool left SUID unnecessarily. Either way, it represents an uncontrolled root execution path.",
+        "how": "1. Identify all SUID binaries:\n   find / -perm -4000 -type f 2>/dev/null\n2. For each unexpected binary, investigate its origin:\n   dpkg -S /path/to/binary\n3. Remove the SUID bit if not required:\n   sudo chmod u-s /path/to/binary\n4. If the binary is unknown or suspicious:\n   sha256sum /path/to/binary\n   # Compare with known-good hash from the vendor"
+      },
+      "unexpected_sgid": {
+        "title": "Unexpected SGID binary detected",
+        "why": "SGID (Set Group ID) binaries execute with the file's group privileges. An unexpected SGID binary can provide access to privileged group resources (shadow, disk, docker, sudo) for any user who runs it — enabling group-level privilege escalation.",
+        "how": "1. Identify all SGID binaries:\n   find / -perm -2000 -type f 2>/dev/null\n2. Investigate each unexpected binary:\n   dpkg -S /path/to/binary\n3. Remove the SGID bit if not required:\n   sudo chmod g-s /path/to/binary"
+      }
     }
   },
   "explain_cis": {
@@ -1634,6 +1782,49 @@
     },
     "virt": {
       "bypass_risk": "CIS Ubuntu 22.04 — network security best practice — Ensure firewall rules are not bypassed by bridge interfaces"
+    },
+    "auth_log": {
+      "brute_force": "CIS Ubuntu 22.04 L1 — 5.2.7 — Ensure SSH MaxAuthTries / fail2ban configured (active brute-force detected)",
+      "public_login": "CIS Ubuntu 22.04 L2 — 5.2.23 — Ensure SSH access is limited (AllowUsers/AllowGroups; review public login sources)"
+    },
+    "umask": {
+      "world_writable": "CIS Ubuntu 22.04 L1 — 5.5.5 — Ensure default user umask is 027 or more restrictive",
+      "group_writable": "CIS Ubuntu 22.04 L1 — 5.5.5 — Ensure default user umask is 027 or more restrictive"
+    },
+    "firewall": {
+      "logging_off": "CIS Ubuntu 22.04 L1 — 3.5.1.7 — Ensure ufw firewall rules exist and logging is enabled"
+    },
+    "ssl_certs": {
+      "expired": "CIS Ubuntu 22.04 — TLS certificate lifecycle best practice — Ensure certificates are valid and renewed before expiry",
+      "expiring_critical": "CIS Ubuntu 22.04 — TLS certificate lifecycle best practice — Ensure certificates are renewed before expiry (< 7 days)",
+      "expiring_soon": "CIS Ubuntu 22.04 — TLS certificate lifecycle best practice — Ensure certificates are renewed before expiry (< 30 days)"
+    },
+    "systemd_timers": {
+      "pipe_to_shell": "CIS Ubuntu 22.04 L1 — 5.1 — Configure cron/timers (script integrity: verify sources before execution)",
+      "world_writable": "CIS Ubuntu 22.04 L1 — 6.1.10 — Ensure no world writable scripts are executed by privileged timers",
+      "user_created_root": "CIS Ubuntu 22.04 L2 — 5.1.8 — Ensure cron/timer access is restricted to authorised users"
+    },
+    "firmware": {
+      "fwupd_updates": "CIS Ubuntu 22.04 L1 — 1.9 — Ensure updates, patches and additional security software are installed (firmware)",
+      "microcode_missing": "CIS Ubuntu 22.04 L1 — 1.9 — Ensure updates, patches and additional security software are installed (CPU microcode)"
+    },
+    "docker_audit": {
+      "privileged": "CIS Docker 1.6 — 5.4 — Ensure that privileged containers are not used",
+      "root_containers": "CIS Docker 1.6 — 4.1 — Ensure that a user for the container has been created (non-root)",
+      "socket_mounted": "CIS Docker 1.6 — 5.31 — Ensure that the Docker socket is not mounted inside any container",
+      "host_network": "CIS Docker 1.6 — 5.13 — Ensure that the container's network is not set to host"
+    },
+    "kernel_hardening": {
+      "aslr_disabled": "CIS Ubuntu 22.04 L1 — 3.3 — Ensure kernel ASLR is enabled (randomize_va_space = 2)",
+      "aslr_conservative": "CIS Ubuntu 22.04 L1 — 3.3 — Ensure kernel ASLR is fully enabled (randomize_va_space = 2 recommended)",
+      "ptrace_unrestricted": "CIS Ubuntu 22.04 L2 — 1.6.1 — Ensure core dumps are restricted / ptrace scope (kernel.yama.ptrace_scope ≥ 1)",
+      "dmesg_exposed": "CIS Ubuntu 22.04 L1 — kernel hardening best practice — Restrict access to kernel log (kernel.dmesg_restrict = 1)",
+      "kptr_exposed": "CIS Ubuntu 22.04 L1 — kernel hardening best practice — Restrict kernel pointer exposure (kernel.kptr_restrict ≥ 1)",
+      "suid_dump_all": "CIS Ubuntu 22.04 L1 — 1.6.1 — Ensure core dumps are restricted (fs.suid_dumpable = 0)"
+    },
+    "suid_audit": {
+      "unexpected_suid": "CIS Ubuntu 22.04 L1 — 6.1.13 — Ensure SUID and SGID files are reviewed",
+      "unexpected_sgid": "CIS Ubuntu 22.04 L1 — 6.1.13 — Ensure SUID and SGID files are reviewed"
     }
   },
   "user_accounts": {
@@ -1715,7 +1906,7 @@
   },
   "auth_log": {
     "not_available": "auth.log not accessible — SSH login analysis unavailable",
-    "no_logins": "No successful SSH logins recorded in the last {days} day(s)",
+    "no_logins": "No successful SSH logins recorded ({days} day(s) of logs available)",
     "no_logins_no_range": "No successful SSH logins recorded in the available auth.log",
     "summary": "{count} successful SSH login(s) in the last {days} day(s) — top sources: {top}",
     "public_login": "{count} successful SSH login(s) from public IP(s): {ips}",
@@ -1899,5 +2090,40 @@
     "remote_syslog_ok": "{daemon} configured with remote log target",
     "remote_syslog_none": "{daemon} is installed but no remote log target is configured",
     "remote_syslog_none_detail": "Forwarding logs to a remote syslog server (e.g. via rsyslog @@host:514) ensures logs are preserved even if the local system is compromised or wiped. Optional but recommended for servers."
+  },
+  "exposure": {
+    "section_title": "ATTACK SURFACE",
+    "internet_facing": "Internet-facing",
+    "internet_facing_detail": "machine has a direct public IP",
+    "internet_facing_local": "behind NAT / no direct public IP",
+    "firewall": "Firewall",
+    "firewall_inactive": "UFW is inactive — all ports unfiltered",
+    "firewall_allow_all": "default policy is ALLOW — no filtering",
+    "firewall_policy": "active — default {policy} incoming",
+    "open_ports": "Listening ports",
+    "no_open_ports": "none on all-interfaces",
+    "ssh": "SSH",
+    "ssh_not_running": "not installed / not running",
+    "ssh_ok": "key-only, root login disabled",
+    "ssh_root": "root login allowed",
+    "ssh_password": "password auth enabled",
+    "ssh_weak_crypto": "weak ciphers/KEX",
+    "brute_force": "Brute-force guard",
+    "brute_force_missing": "fail2ban not installed",
+    "brute_force_inactive": "fail2ban installed but inactive",
+    "brute_force_ok": "fail2ban active",
+    "updates": "Security updates",
+    "updates_pending": "security updates pending",
+    "updates_ok": "up to date"
+  },
+  "corr": {
+    "section_title": "COMPOUND RISKS",
+    "triggered_by": "Triggered by: {keys}",
+    "root_no_protection": "Root login is enabled with no active brute-force protection",
+    "password_auth_under_attack": "Password authentication is enabled while brute-force attacks are actively detected",
+    "ssh_root_password": "SSH accepts root login via password — direct root compromise possible",
+    "privilege_escalation": "Passwordless sudo combined with unexpected SUID binaries — multiple privilege escalation paths",
+    "stale_unmonitored": "Security updates pending with no active intrusion detection",
+    "fully_blind": "No firewall logging, no brute-force detection, and no audit daemon — system activity is invisible"
   }
 }

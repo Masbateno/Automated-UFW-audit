@@ -156,22 +156,23 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Quality & reliability
 
-- ✅ 3778 unit tests
+- ✅ 3996 unit tests
 - 🧱 Modular architecture (snapshot / check separated)
 - 🧪 Tested on Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.21.0
+## 🆕 v1.22.0
 
-- 🔐 **TLS/SSL certificate expiry** — scans Let's Encrypt, `/etc/ssl/private`, nginx/apache2/postfix configs; expired → ALERT −2 pts; <7 days → ALERT; <30 days → WARN; total capped at −4 pts
-- ⏱ **Systemd timers audit** — detects `curl|wget` piped to a shell in `ExecStart` (→ WARN −2 pts); world-writable `.sh` scripts (→ WARN −1 pt); user-created root timers (→ INFO)
-- 🔧 **Firmware & microcode audit** — `fwupdmgr get-updates` for device firmware (→ WARN −1 pt); CPU microcode package presence via `dpkg` (Intel/AMD → WARN −1 pt if missing)
-- 📄 **`--html` export** — standalone HTML report (no JS, no external resources); colored badges, score circle, deductions table
-- 🎯 **`--check`/`--skip`** — run only specific checks (`--check=ssh,firewall`) or exclude them (`--skip=clamav,rootkit`); mutually exclusive
-- 📁 **`--output-dir PATH`** — override report save directory for the current run without modifying saved config
-- 🐛 **SSH context note fix** — "SSH not publicly accessible" note now correctly displayed in services section
-- ✅ 3778/3778 unit tests (+284)
+- 🔗 **Signal correlation engine** — 5 compound-risk rules combining individual findings (root login + no Fail2ban → ALERT; password auth + brute-force → ALERT; NOPASSWD sudo + unexpected SUID → WARN; etc.)
+- 🔁 **Recurring finding tracker** — counts consecutive audit appearances per key; persisted at `~/.config/ufw-audit/recurrence.json`
+- 📡 **Port exposure analysis** — groups exposed listening services by interface scope and risk level; `fw_policy` allowlist fix
+- 📋 **Comparative report — finding-key diff** — new/resolved ALERT+WARN keys shown between audits; migration guard for pre-v1.22 baselines
+- 🐛 **IPv6 false-positive fix** — WARN downgraded to INFO when only link-local/ULA addresses assigned (machine not internet-reachable via IPv6)
+- 🐛 **Kernel message fix** — redundant "(running: X, latest: X)" suppressed when both values are identical
+- 🐛 **Snakeoil cert filter** — `ssl-cert-snakeoil.pem` no longer triggers TLS audit on Debian/Ubuntu
+- 🔍 **`--explain`** — 87→112 keys (+25 across 7 new groups: auth logs, umask, firewall logging, TLS/SSL certs, systemd timers, firmware, Docker)
+- ✅ 3996/3996 unit tests (+218)
 
 ---
 
@@ -207,7 +208,7 @@ Automated-UFW-audit/
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 3778 unit tests
+└── tests/                          # 3996 unit tests
 ```
 
 ---

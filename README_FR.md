@@ -156,22 +156,23 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Qualité & fiabilité
 
-- ✅ 3778 tests unitaires
+- ✅ 3996 tests unitaires
 - 🧱 Architecture modulaire (snapshot / check séparés)
 - 🧪 Testé sur Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.21.0
+## 🆕 v1.22.0
 
-- 🔐 **Expiration des certificats TLS/SSL** — analyse Let's Encrypt, `/etc/ssl/private`, configs nginx/apache2/postfix ; expiré → ALERT −2 pts ; <7 jours → ALERT ; <30 jours → WARN ; total plafonné à −4 pts
-- ⏱ **Audit des timers systemd** — détecte `curl|wget` pipé vers un shell dans `ExecStart` (→ WARN −2 pts) ; scripts `.sh` world-writable (→ WARN −1 pt) ; timers root créés par l'utilisateur (→ INFO)
-- 🔧 **Audit firmware & microcode** — `fwupdmgr get-updates` pour les firmwares (→ WARN −1 pt) ; présence du paquet microcode CPU via `dpkg` (Intel/AMD → WARN −1 pt si absent)
-- 📄 **Export `--html`** — rapport HTML autonome (sans JS, sans ressources externes) ; badges colorés, cercle de score, tableau des déductions
-- 🎯 **`--check`/`--skip`** — n'exécuter que certains checks (`--check=ssh,firewall`) ou les exclure (`--skip=clamav,rootkit`) ; mutuellement exclusifs
-- 📁 **`--output-dir PATH`** — répertoire de sauvegarde du rapport pour l'exécution courante sans modifier la config sauvegardée
-- 🐛 **Correction note de contexte SSH** — la note "SSH non accessible publiquement" s'affiche désormais correctement dans la section services
-- ✅ 3778/3778 tests unitaires (+284)
+- 🔗 **Moteur de corrélation de signaux** — 5 règles de risque composé combinant des findings individuels (connexion root + pas de Fail2ban → ALERT ; auth par mot de passe + brute-force → ALERT ; sudo NOPASSWD + SUID inattendu → WARN ; etc.)
+- 🔁 **Suivi des findings récurrents** — comptage des apparitions consécutives par clé ; persisté dans `~/.config/ufw-audit/recurrence.json`
+- 📡 **Analyse d'exposition des ports** — regroupe les services en écoute exposés par portée d'interface et niveau de risque ; correctif allowlist `fw_policy`
+- 📋 **Rapport comparatif — diff de clés de findings** — nouvelles clés ALERT+WARN apparues ou résolues entre les audits ; garde de migration pour les baselines antérieures à v1.22
+- 🐛 **Correctif faux positif IPv6** — WARN rétrogradé en INFO quand uniquement des adresses link-local/ULA sont assignées (machine non joignable via IPv6)
+- 🐛 **Correctif message noyaux** — parenthèse redondante "(actif : X, récent : X)" supprimée quand les deux valeurs sont identiques
+- 🐛 **Filtre certificat snakeoil** — `ssl-cert-snakeoil.pem` ne déclenche plus l'audit TLS sur Debian/Ubuntu
+- 🔍 **`--explain`** — 87→112 clés (+25 sur 7 nouveaux groupes : journaux auth, umask, journalisation pare-feu, certificats TLS/SSL, timers systemd, firmware, Docker)
+- ✅ 3996/3996 tests unitaires (+218)
 
 ---
 
@@ -207,7 +208,7 @@ Automated-UFW-audit/
 │   └── locales/
 │       ├── en.json
 │       └── fr.json
-└── tests/                          # 3778 tests unitaires
+└── tests/                          # 3996 tests unitaires
 ```
 
 ---

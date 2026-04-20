@@ -421,6 +421,7 @@
   },
   "service_risk": {
     "local_exposure_note": "ℹ Risque intrinsèque (voir ci-dessus) — exposition réelle : FAIBLE (SSH non accessible depuis internet sur ce réseau)",
+    "nonstandard_port_note": "Port non standard — exposition réduite aux scanners automatisés",
     "ssh_server": {
       "level": "CRITIQUE",
       "exposure": "Port très ciblé par les scans automatisés et attaques bruteforce — exposé sur internet par défaut",
@@ -628,7 +629,9 @@
     "service_stopped": "Service devenu inactif : {service}",
     "no_changes": "Aucun changement détecté depuis le dernier audit",
     "info_decreased": "{delta} notice(s) informative(s) résolu(e)(s) depuis le dernier audit",
-    "info_increased": "{delta} nouvelle(s) notice(s) informative(s) depuis le dernier audit"
+    "info_increased": "{delta} nouvelle(s) notice(s) informative(s) depuis le dernier audit",
+    "key_appeared": "Nouveau finding : {key}",
+    "key_resolved": "Résolu : {key}"
   },
   "watch": {
     "header": "ufw-audit --watch  │  Intervalle : {interval}s  │  Ctrl+C pour quitter",
@@ -645,7 +648,8 @@
     "ufw_disabled_listeners_present": "{count} service(s) à l'écoute en IPv6 (::) mais UFW n'est pas configuré pour gérer l'IPv6 (IPV6=no)",
     "listeners_list": "Port(s) concerné(s) : {ports}",
     "port_no_v6_rule": "Port {port} à l'écoute en IPv6 (::) sans règle UFW (v6) correspondante",
-    "all_ports_covered": "Les {count} service(s) IPv6 sont couverts par des règles UFW (v6)"
+    "all_ports_covered": "Les {count} service(s) IPv6 sont couverts par des règles UFW (v6)",
+    "ufw_disabled_listeners_link_local": "{count} service(s) en écoute sur IPv6 (::) mais UFW IPv6 est désactivé — adresses link-local uniquement, aucune exposition internet"
   },
   "audit": {
     "starting": "Démarrage de l'audit",
@@ -824,6 +828,7 @@
     "kernels_reboot_pending": "Redémarrage en attente — noyau actif ({running}) ≠ dernier installé ({recent})",
     "kernels_reboot_pending_detail": "Installés : {installed}\nNe supprimez pas encore les anciens noyaux. Redémarrez sur {recent} et vérifiez le bon fonctionnement du système.",
     "kernels_obsolete": "{count} noyau(x) obsolète(s) détecté(s) (actif : {running}, récent : {recent})",
+    "kernels_obsolete_same": "{count} noyau(x) obsolète(s) détecté(s) (actif : {running})",
     "kernels_obsolete_detail": "Installés  : {installed}\nObsolètes  : {to_remove}\nCette commande supprime uniquement l'image noyau. Exécutez ensuite sudo apt autoremove --purge pour nettoyer les headers et modules associés. À n'exécuter qu'après avoir vérifié que le système démarre correctement sur {recent}.",
     "kernels_listed": "{count} noyau(x) installé(s) : {installed} — aucun nettoyage nécessaire"
   },
@@ -1507,6 +1512,149 @@
         "why": "Les hyperviseurs tels que libvirt/KVM, VirtualBox et VMware créent des interfaces bridge Linux (virbr0, vboxnet*, etc.) et injectent leurs propres règles iptables directement dans la chaîne FORWARD. Ces règles peuvent autoriser le trafic entre les VMs et l'hôte — ou entre les VMs et internet — indépendamment de la politique FORWARD d'UFW. UFW ne gère que ses propres règles et ne peut pas empêcher ces règles de pont d'autoriser le trafic transféré.",
         "how": "Auditer les règles FORWARD insérées par le pont :\n  sudo iptables -L FORWARD -v --line-numbers | grep virbr0\n\nC'est un comportement attendu sur un hôte de virtualisation — vérifier que seul le trafic VM légitime est transféré.\n\nPour isoler les VMs d'internet tout en conservant l'accès hôte, configurer le réseau libvirt en mode isolé :\n  virsh net-edit default  # définir <forward mode='none'/> pour les réseaux isolés\n\nSi vous n'utilisez plus de machines virtuelles :\n  sudo systemctl disable --now libvirtd"
       }
+    },
+    "auth_log": {
+      "brute_force": {
+        "title": "Attaques par force brute détectées dans les journaux d'authentification",
+        "why": "Des échecs de connexion répétés indiquent des attaques automatisées actives contre cette machine. Si l'authentification par mot de passe ou des identifiants faibles sont utilisés, une campagne de force brute persistante finira par réussir. Même avec des mots de passe forts, les attaques par inondation consomment du CPU et bloquent les utilisateurs légitimes.",
+        "how": "1. Installer et configurer fail2ban :\n   sudo apt install fail2ban\n   sudo systemctl enable --now fail2ban\n2. Vérifier que la jail SSH est active :\n   sudo fail2ban-client status sshd\n3. Désactiver l'authentification par mot de passe (clés uniquement) :\n   sudo nano /etc/ssh/sshd_config  →  PasswordAuthentication no\n4. Réduire MaxAuthTries :\n   MaxAuthTries 3\n5. Redémarrer SSH :\n   sudo systemctl restart ssh"
+      },
+      "public_login": {
+        "title": "Connexions réussies depuis des adresses IP publiques détectées",
+        "why": "Des connexions distantes depuis des IP publiques dans les journaux d'auth confirment que la machine est accessible depuis internet et activement utilisée. Toute compromission d'identifiant — force brute, clé volée, mot de passe divulgué — donnerait immédiatement un shell à un attaquant.",
+        "how": "1. Restreindre l'accès SSH aux IP connues via UFW :\n   sudo ufw allow from <votre-ip> to any port 22\n   sudo ufw delete allow 22\n2. Utiliser uniquement l'authentification par clé :\n   sudo nano /etc/ssh/sshd_config  →  PasswordAuthentication no\n3. Vérifier qui se connecte :\n   sudo last | head -20\n4. Envisager un VPN ou du port-knocking si l'accès distant doit être maintenu"
+      }
+    },
+    "umask": {
+      "world_writable": {
+        "title": "L'umask par défaut autorise la création de fichiers accessibles en écriture par tous (umask 0000 ou 0002)",
+        "why": "Un umask permettant l'écriture universelle signifie que chaque nouveau fichier créé par n'importe quel utilisateur est modifiable par tous. Un attaquant disposant d'un compte local peut modifier des scripts, des configs et des fichiers de données créés par des processus privilégiés — permettant l'escalade de privilèges et la persistence.",
+        "how": "1. Définir un umask sécurisé dans /etc/profile et /etc/bash.bashrc :\n   umask 0022\n2. Pour des environnements plus stricts :\n   umask 0027\n3. Vérifier que le changement est appliqué :\n   umask  # doit retourner 0022 ou plus strict\n4. Vérifier /etc/login.defs :\n   UMASK 022"
+      },
+      "group_writable": {
+        "title": "L'umask par défaut autorise la création de fichiers accessibles en écriture par le groupe (umask 002)",
+        "why": "Un umask permettant l'écriture par le groupe signifie que chaque nouveau fichier est modifiable par tout membre du groupe de l'utilisateur créateur. Sur des systèmes multi-utilisateurs ou avec des comptes de service partagés, cela peut permettre une escalade de privilèges horizontale.",
+        "how": "1. Définir umask à 0022 dans /etc/profile :\n   umask 0022\n2. Vérifier :\n   umask  # doit retourner 0022"
+      }
+    },
+    "firewall": {
+      "logging_off": {
+        "title": "La journalisation du pare-feu UFW est désactivée",
+        "why": "Sans journaux pare-feu, les tentatives de connexion bloquées, les scans de ports et les tentatives d'intrusion ne laissent aucune trace. L'investigation forensique après un incident devient impossible — il est impossible de déterminer quand une attaque a commencé, quels ports ont été sondés ou d'où provenait le trafic.",
+        "how": "1. Activer la journalisation UFW :\n   sudo ufw logging on\n2. Pour plus de détails :\n   sudo ufw logging medium\n   # ou : sudo ufw logging high\n3. Vérifier :\n   sudo ufw status verbose | grep Logging\n4. Les journaux apparaissent dans :\n   /var/log/ufw.log  (ou journald)"
+      }
+    },
+    "ssl_certs": {
+      "expired": {
+        "title": "Le certificat TLS/SSL a expiré",
+        "why": "Un certificat expiré provoque des erreurs de confiance bloquantes dans les navigateurs et clients, rendant les services complètement inaccessibles. Les certificats expirés signalent également une mauvaise gestion du cycle de vie — les attaquants recherchent spécifiquement les certificats expirés.",
+        "how": "1. Identifier quel certificat a expiré :\n   sudo ufw-audit --check ssl_certs --verbose\n2. Pour Let's Encrypt :\n   sudo certbot renew --force-renewal\n3. Pour les certificats gérés manuellement :\n   openssl x509 -in /chemin/cert.pem -noout -dates\n   Remplacer par un nouveau certificat de votre CA\n4. Vérifier :\n   openssl x509 -in /chemin/cert.pem -noout -enddate"
+      },
+      "expiring_critical": {
+        "title": "Le certificat TLS/SSL expire dans moins de 7 jours",
+        "why": "Un certificat expirant en moins d'une semaine nécessite une action immédiate. Une fois expiré, les services cessent de fonctionner pour tous les clients. Le renouvellement automatique a peut-être échoué silencieusement — une intervention manuelle est nécessaire maintenant.",
+        "how": "1. Pour Let's Encrypt :\n   sudo certbot renew --force-renewal\n   sudo systemctl reload nginx  # ou apache2\n2. Vérifier le timer de renouvellement :\n   sudo systemctl status certbot.timer\n3. Pour les certificats manuels, contacter votre CA immédiatement\n4. Vérifier la nouvelle date d'expiration :\n   openssl x509 -in /chemin/cert.pem -noout -enddate"
+      },
+      "expiring_soon": {
+        "title": "Le certificat TLS/SSL expire dans moins de 30 jours",
+        "why": "Les certificats expirant en moins d'un mois nécessitent une attention avant expiration. Les outils de renouvellement automatique (certbot, acme.sh) auraient dû les renouveler. Un échec de renouvellement automatique indique souvent un job de renouvellement mal configuré ou un problème DNS/port.",
+        "how": "1. Forcer le renouvellement des certificats Let's Encrypt :\n   sudo certbot renew\n2. Vérifier les journaux de renouvellement :\n   sudo journalctl -u certbot\n3. Vérifier que le timer est actif :\n   sudo systemctl status certbot.timer\n4. Pour les certificats manuels, demander un renouvellement à votre CA"
+      }
+    },
+    "systemd_timers": {
+      "pipe_to_shell": {
+        "title": "Un timer systemd redirige du contenu téléchargé vers un shell",
+        "why": "Rediriger la sortie de curl ou wget directement vers bash/sh exécute du code arbitraire depuis un serveur distant sans aucune vérification d'intégrité. Si le serveur distant est compromis, mal configuré, ou la connexion interceptée, un attaquant peut exécuter n'importe quelle commande.",
+        "how": "1. Identifier l'unité timer concernée :\n   sudo ufw-audit --check systemd_timers --verbose\n2. Modifier l'unité pour télécharger d'abord, vérifier, puis exécuter :\n   systemctl edit <unité>.service\n3. Utiliser des sommes de contrôle ou des gestionnaires de paquets plutôt que curl-vers-shell\n4. Envisager des paquets signés ou des outils de gestion de configuration"
+      },
+      "world_writable": {
+        "title": "Le script ExecStart d'un timer systemd est accessible en écriture par tous",
+        "why": "Tout utilisateur local peut modifier un script accessible en écriture universelle exécuté par un timer systemd privilégié. C'est un chemin direct d'escalade de privilèges — injectez votre code dans le script et attendez que le timer se déclenche en tant que root.",
+        "how": "1. Corriger les permissions du script :\n   sudo chmod 755 /chemin/script.sh\n   sudo chown root:root /chemin/script.sh\n2. Vérifier :\n   ls -la /chemin/script.sh  # doit afficher -rwxr-xr-x root root\n3. Auditer régulièrement tous les scripts des timers :\n   find /etc/systemd/system -name '*.service' | xargs grep -l ExecStart"
+      },
+      "user_created_root": {
+        "title": "Un timer systemd créé par un utilisateur s'exécute en tant que root",
+        "why": "Un timer non-système s'exécutant en root et créé par un utilisateur ordinaire est un fort indicateur de mécanisme de persistance ou d'escalade de privilèges. Les services système légitimes sont installés par des paquets — les timers root créés par des utilisateurs sont anormaux et méritent une investigation immédiate.",
+        "how": "1. Identifier et inspecter le timer :\n   systemctl list-timers --all\n   systemctl cat <timer-suspect>.service\n2. Vérifier qui a créé le fichier :\n   ls -la /etc/systemd/system/<unité>.service\n3. Si ce n'est pas un service légitime connu, désactiver et supprimer :\n   sudo systemctl disable --now <unité>.timer\n   sudo rm /etc/systemd/system/<unité>.*"
+      }
+    },
+    "firmware": {
+      "fwupd_updates": {
+        "title": "Mises à jour de firmware disponibles via fwupd",
+        "why": "Les vulnérabilités firmware (UEFI, NVMe, Thunderbolt, etc.) s'exécutent sous le système d'exploitation et ne peuvent pas être corrigées par l'OS. Un firmware non patché permet des rootkits persistants survivant à la réinstallation de l'OS, et peut contourner Secure Boot, l'attestation TPM et les mitigations noyau.",
+        "how": "1. Lister les mises à jour firmware disponibles :\n   fwupdmgr get-updates\n2. Appliquer les mises à jour :\n   sudo fwupdmgr update\n3. Redémarrer si nécessaire :\n   sudo reboot\n4. Automatiser les vérifications futures :\n   sudo systemctl enable --now fwupd-refresh.timer"
+      },
+      "microcode_missing": {
+        "title": "Paquet de mise à jour du microcode CPU non installé",
+        "why": "Les mises à jour de microcode CPU corrigent des vulnérabilités matérielles critiques incluant Spectre, Meltdown, MDS, TAA et bien d'autres. Sans mises à jour de microcode, ces attaques par canal auxiliaire permettent à des processus non privilégiés de lire la mémoire noyau, traverser les frontières VM et extraire des clés cryptographiques.",
+        "how": "1. Installer le paquet microcode approprié :\n   # CPU Intel :\n   sudo apt install intel-microcode\n   # CPU AMD :\n   sudo apt install amd64-microcode\n2. Redémarrer pour appliquer :\n   sudo reboot\n3. Vérifier que le microcode est chargé :\n   grep microcode /proc/cpuinfo | head -1"
+      }
+    },
+    "docker_audit": {
+      "privileged": {
+        "title": "Conteneur Docker en mode privilégié",
+        "why": "Un conteneur privilégié a un accès complet aux périphériques et capacités de l'hôte — il s'exécute effectivement en root sur l'hôte sans aucune restriction. Tout processus dans un conteneur privilégié peut s'échapper vers l'hôte, modifier les paramètres noyau, monter les systèmes de fichiers hôte et compromettre tout le système.",
+        "how": "1. Identifier le conteneur privilégié :\n   docker ps -q | xargs docker inspect --format '{{.Name}} privileged={{.HostConfig.Privileged}}'\n2. Supprimer --privileged et n'accorder que les capacités spécifiques nécessaires :\n   docker run --cap-add NET_ADMIN (au lieu de --privileged)\n3. Si l'accès privilégié est vraiment nécessaire, isoler sur un hôte dédié\n4. Utiliser des profils seccomp et des politiques AppArmor"
+      },
+      "root_containers": {
+        "title": "Conteneurs Docker s'exécutant en tant que root (pas de remapping d'espace de noms utilisateur)",
+        "why": "Les conteneurs s'exécutant en UID 0 dans le conteneur se mappent directement sur root de l'hôte sans remapping d'espace de noms. Une vulnérabilité d'évasion de conteneur — dont Docker en a eu plusieurs — donne immédiatement root sur l'hôte à un attaquant.",
+        "how": "1. Ajouter un USER non-root dans votre Dockerfile :\n   USER 1000:1000\n2. Ou activer le remapping d'espace de noms globalement :\n   sudo nano /etc/docker/daemon.json\n   { \"userns-remap\": \"default\" }\n   sudo systemctl restart docker\n3. Vérifier :\n   docker run alpine id  # ne doit pas retourner uid=0"
+      },
+      "socket_mounted": {
+        "title": "Socket Docker monté dans un conteneur",
+        "why": "Monter /var/run/docker.sock dans un conteneur lui donne le contrôle total du démon Docker — et donc de l'hôte. Depuis l'intérieur du conteneur, un attaquant peut démarrer un nouveau conteneur privilégié, monter le système de fichiers hôte et s'échapper avec une seule commande docker. C'est un contournement complet de l'isolation des conteneurs.",
+        "how": "1. Supprimer le montage du socket du conteneur :\n   Supprimer -v /var/run/docker.sock:/var/run/docker.sock de docker run\n2. Si le conteneur doit gérer Docker (agents CI, Portainer), utiliser :\n   - Docker-in-Docker (dind) avec isolation explicite\n   - Un socket TCP Docker avec authentification TLS\n3. Auditer les conteneurs en cours :\n   docker ps -q | xargs docker inspect --format '{{.Name}}: {{.Mounts}}' | grep docker.sock"
+      },
+      "host_network": {
+        "title": "Conteneur Docker utilisant le mode réseau hôte",
+        "why": "Un conteneur avec --network=host partage entièrement l'espace de noms réseau de l'hôte. Il peut se lier à n'importe quel port de l'hôte, écouter sur toutes les interfaces et accéder à tout service réseau sur localhost. L'isolation réseau des conteneurs n'existe pas pour de tels conteneurs.",
+        "how": "1. Supprimer --network=host et utiliser la publication de ports explicite :\n   docker run -p 8080:80 monimage  (au lieu de --network=host)\n2. Si le réseau hôte est requis pour la performance, restreindre les capacités et utiliser des profils AppArmor/seccomp\n3. Auditer les conteneurs en mode réseau hôte :\n   docker ps -q | xargs docker inspect --format '{{.Name}}: {{.HostConfig.NetworkMode}}' | grep host"
+      }
+    },
+    "kernel_hardening": {
+      "aslr_disabled": {
+        "title": "L'ASLR (randomisation de l'espace d'adressage) est désactivée",
+        "why": "L'ASLR randomise la disposition des adresses mémoire des processus, rendant beaucoup plus difficile l'exploitation de vulnérabilités de corruption mémoire (débordements de tampon, use-after-free). Sans ASLR, un attaquant peut prédire l'adresse exacte du shellcode, des gadgets ROP et des allocations tas.",
+        "how": "1. Activer l'ASLR de façon permanente :\n   sudo sysctl -w kernel.randomize_va_space=2\n   echo 'kernel.randomize_va_space = 2' | sudo tee /etc/sysctl.d/99-aslr.conf\n2. Vérifier :\n   cat /proc/sys/kernel/randomize_va_space  # doit retourner 2"
+      },
+      "aslr_conservative": {
+        "title": "ASLR en mode conservateur (randomize_va_space=1)",
+        "why": "L'ASLR conservateur (valeur 1) randomise les allocations de pile et mmap() mais pas le tas. Les techniques d'exploitation basées sur le tas restent plus fiables contre une cible avec l'ASLR conservateur qu'avec l'ASLR complet (valeur 2).",
+        "how": "1. Activer l'ASLR complet :\n   sudo sysctl -w kernel.randomize_va_space=2\n   echo 'kernel.randomize_va_space = 2' | sudo tee /etc/sysctl.d/99-aslr.conf\n2. Vérifier :\n   cat /proc/sys/kernel/randomize_va_space  # doit retourner 2"
+      },
+      "ptrace_unrestricted": {
+        "title": "ptrace sans restriction (kernel.yama.ptrace_scope=0)",
+        "why": "Avec ptrace sans restriction, tout processus peut s'attacher et lire/écrire la mémoire de tout autre processus appartenant au même utilisateur. Un attaquant avec un shell peu privilégié peut extraire des identifiants depuis des sessions navigateur, des agents SSH, gpg-agent et les caches d'identifiants sudo.",
+        "how": "1. Restreindre ptrace aux processus parents uniquement :\n   sudo sysctl -w kernel.yama.ptrace_scope=1\n   echo 'kernel.yama.ptrace_scope = 1' | sudo tee /etc/sysctl.d/99-ptrace.conf\n2. Pour des environnements plus stricts (admins uniquement) :\n   kernel.yama.ptrace_scope = 2\n3. Vérifier :\n   cat /proc/sys/kernel/yama/ptrace_scope"
+      },
+      "dmesg_exposed": {
+        "title": "Journal noyau (dmesg) accessible aux utilisateurs non privilégiés",
+        "why": "Le tampon circulaire du noyau contient des adresses mémoire, des informations sur les pilotes, des noms de périphériques et parfois des identifiants passés comme paramètres noyau. L'accès non privilégié à dmesg aide significativement les attaquants à contourner l'ASLR et identifier la surface d'attaque.",
+        "how": "1. Restreindre dmesg au root :\n   sudo sysctl -w kernel.dmesg_restrict=1\n   echo 'kernel.dmesg_restrict = 1' | sudo tee /etc/sysctl.d/99-dmesg.conf\n2. Vérifier :\n   cat /proc/sys/kernel/dmesg_restrict  # doit retourner 1"
+      },
+      "kptr_exposed": {
+        "title": "Adresses de pointeurs noyau exposées aux utilisateurs non privilégiés (kptr_restrict=0)",
+        "why": "Les adresses de pointeurs noyau dans /proc/kallsyms, /proc/modules et interfaces similaires aident les attaquants à localiser le code et les structures de données noyau lors d'une tentative d'exploitation. Leur exposition facilite le contournement de l'ASLR noyau.",
+        "how": "1. Restreindre l'exposition des pointeurs noyau :\n   sudo sysctl -w kernel.kptr_restrict=2\n   echo 'kernel.kptr_restrict = 2' | sudo tee /etc/sysctl.d/99-kptr.conf\n2. Vérifier :\n   cat /proc/sys/kernel/kptr_restrict  # doit retourner 1 ou 2"
+      },
+      "suid_dump_all": {
+        "title": "Core dumps activés pour les processus SUID (fs.suid_dumpable=2)",
+        "why": "Avec suid_dumpable à 2, les processus SUID peuvent produire des core dumps lisibles par tous les utilisateurs. Les core dumps de programmes SUID contiennent toute la mémoire du processus — y compris les secrets, clés ou données à privilèges élevés en mémoire au moment du crash.",
+        "how": "1. Désactiver les core dumps SUID :\n   sudo sysctl -w fs.suid_dumpable=0\n   echo 'fs.suid_dumpable = 0' | sudo tee /etc/sysctl.d/99-suid-dump.conf\n2. Vérifier :\n   cat /proc/sys/fs/suid_dumpable  # doit retourner 0"
+      }
+    },
+    "suid_audit": {
+      "unexpected_suid": {
+        "title": "Binaire SUID inattendu détecté",
+        "why": "Les binaires SUID (Set User ID) s'exécutent avec les privilèges du propriétaire du fichier (typiquement root) quel que soit l'utilisateur qui les lance. Un binaire SUID inattendu est soit une porte dérobée d'escalade de privilèges plantée par un attaquant, soit un outil légitime laissé SUID inutilement — dans les deux cas, c'est un chemin d'exécution root non contrôlé.",
+        "how": "1. Identifier tous les binaires SUID :\n   find / -perm -4000 -type f 2>/dev/null\n2. Pour chaque binaire inattendu, investiguer son origine :\n   dpkg -S /chemin/vers/binaire\n3. Supprimer le bit SUID si inutile :\n   sudo chmod u-s /chemin/vers/binaire\n4. Si le binaire est inconnu ou suspect :\n   sha256sum /chemin/vers/binaire\n   # Comparer avec le hash connu de l'éditeur"
+      },
+      "unexpected_sgid": {
+        "title": "Binaire SGID inattendu détecté",
+        "why": "Les binaires SGID (Set Group ID) s'exécutent avec les privilèges du groupe du fichier. Un binaire SGID inattendu peut donner accès aux ressources de groupes privilégiés (shadow, disk, docker, sudo) à tout utilisateur qui l'exécute — permettant une escalade de privilèges au niveau groupe.",
+        "how": "1. Identifier tous les binaires SGID :\n   find / -perm -2000 -type f 2>/dev/null\n2. Investiguer chaque binaire inattendu :\n   dpkg -S /chemin/vers/binaire\n3. Supprimer le bit SGID si inutile :\n   sudo chmod g-s /chemin/vers/binaire"
+      }
     }
   },
   "explain_cis": {
@@ -1634,6 +1782,49 @@
     },
     "virt": {
       "bypass_risk": "CIS Ubuntu 22.04 — bonne pratique sécurité réseau — S'assurer que les règles pare-feu ne sont pas contournées par des interfaces bridge"
+    },
+    "auth_log": {
+      "brute_force": "CIS Ubuntu 22.04 N1 — 5.2.7 — S'assurer que MaxAuthTries SSH / fail2ban est configuré (force brute active détectée)",
+      "public_login": "CIS Ubuntu 22.04 N2 — 5.2.23 — S'assurer que l'accès SSH est limité (AllowUsers/AllowGroups ; vérifier les sources de connexion publiques)"
+    },
+    "umask": {
+      "world_writable": "CIS Ubuntu 22.04 N1 — 5.5.5 — S'assurer que l'umask utilisateur par défaut est 027 ou plus restrictif",
+      "group_writable": "CIS Ubuntu 22.04 N1 — 5.5.5 — S'assurer que l'umask utilisateur par défaut est 027 ou plus restrictif"
+    },
+    "firewall": {
+      "logging_off": "CIS Ubuntu 22.04 N1 — 3.5.1.7 — S'assurer que les règles UFW existent et que la journalisation est activée"
+    },
+    "ssl_certs": {
+      "expired": "CIS Ubuntu 22.04 — bonne pratique cycle de vie TLS — S'assurer que les certificats sont valides et renouvelés avant expiration",
+      "expiring_critical": "CIS Ubuntu 22.04 — bonne pratique cycle de vie TLS — S'assurer que les certificats sont renouvelés avant expiration (< 7 jours)",
+      "expiring_soon": "CIS Ubuntu 22.04 — bonne pratique cycle de vie TLS — S'assurer que les certificats sont renouvelés avant expiration (< 30 jours)"
+    },
+    "systemd_timers": {
+      "pipe_to_shell": "CIS Ubuntu 22.04 N1 — 5.1 — Configurer cron/timers (intégrité des scripts : vérifier les sources avant exécution)",
+      "world_writable": "CIS Ubuntu 22.04 N1 — 6.1.10 — S'assurer qu'aucun script accessible en écriture universelle n'est exécuté par des timers privilégiés",
+      "user_created_root": "CIS Ubuntu 22.04 N2 — 5.1.8 — S'assurer que l'accès cron/timer est restreint aux utilisateurs autorisés"
+    },
+    "firmware": {
+      "fwupd_updates": "CIS Ubuntu 22.04 N1 — 1.9 — S'assurer que les mises à jour, correctifs et logiciels de sécurité supplémentaires sont installés (firmware)",
+      "microcode_missing": "CIS Ubuntu 22.04 N1 — 1.9 — S'assurer que les mises à jour, correctifs et logiciels de sécurité supplémentaires sont installés (microcode CPU)"
+    },
+    "docker_audit": {
+      "privileged": "CIS Docker 1.6 — 5.4 — S'assurer que les conteneurs privilégiés ne sont pas utilisés",
+      "root_containers": "CIS Docker 1.6 — 4.1 — S'assurer qu'un utilisateur non-root a été créé pour le conteneur",
+      "socket_mounted": "CIS Docker 1.6 — 5.31 — S'assurer que le socket Docker n'est pas monté dans un conteneur",
+      "host_network": "CIS Docker 1.6 — 5.13 — S'assurer que le réseau du conteneur n'est pas défini sur host"
+    },
+    "kernel_hardening": {
+      "aslr_disabled": "CIS Ubuntu 22.04 N1 — 3.3 — S'assurer que l'ASLR noyau est activé (randomize_va_space = 2)",
+      "aslr_conservative": "CIS Ubuntu 22.04 N1 — 3.3 — S'assurer que l'ASLR noyau est entièrement activé (randomize_va_space = 2 recommandé)",
+      "ptrace_unrestricted": "CIS Ubuntu 22.04 N2 — 1.6.1 — S'assurer que les core dumps sont restreints / portée ptrace (kernel.yama.ptrace_scope ≥ 1)",
+      "dmesg_exposed": "CIS Ubuntu 22.04 N1 — bonne pratique durcissement noyau — Restreindre l'accès au journal noyau (kernel.dmesg_restrict = 1)",
+      "kptr_exposed": "CIS Ubuntu 22.04 N1 — bonne pratique durcissement noyau — Restreindre l'exposition des pointeurs noyau (kernel.kptr_restrict ≥ 1)",
+      "suid_dump_all": "CIS Ubuntu 22.04 N1 — 1.6.1 — S'assurer que les core dumps sont restreints (fs.suid_dumpable = 0)"
+    },
+    "suid_audit": {
+      "unexpected_suid": "CIS Ubuntu 22.04 N1 — 6.1.13 — S'assurer que les fichiers SUID et SGID sont examinés",
+      "unexpected_sgid": "CIS Ubuntu 22.04 N1 — 6.1.13 — S'assurer que les fichiers SUID et SGID sont examinés"
     }
   },
   "user_accounts": {
@@ -1715,7 +1906,7 @@
   },
   "auth_log": {
     "not_available": "auth.log non accessible — analyse des connexions SSH indisponible",
-    "no_logins": "Aucune connexion SSH réussie enregistrée sur les {days} dernier(s) jour(s)",
+    "no_logins": "Aucune connexion SSH réussie enregistrée ({days} jour(s) de journaux disponibles)",
     "no_logins_no_range": "Aucune connexion SSH réussie enregistrée dans le journal d'authentification disponible",
     "summary": "{count} connexion(s) SSH réussie(s) sur les {days} dernier(s) jour(s) — sources principales : {top}",
     "public_login": "{count} connexion(s) SSH réussie(s) depuis une IP publique : {ips}",
@@ -1899,5 +2090,40 @@
     "remote_syslog_ok": "{daemon} configuré avec une cible de logs distante",
     "remote_syslog_none": "{daemon} est installé mais aucune cible de logs distante n'est configurée",
     "remote_syslog_none_detail": "Transférer les logs vers un serveur syslog distant (ex. via rsyslog @@hote:514) garantit leur conservation même si le système local est compromis ou réinitialisé. Optionnel mais recommandé pour les serveurs."
+  },
+  "exposure": {
+    "section_title": "SURFACE D'ATTAQUE",
+    "internet_facing": "Exposition internet",
+    "internet_facing_detail": "la machine a une IP publique directe",
+    "internet_facing_local": "derrière NAT / pas d'IP publique directe",
+    "firewall": "Pare-feu",
+    "firewall_inactive": "UFW inactif — tous les ports non filtrés",
+    "firewall_allow_all": "politique par défaut ALLOW — aucun filtrage",
+    "firewall_policy": "actif — politique par défaut {policy} en entrée",
+    "open_ports": "Ports en écoute",
+    "no_open_ports": "aucun sur toutes interfaces",
+    "ssh": "SSH",
+    "ssh_not_running": "non installé / non démarré",
+    "ssh_ok": "clé uniquement, connexion root désactivée",
+    "ssh_root": "connexion root autorisée",
+    "ssh_password": "authentification par mot de passe activée",
+    "ssh_weak_crypto": "chiffrements/KEX faibles",
+    "brute_force": "Protection bruteforce",
+    "brute_force_missing": "fail2ban non installé",
+    "brute_force_inactive": "fail2ban installé mais inactif",
+    "brute_force_ok": "fail2ban actif",
+    "updates": "Mises à jour sécurité",
+    "updates_pending": "mises à jour de sécurité en attente",
+    "updates_ok": "à jour"
+  },
+  "corr": {
+    "section_title": "RISQUES COMPOSÉS",
+    "triggered_by": "Déclenché par : {keys}",
+    "root_no_protection": "Connexion root activée sans protection anti-bruteforce active",
+    "password_auth_under_attack": "Authentification par mot de passe activée pendant que des attaques bruteforce sont détectées",
+    "ssh_root_password": "SSH accepte la connexion root par mot de passe — compromission root directe possible",
+    "privilege_escalation": "Sudo sans mot de passe combiné à des binaires SUID inattendus — plusieurs chemins d'élévation de privilèges",
+    "stale_unmonitored": "Mises à jour de sécurité en attente sans détection d'intrusion active",
+    "fully_blind": "Aucun log pare-feu, aucune détection bruteforce, aucun démon d'audit — l'activité système est invisible"
   }
 }
