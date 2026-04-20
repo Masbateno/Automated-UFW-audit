@@ -169,7 +169,7 @@ class TestOpenPorts:
         )
         items = _call(ports=ports)
         item = _item(items, "open_ports")
-        assert item.detail.index("22") < item.detail.index("80") < item.detail.index("443")
+        assert item.detail == "22/tcp, 80/tcp, 443/tcp"
 
     def test_with_fw_inactive_port_is_alert(self):
         ports = _make_ports((22, "tcp", "0.0.0.0"))
@@ -390,6 +390,16 @@ class TestPortDeduplication:
         assert "22/tcp" in item.detail
         assert "80/tcp" in item.detail
 
+    def test_tcp_and_udp_same_port_appear_separately(self):
+        ports = _make_ports(
+            (22, "tcp", "0.0.0.0"),
+            (22, "udp", "0.0.0.0"),
+        )
+        items = _call(ports=ports)
+        item = _item(items, "open_ports")
+        assert "22/tcp" in item.detail
+        assert "22/udp" in item.detail
+
 
 # ---------------------------------------------------------------------------
 # Edge cases: fw_policy and network_context
@@ -399,7 +409,7 @@ class TestEdgeCases:
     def test_fw_policy_none_does_not_crash(self):
         items = _call(fw_active=True, fw_policy=None)
         item = _item(items, "firewall")
-        assert item.color in ("ok", "warn", "alert")
+        assert item.color == "alert"
 
     def test_unknown_policy_is_alert(self):
         items = _call(fw_active=True, fw_policy="unknown")

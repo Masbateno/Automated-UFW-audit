@@ -11,6 +11,7 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 
 | Version | Tests | Notes |
 |---------|-------|-------|
+| v1.22.1 | 4001  | +5 tests — `test_correlation.py` +1 (`test_message_uses_translation_key`); `test_recurrence.py` +1 (`test_float_value_in_prev_is_normalized`); `test_exposure.py` assertion strengthened (`fw_policy=None → alert`); `recurrence.py` float policy unified |
 | v1.22.0 | 3996  | +218 tests — `test_correlation.py` (49), `test_exposure.py` (50), `test_recurrence.py` (27); `test_ipv6.py` +26 (`TestReadGlobalIPv6`); `test_explain.py` updated (87→112 keys); `test_exposure.py` +7 (policy/boundary/design-contract hardening); `test_correlation.py` +7 (empty all_of + any_of, mixed INFO+WARN, triggered_by full any_of, exact result set) |
 | v1.21.0 | 3778  | +284 tests — `test_ssl_certs.py` (59), `test_systemd_timers.py` (58), `test_firmware.py` (54), `test_html_output.py` (56); existing files: +57 (`test_cli.py`/`test_runner.py` — `--check`/`--skip`/`--output-dir`/`--html`; `test_auditd.py` — desktop INFO; quality pass assertions) |
 | v1.20.0 | 3494  | +235 tests — `test_auth_log.py` (62), `test_history.py` (36), `test_ignore.py` (44), `test_umask.py` (54), `test_ufw_logging.py` (32); bug fixes: auth_log days=0, process-aware system ports, port process name in messages |
@@ -43,6 +44,25 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v0.18   | 531   | 26 new tests for `fixes.py`; `run_fixes()` fully covered |
 | v0.17   | 505   | 15 pre-existing failures fixed; suite fully green |
 | v0.9    | 421   | First full suite |
+
+### v1.22.1 — 4001/4001 (2026-04-20)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+4001 passed in 4.50s
+```
+
+#### New / modified tests (+5)
+
+| File | Change | Coverage |
+|------|--------|----------|
+| `tests/test_correlation.py` | +1 test (51 total) | `test_message_uses_translation_key`: injects `fake_t(key) → "translated:{key}"`; asserts `match.message == "translated:corr.root_no_protection"` — verifies `t(rule.message_key)` is called |
+| `tests/test_exposure.py` | assertion strengthened (51 total) | `test_fw_policy_none_does_not_crash`: `assert item.color == "alert"` (was `in ("ok","warn","alert")`); documents that `fw_policy=None` falls into the permissive branch |
+| `tests/test_recurrence.py` | +1 test (29 total) | `test_float_value_in_prev_is_normalized`: `update_recurrence({"k": 1.9}, {"k"})` → `int(1.9)=1` then `+1` → `assert result["k"] == 2`; covers float normalization now consistent with `load_recurrence` |
+
+---
 
 ### v1.22.0 — 3996/3996 (2026-04-20)
 

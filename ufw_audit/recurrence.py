@@ -10,7 +10,6 @@ Format: {"finding.key": N, ...}  — N = consecutive occurrences including previ
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 _CONFIG_DIR       = Path.home() / ".config" / "ufw-audit"
@@ -77,7 +76,9 @@ def update_recurrence(
     updated: dict[str, int] = {}
     for key in active_keys:
         val = prev.get(key, 0)
-        if not isinstance(val, int) or val < 0:
+        if isinstance(val, (int, float)) and val >= 0:
+            val = int(val)
+        else:
             val = 0
         updated[key] = val + 1
     return updated

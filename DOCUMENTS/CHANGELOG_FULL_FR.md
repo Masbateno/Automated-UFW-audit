@@ -6,6 +6,24 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.22.1] — 2026-04-20
+
+### Correction source
+
+- **`recurrence.py`** : politique de tolérance float unifiée — `update_recurrence` normalise désormais les floats en `int` via `int(val)` (cohérent avec `load_recurrence`) ; `import os` inutilisé supprimé
+
+### Tests
+
+| Fichier | Changement | Détail |
+|---------|------------|--------|
+| `tests/test_correlation.py` | +1 test (51 au total) | `test_message_uses_translation_key` — vérifie que `t(rule.message_key)` est appelé avec la bonne clé via un `fake_t` retournant `"translated:{key}"` |
+| `tests/test_exposure.py` | assertion renforcée (51 au total) | `test_fw_policy_none_does_not_crash` : `assert color == "alert"` (était trop faible `in (...)`) — documente que `None` tombe dans la branche `not in ("deny","reject")` |
+| `tests/test_recurrence.py` | +1 test (29 au total) | `test_float_value_in_prev_is_normalized` — `update_recurrence({"k": 1.9}, {"k"})` → `int(1.9)=1` puis `+1` → `2` |
+
+✅ 4001/4001 tests unitaires (+5 depuis v1.22.0)
+
+---
+
 ## [v1.22.0] — 2026-04-20
 
 ### Résumé

@@ -176,6 +176,23 @@ class TestCorrelationRootNoProtection:
         match = next(cf for cf in result if cf.key == "corr.root_no_protection")
         assert set(match.triggered_by) == {"ssh.permit_root_login", "fail2ban.not_installed"}
 
+    def test_triggered_by_deduplicates_key_in_both_all_of_and_any_of(self):
+        engine = FakeEngine(
+            ("ssh.permit_root_login", FindingLevel.WARN),
+            ("fail2ban.not_installed", FindingLevel.WARN),
+        )
+        rule = CorrelationRule(
+            key="test.overlap",
+            all_of=frozenset({"ssh.permit_root_login"}),
+            any_of=frozenset({"ssh.permit_root_login", "fail2ban.not_installed"}),
+            level=FindingLevel.ALERT,
+            message_key="test.overlap",
+        )
+        from ufw_audit.correlation import run_correlations as _run
+        active = {"ssh.permit_root_login", "fail2ban.not_installed"}
+        triggered = sorted(rule.all_of | (rule.any_of & active))
+        assert triggered.count("ssh.permit_root_login") == 1
+
     def test_triggered_by_includes_all_matching_any_of_keys(self):
         engine = FakeEngine(
             ("ssh.permit_root_login", FindingLevel.WARN),
@@ -388,6 +405,18 @@ class TestCorrelatedFindingStructure:
         )
         for cf in run_correlations(engine, _t):
             assert isinstance(cf.message, str)
+
+    def test_message_uses_translation_key(self):
+        def fake_t(key: str, **kwargs) -> str:
+            return f"translated:{key}"
+
+        engine = FakeEngine(
+            ("ssh.permit_root_login", FindingLevel.WARN),
+            ("fail2ban.not_installed", FindingLevel.WARN),
+        )
+        result = run_correlations(engine, fake_t)
+        match = next(cf for cf in result if cf.key == "corr.root_no_protection")
+        assert match.message == "translated:corr.root_no_protection"
 
     def test_triggered_by_is_sorted(self):
         engine = FakeEngine(

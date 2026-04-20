@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.22.1](#v1221) | 2026-04-20 | Politique float unifiée dans `recurrence.py` (`update_recurrence` normalise comme `load_recurrence`) ; `import os` supprimé ; durcissement suite de tests (+5 tests) ; 4001/4001 tests |
 | [v1.22.0](#v1220) | 2026-04-20 | Moteur de corrélation de signaux (5 règles de risque composé) ; suivi des findings récurrents ; analyse d'exposition des ports ; diff de clés de findings dans le rapport comparatif ; correctif faux positif IPv6 link-local ; filtre certificat snakeoil ; `--explain` 87→112 clés ; correctif message noyaux en double ; domaine `backup` déplacé vers `disk` ; passage qualité (compare, display, runner, domain_scores) ; 3996/3996 tests (+218) |
 | [v1.21.0](#v1210) | 2026-04-19 | CHECK 43 (expiration certificats TLS/SSL) ; CHECK 44 (timers systemd) ; CHECK 45 (firmware & microcode) ; export `--html` autonome ; `--check`/`--skip` filtres par check ; `--output-dir` ; correctif note de contexte SSH ; passage qualité (firmware + systemd_timers) ; 3778/3778 tests (+284) |
 | [v1.20.0](#v1200) | 2026-04-18 | CHECK 40 (niveau journalisation UFW) ; CHECK 41 (umask système) ; CHECK 42 (analyse auth.log SSH) ; historique des scores (`--history` + sparkline) ; liste d'exceptions (`--ignore`/`--show-ignored`/`ignore.yml`) ; classification ports système process-aware ; correctif auth_log days=0 ; 3494/3494 tests (+235) |
@@ -56,6 +57,23 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.22.1
+
+**2026-04-20**
+
+### Correction source
+
+- **`recurrence.py`** : politique de tolérance float unifiée — `update_recurrence` normalise désormais les floats en `int` (cohérent avec `load_recurrence`) ; `import os` inutilisé supprimé
+
+### Tests
+
+- `tests/test_correlation.py` — +1 `test_message_uses_translation_key` (51 tests au total)
+- `tests/test_exposure.py` — `test_fw_policy_none_does_not_crash` : assertion renforcée `color == "alert"` (51 tests au total)
+- `tests/test_recurrence.py` — +1 `test_float_value_in_prev_is_normalized` (29 tests au total)
+- ✅ 4001/4001 tests unitaires (+5 depuis v1.22.0)
 
 ---
 

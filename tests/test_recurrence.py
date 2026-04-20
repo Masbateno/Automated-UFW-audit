@@ -72,6 +72,10 @@ class TestUpdateRecurrence:
         result = update_recurrence({"k": "oops"}, {"k"})
         assert result["k"] == 1
 
+    def test_float_value_in_prev_is_normalized(self):
+        result = update_recurrence({"k": 1.9}, {"k"})
+        assert result["k"] == 2  # int(1.9)=1, then +1
+
 
 # ---------------------------------------------------------------------------
 # save_recurrence / load_recurrence round-trip
@@ -115,6 +119,13 @@ class TestSaveLoadRecurrence:
     def test_load_skips_negative_values(self, tmp_path):
         path = tmp_path / "neg.json"
         path.write_text(json.dumps({"good": 3, "bad": -1}), encoding="utf-8")
+        result = load_recurrence(path=path)
+        assert result == {"good": 3}
+        assert "bad" not in result
+
+    def test_load_skips_negative_float_value(self, tmp_path):
+        path = tmp_path / "neg_float.json"
+        path.write_text(json.dumps({"good": 3, "bad": -2.9}), encoding="utf-8")
         result = load_recurrence(path=path)
         assert result == {"good": 3}
         assert "bad" not in result

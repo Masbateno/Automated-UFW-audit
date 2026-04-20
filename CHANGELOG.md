@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.22.1](#v1221) | 2026-04-20 | `recurrence.py` float policy unified (`update_recurrence` now normalizes like `load_recurrence`); `import os` removed; test suite hardening (+5 tests); 4001/4001 tests |
 | [v1.22.0](#v1220) | 2026-04-20 | Signal correlation engine (5 compound-risk rules); recurring finding tracker; port exposure analysis; comparative report finding-key diff; IPv6 link-local false-positive fix; snakeoil cert filter; `--explain` 87→112 keys; kernel duplicate-kernel message fix; `backup` domain moved to `disk`; quality pass (compare, display, runner, domain_scores); 3996/3996 tests (+218) |
 | [v1.21.0](#v1210) | 2026-04-19 | CHECK 43 (TLS/SSL cert expiry); CHECK 44 (systemd timers); CHECK 45 (firmware & microcode); `--html` standalone HTML export; `--check`/`--skip` run-only/exclude checks; `--output-dir`; SSH context note bug fix; quality pass (firmware + systemd_timers); 3778/3778 tests (+284) |
 | [v1.20.0](#v1200) | 2026-04-18 | CHECK 40 (UFW logging level); CHECK 41 (system umask); CHECK 42 (auth.log login analysis); score history (`--history` + sparkline); ignore list (`--ignore`/`--show-ignored`/`ignore.yml`); process-aware system port classification; auth_log `days=0` fix; 3494/3494 tests (+235) |
@@ -56,6 +57,23 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.22.1
+
+**2026-04-20**
+
+### Source fix
+
+- **`recurrence.py`**: unified float-tolerance policy — `update_recurrence` now normalizes floats to `int` (consistent with `load_recurrence`); removed unused `import os`
+
+### Tests
+
+- `tests/test_correlation.py` — +1 `test_message_uses_translation_key` (51 tests total)
+- `tests/test_exposure.py` — `test_fw_policy_none_does_not_crash`: strengthened to `assert color == "alert"` (51 tests total)
+- `tests/test_recurrence.py` — +1 `test_float_value_in_prev_is_normalized` (29 tests total)
+- ✅ 4001/4001 unit tests (+5 from v1.22.0)
 
 ---
 

@@ -162,7 +162,13 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ---
 
-## 🆕 v1.22.0
+## 🆕 v1.22.1
+
+- 🔧 **Politique float unifiée dans `recurrence.py`** — `update_recurrence` normalise désormais les floats en `int` (cohérent avec `load_recurrence`) ; `import os` supprimé
+- 🧪 **Durcissement suite de tests** — `test_message_uses_translation_key` ; `fw_policy=None → alert` affirmé ; `test_float_value_in_prev_is_normalized`
+- ✅ 4001/4001 tests unitaires (+5)
+
+### v1.22.0
 
 - 🔗 **Moteur de corrélation de signaux** — 5 règles de risque composé combinant des findings individuels (connexion root + pas de Fail2ban → ALERT ; auth par mot de passe + brute-force → ALERT ; sudo NOPASSWD + SUID inattendu → WARN ; etc.)
 - 🔁 **Suivi des findings récurrents** — comptage des apparitions consécutives par clé ; persisté dans `~/.config/ufw-audit/recurrence.json`
