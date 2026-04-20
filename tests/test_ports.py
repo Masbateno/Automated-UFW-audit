@@ -69,6 +69,11 @@ class TestListeningPort:
         assert make_port(address="127.0.0.1").is_all_interfaces is False
         assert make_port(address="192.168.1.1").is_all_interfaces is False
 
+    def test_is_all_interfaces_false_when_iface_scoped(self):
+        # 0.0.0.0%virbr0 binds to a specific interface — not "all interfaces"
+        lp = ListeningPort(port=67, proto="udp", address="0.0.0.0", raw_line="", iface="virbr0")
+        assert lp.is_all_interfaces is False
+
     def test_is_loopback_true(self):
         assert make_port(address="127.0.0.1").is_loopback is True
         assert make_port(address="::1").is_loopback is True
@@ -83,24 +88,31 @@ class TestListeningPort:
 
 class TestSplitAddrPort:
     def test_ipv4_simple(self):
-        assert _split_addr_port("0.0.0.0:22") == ("0.0.0.0", "22")
+        assert _split_addr_port("0.0.0.0:22") == ("0.0.0.0", "22", "")
 
     def test_ipv4_with_iface(self):
-        addr, port = _split_addr_port("127.0.0.53%lo:53")
+        addr, port, iface = _split_addr_port("127.0.0.53%lo:53")
         assert addr == "127.0.0.53"
         assert port == "53"
+        assert iface == "lo"
+
+    def test_ipv4_virbr0_iface(self):
+        addr, port, iface = _split_addr_port("0.0.0.0%virbr0:67")
+        assert addr == "0.0.0.0"
+        assert port == "67"
+        assert iface == "virbr0"
 
     def test_ipv6_bracket(self):
-        assert _split_addr_port("[::]:22") == ("::", "22")
+        assert _split_addr_port("[::]:22") == ("::", "22", "")
 
     def test_ipv6_loopback(self):
-        assert _split_addr_port("[::1]:631") == ("::1", "631")
+        assert _split_addr_port("[::1]:631") == ("::1", "631", "")
 
     def test_invalid_returns_none(self):
-        assert _split_addr_port("invalid") == (None, None)
+        assert _split_addr_port("invalid") == (None, None, "")
 
     def test_private_ipv4(self):
-        assert _split_addr_port("192.168.1.10:445") == ("192.168.1.10", "445")
+        assert _split_addr_port("192.168.1.10:445") == ("192.168.1.10", "445", "")
 
 
 # ---------------------------------------------------------------------------

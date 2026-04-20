@@ -162,7 +162,14 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ---
 
-## 🆕 v1.22.2
+## 🆕 v1.22.3
+
+- 🐛 **Interface-scoped ports excluded from exposure** — `0.0.0.0%virbr0` (dnsmasq/KVM) no longer shown as all-interfaces
+- 🐛 **Ephemeral UDP ports filtered from exposure** — avahi/mDNS high-numbered sockets no longer pollute the attack surface table
+- ✨ **`ufw status verbose` shown in rules section** — displayed after findings in `-v` mode
+- ✅ 4007/4007 unit tests (+2)
+
+### v1.22.2
 
 - 🐛 **Snakeoil cert filter extended** — now covers nginx/apache/postfix config paths (previously only `/etc/ssl/private`)
 - 🐛 **DDNS reflected in exposure view** — internet-facing row shows `⚠ warn` when DDNS is active

@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.22.3](#v1223) | 2026-04-20 | Correctifs : ports liés à une interface exclue de l'exposition (67/udp%virbr0) ; filtre UDP éphémère dans l'exposition ; `ufw status verbose` affiché dans la section règles (mode -v) ; 4007/4007 tests (+2) |
 | [v1.22.2](#v1222) | 2026-04-20 | Correctifs : filtre snakeoil étendu aux chemins nginx/apache/postfix ; DDNS reflété dans la vue d'exposition internet ; ports en écoute à numéro élevé affichés ; double préfixe `ℹ` supprimé dans les notes SSH ; 4004/4004 tests (+3) |
 | [v1.22.1](#v1221) | 2026-04-20 | Politique float unifiée dans `recurrence.py` (`update_recurrence` normalise comme `load_recurrence`) ; `import os` supprimé ; durcissement suite de tests (+5 tests) ; 4001/4001 tests |
 | [v1.22.0](#v1220) | 2026-04-20 | Moteur de corrélation de signaux (5 règles de risque composé) ; suivi des findings récurrents ; analyse d'exposition des ports ; diff de clés de findings dans le rapport comparatif ; correctif faux positif IPv6 link-local ; filtre certificat snakeoil ; `--explain` 87→112 clés ; correctif message noyaux en double ; domaine `backup` déplacé vers `disk` ; passage qualité (compare, display, runner, domain_scores) ; 3996/3996 tests (+218) |
@@ -58,6 +59,27 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.22.3
+
+**2026-04-20**
+
+### Correctifs
+
+- **`checks/ports.py`** : `_split_addr_port` capture et retourne maintenant le scope d'interface (`%iface`) ; `ListeningPort` reçoit un champ `iface: str = ""` ; `is_all_interfaces` retourne `False` quand `iface` est défini — corrige `0.0.0.0%virbr0:67` (dnsmasq/KVM) traité comme toutes-interfaces
+- **`exposure.py`** : ports UDP à numéro élevé (`> 32767`) exclus de l'ensemble des ports exposés — reflète le filtre `EPHEMERAL` de `check_ports()` ; empêche les sockets éphémères avahi/mDNS de polluer le tableau d'exposition
+
+### Fonctionnalité
+
+- **`runner.py`** : sortie de `ufw status verbose` affichée après les findings règles UFW en mode verbeux (`-v`)
+
+### Tests
+
+- `tests/test_ports.py` — `TestSplitAddrPort` : mis à jour pour signature 3-tuple + `test_ipv4_virbr0_iface` ; `TestListeningPort` : `test_is_all_interfaces_false_when_iface_scoped`
+- `tests/test_exposure.py` — `test_high_numbered_udp_port_excluded` ajouté ; `test_high_numbered_listen_port_is_shown` → `test_high_numbered_tcp_port_is_shown` (55 tests)
+- ✅ 4007/4007 tests unitaires (+2 depuis v1.22.2)
 
 ---
 

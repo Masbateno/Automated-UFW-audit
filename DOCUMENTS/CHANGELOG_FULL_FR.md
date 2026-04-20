@@ -6,6 +6,28 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.22.3] — 2026-04-20
+
+### Correctifs
+
+- **`checks/ports.py`** : signature de `_split_addr_port()` passée de `(addr, port)` à `(addr, port, iface)` — le suffixe de scope d'interface (ex. `%virbr0`) est maintenant capturé séparément ; `ListeningPort` reçoit le champ `iface: str = ""` ; `is_all_interfaces` retourne `False` quand `iface` est défini — corrige `0.0.0.0%virbr0:67` (dnsmasq lié au bridge KVM virbr0) traité comme port toutes-interfaces dans le tableau d'exposition
+- **`exposure.py`** : ports UDP au-dessus de 32767 exclus de l'ensemble des ports exposés dans `compute_exposure()` — reflète le filtre `PortCategory.EPHEMERAL` de `check_ports()` ; les sockets éphémères avahi/mDNS (ex. 37238/udp, 52289/udp) n'apparaissent plus dans la surface d'attaque
+
+### Fonctionnalité
+
+- **`runner.py`** : sortie de `ufw status verbose` affichée après les findings règles UFW en mode verbeux (`-v`) — fournit le contexte des règles immédiatement sans appel séparé à `sudo ufw status verbose`
+
+### Tests
+
+| Fichier | Changement | Détail |
+|---------|------------|--------|
+| `tests/test_ports.py` | +2 tests | `TestSplitAddrPort` : toutes les assertions mises à jour pour le retour 3-tuple ; `test_ipv4_virbr0_iface` ajouté ; `TestListeningPort` : `test_is_all_interfaces_false_when_iface_scoped` ajouté |
+| `tests/test_exposure.py` | 1 renommé + 1 ajouté (55 au total) | `test_high_numbered_listen_port_is_shown` → `test_high_numbered_tcp_port_is_shown` ; `test_high_numbered_udp_port_excluded` vérifie que UDP > 32767 n'est PAS affiché |
+
+✅ 4007/4007 tests unitaires (+2 depuis v1.22.2)
+
+---
+
 ## [v1.22.2] — 2026-04-20
 
 ### Correctifs

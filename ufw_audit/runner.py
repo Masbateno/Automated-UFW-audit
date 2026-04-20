@@ -198,6 +198,11 @@ def run_checks(
     engine.apply(rules_result)
     display_result(rules_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
 
+    if config.verbose and ufw_verbose and not config.quiet:
+        output.print_dim(t("rules.ufw_status_detail"))
+        print()
+        print(ufw_verbose)
+
     # ---- CHECK 40 — UFW logging level ----
     if not config.quiet:
         print_section(t("sections.ufw_logging"))

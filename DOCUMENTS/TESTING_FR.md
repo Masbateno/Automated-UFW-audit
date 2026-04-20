@@ -11,6 +11,7 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 
 | Version | Tests | Notes |
 |---------|-------|-------|
+| v1.22.3 | 4007  | +2 tests — `test_ports.py` : split 3-tuple + virbr0 iface + is_all_interfaces scoped ; `test_exposure.py` : UDP éphémère exclu + TCP port élevé affiché ; fonctionnalité : `ufw status verbose` dans la section règles |
 | v1.22.2 | 4004  | +3 tests — `test_exposure.py` : 2 renommés + 3 tests DDNS ; correctifs : filtre snakeoil global, exposition DDNS, port serveur élevé, double préfixe SSH, séparation notes runner |
 | v1.22.1 | 4001  | +5 tests — `test_correlation.py` +1 (`test_message_uses_translation_key`) ; `test_recurrence.py` +1 (`test_float_value_in_prev_is_normalized`) ; assertion renforcée dans `test_exposure.py` (`fw_policy=None → alert`) ; politique float unifiée dans `recurrence.py` |
 | v1.22.0 | 3996  | +218 tests — `test_correlation.py` (49), `test_exposure.py` (50), `test_recurrence.py` (27) ; `test_ipv6.py` +26 (`TestReadGlobalIPv6`) ; `test_explain.py` mis à jour (87→112 clés) ; `test_exposure.py` +7 (durcissement politique/bornes/contrats) ; `test_correlation.py` +7 (all_of/any_of vides, any_of vide + active vide, triggered_by tous les any_of actifs, résultat exact) |
@@ -45,6 +46,24 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v0.18   | 531   | 26 nouveaux tests pour `fixes.py` ; `run_fixes()` entièrement couvert |
 | v0.17   | 505   | 15 échecs préexistants corrigés ; suite entièrement verte |
 | v0.9    | 421   | Première suite complète |
+
+### v1.22.3 — 4007/4007 (2026-04-20)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+4007 passed in 4.31s
+```
+
+#### Nouveaux / tests modifiés (+2)
+
+| Fichier | Changement | Couverture |
+|---------|------------|------------|
+| `tests/test_ports.py` | +2 tests | `test_ipv4_virbr0_iface` — `_split_addr_port("0.0.0.0%virbr0:67")` retourne `("0.0.0.0", "67", "virbr0")` ; `test_is_all_interfaces_false_when_iface_scoped` — `ListeningPort(address="0.0.0.0", iface="virbr0").is_all_interfaces is False` |
+| `tests/test_exposure.py` | 1 renommé + 1 ajouté (55 au total) | `test_high_numbered_tcp_port_is_shown` — 49152/tcp affiché ; `test_high_numbered_udp_port_excluded` — 49152/udp → icône `✔` (absent du détail) |
+
+---
 
 ### v1.22.2 — 4004/4004 (2026-04-20)
 

@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.22.3](#v1223) | 2026-04-20 | Bugfixes: interface-scoped ports excluded from exposure (67/udp%virbr0); ephemeral UDP filter in exposure; `ufw status verbose` displayed in rules section (-v mode); 4007/4007 tests (+2) |
 | [v1.22.2](#v1222) | 2026-04-20 | Bugfixes: snakeoil cert filter now covers nginx/apache/postfix paths; DDNS reflected in internet exposure view; high-numbered listen ports shown in exposure table; double `ℹ` prefix removed from SSH notes; 4004/4004 tests (+3) |
 | [v1.22.1](#v1221) | 2026-04-20 | `recurrence.py` float policy unified (`update_recurrence` now normalizes like `load_recurrence`); `import os` removed; test suite hardening (+5 tests); 4001/4001 tests |
 | [v1.22.0](#v1220) | 2026-04-20 | Signal correlation engine (5 compound-risk rules); recurring finding tracker; port exposure analysis; comparative report finding-key diff; IPv6 link-local false-positive fix; snakeoil cert filter; `--explain` 87→112 keys; kernel duplicate-kernel message fix; `backup` domain moved to `disk`; quality pass (compare, display, runner, domain_scores); 3996/3996 tests (+218) |
@@ -58,6 +59,27 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.22.3
+
+**2026-04-20**
+
+### Bugfixes
+
+- **`checks/ports.py`**: `_split_addr_port` now captures and returns the interface scope (`%iface`); `ListeningPort` gains `iface: str = ""` field; `is_all_interfaces` returns `False` when `iface` is set — fixes `0.0.0.0%virbr0:67` (dnsmasq/KVM) appearing as all-interfaces
+- **`exposure.py`**: high-numbered UDP ports (`> 32767`) excluded from the exposed-ports set — mirrors the `EPHEMERAL` filter in `check_ports()`; prevents avahi/mDNS ephemeral sockets from polluting the exposure table
+
+### Feature
+
+- **`runner.py`**: `ufw status verbose` output displayed after the UFW rules findings in verbose mode (`-v`)
+
+### Tests
+
+- `tests/test_ports.py` — `TestSplitAddrPort`: updated for 3-tuple signature + `test_ipv4_virbr0_iface`; `TestListeningPort`: `test_is_all_interfaces_false_when_iface_scoped` (7 tests total in class)
+- `tests/test_exposure.py` — `test_high_numbered_udp_port_excluded` added; `test_high_numbered_listen_port_is_shown` → `test_high_numbered_tcp_port_is_shown` (55 tests total)
+- ✅ 4007/4007 unit tests (+2 from v1.22.2)
 
 ---
 

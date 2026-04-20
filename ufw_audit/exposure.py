@@ -94,11 +94,14 @@ def compute_exposure(
         ))
 
     # --- Exposed ports (all-interfaces, stable) ---
+    # UDP ports above 32767 are kernel-assigned ephemeral sockets (client-side),
+    # not server ports — mirror the same filter used in check_ports().
     exposed = sorted(
         {
             lp.port_proto
             for lp in ports_snapshot.ports
             if lp.is_all_interfaces
+            and not (lp.proto == "udp" and lp.port > 32767)
         },
         key=lambda s: int(s.split("/")[0]),
     )

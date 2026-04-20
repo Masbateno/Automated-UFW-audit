@@ -174,13 +174,20 @@ class TestOpenPorts:
         item = _item(items, "open_ports")
         assert "22/tcp" in item.detail
 
-    def test_high_numbered_listen_port_is_shown(self):
-        # LISTEN-state ports on all-interfaces are shown regardless of number —
-        # there are no "ephemeral" server ports in ss LISTEN output.
+    def test_high_numbered_tcp_port_is_shown(self):
+        # TCP LISTEN ports are always server sockets — shown regardless of number.
+        ports = _make_ports((49152, "tcp", "0.0.0.0"))
+        items = _call(ports=ports)
+        item = _item(items, "open_ports")
+        assert "49152/tcp" in item.detail
+
+    def test_high_numbered_udp_port_excluded(self):
+        # UDP ports > 32767 are kernel-assigned ephemeral (client-side) sockets
+        # — excluded from exposure, mirroring the check_ports() EPHEMERAL filter.
         ports = _make_ports((49152, "udp", "0.0.0.0"))
         items = _call(ports=ports)
         item = _item(items, "open_ports")
-        assert "49152/udp" in item.detail
+        assert item.icon == "✔"  # no exposed ports
 
     def test_stable_ports_sorted(self):
         ports = _make_ports(

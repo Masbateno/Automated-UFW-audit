@@ -86,6 +86,7 @@ class ListeningPort:
     address:  str
     raw_line: str
     process:  str = ""
+    iface:    str = ""   # non-empty when bound to a specific interface (e.g. "virbr0")
 
     @property
     def port_proto(self) -> str:
@@ -94,8 +95,8 @@ class ListeningPort:
 
     @property
     def is_all_interfaces(self) -> bool:
-        """True if listening on all interfaces (0.0.0.0 or ::)."""
-        return bool(_ALL_INTERFACES.match(self.address))
+        """True if listening on all interfaces (0.0.0.0 or ::), not interface-scoped."""
+        return bool(_ALL_INTERFACES.match(self.address)) and not self.iface
 
     @property
     def is_loopback(self) -> bool:
@@ -368,7 +369,7 @@ def _parse_ss_output(output: str) -> list[ListeningPort]:
             continue
 
         # Split address:port — handle IPv6 [::]:port and addr%iface:port
-        addr, port_str = _split_addr_port(local_addr)
+        addr, port_str, iface = _split_addr_port(local_addr)
         if addr is None or port_str is None:
             continue
 
@@ -396,17 +397,22 @@ def _parse_ss_output(output: str) -> list[ListeningPort]:
             address=addr,
             raw_line=line,
             process=process,
+            iface=iface,
         ))
 
     return ports
 
 
-def _split_addr_port(local_addr: str) -> tuple[str | None, str | None]:
+def _split_addr_port(local_addr: str) -> tuple[str | None, str | None, str]:
     """
-    Split a local address string into (address, port).
+    Split a local address string into (address, port, iface).
+
+    iface is non-empty when the address is scoped to a specific interface
+    (e.g. "0.0.0.0%virbr0:67" → ("0.0.0.0", "67", "virbr0")).
 
     Handles:
       - "0.0.0.0:22"
+      - "0.0.0.0%virbr0:67"
       - "127.0.0.53%lo:53"
       - "[::]:22"
       - "[::1]:631"
@@ -415,18 +421,18 @@ def _split_addr_port(local_addr: str) -> tuple[str | None, str | None]:
     # IPv6 bracket notation: [addr]:port
     ipv6_match = re.match(r"^\[([^\]]+)\]:(\d+)$", local_addr)
     if ipv6_match:
-        return ipv6_match.group(1), ipv6_match.group(2)
+        return ipv6_match.group(1), ipv6_match.group(2), ""
 
     # Wildcard notation: *:port (some ss versions)
     wild_match = re.match(r"^\*:(\d+)$", local_addr)
     if wild_match:
-        return "*", wild_match.group(1)
+        return "*", wild_match.group(1), ""
 
     # IPv4 with optional %iface: addr%iface:port or addr:port
-    ipv4_match = re.match(r"^([^:]+?)(?:%\S+)?:(\d+)$", local_addr)
+    ipv4_match = re.match(r"^([^:%]+)(?:%([^:]+))?:(\d+)$", local_addr)
     if ipv4_match:
-        return ipv4_match.group(1), ipv4_match.group(2)
+        return ipv4_match.group(1), ipv4_match.group(3), ipv4_match.group(2) or ""
 
-    return None, None
+    return None, None, ""
 
 

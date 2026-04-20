@@ -105,7 +105,8 @@
     "no_open_any": "Aucune règle 'allow from any' sans restriction de port détectée",
     "open_any_found": "Règle autorisant toutes les connexions entrantes sans restriction de port : {rule}",
     "ipv6_ok": "Configuration IPv6 cohérente avec les règles UFW",
-    "ipv6_missing": "Des règles UFW existent en IPv4 mais aucune règle IPv6 équivalente n'a été trouvée"
+    "ipv6_missing": "Des règles UFW existent en IPv4 mais aucune règle IPv6 équivalente n'a été trouvée",
+    "ufw_status_detail": "État UFW (verbose) :"
   },
   "firewall_stack": {
     "no_issues": "Aucune règle de pare-feu supplémentaire interférant avec UFW détectée",
