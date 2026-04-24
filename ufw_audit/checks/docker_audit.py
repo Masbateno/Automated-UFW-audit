@@ -95,6 +95,10 @@ class DockerAuditSnapshot:
                 capture_output=True, text=True,
                 timeout=_INSPECT_TIMEOUT, env=_C_LOCALE_ENV,
             )
+            if proc.returncode != 0:
+                raise subprocess.SubprocessError(
+                    f"docker inspect exited {proc.returncode}: {proc.stderr.strip()}"
+                )
             containers = json.loads(proc.stdout)
             for c in containers:
                 name = (c.get("Name", "").lstrip("/") or c.get("Id", "")[:12])

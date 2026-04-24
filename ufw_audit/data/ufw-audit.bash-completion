@@ -34,9 +34,31 @@ _ufw_audit() {
         return 0
     fi
 
+    # Handle --check= — suggest 'list' plus known section names
+    if [[ "${cur}" == --check* ]]; then
+        local check_vals="list ssh firewall ipv6 hardening kernel_hardening kernel_modules suid_audit docker_audit log_rotation mac_policy cron_audit services_state updates umask memory disk backup auditd secure_boot fail2ban clamav file_integrity rootkit ntp systemd_timers ssl_certs firmware smtp auth_log user_accounts password_policy file_perms"
+        COMPREPLY=( $(compgen -W "${check_vals}" -- "${cur#--check=}") )
+        COMPREPLY=( "${COMPREPLY[@]/#/--check=}" )
+        return 0
+    fi
+    if [[ "${prev}" == "--check" ]]; then
+        COMPREPLY=( $(compgen -W "list ssh firewall ipv6 hardening kernel_hardening kernel_modules suid_audit docker_audit log_rotation mac_policy cron_audit services_state updates umask memory disk backup auditd secure_boot fail2ban clamav file_integrity rootkit ntp systemd_timers ssl_certs firmware smtp auth_log user_accounts password_policy file_perms" -- "${cur}") )
+        return 0
+    fi
+
     # Handle --webhook-format=F — suggest known formats
     if [[ "${cur}" == --webhook-format* ]]; then
         COMPREPLY=( "--webhook-format=auto" "--webhook-format=generic" "--webhook-format=slack" )
+        return 0
+    fi
+
+    # Handle --format=FORMAT — suggest output formats
+    if [[ "${cur}" == --format* ]]; then
+        COMPREPLY=( "--format=json" "--format=json-full" "--format=csv" "--format=markdown" "--format=html" )
+        return 0
+    fi
+    if [[ "${prev}" == "--format" ]]; then
+        COMPREPLY=( $(compgen -W "json json-full csv markdown html" -- "${cur}") )
         return 0
     fi
 
@@ -50,7 +72,7 @@ _ufw_audit() {
     local short_opts="-v -d -q -f -y -r -n -j -J -l -m -c -C -o -p -e -D -w -V -h"
 
     # All long options (single line — avoids multiline parsing issues on some bash versions)
-    local long_opts="--verbose --detailed --quiet --fix --apply --yes --reconfigure --no-color --json --json-full --output= --min-level= --log-days= --manage-logs --install-cron --manage-cron --install-completion --french --lang= --offline --profile= --reset-baseline --ignore= --show-ignored --history --explain --diff --watch= --webhook= --webhook-format= --target= --version --help"
+    local long_opts="--verbose --detailed --quiet --fix --apply --yes --reconfigure --no-color --format= --json --json-full --output= --min-level= --log-days= --manage-logs --install-cron --manage-cron --install-completion --french --lang= --offline --profile= --reset-baseline --ignore= --show-ignored --history --explain --diff --watch= --webhook= --webhook-format= --target= --html --version --help"
     # Value completions for --output and --min-level
     if [[ "${prev}" == "--output" ]]; then
         COMPREPLY=( $(compgen -W "csv json markdown" -- "${cur}") )

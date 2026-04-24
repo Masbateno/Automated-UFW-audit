@@ -27,14 +27,12 @@ from ufw_audit.checks.mac_policy import (
     check_mac_policy,
 )
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import _deduction_keys, _deduction_points, _t
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _t(key, **kwargs):
-    return key
 
 
 def _snap(
@@ -65,14 +63,6 @@ def _level(result, key: str) -> FindingLevel:
         if f.key == key:
             return f.level
     raise AssertionError(f"Key {key!r} not found in findings: {_keys(result)}")
-
-
-def _deduction_points(result) -> int:
-    return sum(d.points for d in result.deductions)
-
-
-def _deduction_keys(result) -> list[str]:
-    return [d.key for d in result.deductions]
 
 
 # ---------------------------------------------------------------------------
@@ -341,11 +331,11 @@ class TestSELinux:
 class TestMacPolicySnapshot:
     def test_defaults(self):
         snap = MacPolicySnapshot()
-        assert snap.apparmor_installed is False
-        assert snap.apparmor_active is False
+        assert not snap.apparmor_installed
+        assert not snap.apparmor_active
         assert snap.apparmor_enforcing == 0
         assert snap.apparmor_complain == 0
-        assert snap.selinux_installed is False
+        assert not snap.selinux_installed
         assert snap.selinux_mode == ""
 
     def test_custom_values(self):

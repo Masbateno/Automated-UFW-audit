@@ -50,8 +50,8 @@ def _make_engine(score=10, findings=None, deductions=None):
     engine.score = score
     engine.alert_count = sum(1 for f in (findings or []) if f.level.value == "alert")
     engine.warn_count  = sum(1 for f in (findings or []) if f.level.value == "warn")
-    engine.findings    = findings or []
-    engine._deductions = deductions or []
+    engine.findings  = findings or []
+    engine.breakdown = deductions or []
     if score >= 8:
         engine.level = RiskLevel.LOW
     elif score >= 5:
@@ -270,23 +270,23 @@ class TestMarkdownRobustness:
 class TestMarkdownCLIParsing:
     def test_output_markdown_equals(self):
         cfg = parse_args(["--output=markdown"])
-        assert cfg.markdown_mode is True
+        assert cfg.markdown_mode
 
     def test_output_markdown_space(self):
         cfg = parse_args(["--output", "markdown"])
-        assert cfg.markdown_mode is True
+        assert cfg.markdown_mode
 
     def test_markdown_mode_default_false(self):
         cfg = AuditConfig()
-        assert cfg.markdown_mode is False
+        assert not cfg.markdown_mode
 
     def test_output_markdown_does_not_set_csv(self):
         cfg = parse_args(["--output=markdown"])
-        assert cfg.csv_mode is False
+        assert not cfg.csv_mode
 
     def test_output_markdown_does_not_set_json(self):
         cfg = parse_args(["--output=markdown"])
-        assert cfg.json_mode is False
+        assert not cfg.json_mode
 
 
 # ---------------------------------------------------------------------------

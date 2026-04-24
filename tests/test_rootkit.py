@@ -49,10 +49,10 @@ class TestScanAgeDays:
 
 class TestRootkitSnapshotDefaults:
     def test_rkhunter_installed_default_false(self):
-        assert RootkitSnapshot().rkhunter_installed is False
+        assert not RootkitSnapshot().rkhunter_installed
 
     def test_chkrootkit_installed_default_false(self):
-        assert RootkitSnapshot().chkrootkit_installed is False
+        assert not RootkitSnapshot().chkrootkit_installed
 
     def test_tool_default_empty(self):
         assert RootkitSnapshot().tool == ""
@@ -72,8 +72,8 @@ class TestRootkitFromSystemNotInstalled:
     def test_neither_installed(self):
         with patch("ufw_audit.checks.rootkit._command_exists", return_value=False):
             snap = RootkitSnapshot.from_system()
-        assert snap.rkhunter_installed is False
-        assert snap.chkrootkit_installed is False
+        assert not snap.rkhunter_installed
+        assert not snap.chkrootkit_installed
         assert snap.tool == ""
 
     def test_no_db_age_when_not_installed(self):
@@ -95,7 +95,7 @@ class TestRootkitFromSystemRkhunter:
              patch("ufw_audit.checks.rootkit._rkhunter_db_age", return_value=3), \
              patch("ufw_audit.checks.rootkit._rkhunter_last_scan", return_value="2026-04-10"):
             snap = RootkitSnapshot.from_system()
-        assert snap.rkhunter_installed is True
+        assert snap.rkhunter_installed
         assert snap.tool == "rkhunter"
         assert snap.db_age_days == 3
         assert snap.last_scan_date == "2026-04-10"
@@ -117,7 +117,7 @@ class TestRootkitFromSystemChkrootkit:
         with patch("ufw_audit.checks.rootkit._command_exists", side_effect=_cmd), \
              patch("ufw_audit.checks.rootkit._chkrootkit_last_scan", return_value="2026-04-08"):
             snap = RootkitSnapshot.from_system()
-        assert snap.chkrootkit_installed is True
+        assert snap.chkrootkit_installed
         assert snap.tool == "chkrootkit"
         assert snap.last_scan_date == "2026-04-08"
         assert snap.db_age_days is None  # chkrootkit has no update DB

@@ -442,20 +442,24 @@ def _safe_url(url: str) -> str:
 
 def _inline_format(text: str) -> str:
     """Apply inline formatting (bold, code, links) to text."""
-    # Escape HTML entities first to prevent injection from system-generated content
+    # Extract links before html.escape so URLs are not mangled (& → &amp; etc.)
+    _LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+
+    def _replace_link(m: re.Match) -> str:
+        label = html.escape(m.group(1))
+        href  = html.escape(_safe_url(m.group(2)))
+        return f'<a href="{href}">{label}</a>'
+
+    text = _LINK_RE.sub(_replace_link, text)
+
+    # Escape remaining HTML entities
     text = html.escape(text)
+
     # Bold: **text** → <strong>text</strong>
     text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
 
     # Code: `text` → <code>text</code>
     text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
-
-    # Links: [text](url) → <a href="url">text</a>  — URL scheme validated to prevent XSS
-    text = re.sub(
-        r"\[([^\]]+)\]\(([^)]+)\)",
-        lambda m: f'<a href="{_safe_url(m.group(2))}">{m.group(1)}</a>',
-        text,
-    )
 
     return text
 
@@ -530,7 +534,6 @@ def send_html_email(
         OSError: If `mail` command is not found.
     """
     import subprocess
-    import email
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
     import shutil
@@ -729,6 +732,23 @@ def _audit_log_to_html(log_text: str) -> str:
                 html_lines.append(f"<p>{html.escape(line)}</p>")
 
         i += 1
+
+    # Wrap consecutive <li> items in <ol> blocks
+    wrapped: list[str] = []
+    in_ol = False
+    for tag in html_lines:
+        if tag.startswith("<li>"):
+            if not in_ol:
+                wrapped.append("<ol>")
+                in_ol = True
+        else:
+            if in_ol:
+                wrapped.append("</ol>")
+                in_ol = False
+        wrapped.append(tag)
+    if in_ol:
+        wrapped.append("</ol>")
+    html_lines = wrapped
 
     # Wrap in HTML template
     html_body = "\n".join(html_lines)

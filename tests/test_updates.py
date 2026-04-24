@@ -15,26 +15,16 @@ import pytest
 
 from ufw_audit.checks.updates import UpdatesSnapshot, check_updates
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import _deduction_keys, _deduction_points, _has_finding
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _has_finding(result, key: str, level: FindingLevel) -> bool:
-    return any(f.key == key and f.level == level for f in result.findings)
-
 
 def _finding_keys(result) -> list[str]:
     return [f.key for f in result.findings]
-
-
-def _deduction_keys(result) -> list[str]:
-    return [d.key for d in result.deductions]
-
-
-def _deduction_points(result) -> int:
-    return sum(d.points for d in result.deductions)
 
 
 def base_snapshot(**kwargs) -> UpdatesSnapshot:
@@ -253,11 +243,11 @@ class TestCombined:
 class TestUpdatesSnapshot:
     def test_defaults(self):
         snap = UpdatesSnapshot()
-        assert snap.apt_available is False
+        assert not snap.apt_available
         assert snap.pending_security == []
         assert snap.pending_regular == []
-        assert snap.unattended_installed is False
-        assert snap.unattended_enabled is False
+        assert not snap.unattended_installed
+        assert not snap.unattended_enabled
 
 
 # ---------------------------------------------------------------------------

@@ -109,12 +109,9 @@ def run_correlations(engine: "ScoreEngine", t) -> list[CorrelatedFinding]:
         if f.key and f.level in (FindingLevel.ALERT, FindingLevel.WARN)
     }
 
-    seen: set[str] = set()
     results: list[CorrelatedFinding] = []
 
     for rule in _RULES:
-        if rule.key in seen:
-            continue
         if rule.matches(active):
             triggered = sorted(
                 (rule.all_of | (rule.any_of & active))
@@ -125,6 +122,5 @@ def run_correlations(engine: "ScoreEngine", t) -> list[CorrelatedFinding]:
                 message=t(rule.message_key),
                 triggered_by=triggered,
             ))
-            seen.add(rule.key)
 
     return results

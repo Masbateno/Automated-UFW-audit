@@ -20,27 +20,16 @@ from ufw_audit.checks.file_perms import (
     check_file_perms,
 )
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import _deduction_keys, _deduction_points, _has_finding
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _has_finding(result, key: str, level: FindingLevel) -> bool:
-    """Return True if result contains a finding with the given key and level."""
-    return any(f.key == key and f.level == level for f in result.findings)
-
 
 def _finding_keys(result) -> list[str]:
     return [f.key for f in result.findings]
-
-
-def _deduction_keys(result) -> list[str]:
-    return [d.key for d in result.deductions]
-
-
-def _deduction_points(result) -> int:
-    return sum(d.points for d in result.deductions)
 
 
 def base_snapshot(**kwargs) -> FilePermsSnapshot:
@@ -383,7 +372,7 @@ class TestIsNopasswdAll:
         "john ALL=(ALL) nopasswd:all",          # lowercase
     ])
     def test_returns_true(self, line):
-        assert _is_nopasswd_all(line) is True
+        assert _is_nopasswd_all(line)
 
     @pytest.mark.parametrize("line", [
         "john ALL=(ALL) NOPASSWD:/usr/bin/apt",
@@ -398,7 +387,7 @@ class TestIsNopasswdAll:
     def test_returns_false(self, line):
         # Note: comment lines are filtered upstream in _collect_nopasswd_entries
         # before _is_nopasswd_all is ever called.
-        assert _is_nopasswd_all(line) is False
+        assert not _is_nopasswd_all(line)
 
 
 # ---------------------------------------------------------------------------
@@ -419,7 +408,7 @@ class TestFilePermsSnapshot:
             mode=0o640, max_mode=0o640, key="shadow"
         )
         assert fi.path == "/etc/shadow"
-        assert fi.exists is True
+        assert fi.exists
         assert fi.mode == 0o640
         assert fi.max_mode == 0o640
         assert fi.key == "shadow"

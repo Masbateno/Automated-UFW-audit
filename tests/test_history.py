@@ -50,7 +50,6 @@ class TestScoreToSpark:
 
     def test_monotone_non_decreasing(self):
         chars = [_score_to_spark(s) for s in range(11)]
-        indices = ["_score_to_spark".__class__]  # placeholder
         spark = " ▁▂▃▄▅▆▇█"
         idxs = [spark.index(c) for c in chars]
         for i in range(1, len(idxs)):

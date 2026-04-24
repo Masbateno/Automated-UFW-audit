@@ -47,6 +47,7 @@ _LOCALES_DIR = (_share_path / "locales") if _share_path else (Path(__file__).par
 
 SUPPORTED_LANGS = ("en", "fr")
 DEFAULT_LANG = "en"
+_MAX_LOCALE_SIZE = 512 * 1024  # 512 KB
 
 
 # ---------------------------------------------------------------------------
@@ -86,7 +87,6 @@ def init(lang: str = DEFAULT_LANG) -> None:
             f"Expected files: {_LOCALES_DIR}/<lang>.json"
         )
 
-    _MAX_LOCALE_SIZE = 512 * 1024  # 512 KB
     _translations = _load_locale(locale_path)
 
     _lang = locale_path.stem  # reflects actual loaded locale, not the requested one
@@ -176,7 +176,6 @@ def _load_locale(path: Path) -> dict[str, Any]:
         ValueError:  On oversized file, invalid JSON, or non-dict root.
         OSError:     On read failure.
     """
-    _MAX_LOCALE_SIZE = 512 * 1024  # 512 KB
     with path.open(encoding="utf-8") as fh:
         content = fh.read(_MAX_LOCALE_SIZE + 1)
     if len(content) > _MAX_LOCALE_SIZE:

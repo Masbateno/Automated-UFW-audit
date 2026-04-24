@@ -421,13 +421,13 @@ class TestCombined:
 
 class TestSnapshotDefaults:
     def test_default_logrotate_installed_false(self):
-        assert LogRotationSnapshot().logrotate_installed is False
+        assert not LogRotationSnapshot().logrotate_installed
 
     def test_default_rule_count_zero(self):
         assert LogRotationSnapshot().logrotate_rule_count == 0
 
     def test_default_journald_active_false(self):
-        assert LogRotationSnapshot().journald_active is False
+        assert not LogRotationSnapshot().journald_active
 
     def test_default_journald_storage_empty(self):
         assert LogRotationSnapshot().journald_storage == ""
@@ -439,10 +439,10 @@ class TestSnapshotDefaults:
         assert LogRotationSnapshot().journald_keep_free == ""
 
     def test_default_journal_persistent_false(self):
-        assert LogRotationSnapshot().journal_persistent is False
+        assert not LogRotationSnapshot().journal_persistent
 
     def test_default_remote_syslog_false(self):
-        assert LogRotationSnapshot().remote_syslog_configured is False
+        assert not LogRotationSnapshot().remote_syslog_configured
 
     def test_default_syslog_daemon_empty(self):
         assert LogRotationSnapshot().syslog_daemon == ""

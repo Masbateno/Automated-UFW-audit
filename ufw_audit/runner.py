@@ -75,7 +75,7 @@ _ALL_SECTIONS: tuple[str, ...] = (
     "file_perms", "hardening", "kernel_hardening", "suid_audit", "docker_audit",
     "log_rotation", "kernel_modules", "mac_policy", "cron_audit", "services_state",
     "updates", "umask", "memory", "disk", "backup", "auditd", "secure_boot",
-    "fail2ban", "clamav", "file_integrity", "rootkit", "systemd_timers",
+    "fail2ban", "clamav", "file_integrity", "rootkit", "ntp", "systemd_timers",
     "ssl_certs", "firmware",
 )
 
@@ -319,7 +319,8 @@ def run_checks(
             ):
                 _port_note = t("service_risk.nonstandard_port_note")
             display_risk_context(snap.service.label, config.lang, t, report,
-                                 context_note=_risk_note)
+                                 context_note=_risk_note,
+                                 is_local=(network_context == "local"))
             if _port_note and not config.quiet:
                 print_info(_port_note)
         svc_result = check_single_service_display(
@@ -408,7 +409,7 @@ def run_checks(
 
     # ---- CHECK 24 — Samba security audit ----
     samba_snapshot = SambaSnapshot.from_system()
-    if samba_snapshot.installed and (profile is None or not profile.should_skip_section("samba")):
+    if samba_snapshot.installed and _section_enabled("samba", config, profile):
         if not config.quiet:
             print_section(t("sections.samba"))
         report.write_section(t("sections.samba"))
@@ -842,7 +843,7 @@ def run_checks(
 
     # ---- CHECK 19 — Desktop application audit ----
     desktop_snapshot = DesktopAppsSnapshot.from_system()
-    if desktop_snapshot.detected and (profile is None or not profile.should_skip_section("desktop_apps")):
+    if desktop_snapshot.detected and _section_enabled("desktop_apps", config, profile):
         if not config.quiet:
             print_section(t("sections.desktop_apps"))
         report.write_section(t("sections.desktop_apps"))

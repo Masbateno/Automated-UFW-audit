@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.23.0](#v1230) | 2026-04-24 | `--format=FORMAT` unifié ; `--check=list` ; prévisualisation `--manage-logs` + mode résumé ; `[CRITIQUE • LAN]` portée ; TUI curses `--install-cron`/`--manage-cron` ; `_tty.py` mode raw ; fix `compare.py` `None`/`[]` ; `tests/helpers.py` + migration 62 fichiers ; 4042/4042 tests (+35) |
 | [v1.22.3](#v1223) | 2026-04-20 | Correctifs : ports liés à une interface exclue de l'exposition (67/udp%virbr0) ; filtre UDP éphémère dans l'exposition ; `ufw status verbose` affiché dans la section règles (mode -v) ; 4007/4007 tests (+2) |
 | [v1.22.2](#v1222) | 2026-04-20 | Correctifs : filtre snakeoil étendu aux chemins nginx/apache/postfix ; DDNS reflété dans la vue d'exposition internet ; ports en écoute à numéro élevé affichés ; double préfixe `ℹ` supprimé dans les notes SSH ; 4004/4004 tests (+3) |
 | [v1.22.1](#v1221) | 2026-04-20 | Politique float unifiée dans `recurrence.py` (`update_recurrence` normalise comme `load_recurrence`) ; `import os` supprimé ; durcissement suite de tests (+5 tests) ; 4001/4001 tests |
@@ -59,6 +60,47 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.23.0
+
+**2026-04-24**
+
+### Fonctionnalités
+
+- **`--format=FORMAT`** (`cli.py`) — flag de sortie canonique unifié acceptant `json`, `json-full`, `csv`, `markdown`, `html` ; anciens flags (`--json`, `-j`, `-J`, `--output csv/markdown`, `--html`) conservés comme aliases silencieux — aucun changement cassant
+- **`--check=list`** (`cli.py`, `__main__.py`) — affiche les 31 noms de sections filtrables sans sudo ; note sur la correspondance par préfixe (`kernel` correspond à `kernel_hardening` + `kernel_modules`) et les checks noyau toujours actifs ; ligne d'aide `--check=LIST` mise à jour
+- **Prévisualisation des logs `--manage-logs`** (`manage_logs.py`) — Entrée sur un fichier log ouvre un visualiseur scrollable complet ; `s` bascule entre log complet et mode résumé (bloc score + findings ALERT/WARN) ; `g`/`G` saut en haut/bas ; `↑↓ / PgUp/PgDn` défilement ; Échap retour à la liste
+- **Qualificateur de portée du contexte de risque** (`display.py`) — `[CRITIQUE • LAN]`, `[MOYEN • LAN]`, `[FAIBLE • LAN]` ajouté sur tous les labels de risque quand `network_context == "local"` ; contextes public/DDNS inchangés
+- **TUI curses `--install-cron`** (`cron.py`) — `run_install_cron()` enveloppe désormais `curses.wrapper()` et bascule sur le wizard plain quand curses est indisponible ; nouveau `_run_install_cron_curses()` avec readline intégré (`_curses_readline`), Esc-pour-annuler sur chaque prompt, aperçu live du planning
+- **TUI curses `--manage-cron`** (`cron.py`) — `run_manage_cron()` dispatche de même vers `_run_manage_cron_curses()` ou `_run_manage_cron_plain()` ; UX cohérente avec `--install-cron`
+- **`ufw_audit/_tty.py`** — nouveau module lecteur de ligne en mode raw : Échap retourne `None` (annuler), Entrée retourne `""` (confirmer), caractères imprimables bufférisés avec écho ; drain de séquence d'échappement via `select` pour distinguer Échap standalone des touches directionnelles ; repli `input()` en environnement non-TTY (tests, pipes)
+
+### Correctifs
+
+- **Sémantique `None` vs `[]` dans `compare.py`** — champ `finding_keys` devient `list[str] | None` ; `None` = baseline pré-v1.22 (clé absente du JSON, diff ignoré pour éviter le flood de faux-positifs) ; `[]` = audit propre légitime (diff normal) ; `load_baseline()` retourne `None` pour clé absente ; `compute_delta()` garde sur `is not None` et non sur la véracité
+
+### Finitions
+
+- **Harmonisation des barres d'aide TUI** — `--explain` liste : `navigate` → `move` ; `--explain` détail : `↑↓/PgUp/PgDn` → `↑↓ / PgUp/PgDn`, `Esc: back to list` → `Esc: back` ; prévisualisation log : `PgUp PgDn` → `PgUp/PgDn`
+- **Autocomplétion bash** — `--format=` avec 5 valeurs ; `--check=` suggère `list` + tous les noms de sections ; `--html` ajouté aux options longues
+- **`history.py` écriture atomique** — `write_text()` remplacé par `os.open()` + `os.fdopen()` + `os.replace()` garantissant les permissions 0o600 et une rotation sans corruption
+- **`report_markdown.py`** — `_inline_format()` : extraction des liens déplacée avant `html.escape()` pour éviter le mangling des URLs (`&` → `&amp;`) ; items `<li>` enveloppés dans des blocs `<ol>` dans le convertisseur log→HTML ; `import email` inutilisé supprimé
+- **Durcissement des checks** — `_C_LOCALE_ENV` passé aux appels subprocess dans `auth_log.py` et `logs.py` ; `except Exception` remplacé par `(OSError, subprocess.SubprocessError, subprocess.TimeoutExpired)` dans les deux ; `timeout=10` ajouté au subprocess de date dans `ssl_certs.py` ; `removeprefix()` remplace `lstrip()` pour les ancres regex dans `sysinfo.py`
+- **`markdown_output.py`** — utilise `engine.breakdown` au lieu de `getattr(engine, "_deductions", [])` pour accéder à l'API publique des déductions
+
+### Durcissement de la suite de tests
+
+- **`tests/helpers.py`** — nouveau module utilitaires partagés : `_t` (stub de traduction), `levels()`, `_has_finding()`, `_get_finding()`, `_finding_level()`, `_deduction_keys()`, `_deduction_points()` ; 62 fichiers de tests migrés pour l'importer, supprimant ~200 lignes de boilerplate dupliqué
+
+### Tests
+
+- `tests/test_cli.py` — `TestFormatFlag` (+22 tests) : les 5 formats, forme espace, valeur invalide, conflits entre flags, rétrocompatibilité des aliases
+- `tests/test_cli.py` — `TestCheckSkipFlags` (+4 tests) : `--check=list`, `--check LIST`, insensibilité à la casse, valeur par défaut false
+- `tests/test_manage_logs.py` — `TestExtractSummaryView` (+7 tests) : extraction du bloc résumé, inclusion ALERT/WARN, lignes de continuation, repli log vide
+- `tests/test_display_explain_hint.py` / `tests/test_runner.py` — qualificateur de portée (+2 tests) : `is_local=True` ajoute `• LAN` ; `build_risk_context_entries` avec `network_context="local"`
+- ✅ 4042/4042 tests unitaires (+35 depuis v1.22.3)
 
 ---
 

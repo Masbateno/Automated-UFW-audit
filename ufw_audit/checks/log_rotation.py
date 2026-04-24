@@ -36,7 +36,7 @@ _RSYSLOG_REMOTE_RE = re.compile(
 )
 # Matches syslog-ng tcp/udp destinations
 _SYSLOGNG_REMOTE_RE = re.compile(
-    r"\btcp\s*\(|budp\s*\(|bsyslog\s*\(",
+    r"\btcp\s*\(|\budp\s*\(|\bsyslog\s*\(",
     re.IGNORECASE,
 )
 

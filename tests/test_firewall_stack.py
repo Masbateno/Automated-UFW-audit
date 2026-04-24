@@ -17,14 +17,12 @@ from ufw_audit.checks.firewall_stack import (
     check_firewall_stack,
 )
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import levels, _t
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _t(key, **kwargs):
-    return key
 
 
 def make_snapshot(**overrides) -> FirewallStackSnapshot:
@@ -40,10 +38,6 @@ def make_snapshot(**overrides) -> FirewallStackSnapshot:
     )
     defaults.update(overrides)
     return FirewallStackSnapshot(**defaults)
-
-
-def levels(result) -> list[str]:
-    return [f.level.value for f in result.findings]
 
 
 def has_level(result, level: str) -> bool:
@@ -292,25 +286,25 @@ class TestParseRawAccepts:
 
 class TestHasUserNftRules:
     def test_empty_returns_false(self):
-        assert _has_user_nft_rules("") is False
+        assert not _has_user_nft_rules("")
 
     def test_ufw_table_only_returns_false(self):
         nft_output = "table ip ufw6 {\n  chain user-input {\n  }\n}\n"
-        assert _has_user_nft_rules(nft_output) is False
+        assert not _has_user_nft_rules(nft_output)
 
     def test_non_ufw_table_returns_true(self):
         nft_output = "table inet my_firewall {\n  chain input {\n  }\n}\n"
-        assert _has_user_nft_rules(nft_output) is True
+        assert _has_user_nft_rules(nft_output)
 
     def test_mixed_tables_returns_true(self):
         nft_output = (
             "table ip ufw6 {\n}\n"
             "table inet custom_rules {\n}\n"
         )
-        assert _has_user_nft_rules(nft_output) is True
+        assert _has_user_nft_rules(nft_output)
 
     def test_whitespace_only_returns_false(self):
-        assert _has_user_nft_rules("   \n  \n") is False
+        assert not _has_user_nft_rules("   \n  \n")
 
     def test_iptables_compat_tables_ignored(self):
         """filter/nat/mangle created by iptables-nft must not trigger the warning."""
@@ -319,11 +313,11 @@ class TestHasUserNftRules:
             "table ip nat {\n}\n"
             "table ip mangle {\n}\n"
         )
-        assert _has_user_nft_rules(nft_output) is False
+        assert not _has_user_nft_rules(nft_output)
 
     def test_raw_security_compat_tables_ignored(self):
         nft_output = (
             "table ip raw {\n}\n"
             "table ip security {\n}\n"
         )
-        assert _has_user_nft_rules(nft_output) is False
+        assert not _has_user_nft_rules(nft_output)

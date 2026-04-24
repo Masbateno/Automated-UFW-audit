@@ -157,11 +157,11 @@ class TestAuthLogParsing:
 
     def test_from_text_log_available_true(self):
         snap = AuthLogSnapshot.from_text(self._PUBLICKEY_LINE)
-        assert snap.log_available is True
+        assert snap.log_available
 
     def test_from_text_empty_log_available_true(self):
         snap = AuthLogSnapshot.from_text("")
-        assert snap.log_available is True
+        assert snap.log_available
 
     def test_malformed_line_ignored(self):
         text = "Apr 18 10:00:00 server sshd[1]: Accepted for incomplete line"
@@ -386,11 +386,13 @@ class TestAuthLogSnapshotMocked:
         log = tmp_path / "auth.log"
         log.write_text(self._PUBLICKEY_LINE)
         log.chmod(0o000)
-        monkeypatch.setattr("ufw_audit.checks.auth_log._LOG_PATHS", [log])
-        with patch("ufw_audit.checks.auth_log._read_auth_from_journald", return_value=""):
-            snap = AuthLogSnapshot.from_system()
-        assert not snap.log_available
-        log.chmod(0o644)
+        try:
+            monkeypatch.setattr("ufw_audit.checks.auth_log._LOG_PATHS", [log])
+            with patch("ufw_audit.checks.auth_log._read_auth_from_journald", return_value=""):
+                snap = AuthLogSnapshot.from_system()
+            assert not snap.log_available
+        finally:
+            log.chmod(0o644)
 
 
 class TestAuthLogSnapshotFromSystem:

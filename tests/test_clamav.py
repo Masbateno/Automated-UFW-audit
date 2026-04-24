@@ -27,14 +27,12 @@ from ufw_audit.checks.clamav import (
     _SCAN_ALERT_DAYS,
 )
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import levels, _t
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _t(key, **kwargs):
-    return key
 
 
 def make_snap(**kwargs) -> ClamAVSnapshot:
@@ -44,16 +42,12 @@ def make_snap(**kwargs) -> ClamAVSnapshot:
         clamd_active=True,
         db_path="/var/lib/clamav/daily.cld",
         db_age_days=1,
-        last_scan_date="2026-04-10",
+        last_scan_date=days_ago_iso(1),
         last_scan_log_path="/var/log/clamav/clamscan.log",
         install_cmd="sudo apt install clamav clamav-daemon",
     )
     defaults.update(kwargs)
     return ClamAVSnapshot(**defaults)
-
-
-def levels(result) -> list[str]:
-    return [f.level.value for f in result.findings]
 
 
 def keys(result) -> list[str]:
@@ -452,7 +446,7 @@ class TestFromSystemNotInstalled:
         import ufw_audit.checks.clamav as clamav_mod
         monkeypatch.setattr(clamav_mod, "_command_exists", lambda name: False)
         snap = ClamAVSnapshot.from_system()
-        assert snap.installed is False
+        assert not snap.installed
 
     def test_clamscan_found_marks_installed(self, monkeypatch):
         import ufw_audit.checks.clamav as clamav_mod
@@ -464,7 +458,7 @@ class TestFromSystemNotInstalled:
         monkeypatch.setattr(clamav_mod, "_SCAN_LOG_CANDIDATES", [])
         monkeypatch.setattr(clamav_mod, "_run", lambda *a, **k: "")
         snap = ClamAVSnapshot.from_system()
-        assert snap.installed is True
+        assert snap.installed
 
     def test_db_age_computed(self, monkeypatch, tmp_path):
         import ufw_audit.checks.clamav as clamav_mod
@@ -497,7 +491,7 @@ class TestFromSystemNotInstalled:
         monkeypatch.setattr(clamav_mod, "_SCAN_LOG_CANDIDATES", [])
         monkeypatch.setattr(clamav_mod, "_run", lambda *a, **k: "")
         snap = ClamAVSnapshot.from_system()
-        assert snap.installed is True
+        assert snap.installed
 
     def test_clamd_socket_fallback(self, monkeypatch, tmp_path):
         """When systemctl is unavailable, a clamd socket file marks clamd_active=True."""
@@ -516,7 +510,7 @@ class TestFromSystemNotInstalled:
         monkeypatch.setattr(clamav_mod, "_DB_CANDIDATES", [])
         monkeypatch.setattr(clamav_mod, "_SCAN_LOG_CANDIDATES", [])
         snap = ClamAVSnapshot.from_system()
-        assert snap.clamd_active is True
+        assert snap.clamd_active
 
     def test_clamd_socket_missing_stays_inactive(self, monkeypatch, tmp_path):
         """No systemctl, no socket file → clamd_active stays False."""
@@ -533,4 +527,4 @@ class TestFromSystemNotInstalled:
         monkeypatch.setattr(clamav_mod, "_DB_CANDIDATES", [])
         monkeypatch.setattr(clamav_mod, "_SCAN_LOG_CANDIDATES", [])
         snap = ClamAVSnapshot.from_system()
-        assert snap.clamd_active is False
+        assert not snap.clamd_active

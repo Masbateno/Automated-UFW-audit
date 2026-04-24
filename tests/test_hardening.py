@@ -13,14 +13,12 @@ from ufw_audit.checks.hardening import (
     HardeningSnapshot,
     check_hardening,
 )
+from tests.helpers import levels, _t
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _t(key, **kwargs):
-    return key
 
 
 def make_snapshot(**overrides) -> HardeningSnapshot:
@@ -39,10 +37,6 @@ def make_snapshot(**overrides) -> HardeningSnapshot:
     )
     defaults.update(overrides)
     return HardeningSnapshot(**defaults)
-
-
-def levels(result) -> list[str]:
-    return [f.level.value for f in result.findings]
 
 
 def has_level(result, level: str) -> bool:

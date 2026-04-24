@@ -162,14 +162,16 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ---
 
-## 🆕 v1.22.3
+## 🆕 v1.23.0
 
-- 🐛 **Ports liés à une interface exclus de l'exposition** — `0.0.0.0%virbr0` (dnsmasq/KVM) n'est plus traité comme toutes-interfaces
-- 🐛 **Ports UDP éphémères filtrés de l'exposition** — les sockets avahi/mDNS à numéro élevé ne polluent plus la surface d'attaque
-- ✨ **`ufw status verbose` affiché dans la section règles** — après les findings en mode `-v`
-- ✅ 4007/4007 tests unitaires (+2)
+- ✨ **`--format=FORMAT`** — flag de sortie unifié : `json | json-full | csv | markdown | html` ; anciens flags (`-j`, `-J`, `--output csv`, `--html`) conservés comme aliases
+- ✨ **`--check=list`** — affiche les 31 noms de sections filtrables (sans sudo)
+- ✨ **Prévisualisation `--manage-logs`** — Entrée ouvre un visualiseur scrollable ; `s` bascule résumé/complet (score + ALERT/WARN) ; `g/G` haut/bas
+- ✨ **Qualificateur de portée** — `[CRITIQUE • LAN]` sur tous les labels de services quand le contexte réseau est local
+- 🔧 **Harmonisation barres d'aide TUI** — hints cohérents dans `--explain`, `--manage-logs`, prévisualisation
+- ✅ 4042/4042 tests unitaires (+35)
 
-### v1.22.2
+### v1.22.3
 
 - 🐛 **Filtre snakeoil étendu** — couvre désormais les chemins nginx/apache/postfix (auparavant limité à `/etc/ssl/private`)
 - 🐛 **DDNS reflété dans la vue d'exposition** — la ligne internet affiche `⚠ warn` quand DDNS est actif

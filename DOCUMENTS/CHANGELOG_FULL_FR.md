@@ -6,6 +6,52 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.23.0] — 2026-04-24
+
+### Fonctionnalités
+
+- **`--format=FORMAT`** (`ufw_audit/cli.py`) — nouveau flag canonique acceptant `json`, `json-full`, `csv`, `markdown`, `html` ; positionne les mêmes booléens internes (`json_mode`, `json_full`, `csv_mode`, `markdown_mode`, `html_mode`) que les anciens flags ; formes `--format=json` et `--format json` supportées ; aide condensée de 5 lignes à 2 (`--format=FORMAT` + raccourcis `-j / -J`) ; exemples mis à jour vers `--format=json | jq` ; anciens flags conservés comme aliases silencieux — aucun changement cassant
+- **`--check=list`** (`ufw_audit/cli.py`, `ufw_audit/__main__.py`) — valeur spéciale pour `--check=` affichant les 31 noms de sections filtrables en colonnes, avec note sur la correspondance par préfixe, les checks noyau toujours actifs, et des exemples d'utilisation ; s'exécute avant `require_root()` — sans sudo ; ligne d'aide `--check=LIST` mise à jour ; autocomplétion suggère `list` + tous les noms de sections
+- **Prévisualisation logs `--manage-logs`** (`ufw_audit/manage_logs.py`) — Entrée sur un fichier log ouvre un visualiseur plein écran scrollable (`_curses_preview_log`) ; deux modes avec `s` : `[FULL]` (log brut) et `[SUMMARY]` (bloc score + findings ALERT/WARN) ; `g`/`G` saut en tête/bas ; `↑↓ / PgUp/PgDn` défilement ; Échap retour à la liste ; Entrée désactivée quand des fichiers sont marqués (suppression groupée)
+- **`_extract_summary_view`** (`ufw_audit/manage_logs.py`) — extrait : (1) le bloc résumé depuis le dernier séparateur `=*62` ; (2) tous les findings `[ALERT]` avec leurs lignes de continuation (4 espaces) ; (3) tous les findings `[WARN]` avec continuation ; en-têtes `── ALERTS ──` / `── WARNINGS ──` ; repli vers `✔ Aucune alerte ni avertissement.` si système propre
+- **Qualificateur de portée du contexte de risque** (`ufw_audit/display.py`) — `display_risk_context` reçoit `is_local: bool = False` ; `build_risk_context_entries` reçoit `network_context: str = ""` ; en contexte local, les labels de risque affichent `{niveau} • LAN` (ex. `CRITIQUE • LAN`) dans le terminal et dans le fichier log ; contextes public/DDNS inchangés ; `runner.py` et `__main__.py` mis à jour pour transmettre le contexte
+
+### Fonctionnalités (suite)
+
+- **TUI curses `--install-cron`** (`ufw_audit/cron.py`) — `run_install_cron()` enveloppe désormais `curses.wrapper()` avec repli sur le wizard texte si curses est indisponible ; `_run_install_cron_curses()` fournit un readline intégré (`_curses_readline`), Esc-pour-annuler sur chaque prompt, et un aperçu live du planning en langage naturel ; chemin texte renommé en `_run_install_cron_plain()`
+- **TUI curses `--manage-cron`** (`ufw_audit/cron.py`) — `run_manage_cron()` dispatche vers `_run_manage_cron_curses()` ou `_run_manage_cron_plain()` selon la même logique ; nouveaux sous-écrans : `_curses_edit_sub`, `_curses_email_list_sub`, `_curses_email_store_sub`, `_curses_schedule_wizard`, `_curses_status_flash`, `_curses_readline` ; exception `_CronQuit` pour les sorties propres de sous-écrans ; `_init_colors_cron()` centralise l'initialisation des paires de couleurs ; `_atomic_write()` pour les mises à jour sûres des fichiers cron
+- **`ufw_audit/_tty.py`** — nouveau module : `read_line(prompt) → str | None` ; lecteur de caractère en mode raw via `termios`/`tty`/`select` ; Échap retourne `None` (annuler), Entrée retourne `""`, les caractères imprimables sont écho-ifiés avec support du backspace ; fenêtre `select` de 50 ms drainant les séquences d'échappement pour distinguer Échap standalone des touches directionnelles ; repli `input()` si stdin n'est pas un TTY (tests, pipes)
+
+### Correctifs
+
+- **Sémantique `None` vs `[]` dans `compare.py`** — champ `AuditBaseline.finding_keys` passé de `list[str]` à `list[str] | None` ; `None` = baseline pré-v1.22 (clé absente du JSON sérialisé, diff ignoré pour éviter le flood de faux-positifs au premier upgrade) ; `[]` = audit propre légitime (diff produit bien zéro nouvelles/résolues clés) ; `load_baseline()` utilise `isinstance(raw.get("finding_keys"), list)` et retourne `None` si absent/invalide ; `compute_delta()` conditionné sur `prev.finding_keys is not None` et non sur la véracité
+
+### Finitions
+
+- **Harmonisation des barres d'aide TUI** (`explain.py`, `manage_logs.py`) — `--explain` liste : `navigate` → `move` ; écran détail : `↑↓/PgUp/PgDn` → `↑↓ / PgUp/PgDn`, `Esc: back to list` → `Esc: back` ; prévisualisation : `PgUp PgDn` → `PgUp/PgDn`
+- **Autocomplétion bash** — `--format=` avec 5 complétions ; `--check=` suggère `list` + 31 noms de sections ; `--html` ajouté aux options longues
+- **`history.py` écriture atomique** — `write_text()` remplacé par `os.open(O_WRONLY|O_CREAT|O_TRUNC, 0o600)` + `os.fdopen()` + `os.replace()` garantissant les permissions correctes et une rotation sans corruption en cas d'interruption
+- **`report_markdown.py` gestion des liens** — dans `_inline_format()`, le regex Markdown est appliqué avant `html.escape()` pour éviter le mangling des caractères d'URL (`&` → `&amp;`) ; les items `<li>` dans le convertisseur log→HTML sont désormais enveloppés dans des blocs `<ol>` explicites ; `import email` inutilisé supprimé de `send_html_email()`
+- **Durcissement subprocess checks** — `auth_log.py` et `logs.py` passent `env=_C_LOCALE_ENV` pour garantir une sortie ASCII ; `except Exception` remplacé par `except (OSError, subprocess.SubprocessError, subprocess.TimeoutExpired)` dans les deux modules ; `ssl_certs.py` : `timeout=10` ajouté au subprocess de date ; `sysinfo.py` : `removeprefix("^")` remplace `lstrip("^")` pour un stripping d'ancre regex sûr
+- **`markdown_output.py`** — utilise `engine.breakdown` au lieu de `getattr(engine, "_deductions", [])` pour accéder à l'API publique des déductions
+
+### Durcissement de la suite de tests
+
+- **`tests/helpers.py`** — nouveau module utilitaires partagés centralisant les helpers dupliqués dans tous les fichiers de tests : `_t(key, **kw) → str` (stub de traduction retournant la clé brute), `levels(result) → list[str]`, `_has_finding(result, key, level) → bool`, `_get_finding(result, key)`, `_finding_level(result, key) → FindingLevel`, `_deduction_keys(result) → list[str]`, `_deduction_points(result) → int` ; 62 fichiers de tests migrés vers `from tests.helpers import _t` (et autres helpers), supprimant ~200 lignes de boilerplate
+
+### Tests
+
+| Fichier | Classe | Modification |
+|---------|--------|-------------|
+| `tests/test_cli.py` | `TestFormatFlag` | +22 tests — 5 formats, forme espace, valeur invalide, conflits, rétrocompat aliases |
+| `tests/test_cli.py` | `TestCheckSkipFlags` | +4 tests — `--check=list`, forme espace, insensibilité casse, valeur par défaut |
+| `tests/test_manage_logs.py` | `TestExtractSummaryView` | +7 tests — bloc résumé, ALERT/WARN, lignes continuation, log vide, repli sans bloc résumé |
+| `tests/test_display_explain_hint.py` / `tests/test_runner.py` | qualificateur de portée | +2 tests — `is_local=True` ajoute `• LAN` ; `network_context="local"` dans `build_risk_context_entries` |
+
+✅ 4042/4042 tests unitaires (+35 depuis v1.22.3)
+
+---
+
 ## [v1.22.3] — 2026-04-20
 
 ### Correctifs

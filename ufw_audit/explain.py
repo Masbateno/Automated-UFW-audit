@@ -290,8 +290,9 @@ def run_explain(key: str, t) -> None:
     why_val   = t(f"explain.{norm}.why")
     how_val   = t(f"explain.{norm}.how")
 
-    # The i18n t() function returns the key path itself when the key is missing
-    key_unknown = title_val == f"explain.{norm}.title"
+    # t() returns "[key]" in production or the bare key in test stubs
+    _title_key = f"explain.{norm}.title"
+    key_unknown = title_val in (_title_key, f"[{_title_key}]")
 
     if key_unknown:
         print(f"No explanation available for: {key!r}")
@@ -299,8 +300,9 @@ def run_explain(key: str, t) -> None:
         print("Run 'sudo ufw-audit --explain list' to see all available keys.")
         return
 
-    cis_val = t(f"explain_cis.{norm}")
-    cis_unknown = cis_val == f"explain_cis.{norm}"
+    _cis_key = f"explain_cis.{norm}"
+    cis_val = t(_cis_key)
+    cis_unknown = cis_val in (_cis_key, f"[{_cis_key}]")
 
     print()
     print(_DIVIDER_WIDE)
@@ -371,6 +373,7 @@ def _init_colors():
         curses.init_pair(2, curses.COLOR_YELLOW, -1)                   # group header
         curses.init_pair(3, curses.COLOR_WHITE,  -1)                   # normal key row
         curses.init_pair(4, curses.COLOR_CYAN,   -1)                   # detail heading
+        curses.init_pair(5, curses.COLOR_WHITE,  curses.COLOR_CYAN)   # top banner
     return has_color
 
 
@@ -465,9 +468,10 @@ def _detail_screen(stdscr, key: str, t) -> None:
         stdscr.erase()
 
         # ── header ──────────────────────────────────────────────────────────
-        header = f"  {norm}    ↑↓/PgUp/PgDn: scroll   Esc: back to list  "
+        header = f"  {norm}    ↑↓ / PgUp/PgDn: scroll   Esc: back  "
+        hdr_attr = (curses.color_pair(5) | curses.A_BOLD) if has_color else curses.A_REVERSE
         try:
-            stdscr.addstr(0, 0, header[: w - 1], curses.A_REVERSE)
+            stdscr.addstr(0, 0, header.ljust(w - 1)[: w - 1], hdr_attr)
         except curses.error:
             pass
 
@@ -546,9 +550,10 @@ def _picker(stdscr, items: list, initial_selected: int, t) -> tuple:
         stdscr.erase()
 
         # ── header ──────────────────────────────────────────────────────────
-        header = "  ufw-audit --explain    ↑↓: navigate   Enter: view   q: quit  "
+        header = "  ufw-audit --explain    ↑↓: move   Enter: view   q: quit  "
+        hdr_attr = (curses.color_pair(5) | curses.A_BOLD) if has_color else curses.A_REVERSE
         try:
-            stdscr.addstr(0, 0, header[: w - 1], curses.A_REVERSE)
+            stdscr.addstr(0, 0, header.ljust(w - 1)[: w - 1], hdr_attr)
         except curses.error:
             pass
 

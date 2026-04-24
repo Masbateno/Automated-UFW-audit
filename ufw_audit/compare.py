@@ -66,9 +66,9 @@ class AuditBaseline:
     alert_count:     int
     warn_count:      int
     info_count:      int = 0
-    open_ports:      list[str] = field(default_factory=list)
-    active_services: list[str] = field(default_factory=list)
-    finding_keys:    list[str] = field(default_factory=list)
+    open_ports:      list[str]       = field(default_factory=list)
+    active_services: list[str]       = field(default_factory=list)
+    finding_keys:    list[str] | None = None  # None = pre-v1.22 baseline (key absent)
 
 
 @dataclass
@@ -196,7 +196,7 @@ def load_baseline(path: Path | None = None) -> AuditBaseline | None:
             info_count=int(raw.get("info_count", 0)),
             open_ports=list(raw.get("open_ports", [])),
             active_services=list(raw.get("active_services", [])),
-            finding_keys=list(raw.get("finding_keys", [])),
+            finding_keys=list(raw["finding_keys"]) if isinstance(raw.get("finding_keys"), list) else None,
         )
     except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
         logger.debug("load_baseline: could not read %s: %s", src, exc)
@@ -224,12 +224,12 @@ def compute_delta(prev: AuditBaseline, curr: AuditBaseline) -> AuditDelta:
     prev_svcs = set(prev.active_services)
     curr_svcs = set(curr.active_services)
 
-    prev_keys = set(prev.finding_keys)
-    curr_keys = set(curr.finding_keys)
-    # Only diff finding keys when the previous baseline actually had them.
-    # An empty prev.finding_keys means an older baseline (pre-v1.22) — computing
-    # the diff would falsely mark all current findings as "new".
-    if prev_keys:
+    # Only diff finding keys when the previous baseline is v1.22+ (finding_keys is not None).
+    # None means an older baseline that never stored the key — skip to avoid false "new" noise.
+    # An empty list [] is a legitimately clean audit and must be diffed normally.
+    if prev.finding_keys is not None:
+        prev_keys = set(prev.finding_keys)
+        curr_keys = set(curr.finding_keys or [])
         new_finding_keys      = sorted(curr_keys - prev_keys)
         resolved_finding_keys = sorted(prev_keys - curr_keys)
     else:

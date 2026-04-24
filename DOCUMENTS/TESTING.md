@@ -11,6 +11,7 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 
 | Version | Tests | Notes |
 |---------|-------|-------|
+| v1.23.0 | 4042  | +35 tests — `test_cli.py`: `TestFormatFlag` (+22) + `TestCheckSkipFlags` (+4); `test_manage_logs.py`: `TestExtractSummaryView` (+7); scope qualifier (+2); `tests/helpers.py` shared utilities introduced; 62 test files migrated |
 | v1.22.3 | 4007  | +2 tests — `test_ports.py`: 3-tuple split + virbr0 iface + is_all_interfaces_iface_scoped; `test_exposure.py`: UDP ephemeral excluded + TCP high-port shown; feature: `ufw status verbose` in rules section |
 | v1.22.2 | 4004  | +3 tests — `test_exposure.py`: 2 renamed + 3 DDNS tests; bugfixes: snakeoil global filter, DDNS exposure, high-port server, SSH double-prefix, runner note split |
 | v1.22.1 | 4001  | +5 tests — `test_correlation.py` +1 (`test_message_uses_translation_key`); `test_recurrence.py` +1 (`test_float_value_in_prev_is_normalized`); `test_exposure.py` assertion strengthened (`fw_policy=None → alert`); `recurrence.py` float policy unified |
@@ -46,6 +47,26 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v0.18   | 531   | 26 new tests for `fixes.py`; `run_fixes()` fully covered |
 | v0.17   | 505   | 15 pre-existing failures fixed; suite fully green |
 | v0.9    | 421   | First full suite |
+
+### v1.23.0 — 4042/4042 (2026-04-24)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+4042 passed in 4.52s
+```
+
+#### New / modified tests (+35)
+
+| File | Change | Coverage |
+|------|--------|----------|
+| `tests/test_cli.py` | +22 tests (`TestFormatFlag`) | `--format=json/json-full/csv/markdown/html`; space and `=` forms; legacy alias parity; mutual-exclusion errors; `--format` + `--output`/`--html` conflicts; invalid value rejected |
+| `tests/test_cli.py` | +4 tests (`TestCheckSkipFlags`) | `--check=list` sets `list_checks=True`; not combined with `--skip`; printed list contains known sections |
+| `tests/test_manage_logs.py` | +7 tests (`TestExtractSummaryView`) | Empty input → empty; no separator → empty; separator with no score line → empty; valid block extracted; ALERT/WARN lines with continuation; non-ALERT/WARN skipped; multiple separators uses last |
+| `tests/test_display_explain_hint.py` / `tests/test_runner.py` | +2 tests | `display_risk_context(is_local=True)` appends `• LAN`; `build_risk_context_entries` with `network_context="local"` produces `• LAN` label |
+
+---
 
 ### v1.22.3 — 4007/4007 (2026-04-20)
 

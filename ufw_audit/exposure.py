@@ -14,9 +14,6 @@ if TYPE_CHECKING:
     from ufw_audit.scoring import ScoreEngine
 
 
-_SSH_PORTS = {22}
-
-
 @dataclass
 class ExposureItem:
     label: str

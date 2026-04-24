@@ -28,6 +28,7 @@ from ufw_audit.profiles import (
     load_profile,
 )
 from ufw_audit.scoring import CheckResult, FindingLevel
+from tests.helpers import _t
 
 
 # ---------------------------------------------------------------------------
@@ -44,9 +45,6 @@ def _clear_profile_cache():
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _t(key, **kwargs):
-    return key
 
 
 def write_profile(directory: Path, name: str, content: str) -> Path:

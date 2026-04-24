@@ -62,7 +62,7 @@ class WebhookError(RuntimeError):
 def _is_slack_url(url: str) -> bool:
     """Return True if the URL looks like a Slack Incoming Webhook endpoint."""
     lower = url.lower()
-    return "hooks.slack.com" in lower or "/services/t" in lower
+    return "hooks.slack.com" in lower or ("slack.com" in lower and "/services/t" in lower)
 
 
 def detect_format(url: str, requested: str) -> str:

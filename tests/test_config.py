@@ -149,12 +149,12 @@ class TestAllKeys:
 class TestExists:
     def test_exists_false_before_any_write(self, tmp_path):
         config = UserConfig(path=tmp_path / "config.conf")
-        assert config.exists() is False
+        assert not config.exists()
 
     def test_exists_true_after_set(self, tmp_path):
         config = UserConfig.load(path=tmp_path / "config.conf")
         config.set("key", "value")
-        assert config.exists() is True
+        assert config.exists()
 
 
 class TestPath:

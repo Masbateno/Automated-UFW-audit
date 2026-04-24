@@ -110,8 +110,7 @@ def build_html_output(engine: ScoreEngine, sys_info: SystemInfo) -> str:
     a("</dl>")
 
     # --- Score deductions ---
-    _raw_deductions = getattr(engine, "deductions", getattr(engine, "_deductions", []))
-    deductions = [d for d in _raw_deductions if d.points > 0]
+    deductions = [d for d in engine.breakdown if d.points > 0]
     if deductions:
         a("<h2>Score Deductions</h2>")
         a("<table><thead><tr><th>Points</th><th>Reason</th></tr></thead><tbody>")

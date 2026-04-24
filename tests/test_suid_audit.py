@@ -376,7 +376,7 @@ class TestSnapshotDefaults:
         assert SuidSnapshot().unexpected_sgid == []
 
     def test_default_scan_skipped_false(self):
-        assert SuidSnapshot().scan_skipped is False
+        assert not SuidSnapshot().scan_skipped
 
 
 # ---------------------------------------------------------------------------
@@ -385,10 +385,10 @@ class TestSnapshotDefaults:
 
 class TestIsRootOwned:
     def test_nonexistent_path_returns_false(self):
-        assert _is_root_owned("/nonexistent/path/that/cannot/exist") is False
+        assert not _is_root_owned("/nonexistent/path/that/cannot/exist")
 
     def test_current_user_file_not_root_owned_when_not_root(self):
         if os.getuid() == 0:
             pytest.skip("Running as root — all new files are root-owned")
         with tempfile.NamedTemporaryFile() as f:
-            assert _is_root_owned(f.name) is False
+            assert not _is_root_owned(f.name)

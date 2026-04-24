@@ -64,7 +64,8 @@ Cette séparation permet de tester toute la logique métier en instanciant direc
 
 | Module | Rôle |
 |---|---|
-| `cron.py` | Gestion cron — `CronEntry`, `list_installed_crons()`, wizard planification (`run_install_cron()`), TUI (`run_manage_cron()`) |
+| `cron.py` | Gestion cron — `CronEntry`, `list_installed_crons()`, wizard planification (`run_install_cron()` — TUI curses + repli texte), `run_manage_cron()` (TUI curses + repli texte) |
+| `_tty.py` | Lecteur ligne mode raw — `read_line(prompt) → str \| None` ; Échap retourne `None` ; repli `input()` en non-TTY |
 
 ### Modules de vérification (`checks/`)
 
@@ -158,6 +159,7 @@ ufw_audit/
 │   ├── ssl_certs.py     # SslCertsSnapshot + check_ssl_certs() — expiration certs (CHECK 43)
 │   ├── systemd_timers.py # SystemdTimersSnapshot + check_systemd_timers() — sécurité timers (CHECK 44)
 │   └── firmware.py      # FirmwareSnapshot + check_firmware() — fwupd + microcode (CHECK 45)
+├── _tty.py              # read_line() — lecteur de ligne mode raw avec Esc-pour-annuler, repli input()
 ├── html_output.py       # build_html_output() — export HTML autonome (--html)
 ├── compare.py           # AuditBaseline (finding_keys) + AuditDelta (new/resolved keys) + rapport comparatif
 ├── correlation.py       # CorrelationRule + run_correlations() — 5 règles de risque composé
@@ -175,6 +177,7 @@ ufw_audit/
     └── fr.json          # Clés de traduction français
 
 tests/
+├── helpers.py           # Utilitaires partagés : _t, levels, _has_finding, _get_finding, _deduction_keys…
 ├── test_check_rules.py
 ├── test_cli.py
 ├── test_compare.py
@@ -221,7 +224,8 @@ tests/
 ├── test_html_output.py
 ├── test_correlation.py
 ├── test_exposure.py
-└── test_recurrence.py
+├── test_recurrence.py
+└── test_manage_logs.py
 
 pyproject.toml           # Config de build (setuptools, installation pip/pipx)
 README.md / README_FR.md           # Documentation utilisateur (EN/FR)
@@ -268,7 +272,7 @@ python3 -m unittest tests/test_firewall.py
 ### Résultats attendus
 
 ```
-1890 passed in X.XXs
+4042 passed in X.XXs
 ```
 
 Les tests n'effectuent aucun appel système — tous les snapshots sont construits directement dans les tests. Ils peuvent être lancés sans `sudo` et sans UFW installé.

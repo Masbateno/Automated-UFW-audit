@@ -21,6 +21,7 @@ Split into:
 from __future__ import annotations
 
 import re
+import shlex
 import stat
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -293,6 +294,5 @@ def _is_world_writable(path_str: str) -> bool:
 
 def _chmod_cmd(scripts: list[str]) -> str:
     """Return a chmod o-w command for the given script list."""
-    import shlex
     paths = " ".join(shlex.quote(s) for s in scripts[:5])
     return f"sudo chmod o-w {paths}"

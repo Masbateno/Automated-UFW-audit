@@ -21,6 +21,7 @@ from ufw_audit.checks.services import (
 )
 from ufw_audit.registry import Detection, Service
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import levels
 
 
 # ---------------------------------------------------------------------------
@@ -69,10 +70,6 @@ def make_snapshot(
     )
 
 
-def levels(result) -> list[str]:
-    return [f.level.value for f in result.findings]
-
-
 def has_level(result, level: str) -> bool:
     return level in levels(result)
 
@@ -87,20 +84,20 @@ def total_deductions(result) -> int:
 
 class TestServiceState:
     def test_active_enabled_is_active(self):
-        assert ServiceState.ACTIVE_ENABLED.is_active is True
+        assert ServiceState.ACTIVE_ENABLED.is_active
 
     def test_active_disabled_is_active(self):
-        assert ServiceState.ACTIVE_DISABLED.is_active is True
+        assert ServiceState.ACTIVE_DISABLED.is_active
 
     def test_inactive_enabled_is_not_active(self):
-        assert ServiceState.INACTIVE_ENABLED.is_active is False
+        assert not ServiceState.INACTIVE_ENABLED.is_active
 
     def test_inactive_disabled_is_inactive(self):
-        assert ServiceState.INACTIVE_DISABLED.is_inactive is True
+        assert ServiceState.INACTIVE_DISABLED.is_inactive
 
     def test_unknown_not_active_not_inactive(self):
-        assert ServiceState.UNKNOWN.is_active is False
-        assert ServiceState.UNKNOWN.is_inactive is False
+        assert not ServiceState.UNKNOWN.is_active
+        assert not ServiceState.UNKNOWN.is_inactive
 
 
 # ---------------------------------------------------------------------------
@@ -437,11 +434,11 @@ class TestServiceSnapshotProperties:
 
     def test_is_active(self):
         snap = make_snapshot(state=ServiceState.ACTIVE_ENABLED)
-        assert snap.is_active is True
+        assert snap.is_active
 
     def test_is_not_active(self):
         snap = make_snapshot(state=ServiceState.INACTIVE_DISABLED)
-        assert snap.is_active is False
+        assert not snap.is_active
 
 
 # ---------------------------------------------------------------------------

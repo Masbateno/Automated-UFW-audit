@@ -14,6 +14,7 @@ from ufw_audit.checks.docker import (
     check_docker,
 )
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import levels
 
 
 # ---------------------------------------------------------------------------
@@ -36,10 +37,6 @@ def make_port(
     )
 
 
-def levels(result):
-    return [f.level.value for f in result.findings]
-
-
 def has_level(result, level):
     return level in levels(result)
 
@@ -58,17 +55,17 @@ class TestExposedPort:
         assert p.port_proto == "8080/tcp"
 
     def test_is_public_0000(self):
-        assert make_port(host_ip="0.0.0.0").is_public is True
+        assert make_port(host_ip="0.0.0.0").is_public
 
     def test_is_public_ipv6(self):
-        assert make_port(host_ip="::").is_public is True
+        assert make_port(host_ip="::").is_public
 
     def test_not_public_loopback(self):
-        assert make_port(host_ip="127.0.0.1").is_public is False
+        assert not make_port(host_ip="127.0.0.1").is_public
 
     def test_public_specific_interface(self):
         """A port bound to a specific LAN IP is accessible from the network — is_public=True."""
-        assert make_port(host_ip="192.168.1.10").is_public is True
+        assert make_port(host_ip="192.168.1.10").is_public
 
 
 # ---------------------------------------------------------------------------
@@ -109,7 +106,7 @@ class TestParsePortEntry:
         p = _parse_port_entry("redis", "127.0.0.1:6379->6379/tcp")
         assert p is not None
         assert p.host_ip == "127.0.0.1"
-        assert p.is_public is False
+        assert not p.is_public
 
 
 # ---------------------------------------------------------------------------
@@ -119,18 +116,18 @@ class TestParsePortEntry:
 class TestDockerSnapshotFactories:
     def test_not_installed(self):
         s = DockerSnapshot.not_installed()
-        assert s.installed is False
-        assert s.iptables_disabled is False
+        assert not s.installed
+        assert not s.iptables_disabled
 
     def test_safe(self):
         s = DockerSnapshot.safe()
-        assert s.installed is True
-        assert s.iptables_disabled is True
+        assert s.installed
+        assert s.iptables_disabled
 
     def test_unsafe(self):
         s = DockerSnapshot.unsafe()
-        assert s.installed is True
-        assert s.iptables_disabled is False
+        assert s.installed
+        assert not s.iptables_disabled
 
     def test_safe_with_ports(self):
         port = make_port()

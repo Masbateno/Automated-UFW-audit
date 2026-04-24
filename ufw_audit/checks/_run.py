@@ -10,6 +10,7 @@ import logging
 import os
 import shutil
 import subprocess
+from pathlib import Path
 
 _CMD_TIMEOUT = 10  # seconds — shared across all check modules
 
@@ -49,6 +50,5 @@ def _identity_t(key: str, **kwargs) -> str:
 
 def _is_safe_config_path(path) -> bool:
     """Return True if path is absolute and not a symlink (safe to read)."""
-    from pathlib import Path
     p = Path(path)
     return p.is_absolute() and not p.is_symlink()

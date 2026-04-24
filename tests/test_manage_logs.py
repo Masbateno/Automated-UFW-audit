@@ -720,3 +720,100 @@ class TestScoreHistoryDisplayedInUI:
         out = capsys.readouterr().out
         assert "5/10" in out
         assert "8/10" in out
+
+
+# ---------------------------------------------------------------------------
+# _extract_summary_view
+# ---------------------------------------------------------------------------
+
+class TestExtractSummaryView:
+    """Unit tests for the summary extraction helper."""
+
+    _SEP = "=" * 62
+
+    def _make_log(self, findings: list[str], score: int = 7,
+                  ok: int = 10, warn: int = 2, alert: int = 1) -> list[str]:
+        lines = [
+            self._SEP,
+            "[SYSTEM INFORMATION]",
+            "Host        : testhost",
+            "",
+            self._SEP,
+            "",
+        ]
+        lines.extend(findings)
+        lines += [
+            "",
+            self._SEP,
+            "[AUDIT SUMMARY]",
+            f"OK      : {ok}",
+            f"Warning : {warn}",
+            f"Alert   : {alert}",
+            f"Score   : {score}/10",
+            "Risk    : Medium",
+            "Context : local",
+            "",
+        ]
+        return lines
+
+    def test_summary_block_included(self):
+        from ufw_audit.manage_logs import _extract_summary_view
+        lines = self._make_log([], score=8, ok=5, warn=0, alert=0)
+        result = _extract_summary_view(lines)
+        combined = "\n".join(result)
+        assert "Score   : 8/10" in combined
+        assert "OK      : 5" in combined
+
+    def test_alert_finding_included(self):
+        from ufw_audit.manage_logs import _extract_summary_view
+        findings = ["2026-04-24 [ALERT] SSH password auth enabled"]
+        lines = self._make_log(findings, alert=1)
+        result = _extract_summary_view(lines)
+        combined = "\n".join(result)
+        assert "ALERTS" in combined
+        assert "SSH password auth enabled" in combined
+
+    def test_warn_finding_included(self):
+        from ufw_audit.manage_logs import _extract_summary_view
+        findings = ["2026-04-24 [WARN] Unattended-upgrades not configured"]
+        lines = self._make_log(findings, warn=1)
+        result = _extract_summary_view(lines)
+        combined = "\n".join(result)
+        assert "WARNINGS" in combined
+        assert "Unattended-upgrades" in combined
+
+    def test_ok_info_findings_not_in_alerts_or_warnings(self):
+        from ufw_audit.manage_logs import _extract_summary_view
+        findings = [
+            "2026-04-24 [OK] Firewall active",
+            "2026-04-24 [INFO] GeoIP not installed",
+        ]
+        lines = self._make_log(findings, ok=1, warn=0, alert=0)
+        result = _extract_summary_view(lines)
+        combined = "\n".join(result)
+        assert "ALERTS" not in combined
+        assert "WARNINGS" not in combined
+        assert "✔  No alerts or warnings" in combined
+
+    def test_continuation_lines_included(self):
+        from ufw_audit.manage_logs import _extract_summary_view
+        findings = [
+            "2026-04-24 [ALERT] SSH issue",
+            "    Detail: PasswordAuthentication yes",
+        ]
+        lines = self._make_log(findings, alert=1)
+        result = _extract_summary_view(lines)
+        combined = "\n".join(result)
+        assert "PasswordAuthentication yes" in combined
+
+    def test_empty_log_returns_fallback(self):
+        from ufw_audit.manage_logs import _extract_summary_view
+        result = _extract_summary_view([])
+        assert result  # never empty
+
+    def test_no_summary_block_still_returns_findings(self):
+        from ufw_audit.manage_logs import _extract_summary_view
+        lines = ["2026-04-24 [ALERT] Critical issue"]
+        result = _extract_summary_view(lines)
+        combined = "\n".join(result)
+        assert "Critical issue" in combined

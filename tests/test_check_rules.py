@@ -11,6 +11,7 @@ Run with: python -m pytest tests/test_check_rules.py -v
 import pytest
 from ufw_audit.checks.firewall import check_rules as _check_rules
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import _deduction_keys, _get_finding, _has_finding
 
 
 # ---------------------------------------------------------------------------
@@ -25,18 +26,6 @@ def t(key, **kwargs):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _has_finding(result, key: str, level: FindingLevel) -> bool:
-    return any(f.key == key and f.level == level for f in result.findings)
-
-
-def _get_finding(result, key: str):
-    """Return the first finding with the given key, or None."""
-    return next((f for f in result.findings if f.key == key), None)
-
-
-def _deduction_keys(result) -> list[str]:
-    return [d.key for d in result.deductions]
 
 
 def total_deductions(result) -> int:

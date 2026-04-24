@@ -25,6 +25,7 @@ import pytest
 from ufw_audit.cli import AuditConfig
 from ufw_audit.fixes import run_fixes
 from ufw_audit.scoring import Finding, FindingLevel, ScoreEngine
+from tests.helpers import _t
 
 
 # ---------------------------------------------------------------------------
@@ -54,12 +55,6 @@ def make_config(yes=False, apply=True):
     # type: (bool, bool) -> AuditConfig
     """Build an AuditConfig for fix mode (apply=True = interactive/auto mode)."""
     return AuditConfig(fix=True, yes=yes, apply=apply)
-
-
-def _t(key, **kwargs):
-    # type: (str, **object) -> str
-    """Minimal translation stub — returns the key."""
-    return key
 
 
 def run_and_capture(engine, config, mock_proc=None, mock_input=None):

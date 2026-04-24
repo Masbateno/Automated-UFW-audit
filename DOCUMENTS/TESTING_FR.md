@@ -11,6 +11,7 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 
 | Version | Tests | Notes |
 |---------|-------|-------|
+| v1.23.0 | 4042  | +35 tests — `test_cli.py` : `TestFormatFlag` (+22) + `TestCheckSkipFlags` (+4) ; `test_manage_logs.py` : `TestExtractSummaryView` (+7) ; qualificateur portée (+2) ; `tests/helpers.py` utilitaires partagés introduit ; 62 fichiers migrés |
 | v1.22.3 | 4007  | +2 tests — `test_ports.py` : split 3-tuple + virbr0 iface + is_all_interfaces scoped ; `test_exposure.py` : UDP éphémère exclu + TCP port élevé affiché ; fonctionnalité : `ufw status verbose` dans la section règles |
 | v1.22.2 | 4004  | +3 tests — `test_exposure.py` : 2 renommés + 3 tests DDNS ; correctifs : filtre snakeoil global, exposition DDNS, port serveur élevé, double préfixe SSH, séparation notes runner |
 | v1.22.1 | 4001  | +5 tests — `test_correlation.py` +1 (`test_message_uses_translation_key`) ; `test_recurrence.py` +1 (`test_float_value_in_prev_is_normalized`) ; assertion renforcée dans `test_exposure.py` (`fw_policy=None → alert`) ; politique float unifiée dans `recurrence.py` |
@@ -46,6 +47,26 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v0.18   | 531   | 26 nouveaux tests pour `fixes.py` ; `run_fixes()` entièrement couvert |
 | v0.17   | 505   | 15 échecs préexistants corrigés ; suite entièrement verte |
 | v0.9    | 421   | Première suite complète |
+
+### v1.23.0 — 4042/4042 (2026-04-24)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+4042 passed in 4.52s
+```
+
+#### Nouveaux / tests modifiés (+35)
+
+| Fichier | Changement | Couverture |
+|---------|------------|------------|
+| `tests/test_cli.py` | +22 tests (`TestFormatFlag`) | `--format=json/json-full/csv/markdown/html` ; formes `=` et espace ; parité aliases legacy ; erreurs d'exclusion mutuelle ; conflits `--format`+`--output`/`--html` ; valeur invalide rejetée |
+| `tests/test_cli.py` | +4 tests (`TestCheckSkipFlags`) | `--check=list` positionne `list_checks=True` ; non combinable avec `--skip` ; liste affichée contient les sections connues |
+| `tests/test_manage_logs.py` | +7 tests (`TestExtractSummaryView`) | Entrée vide → vide ; pas de séparateur → vide ; séparateur sans ligne score → vide ; bloc valide extrait ; lignes ALERT/WARN avec continuation ; lignes non-ALERT/WARN ignorées ; plusieurs séparateurs utilise le dernier |
+| `tests/test_display_explain_hint.py` / `tests/test_runner.py` | +2 tests | `display_risk_context(is_local=True)` ajoute `• LAN` ; `build_risk_context_entries` avec `network_context="local"` produit le label `• LAN` |
+
+---
 
 ### v1.22.3 — 4007/4007 (2026-04-20)
 

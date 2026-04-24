@@ -22,14 +22,12 @@ from ufw_audit.checks.network_context import (
     check_network_context,
     top_remote_ips,
 )
+from tests.helpers import _t
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _t(key, **kwargs):
-    return key
 
 
 def make_snapshot(**overrides) -> NetworkContextSnapshot:
@@ -235,12 +233,12 @@ class TestParseInterfaces:
     def test_up_status(self):
         ifaces = _parse_interfaces(self.IP_OUTPUT)
         eth = next(i for i in ifaces if i.name == "enp3s0")
-        assert eth.is_up is True
+        assert eth.is_up
 
     def test_down_status(self):
         ifaces = _parse_interfaces(self.IP_OUTPUT)
         br = next(i for i in ifaces if i.name == "virbr0")
-        assert br.is_up is False
+        assert not br.is_up
 
     def test_empty_string_returns_empty(self):
         assert _parse_interfaces("") == []
@@ -308,28 +306,28 @@ class TestSplitAddrPort:
 
 class TestIsPrivateOrLoopback:
     def test_loopback_127(self):
-        assert _is_private_or_loopback("127.0.0.1") is True
+        assert _is_private_or_loopback("127.0.0.1")
 
     def test_private_10(self):
-        assert _is_private_or_loopback("10.0.0.1") is True
+        assert _is_private_or_loopback("10.0.0.1")
 
     def test_private_172_16(self):
-        assert _is_private_or_loopback("172.16.0.1") is True
+        assert _is_private_or_loopback("172.16.0.1")
 
     def test_private_172_31(self):
-        assert _is_private_or_loopback("172.31.255.255") is True
+        assert _is_private_or_loopback("172.31.255.255")
 
     def test_not_private_172_15(self):
-        assert _is_private_or_loopback("172.15.0.1") is False
+        assert not _is_private_or_loopback("172.15.0.1")
 
     def test_private_192_168(self):
-        assert _is_private_or_loopback("192.168.1.1") is True
+        assert _is_private_or_loopback("192.168.1.1")
 
     def test_public(self):
-        assert _is_private_or_loopback("8.8.8.8") is False
+        assert not _is_private_or_loopback("8.8.8.8")
 
     def test_public_142(self):
-        assert _is_private_or_loopback("142.250.74.14") is False
+        assert not _is_private_or_loopback("142.250.74.14")
 
 
 # ---------------------------------------------------------------------------

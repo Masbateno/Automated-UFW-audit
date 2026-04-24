@@ -26,14 +26,12 @@ from ufw_audit.compare import (
     load_baseline,
     save_baseline,
 )
+from tests.helpers import _t
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _t(key, **kwargs):
-    return key
 
 
 def _make_delta(**overrides) -> AuditDelta:
@@ -361,28 +359,28 @@ class TestComputeDelta:
 
 class TestAuditDeltaIsEmpty:
     def test_true_when_no_changes(self):
-        assert _make_delta().is_empty() is True
+        assert _make_delta().is_empty()
 
     def test_false_when_score_delta(self):
-        assert _make_delta(score_delta=1).is_empty() is False
+        assert not _make_delta(score_delta=1).is_empty()
 
     def test_false_when_alert_delta(self):
-        assert _make_delta(alert_delta=1).is_empty() is False
+        assert not _make_delta(alert_delta=1).is_empty()
 
     def test_false_when_warn_delta(self):
-        assert _make_delta(warn_delta=-1).is_empty() is False
+        assert not _make_delta(warn_delta=-1).is_empty()
 
     def test_false_when_new_ports(self):
-        assert _make_delta(new_ports=["8080/tcp"]).is_empty() is False
+        assert not _make_delta(new_ports=["8080/tcp"]).is_empty()
 
     def test_false_when_closed_ports(self):
-        assert _make_delta(closed_ports=["80/tcp"]).is_empty() is False
+        assert not _make_delta(closed_ports=["80/tcp"]).is_empty()
 
     def test_false_when_new_services(self):
-        assert _make_delta(new_services=["redis"]).is_empty() is False
+        assert not _make_delta(new_services=["redis"]).is_empty()
 
     def test_false_when_stopped_services(self):
-        assert _make_delta(stopped_services=["nginx"]).is_empty() is False
+        assert not _make_delta(stopped_services=["nginx"]).is_empty()
 
 
 # ---------------------------------------------------------------------------

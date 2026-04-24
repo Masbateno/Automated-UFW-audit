@@ -64,7 +64,8 @@ This separation allows the entire business logic to be tested by instantiating s
 
 | Module | Role |
 |---|---|
-| `cron.py` | Cron management — `CronEntry`, `list_installed_crons()`, schedule wizard (`run_install_cron()`), TUI (`run_manage_cron()`) |
+| `cron.py` | Cron management — `CronEntry`, `list_installed_crons()`, schedule wizard (`run_install_cron()` — curses TUI + plain fallback), `run_manage_cron()` (curses TUI + plain fallback) |
+| `_tty.py` | Raw-mode line reader — `read_line(prompt) → str \| None`; Esc returns `None`; TTY fallback to `input()` |
 
 ### Check modules (`checks/`)
 
@@ -157,6 +158,7 @@ ufw_audit/
 │   ├── ssl_certs.py     # SslCertsSnapshot + check_ssl_certs() — cert expiry (CHECK 43)
 │   ├── systemd_timers.py # SystemdTimersSnapshot + check_systemd_timers() — timer security (CHECK 44)
 │   └── firmware.py      # FirmwareSnapshot + check_firmware() — fwupd + microcode (CHECK 45)
+├── _tty.py              # read_line() — raw-mode line reader with Esc-to-cancel, TTY fallback to input()
 ├── html_output.py       # build_html_output() — standalone HTML export (--html)
 ├── compare.py           # AuditBaseline (finding_keys) + AuditDelta (new/resolved keys) + comparative report
 ├── correlation.py       # CorrelationRule + run_correlations() — 5 compound-risk rules
@@ -174,6 +176,7 @@ ufw_audit/
     └── fr.json          # French translation keys
 
 tests/
+├── helpers.py           # Shared test utilities: _t, levels, _has_finding, _get_finding, _deduction_keys…
 ├── test_check_rules.py
 ├── test_cli.py
 ├── test_compare.py
@@ -220,7 +223,8 @@ tests/
 ├── test_html_output.py
 ├── test_correlation.py
 ├── test_exposure.py
-└── test_recurrence.py
+├── test_recurrence.py
+└── test_manage_logs.py
 
 pyproject.toml           # Build config (setuptools, pip/pipx install)
 README.md / README_FR.md           # User documentation (EN/FR)
@@ -267,7 +271,7 @@ python3 -m unittest tests/test_firewall.py
 ### Expected result
 
 ```
-1890 passed in X.XXs
+4042 passed in X.XXs
 ```
 
 Tests make no system calls — all snapshots are built directly in the test files. They can be run without `sudo` and without UFW installed.

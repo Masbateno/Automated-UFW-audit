@@ -15,14 +15,12 @@ import pytest
 
 from ufw_audit.plugin_checks import PluginCheck, _load_one, load_plugin_checks
 from ufw_audit.scoring import CheckResult
+from tests.helpers import _t
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _t(key, **kwargs):
-    return key
 
 
 def write_plugin(directory: Path, name: str, content: str) -> Path:

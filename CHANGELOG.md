@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.23.0](#v1230) | 2026-04-24 | `--format=FORMAT` unified output; `--check=list`; `--manage-logs` preview + summary mode; `[CRITIQUE • LAN]` scope qualifier; `--install-cron`/`--manage-cron` curses TUI; `_tty.py` raw-mode reader; `compare.py` `None`/`[]` fix; `tests/helpers.py` + 62-file migration; 4042/4042 tests (+35) |
 | [v1.22.3](#v1223) | 2026-04-20 | Bugfixes: interface-scoped ports excluded from exposure (67/udp%virbr0); ephemeral UDP filter in exposure; `ufw status verbose` displayed in rules section (-v mode); 4007/4007 tests (+2) |
 | [v1.22.2](#v1222) | 2026-04-20 | Bugfixes: snakeoil cert filter now covers nginx/apache/postfix paths; DDNS reflected in internet exposure view; high-numbered listen ports shown in exposure table; double `ℹ` prefix removed from SSH notes; 4004/4004 tests (+3) |
 | [v1.22.1](#v1221) | 2026-04-20 | `recurrence.py` float policy unified (`update_recurrence` now normalizes like `load_recurrence`); `import os` removed; test suite hardening (+5 tests); 4001/4001 tests |
@@ -59,6 +60,47 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.23.0
+
+**2026-04-24**
+
+### Features
+
+- **`--format=FORMAT`** (`cli.py`) — canonical unified output flag accepting `json`, `json-full`, `csv`, `markdown`, `html`; legacy flags (`--json`, `-j`, `-J`, `--output csv/markdown`, `--html`) kept as silent aliases — zero breaking change
+- **`--check=list`** (`cli.py`, `__main__.py`) — prints all 31 filterable section names without sudo; notes prefix matching (`kernel` matches `kernel_hardening` + `kernel_modules`) and always-on core checks; `--check=LIST` help line updated to mention discoverability
+- **`--manage-logs` log preview** (`manage_logs.py`) — Enter on a log file opens a full scrollable viewer; `s` toggles between full log and summary mode (score block + ALERT/WARN findings only); `g`/`G` jump to top/bottom; `↑↓ / PgUp/PgDn` scroll; Esc returns to list
+- **Risk context scope qualifier** (`display.py`) — `[CRITIQUE • LAN]`, `[MOYEN • LAN]`, `[FAIBLE • LAN]` appended to all service risk labels when `network_context == "local"`; public/DDNS contexts unchanged
+- **`--install-cron` curses TUI** (`cron.py`) — `run_install_cron()` now wraps `curses.wrapper()` and falls back to the plain wizard when curses is unavailable; new `_run_install_cron_curses()` with inline readline (`_curses_readline`), Esc-to-cancel on every prompt, live schedule preview
+- **`--manage-cron` curses TUI** (`cron.py`) — `run_manage_cron()` similarly dispatches to `_run_manage_cron_curses()` or `_run_manage_cron_plain()`; consistent UX with `--install-cron`
+- **`ufw_audit/_tty.py`** — new raw-mode line reader (`read_line()`): Esc returns `None` (cancel), Enter returns `""` (confirm), printable chars buffered with echo; select-based escape-sequence drain distinguishes standalone Esc from arrow keys; graceful `input()` fallback in non-TTY environments (tests, pipes)
+
+### Fixes
+
+- **`compare.py` baseline `None` vs `[]` semantics** — `finding_keys` field now `list[str] | None`; `None` means pre-v1.22 baseline (key absent in JSON, skip diff to avoid false-positive flood); `[]` means legitimately empty clean audit (diff normally); `load_baseline()` returns `None` for absent key; `compute_delta()` guards on `is not None` instead of truthiness
+
+### Polish
+
+- **TUI help bar harmonization** — `--explain` picker `navigate` → `move`; `--explain` detail `↑↓/PgUp/PgDn` → `↑↓ / PgUp/PgDn`, `Esc: back to list` → `Esc: back`; preview log `PgUp PgDn` → `PgUp/PgDn`
+- **Bash completion** — `--format=` with 5 value completions; `--check=` suggests `list` + all section names; `--html` added to `long_opts`
+- **`history.py` atomic write** — `write_text()` replaced by `os.open()` + `os.fdopen()` + `os.replace()` ensuring 0o600 permissions and crash-safe rotation
+- **`report_markdown.py`** — `_inline_format()`: link extraction now runs before `html.escape()` to prevent URL mangling (`&` → `&amp;`); `<li>` items wrapped in `<ol>` blocks in the audit-log-to-HTML converter; unused `import email` removed
+- **Checks hardening** — `_C_LOCALE_ENV` passed to subprocess calls in `auth_log.py` and `logs.py`; `except Exception` narrowed to `(OSError, subprocess.SubprocessError, subprocess.TimeoutExpired)` in both; `timeout=10` added to `ssl_certs.py` cert-date subprocess; `removeprefix()` replaces `lstrip()` for regex anchors in `sysinfo.py`
+- **`markdown_output.py`** — uses `engine.breakdown` instead of `getattr(engine, "_deductions", [])` for public API access to deductions
+
+### Test suite hardening
+
+- **`tests/helpers.py`** — new shared utilities module: `_t` (translation stub), `levels()`, `_has_finding()`, `_get_finding()`, `_finding_level()`, `_deduction_keys()`, `_deduction_points()`; 62 test files migrated to import from it, eliminating ~200 lines of duplicated boilerplate
+
+### Tests
+
+- `tests/test_cli.py` — `TestFormatFlag` (+22 tests): all 5 formats, space-separated form, invalid value, cross-flag conflicts, legacy alias backward-compat
+- `tests/test_cli.py` — `TestCheckSkipFlags` (+4 tests): `--check=list`, `--check LIST`, case-insensitive, default false
+- `tests/test_manage_logs.py` — `TestExtractSummaryView` (+7 tests): summary block extraction, ALERT/WARN inclusion, continuation lines, empty log fallback
+- `tests/test_display_explain_hint.py` / `tests/test_runner.py` — scope qualifier (+2 tests): `is_local=True` appends `• LAN`; `build_risk_context_entries` with `network_context="local"`
+- ✅ 4042/4042 unit tests (+35 from v1.22.3)
 
 ---
 

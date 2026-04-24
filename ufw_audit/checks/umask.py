@@ -50,7 +50,7 @@ def _get_proc_umask() -> Optional[str]:
 def _fix_cmd(source: Optional[str]) -> str:
     """Return the fix command appropriate for the file where the umask was found."""
     if not source or source == "/etc/login.defs":
-        return "sudo sed -i 's/^UMASK.*/UMASK\\t\\t022/' /etc/login.defs"
+        return "sudo sed -i 's/^UMASK[[:space:]].*/UMASK\\t\\t022/' /etc/login.defs"
     if "/pam.d/" in source:
         return f"sudo sed -i 's/umask=[0-7]*/umask=022/' {source}"
     return f"sudo sed -i 's/\\bumask [0-7]*/umask 022/' {source}"

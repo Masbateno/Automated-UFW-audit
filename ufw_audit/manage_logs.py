@@ -11,7 +11,10 @@ import json
 import os
 import re
 import sys
+from datetime import datetime as _dt
 from pathlib import Path
+
+from ufw_audit._tty import read_line as _rl
 
 # ---------------------------------------------------------------------------
 # Score history helpers
@@ -138,7 +141,10 @@ def get_or_prompt_log_dir(user_config, config, t) -> Path:
     saved = user_config.get("log_dir")
     if saved:
         d = Path(saved)
-        d.mkdir(parents=True, exist_ok=True)
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
         return d
 
     from ufw_audit.sysinfo import get_user_home
@@ -212,7 +218,7 @@ def parse_log_selection(answer: str, max_idx: int) -> list[int]:
             lo, _, hi = part.partition("-")
             if lo.isdigit() and hi.isdigit():
                 lo_i, hi_i = int(lo), int(hi)
-                if 1 <= lo_i <= max_idx and 1 <= hi_i <= max_idx:
+                if 1 <= lo_i <= hi_i <= max_idx:
                     indices.update(range(lo_i, hi_i + 1))
         elif part.isdigit():
             n = int(part)
@@ -225,14 +231,8 @@ def parse_log_selection(answer: str, max_idx: int) -> list[int]:
 # --manage-logs
 # ---------------------------------------------------------------------------
 
-def run_manage_logs(user_config, config, t) -> int:
-    """Standalone log management UI — list, multi-delete, and change storage location.
-
-    Loops until the user explicitly quits (empty input or 'q').
-    Reports from the current directory AND any previously configured
-    directories are shown together with a continuous index so that
-    all files are reachable regardless of which path is currently active.
-    """
+def _run_manage_logs_plain(user_config, config, t) -> int:
+    """Text-mode fallback — used when stdout is not a TTY (tests, pipes)."""
     from ufw_audit import output
     output.init(no_color=config.no_color)
 
@@ -299,7 +299,6 @@ def run_manage_logs(user_config, config, t) -> int:
         else:
             for f in cur_logs:
                 size_kb = max(1, f.stat().st_size // 1024)
-                from datetime import datetime as _dt
                 mtime = _dt.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
                 print(f"  [{idx:2}]  {f.name}  ({size_kb} {size_label})  {mtime}")
                 idx += 1
@@ -310,14 +309,23 @@ def run_manage_logs(user_config, config, t) -> int:
             print()
             for f in ex_logs:
                 size_kb = max(1, f.stat().st_size // 1024)
-                from datetime import datetime as _dt
                 mtime = _dt.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
                 print(f"  [{idx:2}]  {f.name}  ({size_kb} {size_label})  {mtime}")
                 idx += 1
 
         print()
-        print(f"  {t('manage_logs.prompt')}")
-        answer = input("  > ").strip().lower()
+        print(f"  {t('manage_logs.prompt_intro')}")
+        print()
+        print(f"    {'1,3':<8} {t('manage_logs.prompt_ex_single')}")
+        print(f"    {'2-4':<8} {t('manage_logs.prompt_ex_range')}")
+        print(f"    {'all':<8} {t('manage_logs.prompt_ex_all')}")
+        print(f"    {'c':<8} {t('manage_logs.prompt_ex_change')}")
+        print()
+        print(f"  {t('manage_logs.prompt_quit')}")
+        _raw = _rl("  > ")
+        if _raw is None:
+            return 0
+        answer = _raw.strip().lower()
 
         if answer in ("", "q", "quit"):
             return 0
@@ -334,7 +342,7 @@ def run_manage_logs(user_config, config, t) -> int:
                     print()
                     continue
                 # Register current dir as "previous" before switching
-                if cur_logs and chosen != log_dir:
+                if chosen != log_dir:
                     _add_extra_dir(user_config, log_dir)
                 # Offer to move all visible reports to the new location
                 if all_logs and chosen != log_dir:
@@ -394,3 +402,587 @@ def run_manage_logs(user_config, config, t) -> int:
                 print(f"  ✔ {t('manage_logs.deleted_multi', count=deleted)}")
 
         print()
+
+
+# ---------------------------------------------------------------------------
+# Curses UI helpers
+# ---------------------------------------------------------------------------
+
+def _curses_input(stdscr, row: int, w: int, prompt: str, default: str = "") -> str | None:
+    """Inline single-line text input drawn on *row* inside a curses window.
+
+    Tab triggers path glob-completion.
+    Enter confirms (returns the string).
+    Esc cancels (returns None).
+    """
+    import curses
+    import glob as _glob
+
+    try:
+        curses.curs_set(1)
+    except curses.error:
+        pass
+
+    buf: list[str] = list(default)
+
+    while True:
+        text    = "".join(buf)
+        display = f"  {prompt}: {text}_"
+        try:
+            stdscr.move(row, 0)
+            stdscr.clrtoeol()
+            stdscr.addstr(row, 0, display[:w - 1], curses.A_BOLD)
+        except curses.error:
+            pass
+        stdscr.refresh()
+
+        try:
+            ch = stdscr.get_wch()
+        except curses.error:
+            continue
+
+        if isinstance(ch, str):
+            if ch == "\x1b":                        # Esc = cancel
+                break
+            elif ch in ("\r", "\n"):                # Enter = confirm
+                try:
+                    curses.curs_set(0)
+                except curses.error:
+                    pass
+                return text
+            elif ch in ("\x7f", "\x08"):            # Backspace
+                if buf:
+                    buf.pop()
+            elif ch == "\t":                        # Tab = path completion
+                matches = sorted(_glob.glob(text + "*"))
+                if len(matches) == 1:
+                    buf = list(matches[0])
+                    if os.path.isdir(matches[0]) and not matches[0].endswith("/"):
+                        buf.append("/")
+                elif len(matches) > 1:
+                    common = os.path.commonprefix(matches)
+                    if len(common) > len(text):
+                        buf = list(common)
+            elif ch >= " ":                         # printable
+                buf.append(ch)
+
+        else:                                       # int — special key
+            if ch == curses.KEY_BACKSPACE:
+                if buf:
+                    buf.pop()
+
+    try:
+        curses.curs_set(0)
+    except curses.error:
+        pass
+    return None
+
+
+def _init_colors_ml():
+    """Initialise curses colour pairs for --manage-logs."""
+    import curses
+    try:
+        if not curses.has_colors():
+            return False
+        curses.start_color()
+        curses.use_default_colors()
+        curses.init_pair(1, curses.COLOR_BLACK,  curses.COLOR_CYAN)   # cursor row
+        curses.init_pair(2, curses.COLOR_YELLOW, -1)                   # dir header
+        curses.init_pair(3, curses.COLOR_WHITE,  -1)                   # normal file
+        curses.init_pair(4, curses.COLOR_RED,    -1)                   # marked file
+        curses.init_pair(5, curses.COLOR_WHITE,  curses.COLOR_CYAN)   # top banner
+        return True
+    except curses.error:
+        return False
+
+
+def _extract_summary_view(lines: list[str]) -> list[str]:
+    """Return a condensed view: summary block + ALERT/WARN findings."""
+    SEP62 = "=" * 62
+
+    # Locate the summary block: last separator followed within 6 lines by 'Score   :'
+    summary_start = 0
+    for i in range(len(lines) - 1, -1, -1):
+        if lines[i].strip() == SEP62:
+            for j in range(i, min(i + 8, len(lines))):
+                if lines[j].startswith("Score   :") or lines[j].startswith("OK      :"):
+                    summary_start = i
+                    break
+            if summary_start:
+                break
+
+    summary_block = lines[summary_start:] if summary_start else []
+
+    # Collect ALERT and WARN findings with their continuation lines
+    alert_lines: list[str] = []
+    warn_lines: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if "[ALERT]" in line:
+            group = [line]
+            j = i + 1
+            while j < len(lines) and lines[j].startswith("    "):
+                group.append(lines[j])
+                j += 1
+            alert_lines.extend(group)
+            alert_lines.append("")
+            i = j
+        elif "[WARN]" in line:
+            group = [line]
+            j = i + 1
+            while j < len(lines) and lines[j].startswith("    "):
+                group.append(lines[j])
+                j += 1
+            warn_lines.extend(group)
+            warn_lines.append("")
+            i = j
+        else:
+            i += 1
+
+    result: list[str] = []
+    if summary_block:
+        result.extend(summary_block)
+        result.append("")
+
+    if alert_lines:
+        result.append(f"{'─' * 20}  ALERTS  {'─' * 20}")
+        result.append("")
+        result.extend(alert_lines)
+
+    if warn_lines:
+        result.append(f"{'─' * 20}  WARNINGS  {'─' * 20}")
+        result.append("")
+        result.extend(warn_lines)
+
+    if not alert_lines and not warn_lines:
+        result.append("  ✔  No alerts or warnings.")
+
+    return result if result else ["  (no summary data found)"]
+
+
+def _curses_preview_log(stdscr, path: "Path", t) -> None:
+    """Scrollable read-only viewer for a log file.  Esc returns to list."""
+    import curses
+
+    try:
+        raw = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError as exc:
+        raw = [f"Cannot read file: {exc}"]
+
+    full_lines    = raw
+    summary_lines = _extract_summary_view(raw)
+
+    has_color = curses.has_colors()
+    scroll = 0
+    mode   = "full"   # "full" | "summary"
+
+    while True:
+        lines = full_lines if mode == "full" else summary_lines
+
+        h, w = stdscr.getmaxyx()
+        body_h = max(1, h - 2)
+        max_scroll = max(0, len(lines) - body_h)
+        scroll = max(0, min(scroll, max_scroll))
+
+        stdscr.erase()
+
+        # Top banner
+        mode_tag = "[FULL]" if mode == "full" else "[SUMMARY]"
+        banner = (f"  {path.name}  {mode_tag}   "
+                  f"↑↓ / PgUp/PgDn: scroll   g/G: top/bottom   "
+                  f"s: {'summary' if mode == 'full' else 'full log'}   Esc: back")
+        try:
+            attr = (curses.color_pair(5) | curses.A_BOLD) if has_color else curses.A_REVERSE
+            stdscr.addstr(0, 0, banner.ljust(w - 1)[:w - 1], attr)
+        except curses.error:
+            pass
+
+        # Body
+        for row in range(body_h):
+            line_idx = scroll + row
+            if line_idx >= len(lines):
+                break
+            try:
+                stdscr.addstr(row + 1, 0, lines[line_idx][:w - 1])
+            except curses.error:
+                pass
+
+        # Footer
+        total_lines = len(lines)
+        footer = (f"  line {scroll + 1}–{min(scroll + body_h, total_lines)}"
+                  f" / {total_lines}")
+        try:
+            stdscr.addstr(h - 1, 0, footer[:w - 1], curses.A_DIM)
+        except curses.error:
+            pass
+
+        stdscr.refresh()
+
+        ch = stdscr.getch()
+
+        if ch == 27:                                    # Esc → back
+            break
+        elif ch in (ord("s"), ord("S")):               # toggle summary / full
+            mode = "summary" if mode == "full" else "full"
+            scroll = 0
+        elif ch == curses.KEY_UP:
+            scroll = max(0, scroll - 1)
+        elif ch == curses.KEY_DOWN:
+            scroll = min(max_scroll, scroll + 1)
+        elif ch == curses.KEY_PPAGE:
+            scroll = max(0, scroll - body_h)
+        elif ch == curses.KEY_NPAGE:
+            scroll = min(max_scroll, scroll + body_h)
+        elif ch in (curses.KEY_HOME, ord("g")):
+            scroll = 0
+        elif ch in (curses.KEY_END, ord("G")):
+            scroll = max_scroll
+
+
+def _run_manage_logs_curses(stdscr, user_config, config, t) -> int:
+    """Curses interactive file manager for --manage-logs."""
+    import curses
+
+    try:
+        curses.curs_set(0)
+    except curses.error:
+        pass
+
+    has_color = _init_colors_ml()
+    size_label = t("manage_logs.size_label")
+
+    cursor          = 0             # position in file_indices
+    scroll          = 0             # first visible item index in items list
+    marked: set[int] = set()        # 0-based indices into all_logs
+    status          = ""            # one-shot footer message
+    confirm_delete  = False         # True = waiting for y/n
+    pending_delete: list[int] = []  # log indices to delete on confirmation
+
+    while True:
+        # ── Refresh file list ─────────────────────────────────────────────
+        log_dir_str = user_config.get("log_dir") or ""
+        if not log_dir_str:
+            return 0
+
+        log_dir = Path(log_dir_str)
+        if not log_dir.exists():
+            try:
+                log_dir.mkdir(parents=True, exist_ok=True)
+            except OSError:
+                pass
+
+        cur_logs = sorted(log_dir.glob("ufw_audit_*.log"), reverse=True)
+        extra_dirs = _get_extra_dirs(user_config)
+        extra_sections: list[tuple[Path, list[Path]]] = []
+        live_extras: list[Path] = []
+        for extra in extra_dirs:
+            if extra == log_dir:
+                continue
+            if extra.exists():
+                ex_logs = sorted(extra.glob("ufw_audit_*.log"), reverse=True)
+                if ex_logs:
+                    extra_sections.append((extra, ex_logs))
+                    live_extras.append(extra)
+        if live_extras != extra_dirs:
+            _set_extra_dirs(user_config, live_extras)
+
+        all_logs: list[Path] = list(cur_logs)
+        for _, ex_logs in extra_sections:
+            all_logs.extend(ex_logs)
+
+        marked = {m for m in marked if m < len(all_logs)}
+
+        # ── Build display items ───────────────────────────────────────────
+        # item types: ("dir_header", path, is_current)
+        #             ("file",       log_index)
+        #             ("empty",      path)
+        items: list[tuple] = []
+        file_indices: list[int] = []   # positions of "file" items in items[]
+        log_idx = 0
+
+        items.append(("dir_header", log_dir, True))
+        if not cur_logs:
+            items.append(("empty", log_dir))
+        for _ in cur_logs:
+            file_indices.append(len(items))
+            items.append(("file", log_idx))
+            log_idx += 1
+        for extra_path, ex_logs in extra_sections:
+            items.append(("dir_header", extra_path, False))
+            for _ in ex_logs:
+                file_indices.append(len(items))
+                items.append(("file", log_idx))
+                log_idx += 1
+
+        # ── Clamp cursor / scroll ─────────────────────────────────────────
+        if file_indices:
+            cursor = max(0, min(cursor, len(file_indices) - 1))
+            cur_item_pos = file_indices[cursor]
+        else:
+            cursor = 0
+            cur_item_pos = 0
+
+        h, w = stdscr.getmaxyx()
+        body_h = max(1, h - 2)
+
+        if file_indices:
+            if cur_item_pos - scroll >= body_h:
+                scroll = cur_item_pos - body_h + 1
+            if cur_item_pos < scroll:
+                scroll = cur_item_pos
+                if scroll > 0 and items[scroll - 1][0] == "dir_header":
+                    scroll = max(0, scroll - 1)
+        scroll = max(0, scroll)
+
+        # ── Render ────────────────────────────────────────────────────────
+        stdscr.erase()
+
+        # Header
+        n_sel = len(marked)
+        if confirm_delete:
+            header = "  ufw-audit --manage-logs    Confirm deletion below  "
+        elif n_sel:
+            header = (f"  ufw-audit --manage-logs    "
+                      f"↑↓: move   Spc: toggle   d: delete ({n_sel})   "
+                      f"u: unmark all   q: quit")
+        else:
+            header = ("  ufw-audit --manage-logs    "
+                      "↑↓: move   Enter: preview   Spc: mark   a: all   "
+                      "d: delete   c: change dir   q: quit")
+        try:
+            banner_attr = (curses.color_pair(5) | curses.A_BOLD) if has_color else curses.A_REVERSE
+            stdscr.addstr(0, 0, header.ljust(w - 1)[:w - 1], banner_attr)
+        except curses.error:
+            pass
+
+        # Body
+        for row in range(body_h):
+            item_idx = scroll + row
+            if item_idx >= len(items):
+                break
+            item = items[item_idx]
+            y = row + 1
+
+            if item[0] == "dir_header":
+                _, path, is_current = item
+                cur_lbl  = t("manage_logs.current_label")
+                prev_lbl = t("manage_logs.previous_label")
+                if is_current:
+                    line = f"  {t('manage_logs.stored_in', path=str(path))}  [{cur_lbl}]"
+                else:
+                    line = f"  ─── {prev_lbl}: {path} ───"
+                attr = (curses.color_pair(2) | curses.A_BOLD) if has_color else curses.A_BOLD
+                try:
+                    stdscr.addstr(y, 0, line[:w - 1], attr)
+                except curses.error:
+                    pass
+
+            elif item[0] == "empty":
+                _, path = item
+                line = f"    ℹ {t('manage_logs.no_logs', path=str(path))}"
+                try:
+                    stdscr.addstr(y, 0, line[:w - 1], curses.A_DIM)
+                except curses.error:
+                    pass
+
+            elif item[0] == "file":
+                _, log_i = item
+                f = all_logs[log_i]
+                try:
+                    size_kb = max(1, f.stat().st_size // 1024)
+                    mtime   = _dt.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+                except OSError:
+                    size_kb, mtime = 0, "?"
+
+                is_cursor = bool(file_indices) and file_indices[cursor] == item_idx
+                is_marked = log_i in marked
+
+                ind = ("→✓" if (is_cursor and is_marked) else
+                       "→ " if is_cursor else
+                       " ✓" if is_marked else
+                       "  ")
+
+                num_col  = f"[{log_i + 1:2}]"
+                suffix   = f"  {size_kb:4} {size_label}  {mtime}"
+                max_name = max(8, w - 2 - len(ind) - 1 - len(num_col) - 2 - len(suffix) - 1)
+                name_str = f.name[:max_name].ljust(max_name)
+                line     = f" {ind} {num_col}  {name_str}{suffix}"
+
+                if is_cursor:
+                    attr = (curses.color_pair(1) | curses.A_BOLD) if has_color else curses.A_REVERSE
+                elif is_marked:
+                    attr = (curses.color_pair(4) | curses.A_BOLD) if has_color else curses.A_UNDERLINE
+                else:
+                    attr = curses.color_pair(3) if has_color else 0
+
+                try:
+                    if is_cursor:
+                        stdscr.addstr(y, 0, line[:w - 1].ljust(w - 1)[:w - 1], attr)
+                    else:
+                        stdscr.addstr(y, 0, line[:w - 1], attr)
+                except curses.error:
+                    pass
+
+        # Footer
+        total = len(all_logs)
+        if confirm_delete:
+            footer = f"  {t('manage_logs.confirm_prompt', count=len(pending_delete))}"
+        elif status:
+            footer = f"  {status}"
+            status = ""
+        elif n_sel:
+            footer = (f"  {total} report(s)   {n_sel} selected   "
+                      "d: delete selected   u: unmark all")
+        else:
+            footer = f"  {total} report(s)"
+        try:
+            stdscr.addstr(h - 1, 0, footer[:w - 1], curses.A_DIM)
+        except curses.error:
+            pass
+
+        stdscr.refresh()
+
+        # ── Input ─────────────────────────────────────────────────────────
+        ch = stdscr.getch()
+
+        if confirm_delete:
+            confirm_delete = False
+            if ch in (ord("y"), ord("Y")):
+                deleted = 0
+                for li in sorted(pending_delete, reverse=True):
+                    try:
+                        all_logs[li].unlink()
+                        deleted += 1
+                    except OSError:
+                        pass
+                marked.clear()
+                cursor = max(0, cursor - deleted)
+                if deleted == 1 and pending_delete:
+                    status = t("manage_logs.deleted_one", name=all_logs[pending_delete[0]].name)
+                elif deleted:
+                    status = t("manage_logs.deleted_multi", count=deleted)
+            else:
+                status = t("manage_logs.cancelled")
+            pending_delete = []
+            continue
+
+        if ch in (ord("q"), ord("Q")):
+            return 0
+
+        elif ch == curses.KEY_UP:
+            if cursor > 0:
+                cursor -= 1
+
+        elif ch == curses.KEY_DOWN:
+            if cursor < len(file_indices) - 1:
+                cursor += 1
+
+        elif ch == curses.KEY_PPAGE:
+            cursor = max(0, cursor - body_h)
+
+        elif ch == curses.KEY_NPAGE:
+            cursor = min(max(0, len(file_indices) - 1), cursor + body_h)
+
+        elif ch == ord(" "):
+            if file_indices:
+                log_i = items[file_indices[cursor]][1]
+                if log_i in marked:
+                    marked.discard(log_i)
+                else:
+                    marked.add(log_i)
+
+        elif ch in (ord("a"), ord("A")):
+            marked = set(range(len(all_logs)))
+
+        elif ch in (ord("u"), ord("U")):
+            marked.clear()
+
+        elif ch in (ord("d"), ord("D")):
+            if all_logs:
+                if marked:
+                    pending_delete = sorted(marked)
+                elif file_indices:
+                    pending_delete = [items[file_indices[cursor]][1]]
+                if pending_delete:
+                    confirm_delete = True
+
+        elif ch in (10, 13, curses.KEY_ENTER):
+            if file_indices and not n_sel:
+                log_i = items[file_indices[cursor]][1]
+                _curses_preview_log(stdscr, all_logs[log_i], t)
+
+        elif ch in (ord("c"), ord("C")):
+            # Inline path input — stays fully inside curses
+            new_path_str = _curses_input(
+                stdscr, h - 1, w,
+                t("manage_logs.change_prompt"),
+                str(log_dir),
+            )
+            if new_path_str is None:
+                status = t("manage_logs.cancelled")
+            else:
+                raw = new_path_str.strip()
+                chosen = Path(raw).expanduser().resolve() if raw else log_dir
+                try:
+                    chosen.mkdir(parents=True, exist_ok=True)
+                except OSError as exc:
+                    status = f"✖ {exc}"
+                else:
+                    do_move = False
+                    if all_logs and chosen != log_dir:
+                        move_prompt = (
+                            f"  {t('manage_logs.move_logs_prompt', count=len(all_logs))}"
+                            "  [y/N]"
+                        )
+                        try:
+                            stdscr.move(h - 1, 0)
+                            stdscr.clrtoeol()
+                            stdscr.addstr(h - 1, 0, move_prompt[:w - 1], curses.A_BOLD)
+                        except curses.error:
+                            pass
+                        stdscr.refresh()
+                        mv_ch = stdscr.getch()
+                        do_move = mv_ch in (ord("y"), ord("Y"))
+                    if do_move:
+                        import shutil as _shutil
+                        moved = 0
+                        for fp in all_logs:
+                            try:
+                                _shutil.move(str(fp), str(chosen / fp.name))
+                                moved += 1
+                            except OSError:
+                                pass
+                        status = t("manage_logs.move_logs_done", count=moved)
+                    if chosen != log_dir:
+                        _add_extra_dir(user_config, log_dir)
+                    user_config.set("log_dir", str(chosen))
+                    marked.clear()
+                    cursor = 0
+                    scroll = 0
+                    if not do_move:
+                        status = t("manage_logs.location_updated", path=str(chosen))
+
+
+# ---------------------------------------------------------------------------
+# Public entry point — dispatches to curses or plain depending on TTY
+# ---------------------------------------------------------------------------
+
+def run_manage_logs(user_config, config, t) -> int:
+    """Manage audit report files.
+
+    Uses a curses TUI when stdout is a TTY; falls back to the text-mode
+    implementation otherwise (tests, pipes, cron).
+    """
+    if not sys.stdout.isatty():
+        return _run_manage_logs_plain(user_config, config, t)
+
+    import curses
+    import os as _os
+    _os.environ.setdefault("ESCDELAY", "25")
+    try:
+        return curses.wrapper(
+            lambda scr: _run_manage_logs_curses(scr, user_config, config, t)
+        )
+    except Exception:
+        return _run_manage_logs_plain(user_config, config, t)

@@ -23,15 +23,12 @@ from ufw_audit.checks.samba import (
     _is_yes,
 )
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import levels, _t
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _t(key, **kwargs):
-    """Passthrough translation helper."""
-    return key
 
 
 def make_snap(**kwargs) -> SambaSnapshot:
@@ -49,10 +46,6 @@ def make_snap(**kwargs) -> SambaSnapshot:
     )
     defaults.update(kwargs)
     return SambaSnapshot(**defaults)
-
-
-def levels(result) -> list[str]:
-    return [f.level.value for f in result.findings]
 
 
 def keys(result) -> list[str]:
@@ -541,8 +534,8 @@ class TestFromSystemNotInstalled:
         monkeypatch.setattr(samba_mod, "_command_exists", lambda name: False)
         monkeypatch.setattr(samba_mod, "_SMB_CONF_PATH", tmp_path / "smb.conf")
         snap = SambaSnapshot.from_system()
-        assert snap.installed is False
-        assert snap.conf_readable is False
+        assert not snap.installed
+        assert not snap.conf_readable
 
     def test_from_system_conf_exists_marks_installed(self, monkeypatch, tmp_path):
         """When smb.conf exists even without smbd → installed = True."""
@@ -552,8 +545,8 @@ class TestFromSystemNotInstalled:
         monkeypatch.setattr(samba_mod, "_command_exists", lambda name: False)
         monkeypatch.setattr(samba_mod, "_SMB_CONF_PATH", conf)
         snap = SambaSnapshot.from_system()
-        assert snap.installed is True
-        assert snap.conf_readable is True
+        assert snap.installed
+        assert snap.conf_readable
 
     def test_from_system_smb1_detected(self, monkeypatch, tmp_path):
         """from_system() correctly detects max protocol = NT1 as SMB1."""
@@ -563,7 +556,7 @@ class TestFromSystemNotInstalled:
         monkeypatch.setattr(samba_mod, "_command_exists", lambda name: False)
         monkeypatch.setattr(samba_mod, "_SMB_CONF_PATH", conf)
         snap = SambaSnapshot.from_system()
-        assert snap.smb1_enabled is True
+        assert snap.smb1_enabled
 
     def test_from_system_null_passwords_detected(self, monkeypatch, tmp_path):
         import ufw_audit.checks.samba as samba_mod
@@ -572,7 +565,7 @@ class TestFromSystemNotInstalled:
         monkeypatch.setattr(samba_mod, "_command_exists", lambda name: False)
         monkeypatch.setattr(samba_mod, "_SMB_CONF_PATH", conf)
         snap = SambaSnapshot.from_system()
-        assert snap.null_passwords is True
+        assert snap.null_passwords
 
     def test_from_system_guest_writable_share(self, monkeypatch, tmp_path):
         import ufw_audit.checks.samba as samba_mod
@@ -586,7 +579,7 @@ class TestFromSystemNotInstalled:
         monkeypatch.setattr(samba_mod, "_SMB_CONF_PATH", conf)
         snap = SambaSnapshot.from_system()
         assert len(snap.guest_shares) == 1
-        assert snap.guest_shares[0].writable is True
+        assert snap.guest_shares[0].writable
 
     def test_from_system_guest_readonly_share(self, monkeypatch, tmp_path):
         import ufw_audit.checks.samba as samba_mod
@@ -600,7 +593,7 @@ class TestFromSystemNotInstalled:
         monkeypatch.setattr(samba_mod, "_SMB_CONF_PATH", conf)
         snap = SambaSnapshot.from_system()
         assert len(snap.guest_shares) == 1
-        assert snap.guest_shares[0].writable is False
+        assert not snap.guest_shares[0].writable
 
     def test_from_system_bind_interfaces_only(self, monkeypatch, tmp_path):
         import ufw_audit.checks.samba as samba_mod
@@ -609,7 +602,7 @@ class TestFromSystemNotInstalled:
         monkeypatch.setattr(samba_mod, "_command_exists", lambda name: False)
         monkeypatch.setattr(samba_mod, "_SMB_CONF_PATH", conf)
         snap = SambaSnapshot.from_system()
-        assert snap.bind_interfaces_only is True
+        assert snap.bind_interfaces_only
 
     def test_from_system_server_signing_mandatory(self, monkeypatch, tmp_path):
         import ufw_audit.checks.samba as samba_mod
@@ -671,7 +664,7 @@ class TestFromSystemNotInstalled:
         monkeypatch.setattr(samba_mod, "_command_exists", lambda name: False)
         monkeypatch.setattr(samba_mod, "_SMB_CONF_PATH", conf)
         snap = SambaSnapshot.from_system()
-        assert snap.smb1_enabled is True
+        assert snap.smb1_enabled
 
     def test_from_system_read_only_no_skips_guest(self, monkeypatch, tmp_path):
         """read only = no → writable = True for guest share."""
@@ -686,4 +679,4 @@ class TestFromSystemNotInstalled:
         monkeypatch.setattr(samba_mod, "_SMB_CONF_PATH", conf)
         snap = SambaSnapshot.from_system()
         assert len(snap.guest_shares) == 1
-        assert snap.guest_shares[0].writable is True
+        assert snap.guest_shares[0].writable

@@ -27,7 +27,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
-from ufw_audit.checks._run import _identity_t
+from ufw_audit.checks._run import _C_LOCALE_ENV, _identity_t
 from ufw_audit.scoring import CheckResult
 
 logger = logging.getLogger(__name__)
@@ -504,8 +504,7 @@ def _read_from_journald(log_days: int) -> tuple[str, bool]:
         and reachable is True if journald responded successfully.
     """
     try:
-        import subprocess as _sp
-        result = _sp.run(
+        result = subprocess.run(
             [
                 "journalctl", "-k",
                 "--no-pager",
@@ -515,11 +514,12 @@ def _read_from_journald(log_days: int) -> tuple[str, bool]:
             capture_output=True,
             text=True,
             timeout=30,
+            env=_C_LOCALE_ENV,
         )
         if result.returncode == 0 and result.stdout.strip():
             content = result.stdout
             return (content if "[UFW " in content else ""), True
-    except Exception:
+    except (OSError, subprocess.SubprocessError, subprocess.TimeoutExpired):
         pass
     return "", False
 

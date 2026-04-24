@@ -22,6 +22,7 @@ from ufw_audit.checks.ports import (
     check_ports,
 )
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import levels
 
 
 # ---------------------------------------------------------------------------
@@ -38,10 +39,6 @@ def make_snapshot(ports=None, ufw_rules="", ss_output="") -> PortsSnapshot:
         ufw_rules=ufw_rules,
         ss_output=ss_output,
     )
-
-
-def levels(result) -> list[str]:
-    return [f.level.value for f in result.findings]
 
 
 def has_level(result, level: str) -> bool:
@@ -62,24 +59,24 @@ class TestListeningPort:
         assert p.port_proto == "22/tcp"
 
     def test_is_all_interfaces_true(self):
-        assert make_port(address="0.0.0.0").is_all_interfaces is True
-        assert make_port(address="::").is_all_interfaces is True
+        assert make_port(address="0.0.0.0").is_all_interfaces
+        assert make_port(address="::").is_all_interfaces
 
     def test_is_all_interfaces_false(self):
-        assert make_port(address="127.0.0.1").is_all_interfaces is False
-        assert make_port(address="192.168.1.1").is_all_interfaces is False
+        assert not make_port(address="127.0.0.1").is_all_interfaces
+        assert not make_port(address="192.168.1.1").is_all_interfaces
 
     def test_is_all_interfaces_false_when_iface_scoped(self):
         # 0.0.0.0%virbr0 binds to a specific interface — not "all interfaces"
         lp = ListeningPort(port=67, proto="udp", address="0.0.0.0", raw_line="", iface="virbr0")
-        assert lp.is_all_interfaces is False
+        assert not lp.is_all_interfaces
 
     def test_is_loopback_true(self):
-        assert make_port(address="127.0.0.1").is_loopback is True
-        assert make_port(address="::1").is_loopback is True
+        assert make_port(address="127.0.0.1").is_loopback
+        assert make_port(address="::1").is_loopback
 
     def test_is_loopback_false(self):
-        assert make_port(address="0.0.0.0").is_loopback is False
+        assert not make_port(address="0.0.0.0").is_loopback
 
 
 # ---------------------------------------------------------------------------
@@ -177,13 +174,13 @@ class TestIsCoveredByUfw:
     RULES_WITHOUT_22 = "[ 1] 80/tcp  ALLOW IN  Anywhere\n"
 
     def test_covered(self):
-        assert _is_covered_by_ufw(22, "tcp", self.RULES_WITH_22) is True
+        assert _is_covered_by_ufw(22, "tcp", self.RULES_WITH_22)
 
     def test_not_covered(self):
-        assert _is_covered_by_ufw(22, "tcp", self.RULES_WITHOUT_22) is False
+        assert not _is_covered_by_ufw(22, "tcp", self.RULES_WITHOUT_22)
 
     def test_empty_rules(self):
-        assert _is_covered_by_ufw(22, "tcp", "") is False
+        assert not _is_covered_by_ufw(22, "tcp", "")
 
 
 # ---------------------------------------------------------------------------

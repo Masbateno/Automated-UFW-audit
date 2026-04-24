@@ -11,6 +11,7 @@ Format (one JSON object per line):
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -59,10 +60,12 @@ def _rotate_if_needed() -> None:
     try:
         lines = [l for l in _HISTORY_FILE.read_text(encoding="utf-8").splitlines() if l.strip()]
         if len(lines) > _MAX_HISTORY_ENTRIES:
-            _HISTORY_FILE.write_text(
-                "\n".join(lines[-_MAX_HISTORY_ENTRIES:]) + "\n",
-                encoding="utf-8",
-            )
+            content = "\n".join(lines[-_MAX_HISTORY_ENTRIES:]) + "\n"
+            tmp = _HISTORY_FILE.with_suffix(".jsonl.tmp")
+            fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(content)
+            os.replace(str(tmp), str(_HISTORY_FILE))
     except OSError:
         pass
 

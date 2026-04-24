@@ -14,14 +14,12 @@ from ufw_audit.checks.file_integrity import (
     _check_age_days,
     check_file_integrity,
 )
+from tests.helpers import levels, _t
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _t(key, **kwargs):
-    return key
 
 
 def make_snap(**overrides) -> FileIntegritySnapshot:
@@ -32,10 +30,6 @@ def make_snap(**overrides) -> FileIntegritySnapshot:
     )
     defaults.update(overrides)
     return FileIntegritySnapshot(**defaults)
-
-
-def levels(result) -> list[str]:
-    return [f.level.value for f in result.findings]
 
 
 def has_level(result, level: str) -> bool:

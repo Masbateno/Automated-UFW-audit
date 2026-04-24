@@ -18,22 +18,16 @@ from ufw_audit.checks.secure_boot import (
     _STATE_NO_UEFI,
     _STATE_UNKNOWN,
 )
+from tests.helpers import levels, _t
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _t(key, **kwargs):
-    return key
-
 
 def make_snap(state: str = _STATE_ENABLED, method: str = "mokutil") -> SecureBootSnapshot:
     return SecureBootSnapshot(state=state, method=method)
-
-
-def levels(result) -> list[str]:
-    return [f.level.value for f in result.findings]
 
 
 def has_level(result, level: str) -> bool:

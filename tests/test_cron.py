@@ -242,7 +242,7 @@ class TestParseCronFile:
         entry = parse_cron_file(p, legacy=True)
         assert entry is not None
         assert entry.name == "nightly"
-        assert entry.legacy is True
+        assert entry.legacy
 
     def test_returns_none_for_missing_cron_line(self, tmp_path):
         content = "# name: broken\n# email: \nSHELL=/bin/bash\n"

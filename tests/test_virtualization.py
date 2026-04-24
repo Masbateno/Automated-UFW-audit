@@ -16,18 +16,12 @@ from ufw_audit.checks.virtualization import (
     check_virtualization,
 )
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import levels, _t
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _t(key, **kwargs):
-    return key
-
-
-def levels(result):
-    return [f.level.value for f in result.findings]
 
 
 def has_level(result, level):

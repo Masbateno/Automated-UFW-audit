@@ -16,6 +16,7 @@ from ufw_audit.checks.user_accounts import (
     _MAX_DEDUCTION_EMPTY_PASSWORD,
 )
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import levels
 
 
 # ---------------------------------------------------------------------------
@@ -38,10 +39,6 @@ def make_snap(**kwargs) -> UserAccountsSnapshot:
     )
     defaults.update(kwargs)
     return UserAccountsSnapshot(**defaults)
-
-
-def levels(result):
-    return [f.level.value for f in result.findings]
 
 
 def has_level(result, level: str) -> bool:
@@ -67,7 +64,7 @@ def deduction_keys(result):
 class TestSnapshotDefaults:
     def test_shadow_readable_default_false(self):
         s = UserAccountsSnapshot()
-        assert s.shadow_readable is False
+        assert not s.shadow_readable
 
     def test_uid_zero_default_empty(self):
         s = UserAccountsSnapshot()
@@ -398,29 +395,29 @@ class TestEdgeCases:
 
 class TestIsNoLoginShell:
     def test_standard_nologin(self):
-        assert _is_no_login_shell("/usr/sbin/nologin") is True
+        assert _is_no_login_shell("/usr/sbin/nologin")
 
     def test_sbin_nologin(self):
-        assert _is_no_login_shell("/sbin/nologin") is True
+        assert _is_no_login_shell("/sbin/nologin")
 
     def test_custom_path_nologin(self):
         """Custom install paths like /usr/local/sbin/nologin must be caught."""
-        assert _is_no_login_shell("/usr/local/sbin/nologin") is True
+        assert _is_no_login_shell("/usr/local/sbin/nologin")
 
     def test_bin_false(self):
-        assert _is_no_login_shell("/bin/false") is True
+        assert _is_no_login_shell("/bin/false")
 
     def test_usr_bin_false(self):
-        assert _is_no_login_shell("/usr/bin/false") is True
+        assert _is_no_login_shell("/usr/bin/false")
 
     def test_bash_is_login_shell(self):
-        assert _is_no_login_shell("/bin/bash") is False
+        assert not _is_no_login_shell("/bin/bash")
 
     def test_sh_is_login_shell(self):
-        assert _is_no_login_shell("/bin/sh") is False
+        assert not _is_no_login_shell("/bin/sh")
 
     def test_none_is_login_shell(self):
-        assert _is_no_login_shell(None) is False
+        assert not _is_no_login_shell(None)
 
     def test_empty_string_is_login_shell(self):
-        assert _is_no_login_shell("") is False
+        assert not _is_no_login_shell("")

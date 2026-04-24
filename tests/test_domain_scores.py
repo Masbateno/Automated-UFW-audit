@@ -359,28 +359,20 @@ class TestDiffCLI:
     def test_diff_flag_parsed(self):
         from ufw_audit.cli import parse_args
         cfg = parse_args(["--diff"])
-        assert cfg.diff_mode is True
+        assert cfg.diff_mode
 
     def test_diff_flag_default_false(self):
         from ufw_audit.cli import parse_args
         cfg = parse_args([])
-        assert cfg.diff_mode is False
+        assert not cfg.diff_mode
 
-    def test_diff_sets_quiet(self):
-        """--diff must suppress full audit output."""
-        from ufw_audit.cli import AuditConfig
-        # Simulate the __main__ logic: diff_mode → quiet
-        cfg = AuditConfig(diff_mode=True)
-        # The __main__ sets quiet=True when diff_mode is True
-        if cfg.diff_mode:
-            cfg.quiet = True
-        assert cfg.quiet is True
+
 
     def test_diff_with_verbose_flag(self):
         from ufw_audit.cli import parse_args
         cfg = parse_args(["--diff", "--verbose"])
-        assert cfg.diff_mode is True
-        assert cfg.verbose is True
+        assert cfg.diff_mode
+        assert cfg.verbose
 
     def test_diff_domain_scores_in_json(self):
         """domain_scores must appear in JSON output with correct structure."""

@@ -296,20 +296,20 @@ class TestCSVFormat:
 class TestOutputCLIParsing:
     def test_output_csv_equals(self):
         cfg = parse_args(["--output=csv"])
-        assert cfg.csv_mode is True
+        assert cfg.csv_mode
 
     def test_output_csv_space(self):
         cfg = parse_args(["--output", "csv"])
-        assert cfg.csv_mode is True
+        assert cfg.csv_mode
 
     def test_output_json_sets_json_mode(self):
         cfg = parse_args(["--output=json"])
-        assert cfg.json_mode is True
-        assert cfg.csv_mode is False
+        assert cfg.json_mode
+        assert not cfg.csv_mode
 
     def test_output_json_space(self):
         cfg = parse_args(["--output", "json"])
-        assert cfg.json_mode is True
+        assert cfg.json_mode
 
     def test_unknown_format_raises(self):
         with pytest.raises(CLIError, match="--output requires"):
@@ -321,20 +321,20 @@ class TestOutputCLIParsing:
 
     def test_csv_mode_default_false(self):
         cfg = AuditConfig()
-        assert cfg.csv_mode is False
+        assert not cfg.csv_mode
 
     def test_output_csv_does_not_set_json(self):
         cfg = parse_args(["--output=csv"])
-        assert cfg.json_mode is False
+        assert not cfg.json_mode
 
     def test_output_compatible_with_verbose(self):
         cfg = parse_args(["--output=csv", "--verbose"])
-        assert cfg.csv_mode is True
-        assert cfg.verbose is True
+        assert cfg.csv_mode
+        assert cfg.verbose
 
     def test_output_compatible_with_profile(self):
         cfg = parse_args(["--output=csv", "--profile=desktop"])
-        assert cfg.csv_mode is True
+        assert cfg.csv_mode
         assert cfg.profile == "desktop"
 
 

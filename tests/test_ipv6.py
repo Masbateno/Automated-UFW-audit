@@ -16,13 +16,11 @@ from ufw_audit.checks.ipv6 import (
     _read_global_ipv6,
     check_ipv6,
 )
+from tests.helpers import levels, _t
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _t(key, **kwargs):
-    return key
 
 
 def make_snapshot(**overrides) -> IPv6Snapshot:
@@ -36,10 +34,6 @@ def make_snapshot(**overrides) -> IPv6Snapshot:
     )
     defaults.update(overrides)
     return IPv6Snapshot(**defaults)
-
-
-def levels(result) -> list[str]:
-    return [f.level.value for f in result.findings]
 
 
 def has_level(result, level: str) -> bool:
@@ -400,47 +394,47 @@ class TestReadGlobalIPv6:
 
     def test_global_unicast_detected(self):
         output = "    inet6 2001:db8::1/64 scope global dynamic\n"
-        assert self._parse(output) is True
+        assert self._parse(output)
 
     def test_3000_prefix_is_global(self):
         output = "    inet6 3ffe:501::/32 scope global\n"
-        assert self._parse(output) is True
+        assert self._parse(output)
 
     def test_loopback_not_global(self):
         output = "    inet6 ::1/128 scope host\n"
-        assert self._parse(output) is False
+        assert not self._parse(output)
 
     def test_link_local_not_global(self):
         output = "    inet6 fe80::1/64 scope link\n"
-        assert self._parse(output) is False
+        assert not self._parse(output)
 
     def test_ula_fc_not_global(self):
         output = "    inet6 fc00::1/7 scope global\n"
-        assert self._parse(output) is False
+        assert not self._parse(output)
 
     def test_ula_fd_not_global(self):
         output = "    inet6 fd12:3456:789a::1/48 scope global\n"
-        assert self._parse(output) is False
+        assert not self._parse(output)
 
     def test_mixed_only_link_local(self):
         output = (
             "    inet6 ::1/128 scope host\n"
             "    inet6 fe80::a1b2:c3d4/64 scope link\n"
         )
-        assert self._parse(output) is False
+        assert not self._parse(output)
 
     def test_mixed_global_wins(self):
         output = (
             "    inet6 fe80::1/64 scope link\n"
             "    inet6 2001:db8::42/64 scope global\n"
         )
-        assert self._parse(output) is True
+        assert self._parse(output)
 
     def test_empty_output_returns_false(self):
-        assert self._parse("") is False
+        assert not self._parse("")
 
     def test_no_inet6_lines_returns_false(self):
-        assert self._parse("    inet 192.168.1.1/24 brd 192.168.1.255 scope global eth0\n") is False
+        assert not self._parse("    inet 192.168.1.1/24 brd 192.168.1.255 scope global eth0\n")
 
 
 # ---------------------------------------------------------------------------

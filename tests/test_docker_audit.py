@@ -85,7 +85,7 @@ class TestDockerNotInstalled:
         snap = DockerAuditSnapshot(docker_installed=False)
         assert snap.running_count == 0
         assert snap.privileged_containers == []
-        assert snap.scan_error is False
+        assert not snap.scan_error
 
     def test_not_installed_check_returns_no_findings_by_default(self):
         # The runner skips the section entirely when docker_installed=False.
@@ -414,7 +414,7 @@ class TestCombined:
 
 class TestSnapshotDefaults:
     def test_default_docker_installed_false(self):
-        assert DockerAuditSnapshot().docker_installed is False
+        assert not DockerAuditSnapshot().docker_installed
 
     def test_default_running_count_zero(self):
         assert DockerAuditSnapshot().running_count == 0
@@ -432,7 +432,7 @@ class TestSnapshotDefaults:
         assert DockerAuditSnapshot().host_network_containers == []
 
     def test_default_userns_remap_false(self):
-        assert DockerAuditSnapshot().userns_remap is False
+        assert not DockerAuditSnapshot().userns_remap
 
     def test_default_scan_error_false(self):
-        assert DockerAuditSnapshot().scan_error is False
+        assert not DockerAuditSnapshot().scan_error

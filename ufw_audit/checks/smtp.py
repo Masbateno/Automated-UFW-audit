@@ -60,6 +60,7 @@ class SmtpSnapshot:
                 ["ps", "-eo", "comm"],
                 stderr=subprocess.DEVNULL,
                 text=True,
+                timeout=10,
             )
             for line in ps_out.splitlines():
                 proc = line.strip().lower()
@@ -100,7 +101,7 @@ def _check_port_25() -> tuple[bool, str]:
     ):
         try:
             out = subprocess.check_output(
-                cmd, stderr=subprocess.DEVNULL, text=True
+                cmd, stderr=subprocess.DEVNULL, text=True, timeout=10,
             )
             binds: list[str] = []
             for line in out.splitlines():

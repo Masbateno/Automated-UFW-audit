@@ -61,7 +61,7 @@ class TestOpen:
     def test_enabled_is_true(self, tmp_path):
         r = AuditReport.open(directory=tmp_path, version="0.9.0")
         r.close()
-        assert r.enabled is True
+        assert r.enabled
 
     def test_path_in_given_directory(self, tmp_path):
         r = AuditReport.open(directory=tmp_path, version="0.9.0")
@@ -293,7 +293,7 @@ class TestContextManager:
 class TestNullReport:
     def test_null_report_enabled_false(self):
         r = AuditReport.null()
-        assert r.enabled is False
+        assert not r.enabled
 
     def test_null_report_path_is_none(self):
         r = AuditReport.null()

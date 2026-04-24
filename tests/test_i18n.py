@@ -21,7 +21,7 @@ class TestInit:
     def test_init_english(self):
         i18n.init("en")
         assert i18n.current_lang() == "en"
-        assert i18n._initialized is True
+        assert i18n._initialized
 
     def test_init_french(self):
         i18n.init("fr")
@@ -31,7 +31,7 @@ class TestInit:
         i18n.init("de")
         # current_lang() reflects the actually loaded locale, not the requested one
         assert i18n.current_lang() == "en"
-        assert i18n._initialized is True
+        assert i18n._initialized
 
     def test_init_twice_reloads(self):
         i18n.init("en")

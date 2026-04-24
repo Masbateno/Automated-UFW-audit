@@ -18,14 +18,12 @@ from ufw_audit.checks.memory import (
     _MIN_SWAP_USED_KB,
 )
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import levels, _t
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _t(key, **kwargs):
-    return key
 
 
 def make_snap(**kwargs) -> MemorySnapshot:
@@ -44,10 +42,6 @@ def make_snap(**kwargs) -> MemorySnapshot:
 
 def run(snap: MemorySnapshot, **kwargs):
     return check_memory(snap, t=_t, **kwargs)
-
-
-def levels(result):
-    return [f.level.value for f in result.findings]
 
 
 def has_level(result, level: str) -> bool:
@@ -81,7 +75,7 @@ class TestSnapshotDefaults:
 
     def test_swap_on_ssd_default_false(self):
         s = MemorySnapshot()
-        assert s.swap_on_ssd is False
+        assert not s.swap_on_ssd
 
     def test_swap_devices_default_empty(self):
         s = MemorySnapshot()

@@ -220,10 +220,15 @@ def check_ssl_certs(snapshot: SslCertsSnapshot, t=None) -> CheckResult:
                 )
                 total_deduction += pts
 
-        else:
+        elif days is not None:
             result.ok(
                 message=_t("ssl_certs.ok", path=short_path, days=days),
                 key="ssl_certs.ok",
+            )
+        else:
+            result.info(
+                message=_t("ssl_certs.read_error", path=cert.path, error="days_left unknown"),
+                key="ssl_certs.read_error",
             )
 
     return result

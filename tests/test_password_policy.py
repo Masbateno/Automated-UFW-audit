@@ -17,6 +17,7 @@ from ufw_audit.checks.password_policy import (
     _DEDUCTION_WEAK_MINLEN,
 )
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import levels
 
 
 # ---------------------------------------------------------------------------
@@ -42,10 +43,6 @@ def make_snap(**kwargs) -> PasswordPolicySnapshot:
     return PasswordPolicySnapshot(**defaults)
 
 
-def levels(result):
-    return [f.level.value for f in result.findings]
-
-
 def has_level(result, level: str) -> bool:
     return level in levels(result)
 
@@ -69,7 +66,7 @@ def deduction_keys(result):
 class TestSnapshotDefaults:
     def test_login_defs_readable_default_false(self):
         s = PasswordPolicySnapshot()
-        assert s.login_defs_readable is False
+        assert not s.login_defs_readable
 
     def test_pass_max_days_default_none(self):
         s = PasswordPolicySnapshot()

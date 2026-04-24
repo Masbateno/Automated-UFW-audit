@@ -19,15 +19,12 @@ _ANSI_RE = re.compile(r'\x1b\[[0-9;]*m')
 from ufw_audit.display import _wrap_for_box, print_audit_summary
 from ufw_audit.explain import EXPLAIN_KEYS, normalize_key
 from ufw_audit.scoring import Finding, FindingLevel, RiskLevel
+from tests.helpers import _t
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _t(key: str, **kwargs) -> str:
-    """Minimal translation stub — returns the key unchanged."""
-    return key
 
 
 class FakeEngine:

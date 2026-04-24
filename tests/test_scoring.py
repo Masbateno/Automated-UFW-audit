@@ -232,7 +232,7 @@ class TestScoreEngineFinalize:
         engine = ScoreEngine()
         engine.cap(3, "reason")
         _ = engine.score  # triggers finalize
-        assert engine._finalized is True
+        assert engine._finalized
 
 
 class TestRiskLevel:

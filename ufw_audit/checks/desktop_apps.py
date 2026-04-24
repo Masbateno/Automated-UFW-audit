@@ -51,7 +51,6 @@ _KNOWN_APPS: dict[str, str] = {
     "skype":           "Skype",
     "telegram-deskto": "Telegram",   # "telegram-desktop" truncated to 15 chars
     "signal-desktop":  "Signal",
-    "whatsie":         "WhatSie",
     "element-desktop": "Element (Matrix)",
     "nheko":           "Nheko (Matrix)",
     "fractal":         "Fractal (Matrix)",
@@ -113,6 +112,7 @@ class DesktopAppsSnapshot:
                 ["ps", "-eo", "comm"],
                 stderr=subprocess.DEVNULL,
                 text=True,
+                timeout=10,
             )
         except (OSError, subprocess.SubprocessError):
             return snap

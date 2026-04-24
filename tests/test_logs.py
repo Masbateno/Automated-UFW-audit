@@ -28,6 +28,7 @@ from ufw_audit.checks.logs import (
     check_logs,
 )
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import levels
 
 
 # ---------------------------------------------------------------------------
@@ -59,10 +60,6 @@ def make_snapshot(
         log_found=log_found,
         log_source=log_source,
     )
-
-
-def levels(result):
-    return [f.level.value for f in result.findings]
 
 
 def has_level(result, level):
@@ -619,7 +616,7 @@ class TestReadFromJournald:
         with patch("subprocess.run", return_value=mock_result):
             content, reachable = _read_from_journald(7)
         assert "[UFW " in content
-        assert reachable is True
+        assert reachable
 
     def test_returns_empty_content_when_no_ufw_entries(self):
         mock_result = MagicMock()
@@ -628,13 +625,13 @@ class TestReadFromJournald:
         with patch("subprocess.run", return_value=mock_result):
             content, reachable = _read_from_journald(7)
         assert content == ""
-        assert reachable is True
+        assert reachable
 
     def test_returns_false_on_exception(self):
         with patch("subprocess.run", side_effect=FileNotFoundError):
             content, reachable = _read_from_journald(7)
         assert content == ""
-        assert reachable is False
+        assert not reachable
 
     def test_journald_entries_parsed_by_parse_log(self):
         cutoff = datetime(2026, 1, 1)
@@ -650,10 +647,11 @@ class TestLogsSnapshotFromSystem:
 
     def test_journald_fallback_when_no_logfile(self, tmp_path):
         missing = tmp_path / "ufw.log"  # does not exist
+        # Use log_days=365 so _JOURNALD_SAMPLE's hardcoded date stays in window.
         with patch("ufw_audit.checks.logs._read_from_journald",
                    return_value=(_JOURNALD_SAMPLE, True)):
-            snap = LogsSnapshot.from_system(log_days=7, log_path=missing)
-        assert snap.log_found is True
+            snap = LogsSnapshot.from_system(log_days=365, log_path=missing)
+        assert snap.log_found
         assert snap.log_source == "journald"
         assert len(snap.entries) == 1
 
@@ -662,7 +660,7 @@ class TestLogsSnapshotFromSystem:
         with patch("ufw_audit.checks.logs._read_from_journald",
                    return_value=("", True)):
             snap = LogsSnapshot.from_system(log_days=7, log_path=missing)
-        assert snap.log_found is True
+        assert snap.log_found
         assert snap.log_source == "journald"
         assert snap.entries == []
 
@@ -671,7 +669,7 @@ class TestLogsSnapshotFromSystem:
         with patch("ufw_audit.checks.logs._read_from_journald",
                    return_value=("", False)):
             snap = LogsSnapshot.from_system(log_days=7, log_path=missing)
-        assert snap.log_found is False
+        assert not snap.log_found
         assert snap.log_source == "none"
 
     def test_file_source_preferred_over_journald(self, tmp_path):

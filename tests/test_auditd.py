@@ -16,14 +16,12 @@ from ufw_audit.checks.auditd import (
     _suggest_rules_cmd,
     check_auditd,
 )
+from tests.helpers import levels, _t
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _t(key, **kwargs):
-    return key
 
 
 def make_snap(**overrides) -> AuditdSnapshot:
@@ -35,10 +33,6 @@ def make_snap(**overrides) -> AuditdSnapshot:
     )
     defaults.update(overrides)
     return AuditdSnapshot(**defaults)
-
-
-def levels(result) -> list[str]:
-    return [f.level.value for f in result.findings]
 
 
 def has_level(result, level: str) -> bool:

@@ -16,16 +16,16 @@ from ufw_audit.scoring import FindingLevel
 
 class TestNtpSnapshotDefaults:
     def test_ntp_enabled_default_false(self):
-        assert NtpSnapshot().ntp_enabled is False
+        assert not NtpSnapshot().ntp_enabled
 
     def test_ntp_synchronized_default_false(self):
-        assert NtpSnapshot().ntp_synchronized is False
+        assert not NtpSnapshot().ntp_synchronized
 
     def test_ntp_service_default_empty(self):
         assert NtpSnapshot().ntp_service == ""
 
     def test_timedatectl_ok_default_false(self):
-        assert NtpSnapshot().timedatectl_ok is False
+        assert not NtpSnapshot().timedatectl_ok
 
 
 # ---------------------------------------------------------------------------
@@ -70,23 +70,23 @@ class TestNtpFromSystemTimedatectl:
         with patch("ufw_audit.checks.ntp._command_exists", return_value=True), \
              patch("ufw_audit.checks.ntp._run", side_effect=_make_run_side_effect(_TIMEDATECTL_SYNCED)):
             snap = NtpSnapshot.from_system()
-        assert snap.ntp_enabled is True
-        assert snap.ntp_synchronized is True
-        assert snap.timedatectl_ok is True
+        assert snap.ntp_enabled
+        assert snap.ntp_synchronized
+        assert snap.timedatectl_ok
 
     def test_enabled_not_synced(self):
         with patch("ufw_audit.checks.ntp._command_exists", return_value=True), \
              patch("ufw_audit.checks.ntp._run", side_effect=_make_run_side_effect(_TIMEDATECTL_ENABLED_NOT_SYNCED)):
             snap = NtpSnapshot.from_system()
-        assert snap.ntp_enabled is True
-        assert snap.ntp_synchronized is False
+        assert snap.ntp_enabled
+        assert not snap.ntp_synchronized
 
     def test_disabled(self):
         with patch("ufw_audit.checks.ntp._command_exists", return_value=True), \
              patch("ufw_audit.checks.ntp._run", side_effect=_make_run_side_effect(_TIMEDATECTL_DISABLED)):
             snap = NtpSnapshot.from_system()
-        assert snap.ntp_enabled is False
-        assert snap.ntp_synchronized is False
+        assert not snap.ntp_enabled
+        assert not snap.ntp_synchronized
 
     def test_service_detected_when_enabled(self):
         with patch("ufw_audit.checks.ntp._command_exists", return_value=True), \
@@ -106,8 +106,8 @@ class TestNtpFromSystemTimedatectl:
         with patch("ufw_audit.checks.ntp._command_exists", return_value=True), \
              patch("ufw_audit.checks.ntp._run", return_value=""):
             snap = NtpSnapshot.from_system()
-        assert snap.timedatectl_ok is False
-        assert snap.ntp_enabled is False
+        assert not snap.timedatectl_ok
+        assert not snap.ntp_enabled
 
 
 # ---------------------------------------------------------------------------
@@ -118,8 +118,8 @@ class TestNtpFromSystemFallback:
     def test_no_timedatectl_no_service(self):
         with patch("ufw_audit.checks.ntp._command_exists", return_value=False):
             snap = NtpSnapshot.from_system()
-        assert snap.ntp_enabled is False
-        assert snap.timedatectl_ok is False
+        assert not snap.ntp_enabled
+        assert not snap.timedatectl_ok
 
     def test_no_timedatectl_systemctl_active(self):
         def _cmd_exists(name):
@@ -133,7 +133,7 @@ class TestNtpFromSystemFallback:
         with patch("ufw_audit.checks.ntp._command_exists", side_effect=_cmd_exists), \
              patch("ufw_audit.checks.ntp._run", side_effect=_run_stub):
             snap = NtpSnapshot.from_system()
-        assert snap.ntp_enabled is True
+        assert snap.ntp_enabled
         assert snap.ntp_service == "chronyd"
 
 

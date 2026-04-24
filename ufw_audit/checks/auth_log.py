@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
-from ufw_audit.checks._run import _identity_t
+from ufw_audit.checks._run import _C_LOCALE_ENV, _identity_t
 from ufw_audit.scoring import CheckResult
 
 _LOG_PATHS: list[Path] = [
@@ -81,10 +81,11 @@ def _read_auth_from_journald(max_days: int = 90) -> str:
             capture_output=True,
             text=True,
             timeout=30,
+            env=_C_LOCALE_ENV,
         )
         if result.returncode == 0:
             return result.stdout
-    except Exception:
+    except (OSError, subprocess.SubprocessError, subprocess.TimeoutExpired):
         pass
     return ""
 

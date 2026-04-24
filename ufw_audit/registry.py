@@ -206,9 +206,9 @@ def _load_plugins(services: list[Service], ids_seen: set[str]) -> None:
     if not _PLUGIN_DIR.is_dir():
         return
 
+    _MAX_PLUGIN_SIZE = 256 * 1024  # 256 KB per plugin
     for plugin_file in sorted(_PLUGIN_DIR.glob("*.json")):
         try:
-            _MAX_PLUGIN_SIZE = 256 * 1024  # 256 KB per plugin
             with plugin_file.open(encoding="utf-8") as fh:
                 content = fh.read(_MAX_PLUGIN_SIZE + 1)
             if len(content) > _MAX_PLUGIN_SIZE:

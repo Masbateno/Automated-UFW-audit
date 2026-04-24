@@ -32,32 +32,16 @@ from ufw_audit.checks.kernel_modules import (
     _RISKY_NET,
 )
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import _deduction_keys, _deduction_points, _get_finding, _has_finding
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _has_finding(result, key: str, level: FindingLevel) -> bool:
-    return any(f.key == key and f.level == level for f in result.findings)
-
 
 def _finding_keys(result) -> list[str]:
     return [f.key for f in result.findings]
-
-
-def _deduction_keys(result) -> list[str]:
-    return [d.key for d in result.deductions]
-
-
-def _deduction_points(result) -> int:
-    """Return total deduction points (positive convention: 1 means score −1)."""
-    return sum(d.points for d in result.deductions)
-
-
-def _get_finding(result, key: str):
-    """Return the first finding with the given key, or None."""
-    return next((f for f in result.findings if f.key == key), None)
 
 
 def base_snapshot(**kwargs) -> KernelModulesSnapshot:
@@ -300,12 +284,12 @@ class TestUnloadCmd:
 class TestKernelModulesSnapshot:
     def test_defaults(self):
         snap = KernelModulesSnapshot()
-        assert snap.lsmod_available is False
+        assert not snap.lsmod_available
         assert snap.loaded_modules == []
 
     def test_custom_values(self):
         snap = KernelModulesSnapshot(lsmod_available=True, loaded_modules=["ext4"])
-        assert snap.lsmod_available is True
+        assert snap.lsmod_available
         assert "ext4" in snap.loaded_modules
 
 

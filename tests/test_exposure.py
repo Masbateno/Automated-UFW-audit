@@ -36,6 +36,7 @@ class _FakeListeningPort:
     port: int
     proto: str
     address: str
+    iface: str = ""
     raw_line: str = ""
     process: str = ""
 
@@ -45,7 +46,7 @@ class _FakeListeningPort:
 
     @property
     def is_all_interfaces(self) -> bool:
-        return self.address in ("0.0.0.0", "::")
+        return self.address in ("0.0.0.0", "::") and not self.iface
 
     @property
     def is_loopback(self) -> bool:
@@ -236,6 +237,30 @@ class TestOpenPorts:
         items = _call(ports=ports)
         item = _item(items, "open_ports")
         assert "32768/tcp" in item.detail
+
+    def test_udp_port_32767_is_shown(self):
+        # 32767/udp is the last UDP port below the ephemeral threshold — must appear.
+        ports = _make_ports((32767, "udp", "0.0.0.0"))
+        items = _call(ports=ports)
+        item = _item(items, "open_ports")
+        assert "32767/udp" in item.detail
+
+    def test_iface_scoped_port_not_exposed(self):
+        # 0.0.0.0%virbr0 is bound to a specific bridge interface, not all interfaces.
+        # dnsmasq/KVM ports like 67/udp%virbr0 must not appear in the attack surface.
+        port = _FakeListeningPort(port=67, proto="udp", address="0.0.0.0", iface="virbr0")
+        ports = _FakePortsSnapshot([port])
+        items = _call(ports=ports)
+        item = _item(items, "open_ports")
+        assert item.icon == "✔"  # no exposed ports
+
+    def test_iface_scoped_tcp_port_not_exposed(self):
+        # iface scoping applies to TCP too — not just UDP/dnsmasq.
+        port = _FakeListeningPort(port=22, proto="tcp", address="0.0.0.0", iface="virbr0")
+        ports = _FakePortsSnapshot([port])
+        items = _call(ports=ports)
+        item = _item(items, "open_ports")
+        assert item.icon == "✔"
 
 
 # ---------------------------------------------------------------------------

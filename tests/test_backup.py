@@ -28,14 +28,12 @@ from ufw_audit.checks.backup import (
     check_backup,
 )
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import _deduction_keys, _deduction_points, _t
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _t(key, **kwargs):
-    return key
 
 
 def _snap(
@@ -58,14 +56,6 @@ def _level(result, key: str) -> FindingLevel:
         if f.key == key:
             return f.level
     raise AssertionError(f"Key {key!r} not found in findings: {_keys(result)}")
-
-
-def _deduction_points(result) -> int:
-    return sum(d.points for d in result.deductions)
-
-
-def _deduction_keys(result) -> list[str]:
-    return [d.key for d in result.deductions]
 
 
 # ---------------------------------------------------------------------------
@@ -310,18 +300,18 @@ class TestBorgmaticConfigExists:
     def test_returns_true_for_existing_file(self, tmp_path):
         cfg = tmp_path / "config.yaml"
         cfg.write_text("repos:\n  - path: /backup")
-        assert _borgmatic_config_exists(cfg) is True
+        assert _borgmatic_config_exists(cfg)
 
     def test_returns_false_for_missing_path(self, tmp_path):
-        assert _borgmatic_config_exists(tmp_path / "nonexistent.yaml") is False
+        assert not _borgmatic_config_exists(tmp_path / "nonexistent.yaml")
 
     def test_returns_true_for_non_empty_dir(self, tmp_path):
         d = tmp_path / "borgmatic.d"
         d.mkdir()
         (d / "server.yaml").write_text("repos: []")
-        assert _borgmatic_config_exists(d) is True
+        assert _borgmatic_config_exists(d)
 
     def test_returns_false_for_empty_dir(self, tmp_path):
         d = tmp_path / "borgmatic.d"
         d.mkdir()
-        assert _borgmatic_config_exists(d) is False
+        assert not _borgmatic_config_exists(d)

@@ -84,6 +84,24 @@ def _run(argv=None) -> int:
         display_history(t=i18n.t)
         return EXIT_OK
 
+    if config.list_checks:
+        from ufw_audit.runner import _ALL_SECTIONS
+        sections = sorted(_ALL_SECTIONS)
+        col = max(len(s) for s in sections) + 2
+        cols = max(1, 76 // col)
+        print(f"Available --check / --skip sections ({len(sections)} total):\n")
+        for i, name in enumerate(sections):
+            end = "\n" if (i + 1) % cols == 0 or i == len(sections) - 1 else ""
+            print(f"  {name:<{col}}", end=end)
+        print()
+        print("Prefix matching: 'kernel' matches kernel_hardening and kernel_modules.")
+        print("Core checks (firewall, ports, services, logs) always run.")
+        print()
+        print("Usage:")
+        print("  sudo ufw-audit --check=ssh,hardening")
+        print("  sudo ufw-audit --skip=clamav,rootkit")
+        return EXIT_OK
+
     if config.ignore_key:
         i18n.init(lang=config.lang)
         output.init(no_color=config.no_color)
@@ -251,8 +269,7 @@ def _run(argv=None) -> int:
                     if not config.quiet:
                         output.print_info(f"Webhook: POST → {_webhook_url} [{_status}]")
                 except Exception as _exc:  # noqa: BLE001
-                    import sys as _sys
-                    print(f"Warning: webhook failed: {_exc}", file=_sys.stderr)
+                    print(f"Warning: webhook failed: {_exc}", file=sys.stderr)
             # ------------------------------------------------------------------------
 
             curr_baseline = build_baseline(engine, ports_snapshot, snapshots)
@@ -291,7 +308,8 @@ def _run(argv=None) -> int:
 
             report.write_risk_context_section(
                 section_title=t("sections.risk_context"),
-                entries=build_risk_context_entries(snapshots, config.lang, t),
+                entries=build_risk_context_entries(snapshots, config.lang, t,
+                                                   network_context=network_context),
             )
             report.write_next_steps([t("report.next_1"), t("report.next_2"), t("report.next_3")])
             report.close()

@@ -23,14 +23,12 @@ from ufw_audit.checks.disk import (
     _ATTR_UNCORRECTABLE,
 )
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import levels, _t
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _t(key, **kwargs):
-    return key
 
 
 def make_snap(**kwargs) -> DiskSnapshot:
@@ -72,10 +70,6 @@ def run(snap: DiskSnapshot):
     return check_disk(snap, t=_t)
 
 
-def levels(result):
-    return [f.level.value for f in result.findings]
-
-
 def has_level(result, level: str) -> bool:
     return level in levels(result)
 
@@ -99,7 +93,7 @@ def deduction_keys(result):
 class TestSnapshotDefaults:
     def test_smartctl_available_default_false(self):
         s = DiskSnapshot()
-        assert s.smartctl_available is False
+        assert not s.smartctl_available
 
     def test_smart_results_default_empty(self):
         s = DiskSnapshot()
@@ -115,7 +109,7 @@ class TestSnapshotDefaults:
 
     def test_smart_result_virtual_default_false(self):
         sr = SmartResult(device="/dev/sda")
-        assert sr.virtual is False
+        assert not sr.virtual
 
     def test_smart_result_reallocated_default_zero(self):
         sr = SmartResult(device="/dev/sda")

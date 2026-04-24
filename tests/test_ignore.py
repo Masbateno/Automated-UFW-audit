@@ -83,8 +83,10 @@ class TestLoadIgnoreKeys:
         f = tmp_path / "ignore.yml"
         f.write_text("ignore:\n  - key: k\n", encoding="utf-8")
         f.chmod(0o000)
-        result = load_ignore_keys(f)
-        f.chmod(0o644)
+        try:
+            result = load_ignore_keys(f)
+        finally:
+            f.chmod(0o644)
         assert result == frozenset()
 
     def test_deep_dot_notation_key(self, tmp_path):
@@ -101,7 +103,7 @@ class TestAddIgnoreKey:
     def test_creates_file_when_missing(self, tmp_path):
         f = tmp_path / "ignore.yml"
         result = add_ignore_key("ssh.permit_root_login", path=f)
-        assert result is True
+        assert result
         assert f.exists()
         assert "ssh.permit_root_login" in f.read_text(encoding="utf-8")
 
@@ -114,7 +116,7 @@ class TestAddIgnoreKey:
         f = tmp_path / "ignore.yml"
         add_ignore_key("ssh.permit_root_login", path=f)
         result = add_ignore_key("ssh.permit_root_login", path=f)
-        assert result is False
+        assert not result
 
     def test_does_not_add_duplicate_content(self, tmp_path):
         f = tmp_path / "ignore.yml"
@@ -132,11 +134,11 @@ class TestAddIgnoreKey:
 
     def test_returns_false_for_empty_key(self, tmp_path):
         f = tmp_path / "ignore.yml"
-        assert add_ignore_key("", path=f) is False
+        assert not add_ignore_key("", path=f)
 
     def test_returns_false_for_whitespace_only_key(self, tmp_path):
         f = tmp_path / "ignore.yml"
-        assert add_ignore_key("   ", path=f) is False
+        assert not add_ignore_key("   ", path=f)
 
     def test_returns_false_for_non_string(self, tmp_path):
         f = tmp_path / "ignore.yml"
@@ -285,12 +287,12 @@ class TestIgnoreCLI:
 
     def test_show_ignored_flag(self):
         config = parse_args(["--show-ignored"])
-        assert config.show_ignored is True
+        assert config.show_ignored
 
     def test_ignore_and_show_ignored_combined(self):
         config = parse_args(["--ignore=some.key", "--show-ignored"])
         assert config.ignore_key == "some.key"
-        assert config.show_ignored is True
+        assert config.show_ignored
 
     def test_ignore_does_not_require_audit_run(self):
         # --ignore exits before the audit — this just verifies parse doesn't raise

@@ -139,6 +139,9 @@ class AuditConfig:
     skip_checks: frozenset[str] = frozenset()
     """--skip=LIST: skip the named checks (comma-separated section names)."""
 
+    list_checks: bool = False
+    """--check=list: print all valid check names and exit (no sudo required)."""
+
     output_dir: str = ""
     """--output-dir=PATH: directory where the detailed report is saved (overrides saved config)."""
 
@@ -403,13 +406,19 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         elif arg.startswith("--check="):
             value = arg.split("=", 1)[1].strip()
             if not value:
-                raise CLIError("--check= requires a comma-separated list of check names")
-            config.check_only = frozenset(n.strip() for n in value.split(",") if n.strip())
+                raise CLIError("--check= requires a comma-separated list of check names, or 'list' to show all")
+            if value.lower() == "list":
+                config.list_checks = True
+            else:
+                config.check_only = frozenset(n.strip() for n in value.split(",") if n.strip())
 
         elif arg == "--check" and i + 1 < len(argv):
             i += 1
             value = argv[i].strip()
-            config.check_only = frozenset(n.strip() for n in value.split(",") if n.strip())
+            if value.lower() == "list":
+                config.list_checks = True
+            else:
+                config.check_only = frozenset(n.strip() for n in value.split(",") if n.strip())
 
         elif arg.startswith("--skip="):
             value = arg.split("=", 1)[1].strip()
@@ -434,6 +443,45 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
 
         elif arg == "--html":
             config.html_mode = True
+
+        elif arg.startswith("--format="):
+            value = arg.split("=", 1)[1].strip().lower()
+            _VALID_FORMATS = ("json", "json-full", "csv", "markdown", "html")
+            if value not in _VALID_FORMATS:
+                raise CLIError(
+                    f"--format requires one of: {', '.join(_VALID_FORMATS)}, got: {value!r}"
+                )
+            if value == "json":
+                config.json_mode = True
+            elif value == "json-full":
+                config.json_mode = True
+                config.json_full = True
+            elif value == "csv":
+                config.csv_mode = True
+            elif value == "markdown":
+                config.markdown_mode = True
+            elif value == "html":
+                config.html_mode = True
+
+        elif arg == "--format" and i + 1 < len(argv):
+            i += 1
+            value = argv[i].strip().lower()
+            _VALID_FORMATS = ("json", "json-full", "csv", "markdown", "html")
+            if value not in _VALID_FORMATS:
+                raise CLIError(
+                    f"--format requires one of: {', '.join(_VALID_FORMATS)}, got: {value!r}"
+                )
+            if value == "json":
+                config.json_mode = True
+            elif value == "json-full":
+                config.json_mode = True
+                config.json_full = True
+            elif value == "csv":
+                config.csv_mode = True
+            elif value == "markdown":
+                config.markdown_mode = True
+            elif value == "html":
+                config.html_mode = True
 
         else:
             raise CLIError(f"Unknown option: {arg!r}")
@@ -463,7 +511,7 @@ def parse_args(argv: list[str] | None = None) -> AuditConfig:
         raise CLIError("--quiet is incompatible with --html (HTML output requires stdout)")
     _output_modes = sum([config.json_mode, config.csv_mode, config.markdown_mode, config.html_mode])
     if _output_modes > 1:
-        raise CLIError("--json, --output csv, --output markdown, and --html cannot be combined")
+        raise CLIError("Output format flags cannot be combined (--format, --json, --html, --output)")
     if config.watch_mode and config.json_mode:
         raise CLIError("--watch is incompatible with --json (watch mode uses interactive output)")
     if config.watch_mode and config.csv_mode:
@@ -519,21 +567,18 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
     opt("    --watch[=N]",       "Re-run audit every N seconds (default: 60) — Ctrl+C to quit")
     opt("-o, --offline",         "Skip external IP lookup (no HTTP calls)")
     opt("    --target=N",        "Score target (1–10): show gap or success in summary")
-    opt("    --check=LIST",      "Run only these checks (comma-separated: ssh,firewall,ports…)")
+    opt("    --check=LIST",      "Run only these checks (comma-separated); --check=list to show all names")
     opt("    --skip=LIST",       "Skip these checks (comma-separated; mutually exclusive with --check)")
     opt("    --output-dir=PATH", "Save detailed report to PATH (overrides saved config)")
 
     section("OUTPUT — how to present results")
-    opt("-v, --verbose",         "Show detailed port exposure for each service")
-    opt("-d, --detailed",        "Save full audit report to a log file")
-    opt("-q, --quiet",           "Suppress all output — use exit code to detect issues")
-    opt("-n, --no-color",        "Disable colour output")
-    opt("-j, --json",            "Export audit summary as JSON to stdout")
-    opt("-J, --json-full",       "Export full audit details as JSON (implies --json)")
-    opt("    --output csv",      "Export findings as CSV to stdout (spreadsheet/dashboard)")
-    opt("    --output markdown", "Export full report as Markdown to stdout (GitHub/wiki)")
-    opt("    --html",            "Export full report as standalone HTML to stdout")
-    opt("    --min-level=LEVEL", "Only show findings at or above: warn  |  alert")
+    opt("-v, --verbose",          "Show detailed port exposure for each service")
+    opt("-d, --detailed",         "Save full audit report to a log file")
+    opt("-q, --quiet",            "Suppress all output — use exit code to detect issues")
+    opt("-n, --no-color",         "Disable colour output")
+    opt("    --format=FORMAT",    "Output format: json | json-full | csv | markdown | html")
+    opt("-j / -J",                "Shorthands: --format=json / --format=json-full")
+    opt("    --min-level=LEVEL",  "Only show findings at or above: warn  |  alert")
 
     section("FIXES — apply remediation suggestions")
     opt("-f, --fix",             "Preview available fixes (dry run — nothing is executed)")
@@ -586,7 +631,7 @@ def print_help(t, version: str) -> None:  # noqa: ARG001 — t reserved for futu
     print("  sudo ufw-audit -D                     Show what changed since last audit")
     print("  sudo ufw-audit --watch                Re-run every 60s and show only changes")
     print("  sudo ufw-audit --watch=30             Re-run every 30s")
-    print("  sudo ufw-audit -j | jq '.score'       Extract score as JSON")
+    print("  sudo ufw-audit --format=json | jq '.score'  Extract score as JSON")
     print("  sudo ufw-audit -w https://hooks.slack.com/...  Send to Slack")
     print("  ufw-audit -e ssh.password_auth        Explain a finding (no sudo)")
 

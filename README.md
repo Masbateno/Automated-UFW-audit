@@ -162,14 +162,16 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ---
 
-## 🆕 v1.22.3
+## 🆕 v1.23.0
 
-- 🐛 **Interface-scoped ports excluded from exposure** — `0.0.0.0%virbr0` (dnsmasq/KVM) no longer shown as all-interfaces
-- 🐛 **Ephemeral UDP ports filtered from exposure** — avahi/mDNS high-numbered sockets no longer pollute the attack surface table
-- ✨ **`ufw status verbose` shown in rules section** — displayed after findings in `-v` mode
-- ✅ 4007/4007 unit tests (+2)
+- ✨ **`--format=FORMAT`** — unified output flag: `json | json-full | csv | markdown | html`; legacy flags (`-j`, `-J`, `--output csv`, `--html`) kept as aliases
+- ✨ **`--check=list`** — prints all 31 filterable section names (no sudo required)
+- ✨ **`--manage-logs` log preview** — Enter opens a scrollable viewer; `s` toggles full/summary mode (score + ALERT/WARN only); `g/G` top/bottom
+- ✨ **Risk context scope qualifier** — `[CRITIQUE • LAN]` on all service labels when network context is local
+- 🔧 **TUI help bar harmonization** — consistent hints across `--explain`, `--manage-logs`, preview viewer
+- ✅ 4042/4042 unit tests (+35)
 
-### v1.22.2
+### v1.22.3
 
 - 🐛 **Snakeoil cert filter extended** — now covers nginx/apache/postfix config paths (previously only `/etc/ssl/private`)
 - 🐛 **DDNS reflected in exposure view** — internet-facing row shows `⚠ warn` when DDNS is active

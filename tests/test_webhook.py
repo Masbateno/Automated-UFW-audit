@@ -429,5 +429,5 @@ class TestCLIWebhookParsing:
         """--diff and --explain can be combined without conflict."""
         from ufw_audit.cli import parse_args
         cfg = parse_args(["--diff", "--explain=ssh.password_auth"])
-        assert cfg.diff_mode is True
+        assert cfg.diff_mode
         assert cfg.explain_key == "ssh.password_auth"

@@ -22,18 +22,12 @@ from ufw_audit.checks.firewall import FirewallStatus, check_firewall, check_rule
 from ufw_audit.checks.logs import LogEntry, LogsSnapshot, check_logs
 from ufw_audit.checks.ports import ListeningPort, PortsSnapshot, check_ports
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import levels, _t
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _t(key, **kwargs):
-    return key
-
-
-def levels(result):
-    return [f.level.value for f in result.findings]
 
 
 def has_level(result, level):

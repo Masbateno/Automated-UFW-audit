@@ -24,6 +24,7 @@ from ufw_audit.checks.ssh import (
     check_ssh,
 )
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import _deduction_keys, _deduction_points, _has_finding
 
 # Default LoginGraceTime used by _parse_time_seconds on invalid input
 _DEFAULT_GRACE_SECS = 120
@@ -39,19 +40,6 @@ def _levels(result):
 
 def _keys(result):
     return [f.key for f in result.findings]
-
-
-def _deduction_keys(result):
-    return [d.key for d in result.deductions]
-
-
-def _deduction_points(result):
-    return sum(d.points for d in result.deductions)
-
-
-def _has_finding(result, key: str, level: FindingLevel) -> bool:
-    """Return True if result contains a finding with the given key AND level."""
-    return any(f.key == key and f.level == level for f in result.findings)
 
 
 def _make_rsa_blob(bits: int) -> str:
@@ -725,14 +713,14 @@ class TestParseAuthorizedKeys:
         entries = _parse_authorized_keys(ak)
         assert len(entries) == 1
         assert entries[0].key_type == "ssh-ed25519"
-        assert entries[0].has_restrictions is False
+        assert not entries[0].has_restrictions
 
     def test_parses_options(self, tmp_path):
         ak = tmp_path / "authorized_keys"
         ak.write_text('command="/bin/backup" ssh-ed25519 AAAA...blob user@host\n')
         entries = _parse_authorized_keys(ak)
         assert len(entries) == 1
-        assert entries[0].has_restrictions is True
+        assert entries[0].has_restrictions
 
     def test_skips_comments(self, tmp_path):
         ak = tmp_path / "authorized_keys"
@@ -790,7 +778,7 @@ class TestParseKnownHosts:
         kh = tmp_path / "known_hosts"
         kh.write_text("|1|abc123|def456 ssh-ed25519 AAAA...blob\n")
         entries = _parse_known_hosts(kh)
-        assert entries[0].is_hashed is True
+        assert entries[0].is_hashed
 
     def test_skips_comments_and_blanks(self, tmp_path):
         kh = tmp_path / "known_hosts"
@@ -838,7 +826,7 @@ class TestHasPassphrase:
         )
         kf = tmp_path / "id_ed25519"
         kf.write_text(key_text)
-        assert _has_passphrase(kf) is True
+        assert _has_passphrase(kf)
 
     def test_new_format_unencrypted(self, tmp_path):
         import base64
@@ -853,7 +841,7 @@ class TestHasPassphrase:
         )
         kf = tmp_path / "id_ed25519"
         kf.write_text(key_text)
-        assert _has_passphrase(kf) is False
+        assert not _has_passphrase(kf)
 
     def test_old_pem_encrypted(self, tmp_path):
         kf = tmp_path / "id_rsa"
@@ -864,7 +852,7 @@ class TestHasPassphrase:
             "...\n"
             "-----END RSA PRIVATE KEY-----\n"
         )
-        assert _has_passphrase(kf) is True
+        assert _has_passphrase(kf)
 
     def test_old_pem_unencrypted(self, tmp_path):
         kf = tmp_path / "id_rsa"
@@ -873,7 +861,7 @@ class TestHasPassphrase:
             "MIIEowIBAAKCAQEA...\n"
             "-----END RSA PRIVATE KEY-----\n"
         )
-        assert _has_passphrase(kf) is False
+        assert not _has_passphrase(kf)
 
     def test_missing_file_returns_none(self, tmp_path):
         assert _has_passphrase(tmp_path / "nonexistent") is None

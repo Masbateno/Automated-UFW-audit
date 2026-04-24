@@ -1,9 +1,9 @@
 *[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
-# ufw-audit v1.22.3
+# ufw-audit v1.23.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.22.3-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.23.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -36,7 +36,7 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **Bilingual interface** — English by default, French with `--french`
 - **No-colour mode** — `--no-color` for clean output in pipes and log files
 - **Optional detailed report** — timestamped log file with ASCII art header, system info, findings, and recommendations
-- **`--manage-logs`** — interactive UI to list saved reports (name, size, date) and delete them by index or all at once
+- **`--manage-logs`** — interactive UI to list saved reports (name, size, date) and delete them by index or all at once; Enter opens a scrollable log preview (`s` toggles full/summary mode; `g`/`G` jump to top/bottom)
 - **`--install-cron`** — schedule wizard: name the job, choose schedule type (daily / specific week days / specific month days / custom cron expression), set time, set optional notification email; preview in natural language before confirmation; named cron jobs (`/etc/cron.d/ufw-audit-{name}`)
 - **`--manage-cron`** — looping TUI: list installed cron jobs, edit schedule or notification email, delete; `m` command opens the email address book (add / delete saved addresses) accessible even without any cron installed
 - **Hardening check** — system hardening audit: unattended-upgrades, AppArmor mode, rp_filter, ICMP redirects, log_martians, ICMP broadcast echo; scored deductions for the most impactful settings
@@ -53,7 +53,7 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **Linux Audit Framework (auditd)** — detects installation, service status, loaded rules, and coverage of sensitive files (/etc/passwd, /etc/shadow, /etc/sudoers); WARN −1 pt each for inactive service, no rules, uncovered sensitive files (server profile only)
 - **Secure Boot** — UEFI Secure Boot state via `mokutil --sb-state` → `/sys/firmware/efi/efivars/` → `bootctl status`; WARN −1 pt if disabled on desktop; INFO if disabled on server/VM or BIOS/unknown
 - **File integrity monitoring (AIDE/Tripwire)** — detects tool installation, database initialisation, and last check date; AIDE preferred over Tripwire; WARN −1 pt if no database or no recent check (>30 days); `_check_age_days` uses UTC-aware datetimes
-- **`--explain KEY`** — structured per-finding explanation (WHY IT IS A RISK / HOW TO FIX / CIS Ubuntu 22.04 reference); 76 explainable keys in 19 groups; 17 keys show profile-specific sections (`[ server ]` / `[ desktop ]` / `[ container ]`); keys with no profile difference show a uniform yellow note; `--explain list` shows all keys with group headers; interactive TUI with ESC delay reduced to 25 ms; no root required
+- **`--explain KEY`** — structured per-finding explanation (WHY IT IS A RISK / HOW TO FIX / CIS Ubuntu 22.04 reference); 112 explainable keys in 26 groups; 17 keys show profile-specific sections (`[ server ]` / `[ desktop ]` / `[ container ]`); keys with no profile difference show a uniform yellow note; `--explain list` shows all keys with group headers; interactive TUI with ESC delay reduced to 25 ms; no root required
 - **Domain scores** — per-domain security sub-scores (SSH / Samba Security / Files & Access / Updates / Hardening / Disk Health / Firewall & Services); 7 domains; displayed as bar chart after audit; included in JSON output and webhook payload
 - **Webhooks** — `--webhook URL` POSTs audit result as JSON after each audit; generic (Grafana/automation) and Slack formats (auto-detected by URL); non-fatal; `--webhook-format=auto|generic|slack`
 - **Samba security audit** — full `smb.conf` analysis: SMB1 protocol detection (ALERT, −2 pts); null passwords enabled (ALERT, −3 pts); server signing disabled (WARN, −1 pt); guest-writable shares (ALERT, −2 pts/share); guest-readable shares (WARN, −1 pt/share); `map to guest = bad user` (WARN, −1 pt); bind interfaces check (INFO); dedicated **samba** domain
@@ -76,7 +76,7 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **Systemd timers security audit** — `systemctl list-timers --all --no-pager`; curl/wget piped to a shell in ExecStart → WARN −2 pts (flat); world-writable `.sh` scripts in ExecStart → WARN −1 pt (flat); user-created timers in `/etc/systemd/system/` without `User=` → INFO; two-part regex prevents false negatives on `/bin/bash`/`bash -c`; `lstrip("-@")` handles systemd prefixes; `_MAX_TIMERS=100`
 - **Firmware & microcode audit** — `fwupdmgr get-updates` (cached, no forced network); pending device firmware → WARN −1 pt; CPU microcode package via `dpkg -l`; Intel → `intel-microcode`; AMD → `amd64-microcode`; non-Intel/AMD → INFO; missing → WARN −1 pt; exact column match prevents false positives on arch-qualified packages; error and updates decoupled
 - **`--html` HTML export** — `build_html_output()` produces a self-contained HTML file (no JS, no external resources); embedded CSS; colored score circle; ALERT/WARN/INFO/OK badges; deductions table; `_h()` applies `html.escape(quote=True)` to all user data — XSS-safe
-- **`--check LIST` / `--skip LIST`** — run only named checks (`--check=ssh,firewall`) or exclude them (`--skip=clamav,rootkit`); mutually exclusive; `_section_enabled()` helper in `runner.py`; `validate_check_filters()` warns on unknown names; profile `skip_sections` respected
+- **`--check LIST` / `--skip LIST`** — run only named checks (`--check=ssh,firewall`) or exclude them (`--skip=clamav,rootkit`); mutually exclusive; `_section_enabled()` helper in `runner.py`; `validate_check_filters()` warns on unknown names; profile `skip_sections` respected; `--check=list` prints all 31 filterable section names (no sudo required)
 - **`--output-dir PATH`** — override report save directory for the current run; `get_or_prompt_log_dir()` prioritises this over saved config; no persist
 - **Signal correlation engine** — `correlation.py`: 5 compound-risk rules (root+no-fail2ban → ALERT; password-auth+brute-force → ALERT; root+password → ALERT; NOPASSWD+SUID → WARN; stale+no-fail2ban → WARN; logging-off+no-fail2ban+no-auditd → WARN); `CorrelationRule` with `all_of`/`any_of` frozensets; evaluated post-finalize on ALERT+WARN finding keys; `triggered_by` list identifies contributing findings
 - **Recurring finding tracker** — `recurrence.py`: consecutive-audit appearance counter per ALERT/WARN key; `~/.config/ufw-audit/recurrence.json`; atomic write; corrupted/negative values normalised; empty-key entries filtered on load
@@ -86,6 +86,12 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **Kernel obsolete message fix** — `kernels_obsolete_same` locale key; suppresses redundant "(running: X, latest: X)" parenthetical when running kernel equals most-recent installed
 - **Snakeoil cert filter** — `ssl-cert-snakeoil.pem` excluded from `/etc/ssl/private` scan; prevents Debian/Ubuntu system test cert from triggering TLS audit
 - **`--explain`** — 87→112 keys (+25 across 7 new groups: Authentication Logs, Umask, Firewall Logging, TLS / SSL Certificates, Systemd Timers, Firmware, Docker)
+- **`--format=FORMAT`** — unified output flag: `json | json-full | csv | markdown | html`; legacy flags (`-j`, `-J`, `--output csv`, `--html`) kept as silent aliases; mutually exclusive with each other
+- **`--check=list`** — prints all 31 filterable section names with a prefix-matching note; no sudo required
+- **`--install-cron` curses TUI** — `run_install_cron()` wraps `curses.wrapper()` for a full curses TUI with inline readline, Esc-to-cancel on every prompt, live schedule preview; falls back to the plain wizard when curses is unavailable; `run_manage_cron()` upgraded with the same curses/fallback pattern
+- **`ufw_audit/_tty.py`** — raw-mode line reader (`read_line()`): standalone Esc returns `None` (cancel); arrow-key sequences drained via 50 ms `select` window; graceful `input()` fallback in non-TTY environments (tests, pipes)
+- **Risk context scope qualifier** — `[CRITICAL • LAN]` (or `[CRITIQUE • LAN]` in French) appended to service labels when the network context is local; prevents confusion between local risk and internet exposure
+- **TUI help bar harmonization** — consistent hints across `--explain`, `--manage-logs`, and log preview: `↑↓: move` for list navigation, `↑↓ / PgUp/PgDn: scroll` for content, `Esc: back` for sub-screens
 
 ---
 
@@ -379,15 +385,16 @@ The report opens with a 62-char ASCII art header and contains: system informatio
 | `-y`, `--yes`           | Apply all corrections without confirmation (use with `-f`)         |
 | `-r`, `--reconfigure`   | Reconfigure all custom ports                                       |
 | `-n`, `--no-color`      | Disable ANSI colour output                                         |
-| `--json`                | Export summary as JSON                                             |
-| `--json-full`           | Export full audit details as JSON                                  |
+| `--format=FORMAT`       | Unified output flag: `json \| json-full \| csv \| markdown \| html` |
+| `--json`                | Export summary as JSON (alias for `--format=json`)                |
+| `--json-full`           | Export full audit details as JSON (alias for `--format=json-full`)|
 | `--explain=KEY`         | Print structured explanation for a finding key (`--explain list` shows all) |
 | `--diff`                | Silent audit — show only the baseline delta                        |
 | `--webhook=URL`         | POST audit result as JSON to URL after each audit                  |
 | `--webhook-format=FMT`  | Webhook payload format: `auto` (default), `generic`, or `slack`   |
 | `--log-days=N`          | Analyse logs over N days (default: 7)                              |
 | `-o`, `--offline`       | Skip external IP lookup and webhook call (no HTTP calls)           |
-| `--manage-logs`         | Interactive UI to list and delete saved report files               |
+| `--manage-logs`         | Interactive UI to list, preview, and delete saved report files     |
 | `--install-cron`        | Set up an automated nightly audit (cron)                           |
 | `--install-completion`  | Install bash completion and create sudo PATH symlink               |
 | `--french`              | Switch interface to French                                         |

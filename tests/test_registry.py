@@ -100,17 +100,17 @@ class TestService:
 
     def test_is_critical(self):
         s = Service.from_dict(make_service_dict(risk="critical"))
-        assert s.is_critical is True
+        assert s.is_critical
         s2 = Service.from_dict(make_service_dict(risk="high"))
-        assert s2.is_critical is False
+        assert not s2.is_critical
 
     def test_is_high_or_critical(self):
         for risk in ("high", "critical"):
             s = Service.from_dict(make_service_dict(risk=risk))
-            assert s.is_high_or_critical is True
+            assert s.is_high_or_critical
         for risk in ("low", "medium"):
             s = Service.from_dict(make_service_dict(risk=risk))
-            assert s.is_high_or_critical is False
+            assert not s.is_high_or_critical
 
     def test_main_port(self):
         s = Service.from_dict(make_service_dict(ports=["22/tcp", "2222/tcp"]))

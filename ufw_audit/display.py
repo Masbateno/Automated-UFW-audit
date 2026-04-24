@@ -142,7 +142,8 @@ def display_result(
 # ---------------------------------------------------------------------------
 
 def display_risk_context(label: str, lang: str, t, report,
-                         context_note: str | None = None) -> None:
+                         context_note: str | None = None,
+                         is_local: bool = False) -> None:
     """Display two-axis risk context for a high/critical service."""
     svc_id = (label.lower()
               .replace(" ", "_").replace("/", "_")
@@ -161,10 +162,13 @@ def display_risk_context(label: str, lang: str, t, report,
         risk_tier = "medium"
     else:
         risk_tier = "low"
+
+    level_display = f"{level} • LAN" if is_local else level
+
     from ufw_audit.output import print_risk_context, print_info
     print_risk_context(
         title=t("risk_context.title"),
-        level=level,
+        level=level_display,
         exposure_label=t("risk_context.exposure"),
         exposure=exposure,
         threat_label=t("risk_context.threat"),
@@ -174,7 +178,7 @@ def display_risk_context(label: str, lang: str, t, report,
     if context_note:
         print_info(context_note)
     report.write_finding("INFO",
-                         f"[{t('risk_context.title')} — {level}] {exposure}")
+                         f"[{t('risk_context.title')} — {level_display}] {exposure}")
 
 
 # ---------------------------------------------------------------------------
@@ -514,8 +518,10 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
 # Risk context report entries
 # ---------------------------------------------------------------------------
 
-def build_risk_context_entries(snapshots, lang: str, t) -> list[dict]:
+def build_risk_context_entries(snapshots, lang: str, t,
+                                network_context: str = "") -> list[dict]:
     """Build risk context entries for the report from active services with risk data."""
+    is_local = network_context == "local"
     entries = []
     for snap in snapshots:
         if not snap.is_active:
@@ -530,7 +536,7 @@ def build_risk_context_entries(snapshots, lang: str, t) -> list[dict]:
             continue
         entries.append({
             "label":          snap.service.label,
-            "level":          level,
+            "level":          f"{level} • LAN" if is_local else level,
             "exposure_label": t("risk_context.exposure"),
             "exposure":       exposure,
             "threat_label":   t("risk_context.threat"),

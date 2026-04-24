@@ -49,10 +49,10 @@ class TestParseJails:
 
 class TestFail2banSnapshotDefaults:
     def test_installed_default_false(self):
-        assert Fail2banSnapshot().installed is False
+        assert not Fail2banSnapshot().installed
 
     def test_service_active_default_false(self):
-        assert Fail2banSnapshot().service_active is False
+        assert not Fail2banSnapshot().service_active
 
     def test_active_jails_default_empty(self):
         assert Fail2banSnapshot().active_jails == []
@@ -69,12 +69,12 @@ class TestFail2banFromSystemNotInstalled:
     def test_installed_false_when_no_binary(self):
         with patch("ufw_audit.checks.fail2ban._command_exists", return_value=False):
             snap = Fail2banSnapshot.from_system()
-        assert snap.installed is False
+        assert not snap.installed
 
     def test_service_active_false_when_not_installed(self):
         with patch("ufw_audit.checks.fail2ban._command_exists", return_value=False):
             snap = Fail2banSnapshot.from_system()
-        assert snap.service_active is False
+        assert not snap.service_active
 
     def test_no_jails_when_not_installed(self):
         with patch("ufw_audit.checks.fail2ban._command_exists", return_value=False):
@@ -108,19 +108,19 @@ class TestFail2banFromSystemInstalled:
         with patch("ufw_audit.checks.fail2ban._command_exists", side_effect=_cmd_exists_all), \
              patch("ufw_audit.checks.fail2ban._run", side_effect=_make_run_stub()):
             snap = Fail2banSnapshot.from_system()
-        assert snap.installed is True
+        assert snap.installed
 
     def test_service_active_true(self):
         with patch("ufw_audit.checks.fail2ban._command_exists", side_effect=_cmd_exists_all), \
              patch("ufw_audit.checks.fail2ban._run", side_effect=_make_run_stub(service_active=True)):
             snap = Fail2banSnapshot.from_system()
-        assert snap.service_active is True
+        assert snap.service_active
 
     def test_service_inactive(self):
         with patch("ufw_audit.checks.fail2ban._command_exists", side_effect=_cmd_exists_all), \
              patch("ufw_audit.checks.fail2ban._run", side_effect=_make_run_stub(service_active=False)):
             snap = Fail2banSnapshot.from_system()
-        assert snap.service_active is False
+        assert not snap.service_active
 
     def test_jails_parsed(self):
         status = "`- Jail list:\tsshd, nginx-http-auth\n"
@@ -168,7 +168,7 @@ class TestFail2banFromSystemFallback:
         with patch("ufw_audit.checks.fail2ban._command_exists", side_effect=_cmd_exists), \
              patch("ufw_audit.checks.fail2ban._run", side_effect=_run_stub):
             snap = Fail2banSnapshot.from_system()
-        assert snap.service_active is True
+        assert snap.service_active
         assert snap.active_jails == ["sshd"]
 
     def test_ping_fallback_inactive(self):
@@ -181,7 +181,7 @@ class TestFail2banFromSystemFallback:
         with patch("ufw_audit.checks.fail2ban._command_exists", side_effect=_cmd_exists), \
              patch("ufw_audit.checks.fail2ban._run", side_effect=_run_stub):
             snap = Fail2banSnapshot.from_system()
-        assert snap.service_active is False
+        assert not snap.service_active
 
 
 # ---------------------------------------------------------------------------

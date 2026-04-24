@@ -46,55 +46,55 @@ class TestCorrelationRuleMatches:
 
     def test_all_of_satisfied_no_any_of(self):
         rule = self._rule({"a", "b"}, {})
-        assert rule.matches({"a", "b", "c"}) is True
+        assert rule.matches({"a", "b", "c"})
 
     def test_all_of_missing_one(self):
         rule = self._rule({"a", "b"}, {})
-        assert rule.matches({"a"}) is False
+        assert not rule.matches({"a"})
 
     def test_any_of_satisfied(self):
         rule = self._rule({"a"}, {"b", "c"})
-        assert rule.matches({"a", "c"}) is True
+        assert rule.matches({"a", "c"})
 
     def test_any_of_not_satisfied(self):
         rule = self._rule({"a"}, {"b", "c"})
-        assert rule.matches({"a", "x"}) is False
+        assert not rule.matches({"a", "x"})
 
     def test_empty_active_no_match(self):
         rule = self._rule({"a"}, {})
-        assert rule.matches(set()) is False
+        assert not rule.matches(set())
 
     def test_any_of_empty_means_no_constraint(self):
         rule = self._rule({"a"}, {})
-        assert rule.matches({"a"}) is True
+        assert rule.matches({"a"})
 
     def test_all_of_and_any_of_both_satisfied(self):
         rule = self._rule({"a"}, {"b"})
-        assert rule.matches({"a", "b"}) is True
+        assert rule.matches({"a", "b"})
 
     def test_any_of_partially_present_still_matches(self):
         rule = self._rule({"a"}, {"b", "c"})
-        assert rule.matches({"a", "b"}) is True
+        assert rule.matches({"a", "b"})
 
     def test_empty_all_of_with_any_of_matches(self):
         rule = self._rule({}, {"x", "y"})
-        assert rule.matches({"x"}) is True
+        assert rule.matches({"x"})
 
     def test_empty_all_of_with_any_of_no_match(self):
         rule = self._rule({}, {"x", "y"})
-        assert rule.matches({"z"}) is False
+        assert not rule.matches({"z"})
 
     def test_both_empty_matches_any_active(self):
         rule = self._rule({}, {})
-        assert rule.matches({"x", "y"}) is True
+        assert rule.matches({"x", "y"})
 
     def test_both_empty_matches_empty_active(self):
         rule = self._rule({}, {})
-        assert rule.matches(set()) is True
+        assert rule.matches(set())
 
     def test_empty_all_of_nonempty_any_of_no_match_on_empty_active(self):
         rule = self._rule({}, {"a"})
-        assert rule.matches(set()) is False
+        assert not rule.matches(set())
 
 
 # ---------------------------------------------------------------------------

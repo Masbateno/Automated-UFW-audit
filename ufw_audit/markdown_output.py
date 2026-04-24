@@ -70,7 +70,7 @@ def build_markdown_output(
     lines.append("")
 
     # --- Score deductions ---
-    deductions = [d for d in getattr(engine, "_deductions", []) if d.points > 0]
+    deductions = [d for d in engine.breakdown if d.points > 0]
     if deductions:
         lines.append("## Score Deductions")
         lines.append("")

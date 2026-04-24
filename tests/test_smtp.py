@@ -46,11 +46,11 @@ def _t(key, **kw):
 class TestSmtpSnapshotDefaults:
     def test_defaults(self):
         s = SmtpSnapshot()
-        assert s.installed is False
+        assert not s.installed
         assert s.mta_name == ""
-        assert s.listening is False
+        assert not s.listening
         assert s.bind_address == ""
-        assert s.exposed is False
+        assert not s.exposed
 
 
 # ---------------------------------------------------------------------------

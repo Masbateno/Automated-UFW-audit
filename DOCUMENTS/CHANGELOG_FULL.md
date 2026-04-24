@@ -6,6 +6,52 @@ All notable changes to this project are documented here.
 
 ---
 
+## [v1.23.0] — 2026-04-24
+
+### Features
+
+- **`--format=FORMAT`** (`ufw_audit/cli.py`) — new canonical flag accepting `json`, `json-full`, `csv`, `markdown`, `html`; sets the same internal booleans (`json_mode`, `json_full`, `csv_mode`, `markdown_mode`, `html_mode`) as the legacy flags; both `--format=json` and `--format json` forms supported; help text condensed from 5 lines to 2 (`--format=FORMAT` + shorthands `-j / -J`); examples updated to `--format=json | jq`; legacy flags (`--json`, `-j`, `-J`, `--output csv/json/markdown`, `--html`) kept as fully working aliases — zero breaking change
+- **`--check=list`** (`ufw_audit/cli.py`, `ufw_audit/__main__.py`) — special value for `--check=` that prints all 31 filterable section names in a columnar layout, notes on prefix matching, always-on core checks, and example usage; executes before `require_root()` — no sudo required; `--check=LIST` help line updated; bash completion suggests `list` + all section names
+- **`--manage-logs` log preview** (`ufw_audit/manage_logs.py`) — pressing Enter on a log file opens a full-screen scrollable viewer (`_curses_preview_log`); two modes toggle with `s`: `[FULL]` (raw log) and `[SUMMARY]` (score block + ALERT/WARN findings); `g`/`G` jump to first/last line; `↑↓ / PgUp/PgDn` scroll; Esc returns to list; Enter disabled when files are marked (bulk-delete mode)
+- **`_extract_summary_view`** (`ufw_audit/manage_logs.py`) — parses log lines to extract: (1) summary block from last `=*62` separator; (2) all `[ALERT]` findings with 4-space continuation lines; (3) all `[WARN]` findings with continuation lines; section headers `── ALERTS ──` / `── WARNINGS ──`; falls back to `✔ No alerts or warnings.` when clean
+- **Risk context scope qualifier** (`ufw_audit/display.py`) — `display_risk_context` gains `is_local: bool = False`; `build_risk_context_entries` gains `network_context: str = ""`; when local, service labels display as `{level} • LAN` (e.g. `CRITIQUE • LAN`); public/DDNS contexts unchanged; `runner.py` and `__main__.py` updated to pass context
+
+### Features (continued)
+
+- **`--install-cron` curses TUI** (`ufw_audit/cron.py`) — `run_install_cron()` now wraps `curses.wrapper()` and falls back to the plain text wizard when curses is unavailable or TTY absent; `_run_install_cron_curses()` provides inline readline via `_curses_readline`, Esc-to-cancel on every prompt, live natural-language schedule preview, and colour headers; plain text path renamed to `_run_install_cron_plain()`
+- **`--manage-cron` curses TUI** (`ufw_audit/cron.py`) — `run_manage_cron()` dispatches to `_run_manage_cron_curses()` or `_run_manage_cron_plain()` with the same curses/fallback pattern; new sub-screens: `_curses_edit_sub`, `_curses_email_list_sub`, `_curses_email_store_sub`, `_curses_schedule_wizard`, `_curses_status_flash`, `_curses_readline`; `_CronQuit` exception used for clean sub-screen exits; `_init_colors_cron()` centralises colour-pair setup; `_atomic_write()` helper for safe cron file updates
+- **`ufw_audit/_tty.py`** — new module: `read_line(prompt) → str | None`; raw-mode character reader using `termios`/`tty`/`select`; Esc returns `None` (cancel/back), Enter returns `""`, printable chars echoed with backspace support; 50 ms `select` window drains arrow-key escape sequences to distinguish from standalone Esc; Ctrl+D returns `None`; graceful `input()` fallback when stdin is not a TTY (tests, pipes)
+
+### Fixes
+
+- **`compare.py` baseline `None` vs `[]` semantics** — `AuditBaseline.finding_keys` type changed from `list[str]` to `list[str] | None`; `None` = pre-v1.22 baseline (key absent in serialised JSON, skip diff to avoid false-positive flood); `[]` = legitimately clean audit (diff produces no new/resolved keys as expected); `load_baseline()` uses `isinstance(raw.get("finding_keys"), list)` guard and returns `None` for absent/invalid; `compute_delta()` gates on `prev.finding_keys is not None` instead of truthiness — an empty `[]` now correctly triggers the diff
+
+### Polish
+
+- **TUI help bar harmonization** (`explain.py`, `manage_logs.py`) — `--explain` picker: `navigate` → `move`; detail screen: `↑↓/PgUp/PgDn` → `↑↓ / PgUp/PgDn`, `Esc: back to list` → `Esc: back`; preview viewer: `PgUp PgDn` → `PgUp/PgDn`
+- **Bash completion** — `--format=` with 5 completions; `--check=` suggests `list` + 31 section names; `--html` added to `long_opts`
+- **`history.py` atomic write** — `_HISTORY_FILE.write_text()` replaced by `os.open(O_WRONLY|O_CREAT|O_TRUNC, 0o600)` + `os.fdopen()` + `os.replace()` for permissions-correct crash-safe rotation; prevents truncated history file on process kill during write
+- **`report_markdown.py` link handling** — `_inline_format()`: Markdown link regex applied before `html.escape()` so URL characters (`&`, `<`, `>`) are not mangled; `<li>` items in the audit-log-to-HTML converter now wrapped in explicit `<ol>` blocks; unused `import email` removed from `send_html_email()`
+- **Checks subprocess hardening** — `auth_log.py` and `logs.py` now pass `env=_C_LOCALE_ENV` to ensure ASCII output from system commands; bare `except Exception` replaced with `except (OSError, subprocess.SubprocessError, subprocess.TimeoutExpired)` in both; `ssl_certs.py` cert-date subprocess gains `timeout=10`; `sysinfo.py` uses `removeprefix("^")` instead of `lstrip("^")` for safe regex anchor stripping
+- **`markdown_output.py` engine access** — uses `engine.breakdown` instead of `getattr(engine, "_deductions", [])` for public API access to deductions
+
+### Test suite hardening
+
+- **`tests/helpers.py`** — new shared utilities module centralising helpers previously duplicated across all test files: `_t(key, **kw) → str` (translation stub returning raw key), `levels(result) → list[str]`, `_has_finding(result, key, level) → bool`, `_get_finding(result, key)`, `_finding_level(result, key) → FindingLevel`, `_deduction_keys(result) → list[str]`, `_deduction_points(result) → int`; 62 test files updated to `from tests.helpers import _t` (and other helpers as needed), removing ~200 lines of boilerplate
+
+### Tests
+
+| File | Class | Change |
+|------|-------|--------|
+| `tests/test_cli.py` | `TestFormatFlag` | +22 tests — all 5 formats, space form, invalid, conflicts, legacy aliases |
+| `tests/test_cli.py` | `TestCheckSkipFlags` | +4 tests — `--check=list`, space form, case-insensitive, default |
+| `tests/test_manage_logs.py` | `TestExtractSummaryView` | +7 tests — summary block, ALERT/WARN, continuation lines, empty, no-summary fallback |
+| `tests/test_display_explain_hint.py` / `tests/test_runner.py` | scope qualifier | +2 tests — `is_local=True` appends `• LAN`; `network_context="local"` in `build_risk_context_entries` |
+
+✅ 4042/4042 unit tests (+35 from v1.22.3)
+
+---
+
 ## [v1.22.3] — 2026-04-20
 
 ### Bugfixes

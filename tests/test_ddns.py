@@ -18,14 +18,12 @@ from ufw_audit.checks.ddns import (
     ddns_effective_context,
 )
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import levels
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def levels(result):
-    return [f.level.value for f in result.findings]
 
 
 def has_level(result, level):
@@ -55,21 +53,21 @@ UFW_EMPTY = ""
 class TestDdnsSnapshotFactories:
     def test_none_factory(self):
         s = DdnsSnapshot.none()
-        assert s.installed is False
-        assert s.active is False
+        assert not s.installed
+        assert not s.active
         assert s.client_name is None
 
     def test_detected_factory(self):
         s = DdnsSnapshot.detected("ddclient", domain="test.duckdns.org")
-        assert s.installed is True
-        assert s.active is True
+        assert s.installed
+        assert s.active
         assert s.client_name == "ddclient"
         assert s.domain == "test.duckdns.org"
 
     def test_detected_inactive(self):
         s = DdnsSnapshot.detected("ddclient", active=False)
-        assert s.active is False
-        assert s.installed is True
+        assert not s.active
+        assert s.installed
 
 
 # ---------------------------------------------------------------------------

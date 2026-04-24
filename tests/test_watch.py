@@ -95,27 +95,27 @@ class TestNullReport:
 class TestWatchCLIParsing:
     def test_watch_alone_defaults_60(self):
         cfg = parse_args(["--watch"])
-        assert cfg.watch_mode is True
+        assert cfg.watch_mode
         assert cfg.watch_interval == 60
 
     def test_watch_equals_30(self):
         cfg = parse_args(["--watch=30"])
-        assert cfg.watch_mode is True
+        assert cfg.watch_mode
         assert cfg.watch_interval == 30
 
     def test_watch_equals_10_minimum(self):
         cfg = parse_args(["--watch=10"])
-        assert cfg.watch_mode is True
+        assert cfg.watch_mode
         assert cfg.watch_interval == 10
 
     def test_watch_space_separated(self):
         cfg = parse_args(["--watch", "120"])
-        assert cfg.watch_mode is True
+        assert cfg.watch_mode
         assert cfg.watch_interval == 120
 
     def test_watch_large_interval(self):
         cfg = parse_args(["--watch=3600"])
-        assert cfg.watch_mode is True
+        assert cfg.watch_mode
         assert cfg.watch_interval == 3600
 
     def test_watch_default_interval_is_60(self):
@@ -125,7 +125,7 @@ class TestWatchCLIParsing:
 
     def test_watch_mode_default_false(self):
         cfg = AuditConfig()
-        assert cfg.watch_mode is False
+        assert not cfg.watch_mode
 
 
 # ---------------------------------------------------------------------------
@@ -185,22 +185,22 @@ class TestWatchMutualExclusion:
 
     def test_watch_compatible_with_verbose(self):
         cfg = parse_args(["--watch", "--verbose"])
-        assert cfg.watch_mode is True
-        assert cfg.verbose is True
+        assert cfg.watch_mode
+        assert cfg.verbose
 
     def test_watch_compatible_with_french(self):
         cfg = parse_args(["--watch", "--french"])
-        assert cfg.watch_mode is True
+        assert cfg.watch_mode
         assert cfg.lang == "fr"
 
     def test_watch_compatible_with_offline(self):
         cfg = parse_args(["--watch", "--offline"])
-        assert cfg.watch_mode is True
-        assert cfg.offline is True
+        assert cfg.watch_mode
+        assert cfg.offline
 
     def test_watch_compatible_with_profile(self):
         cfg = parse_args(["--watch", "--profile=desktop"])
-        assert cfg.watch_mode is True
+        assert cfg.watch_mode
         assert cfg.profile == "desktop"
 
     def test_watch_and_json_raises(self):
@@ -280,9 +280,9 @@ class TestWatchExoticInputs:
     def test_watch_followed_by_flag_not_consumed_as_interval(self):
         """'--watch --verbose': --verbose starts with '-' → not consumed as N."""
         cfg = parse_args(["--watch", "--verbose"])
-        assert cfg.watch_mode is True
+        assert cfg.watch_mode
         assert cfg.watch_interval == 60
-        assert cfg.verbose is True
+        assert cfg.verbose
 
 
 # ---------------------------------------------------------------------------

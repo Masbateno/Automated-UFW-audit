@@ -37,9 +37,9 @@ class FakeEngine:
     """Minimal engine stub — tests the actual interface, not a MagicMock."""
     def __init__(self, score=10, findings=None, deductions=None):
         from ufw_audit.scoring import RiskLevel
-        self.score       = score
-        self.findings    = findings or []
-        self._deductions = deductions or []
+        self.score     = score
+        self.findings  = findings or []
+        self.breakdown = deductions or []
         self.alert_count = sum(1 for f in self.findings if f.level.value == "alert")
         self.warn_count  = sum(1 for f in self.findings if f.level.value == "warn")
         if score >= 8:

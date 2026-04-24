@@ -11,10 +11,7 @@ from __future__ import annotations
 import pytest
 from ufw_audit.checks.firewall import FirewallStatus, check_firewall, check_rules
 from ufw_audit.scoring import FindingLevel
-
-
-def _t(key, **kwargs):
-    return key
+from tests.helpers import levels, _t
 
 
 # ---------------------------------------------------------------------------
@@ -35,11 +32,6 @@ def make_status(**overrides) -> FirewallStatus:
     )
     defaults.update(overrides)
     return FirewallStatus(**defaults)
-
-
-def levels(result) -> list[str]:
-    """Return list of finding level values from a CheckResult."""
-    return [f.level.value for f in result.findings]
 
 
 def has_level(result, level: str) -> bool:

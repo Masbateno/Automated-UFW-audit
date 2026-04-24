@@ -161,7 +161,7 @@ def detect_network_context(offline: bool = False) -> tuple[str, str]:
             ["ip", "route", "show", "default"],
             capture_output=True, text=True, timeout=5,
         )
-        if re.search(r"via\s+" + _PRIVATE_IPV4_RE.pattern.lstrip("^"), result.stdout):
+        if re.search(r"via\s+" + _PRIVATE_IPV4_RE.pattern.removeprefix("^"), result.stdout):
             public_ip = get_public_ip(offline=offline)
             return "local", public_ip
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):

@@ -15,6 +15,7 @@ Split into:
 
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass
 
 from ufw_audit.checks._run import _command_exists, _identity_t, _run
@@ -98,7 +99,6 @@ def _check_sync_fallback(service: str) -> bool:
         out = _run("chronyc", "tracking")
         return bool(out.strip())
     if service == "ntpd" and _command_exists("ntpstat"):
-        import subprocess
         try:
             result = subprocess.run(
                 ["ntpstat"], capture_output=True, timeout=5

@@ -36,46 +36,46 @@ class TestPassesThreshold:
     def test_all_pass_when_no_threshold(self):
         output_init(min_level="")
         for lvl in ("ok", "info", "warn", "alert"):
-            assert _passes_threshold(lvl) is True
+            assert _passes_threshold(lvl)
 
     def test_warn_threshold_blocks_ok(self):
         output_init(min_level="warn")
-        assert _passes_threshold("ok") is False
+        assert not _passes_threshold("ok")
 
     def test_warn_threshold_blocks_info(self):
         output_init(min_level="warn")
-        assert _passes_threshold("info") is False
+        assert not _passes_threshold("info")
 
     def test_warn_threshold_passes_warn(self):
         output_init(min_level="warn")
-        assert _passes_threshold("warn") is True
+        assert _passes_threshold("warn")
 
     def test_warn_threshold_passes_alert(self):
         output_init(min_level="warn")
-        assert _passes_threshold("alert") is True
+        assert _passes_threshold("alert")
 
     def test_alert_threshold_blocks_warn(self):
         output_init(min_level="alert")
-        assert _passes_threshold("warn") is False
+        assert not _passes_threshold("warn")
 
     def test_alert_threshold_passes_alert(self):
         output_init(min_level="alert")
-        assert _passes_threshold("alert") is True
+        assert _passes_threshold("alert")
 
     def test_unknown_level_passes_when_no_threshold(self):
         output_init(min_level="")
-        assert _passes_threshold("unknown") is True
+        assert _passes_threshold("unknown")
 
     def test_unknown_level_blocked_when_threshold_set(self):
         """Unknown level has rank 0 — blocked when any threshold is active."""
         output_init(min_level="warn")
-        assert _passes_threshold("unknown") is False
+        assert not _passes_threshold("unknown")
 
     def test_case_insensitive_init(self):
         """init() lowercases the min_level value."""
         output_init(min_level="WARN")
-        assert _passes_threshold("ok") is False
-        assert _passes_threshold("warn") is True
+        assert not _passes_threshold("ok")
+        assert _passes_threshold("warn")
 
     def teardown_method(self):
         output_init(min_level="")  # reset after each test
@@ -222,18 +222,18 @@ class TestMinLevelCLIParsing:
     def test_min_level_combined_with_verbose(self):
         cfg = parse_args(["--min-level=warn", "--verbose"])
         assert cfg.min_level == "warn"
-        assert cfg.verbose is True
+        assert cfg.verbose
 
     def test_min_level_compatible_with_output_csv(self):
         cfg = parse_args(["--min-level=warn", "--output=csv"])
         assert cfg.min_level == "warn"
-        assert cfg.csv_mode is True
+        assert cfg.csv_mode
 
     def test_min_level_compatible_with_quiet(self):
         """--min-level + --quiet is legal — quiet silences everything anyway."""
         cfg = parse_args(["--min-level=warn", "--quiet"])
         assert cfg.min_level == "warn"
-        assert cfg.quiet is True
+        assert cfg.quiet
 
     def test_min_level_combined_with_french(self):
         cfg = parse_args(["--min-level=warn", "--french"])
