@@ -81,7 +81,7 @@ pipx uninstall ufw-audit
 - Cohérence IPv4 / IPv6
 - Duplications et erreurs
 
-**🌐 Services exposés (22+)**
+**🌐 Services exposés (28+)**
 - SSH, Redis, PostgreSQL, Docker, etc.
 - Détection via systemd / ports actifs
 - Exposition réelle, niveau de risque, cohérence UFW
@@ -156,13 +156,22 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Qualité & fiabilité
 
-- ✅ 3996 tests unitaires
+- ✅ 4134 tests unitaires
 - 🧱 Architecture modulaire (snapshot / check séparés)
 - 🧪 Testé sur Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.23.0
+## 🆕 v1.24.0
+
+- ✨ **CHECK 46 — audit iptables/nftables** — quand UFW est inactif, audite la couche pare-feu sous-jacente (politiques INPUT/FORWARD, conntrack, backend iptables vs nftables)
+- ✨ **5 nouveaux services critiques** — Telnet (23/tcp), RDP/xRDP (3389/tcp), MongoDB (27017/tcp), Elasticsearch (9200/tcp), Memcached (11211/tcp+udp) — le registre couvre désormais **28 services**
+- ✨ **Services critiques installés mais inactifs** — les paquets CRITICAL/HIGH installés mais non démarrés affichent désormais `⚠ [ATTENTION]` + bloc de contexte de risque (était `ℹ [INFO]`)
+- ✨ **Contrôle mise à jour noyau apt** — ✔ [OK] quand le noyau est confirmé à jour ; détecte les mises à jour disponibles ; supporte Ubuntu (apt-cache policy) et Debian (apt list --upgradable)
+- ✨ **Profil d'audit dans le bandeau** — le profil actif (server / desktop / container) est affiché en INFO après le bandeau
+- ✅ 4134/4134 tests unitaires (+92)
+
+### v1.23.0
 
 - ✨ **`--format=FORMAT`** — flag de sortie unifié : `json | json-full | csv | markdown | html` ; anciens flags (`-j`, `-J`, `--output csv`, `--html`) conservés comme aliases
 - ✨ **`--check=list`** — affiche les 31 noms de sections filtrables (sans sudo)

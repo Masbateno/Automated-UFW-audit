@@ -16,7 +16,7 @@ from ufw_audit.checks.auditd import (
     _suggest_rules_cmd,
     check_auditd,
 )
-from tests.helpers import levels, _t
+from tests.helpers import _levels, _t
 
 
 # ---------------------------------------------------------------------------
@@ -36,7 +36,7 @@ def make_snap(**overrides) -> AuditdSnapshot:
 
 
 def has_level(result, level: str) -> bool:
-    return level in levels(result)
+    return level in _levels(result)
 
 
 def total_deductions(result) -> int:

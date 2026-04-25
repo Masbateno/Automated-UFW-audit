@@ -27,7 +27,7 @@ from ufw_audit.checks.clamav import (
     _SCAN_ALERT_DAYS,
 )
 from ufw_audit.scoring import FindingLevel
-from tests.helpers import levels, _t
+from tests.helpers import _levels, _t
 
 
 # ---------------------------------------------------------------------------

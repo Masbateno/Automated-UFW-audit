@@ -299,9 +299,9 @@ def display_delta(delta: AuditDelta, t, output_mod) -> None:
 
     # --- New / resolved ALERT+WARN finding keys ---
     for key in delta.new_finding_keys:
-        output_mod.print_warn(t("compare.key_appeared", key=key))
+        output_mod.print_warn(t("compare.key_appeared", finding=key))
     for key in delta.resolved_finding_keys:
-        output_mod.print_ok(t("compare.key_resolved", key=key))
+        output_mod.print_ok(t("compare.key_resolved", finding=key))
 
     # --- Ports ---
     for port in delta.new_ports:

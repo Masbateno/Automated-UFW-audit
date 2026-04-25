@@ -155,6 +155,7 @@ def check_ports(
     audited_ports: set[str] | None = None,
     network_context: str = "local",
     default_incoming_policy: str = "deny",
+    ufw_active: bool = True,
     t=None,
 ) -> CheckResult:
     """
@@ -215,6 +216,9 @@ def check_ports(
             if pp in reported_warn_ports:
                 continue
             reported_warn_ports.add(pp)
+            if not ufw_active:
+                result.info(message=_t("ports.uncovered", port=pp))
+                continue
             result.warn(
                 message=_t("ports.uncovered", port=pp),
                 nature="improvement",
@@ -236,13 +240,14 @@ def check_ports(
                 continue
             reported_alert_ports.add(pp)
 
-            # When UFW default policy is deny/reject, the port is already
-            # blocked — no explicit rule needed, no deduction, downgrade to INFO.
+            # Downgrade to INFO when there is nothing actionable to show.
+            if not ufw_active:
+                pp_info = f"{pp} ({lport.process})" if lport.process else pp
+                result.info(message=_t("ports.uncovered_ufw_inactive", port=pp_info))
+                continue
             if default_incoming_policy in ("deny", "reject"):
                 pp_info = f"{pp} ({lport.process})" if lport.process else pp
-                result.info(
-                    message=_t("ports.uncovered_default_deny", port=pp_info),
-                )
+                result.info(message=_t("ports.uncovered_default_deny", port=pp_info))
                 continue
 
             has_uncovered_public = True
@@ -275,7 +280,7 @@ def check_ports(
                 message=_t("ports.uncovered_local", port=pp),
             )
 
-    if not has_uncovered_public:
+    if not has_uncovered_public and ufw_active:
         result.ok(message=_t("ports.all_covered"))
 
     return result

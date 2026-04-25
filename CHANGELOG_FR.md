@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.24.0](#v1240) | 2026-04-25 | CHECK 46 (audit iptables/nftables quand UFW inactif) ; profil d'audit affiché dans le bandeau ; 5 nouveaux services critiques (Telnet, RDP, MongoDB, Elasticsearch, Memcached) ; services CRITICAL/HIGH installés mais inactifs → ⚠ + contexte de risque ; contrôle mise à jour noyau apt ; 4134/4134 tests (+92) |
 | [v1.23.0](#v1230) | 2026-04-24 | `--format=FORMAT` unifié ; `--check=list` ; prévisualisation `--manage-logs` + mode résumé ; `[CRITIQUE • LAN]` portée ; TUI curses `--install-cron`/`--manage-cron` ; `_tty.py` mode raw ; fix `compare.py` `None`/`[]` ; `tests/helpers.py` + migration 62 fichiers ; 4042/4042 tests (+35) |
 | [v1.22.3](#v1223) | 2026-04-20 | Correctifs : ports liés à une interface exclue de l'exposition (67/udp%virbr0) ; filtre UDP éphémère dans l'exposition ; `ufw status verbose` affiché dans la section règles (mode -v) ; 4007/4007 tests (+2) |
 | [v1.22.2](#v1222) | 2026-04-20 | Correctifs : filtre snakeoil étendu aux chemins nginx/apache/postfix ; DDNS reflété dans la vue d'exposition internet ; ports en écoute à numéro élevé affichés ; double préfixe `ℹ` supprimé dans les notes SSH ; 4004/4004 tests (+3) |
@@ -60,6 +61,35 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.24.0
+
+**2026-04-25**
+
+### Fonctionnalités
+
+- **CHECK 46 — audit iptables/nftables** (`checks/iptables_nftables.py`) — quand UFW est inactif, audite la couche pare-feu sous-jacente ; détecte le backend iptables vs nftables ; vérifie les politiques par défaut INPUT/FORWARD ; contrôle le suivi de connexion (conntrack) ; ⚠ si politiques permissives ou conntrack absent ; section conditionnée sur `not fw_status.active`
+- **Profil d'audit dans le bandeau** — le profil actif (`server` / `desktop` / `container`) est affiché en ℹ [INFO] immédiatement après le bandeau d'en-tête
+- **5 nouveaux services critiques** (`data/services.json`) — Telnet Server (23/tcp), RDP/xRDP (3389/tcp), MongoDB (27017/tcp), Elasticsearch (9200/tcp), Memcached (11211/tcp+udp) ; le registre couvre désormais **28 services**
+- **Services critiques/élevés installés mais inactifs** — les paquets installés dont le port n'est pas en écoute émettent désormais `⚠ [ATTENTION]` (était `ℹ [INFO]`) et affichent le bloc de contexte de risque ; nouvelle clé locale `services.state.installed_inactive_critical` ; `runner.py` et `display.py` mis à jour
+
+### Correctifs & améliorations
+
+- **Contexte UFW inactif** — la section services affiche un contexte explicite quand UFW est inactif ; ports NetBIOS rétrogradés en INFO ; vérification IPv6 rétrogradée ; message "tous les ports couverts" supprimé
+- **Qualité `iptables_nftables.py`** — `nft add chain` → `nft chain` ; regex conntrack requiert `\baccept\b` ; état FORWARD `unknown` → INFO
+- **Contrôle mise à jour noyau** (`checks/kernel_modules.py`) — `_query_apt_kernel_update()` vérifie apt pour un noyau plus récent ; chemin principal : `apt-cache policy linux-image-generic` ; repli : `apt list --upgradable` ; ✔ [OK] quand confirmé à jour ; flag `apt_checked`
+
+### Tests
+
+| Fichier | Modification |
+|---------|-------------|
+| `tests/test_iptables_nftables.py` | nouveau — 51 tests : politiques INPUT/FORWARD, conntrack, backend nftables, FORWARD inconnu, assertions cmd |
+| `tests/test_kernel_modules.py` | `TestKernelAptUpdate` — +9 tests : mise à jour disponible, à jour ✔, apt non consulté |
+| `tests/test_services.py` | `TestInactiveDisabled` (+5) + `TestPortExposureFindings` (+4) — critical/high inactif → warn |
+
+✅ 4134/4134 tests unitaires (+92 depuis v1.23.0)
 
 ---
 
@@ -636,6 +666,19 @@
 - Clé `smtp.exposed_restart_postfix` ajoutée dans `en.json` + `fr.json`
 - `test_smtp.py` : `test_wildcard_star` → `test_wildcard_star_is_exposed` ; +2 tests `_LOCAL_BIND_RE`, `TestSmtpCmd` 4 tests, `TestSmtpWildcardExposed` 3 tests
 - **2139/2139 tests** (+9)
+
+---
+
+## v1.14.0
+
+**2026-04-10**
+
+- Audit sécurité Samba (CHECK 24) : SMB1 ALERT −2, mots de passe nuls ALERT −3, partage invité écriture WARN −1, lecture invité INFO, signature serveur désactivée WARN −1, map to guest WARN −1 ; `SambaSnapshot` ; 12 clés locale
+- Audit antivirus ClamAV (CHECK 25) : détection installation (clamav-daemon, freshclam, socket clamd), fraîcheur BD (≥14 j ALERT, ≥7 j WARN), âge dernier scan (≥30 j ALERT, ≥14 j WARN) ; `ClamavSnapshot` ; 10 clés locale ; âge BD via `st_mtime` ; date scan parsée en heure locale
+- Correctif `--diff` : `info_count` désormais suivi et inclus dans le delta de baseline
+- `--explain` : 63→73 clés (17 groupes) — ajout Samba (6 clés) et Disk (5 clés)
+- Passage qualité : âge BD `st_mtime` + `.days` ; regex `(?i)` ; détection freshclam ; constante socket clamd
+- **2045/2045 tests** (+155 vs v1.13.0)
 
 ---
 

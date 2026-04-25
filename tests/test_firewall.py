@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 from ufw_audit.checks.firewall import FirewallStatus, check_firewall, check_rules
 from ufw_audit.scoring import FindingLevel
-from tests.helpers import levels, _t
+from tests.helpers import _levels, _t
 
 
 # ---------------------------------------------------------------------------
@@ -35,7 +35,7 @@ def make_status(**overrides) -> FirewallStatus:
 
 
 def has_level(result, level: str) -> bool:
-    return level in levels(result)
+    return level in _levels(result)
 
 
 def total_deductions(result) -> int:
@@ -212,3 +212,63 @@ class TestCombinedScenarios:
 
         result = check_firewall(make_status(), t=my_t)
         assert any("TRANSLATED:" in f.message for f in result.findings)
+
+
+# ---------------------------------------------------------------------------
+# Orphan rules
+# ---------------------------------------------------------------------------
+
+_WITH_ORPHAN = (
+    "[ 1] 22/tcp                     ALLOW IN    Anywhere\n"
+    "[ 2] 35839/udp                  ALLOW IN    Anywhere\n"
+    "[ 3] 22/tcp (v6)                ALLOW IN    Anywhere (v6)\n"
+    "[ 4] 35839/udp (v6)             ALLOW IN    Anywhere (v6)\n"
+)
+
+_ALL_COVERED = (
+    "[ 1] 22/tcp                     ALLOW IN    Anywhere\n"
+    "[ 2] 22/tcp (v6)                ALLOW IN    Anywhere (v6)\n"
+)
+
+_LISTENING = {"22/tcp", "5353/udp"}
+
+
+class TestOrphanRules:
+    def test_orphan_rule_produces_info(self):
+        result = check_rules("", _WITH_ORPHAN, _t, listening_ports=_LISTENING)
+        assert "info" in _levels(result)
+
+    def test_orphan_rule_key(self):
+        result = check_rules("", _WITH_ORPHAN, _t, listening_ports=_LISTENING)
+        keys = [f.key for f in result.findings]
+        assert "rules.orphan_rule" in keys
+
+    def test_orphan_rule_has_delete_cmd(self):
+        result = check_rules("", _WITH_ORPHAN, _t, listening_ports=_LISTENING)
+        f = next(f for f in result.findings if f.key == "rules.orphan_rule")
+        assert "ufw delete allow 35839/udp" in (f.cmd or "")
+
+    def test_no_orphan_when_all_covered(self):
+        result = check_rules("", _ALL_COVERED, _t, listening_ports=_LISTENING)
+        keys = [f.key for f in result.findings]
+        assert "rules.orphan_rule" not in keys
+
+    def test_v6_mirror_not_flagged_as_orphan(self):
+        result = check_rules("", _WITH_ORPHAN, _t, listening_ports=_LISTENING)
+        orphan_msgs = [f.message for f in result.findings if f.key == "rules.orphan_rule"]
+        assert all("(v6)" not in m for m in orphan_msgs)
+
+    def test_no_orphan_check_when_listening_ports_none(self):
+        result = check_rules("", _WITH_ORPHAN, _t, listening_ports=None)
+        keys = [f.key for f in result.findings]
+        assert "rules.orphan_rule" not in keys
+
+    def test_no_deduction_for_orphan(self):
+        result = check_rules("", _WITH_ORPHAN, _t, listening_ports=_LISTENING)
+        assert total_deductions(result) == 0
+
+    def test_open_any_rule_not_flagged_as_orphan(self):
+        numbered = "[ 1] Anywhere                   ALLOW IN    Anywhere\n"
+        result = check_rules("", numbered, _t, listening_ports=set())
+        keys = [f.key for f in result.findings]
+        assert "rules.orphan_rule" not in keys

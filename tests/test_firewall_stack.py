@@ -17,7 +17,7 @@ from ufw_audit.checks.firewall_stack import (
     check_firewall_stack,
 )
 from ufw_audit.scoring import FindingLevel
-from tests.helpers import levels, _t
+from tests.helpers import _levels, _t
 
 
 # ---------------------------------------------------------------------------
@@ -41,7 +41,7 @@ def make_snapshot(**overrides) -> FirewallStackSnapshot:
 
 
 def has_level(result, level: str) -> bool:
-    return level in levels(result)
+    return level in _levels(result)
 
 
 def total_deductions(result) -> int:

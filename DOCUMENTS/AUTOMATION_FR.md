@@ -177,7 +177,40 @@ Pour lister et supprimer les rapports générés :
 sudo ufw-audit --manage-logs
 ```
 
-### Actions disponibles
+Dans un terminal interactif, une interface TUI curses s'ouvre. Un mode texte de repli est utilisé quand stdout n'est pas un TTY (pipes, scripts).
+
+### Mode TUI (terminal interactif)
+
+L'interface à curseur affiche tous les rapports avec leur date, taille et score. Un graphique d'historique des scores est affiché en haut.
+
+**Navigation et actions :**
+
+| Touche | Action |
+|--------|--------|
+| `↑` / `↓` | Déplacer le curseur |
+| `Entrée` | Prévisualiser le rapport sélectionné (visualiseur scrollable) |
+| `Espace` | Marquer / démarquer un rapport pour suppression |
+| `a` | Marquer tous les rapports |
+| `d` | Supprimer les rapports marqués (confirmation requise) |
+| `u` | Démarquer tout |
+| `c` | Changer l'emplacement de stockage |
+| `q` | Quitter |
+
+### Visualiseur de rapport
+
+Appuyer sur `Entrée` sur un rapport ouvre un visualiseur scrollable en lecture seule :
+
+| Touche | Action |
+|--------|--------|
+| `↑` / `↓` / `PgUp` / `PgDn` | Faire défiler |
+| `g` | Aller en haut |
+| `G` | Aller en bas |
+| `s` | Basculer entre log complet et vue résumé (score + findings ALERT/WARN uniquement) |
+| `Échap` | Revenir à la liste des rapports |
+
+### Mode texte de repli (non-TTY)
+
+Utilisé automatiquement quand stdout n'est pas un terminal :
 
 | Saisie | Action |
 |--------|--------|

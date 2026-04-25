@@ -186,10 +186,11 @@ def display_risk_context(label: str, lang: str, t, report,
 # ---------------------------------------------------------------------------
 
 def check_single_service_display(snap, network_context, t, report, verbose,
-                                  quiet: bool = False):
+                                  quiet: bool = False, ufw_active: bool = True):
     """Run check for a single service and return its CheckResult."""
     from ufw_audit.checks.services import check_services
-    result = check_services([snap], network_context=network_context, t=t)
+    result = check_services([snap], network_context=network_context,
+                            ufw_active=ufw_active, t=t)
     display_result(result, report, verbose, quiet=quiet)
     return result
 
@@ -524,7 +525,7 @@ def build_risk_context_entries(snapshots, lang: str, t,
     is_local = network_context == "local"
     entries = []
     for snap in snapshots:
-        if not snap.is_active:
+        if not snap.is_active and not (snap.installed and snap.service.is_high_or_critical):
             continue
         svc_id = (snap.service.label.lower()
                   .replace(" ", "_").replace("/", "_")

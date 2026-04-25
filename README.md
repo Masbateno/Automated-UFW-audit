@@ -81,7 +81,7 @@ pipx uninstall ufw-audit
 - IPv4 / IPv6 consistency
 - Duplicates and errors
 
-**🌐 Exposed services (22+)**
+**🌐 Exposed services (28+)**
 - SSH, Redis, PostgreSQL, Docker, etc.
 - Detection via systemd / active ports
 - Real exposure, risk level, UFW consistency
@@ -156,13 +156,22 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ## 🧪 Quality & reliability
 
-- ✅ 3996 unit tests
+- ✅ 4134 unit tests
 - 🧱 Modular architecture (snapshot / check separated)
 - 🧪 Tested on Debian, Ubuntu, Kali, Mint
 
 ---
 
-## 🆕 v1.23.0
+## 🆕 v1.24.0
+
+- ✨ **CHECK 46 — iptables/nftables audit** — when UFW is inactive, audits the underlying firewall layer (INPUT/FORWARD policies, conntrack stateful filtering, iptables vs nftables backend)
+- ✨ **5 new critical services** — Telnet (23/tcp), RDP/xRDP (3389/tcp), MongoDB (27017/tcp), Elasticsearch (9200/tcp), Memcached (11211/tcp+udp) — registry now covers **28 services**
+- ✨ **Installed-but-inactive critical services** — CRITICAL/HIGH packages installed but not running now show `⚠ [ATTENTION]` + risk context block (was `ℹ [INFO]`)
+- ✨ **Kernel apt update check** — ✔ [OK] when kernel is confirmed current; detects available updates; supports Ubuntu (apt-cache policy) and Debian (apt list --upgradable)
+- ✨ **Audit profile in banner** — active profile (server / desktop / container) shown as INFO after the banner header
+- ✅ 4134/4134 unit tests (+92)
+
+### v1.23.0
 
 - ✨ **`--format=FORMAT`** — unified output flag: `json | json-full | csv | markdown | html`; legacy flags (`-j`, `-J`, `--output csv`, `--html`) kept as aliases
 - ✨ **`--check=list`** — prints all 31 filterable section names (no sudo required)

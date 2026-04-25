@@ -14,7 +14,7 @@ from ufw_audit.checks.file_integrity import (
     _check_age_days,
     check_file_integrity,
 )
-from tests.helpers import levels, _t
+from tests.helpers import _levels, _t
 
 
 # ---------------------------------------------------------------------------
@@ -33,7 +33,7 @@ def make_snap(**overrides) -> FileIntegritySnapshot:
 
 
 def has_level(result, level: str) -> bool:
-    return level in levels(result)
+    return level in _levels(result)
 
 
 def total_deductions(result) -> int:

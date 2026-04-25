@@ -27,7 +27,7 @@ from ufw_audit.checks.mac_policy import (
     check_mac_policy,
 )
 from ufw_audit.scoring import FindingLevel
-from tests.helpers import _deduction_keys, _deduction_points, _t
+from tests.helpers import _deduction_keys, _deduction_points, _finding_level, _keys, _t
 
 
 # ---------------------------------------------------------------------------
@@ -53,16 +53,6 @@ def _snap(
         selinux_mode=se_mode,
     )
 
-
-def _keys(result) -> list[str]:
-    return [f.key for f in result.findings]
-
-
-def _level(result, key: str) -> FindingLevel:
-    for f in result.findings:
-        if f.key == key:
-            return f.level
-    raise AssertionError(f"Key {key!r} not found in findings: {_keys(result)}")
 
 
 # ---------------------------------------------------------------------------
@@ -114,7 +104,7 @@ class TestNoMac:
         snap = _snap()
         result = check_mac_policy(snap, t=_t)
         assert "mac_policy.no_mac" in _keys(result)
-        assert _level(result, "mac_policy.no_mac") == FindingLevel.WARN
+        assert _finding_level(result, "mac_policy.no_mac") == FindingLevel.WARN
 
     def test_no_mac_deduction_1pt(self):
         snap = _snap()
@@ -148,7 +138,7 @@ class TestAppArmorInactive:
         snap = _snap(aa_installed=True, aa_active=False)
         result = check_mac_policy(snap, t=_t)
         assert "mac_policy.apparmor_inactive" in _keys(result)
-        assert _level(result, "mac_policy.apparmor_inactive") == FindingLevel.WARN
+        assert _finding_level(result, "mac_policy.apparmor_inactive") == FindingLevel.WARN
 
     def test_inactive_deduction_1pt(self):
         snap = _snap(aa_installed=True, aa_active=False)
@@ -177,7 +167,7 @@ class TestAppArmorNoEnforce:
         snap = _snap(aa_installed=True, aa_active=True, aa_enforcing=0, aa_complain=5)
         result = check_mac_policy(snap, t=_t, profile_name="server")
         assert "mac_policy.apparmor_no_enforce" in _keys(result)
-        assert _level(result, "mac_policy.apparmor_no_enforce") == FindingLevel.WARN
+        assert _finding_level(result, "mac_policy.apparmor_no_enforce") == FindingLevel.WARN
 
     def test_server_no_enforce_deduction_1pt(self):
         snap = _snap(aa_installed=True, aa_active=True, aa_enforcing=0, aa_complain=5)
@@ -188,7 +178,7 @@ class TestAppArmorNoEnforce:
         snap = _snap(aa_installed=True, aa_active=True, aa_enforcing=0, aa_complain=5)
         result = check_mac_policy(snap, t=_t, profile_name="desktop")
         assert "mac_policy.apparmor_no_enforce" in _keys(result)
-        assert _level(result, "mac_policy.apparmor_no_enforce") == FindingLevel.INFO
+        assert _finding_level(result, "mac_policy.apparmor_no_enforce") == FindingLevel.INFO
 
     def test_desktop_no_enforce_no_deduction(self):
         snap = _snap(aa_installed=True, aa_active=True, aa_enforcing=0, aa_complain=5)
@@ -217,7 +207,7 @@ class TestAppArmorEnforcing:
         snap = _snap(aa_installed=True, aa_active=True, aa_enforcing=104, aa_complain=1)
         result = check_mac_policy(snap, t=_t)
         assert "mac_policy.apparmor_ok" in _keys(result)
-        assert _level(result, "mac_policy.apparmor_ok") == FindingLevel.OK
+        assert _finding_level(result, "mac_policy.apparmor_ok") == FindingLevel.OK
 
     def test_enforcing_no_deduction(self):
         snap = _snap(aa_installed=True, aa_active=True, aa_enforcing=104, aa_complain=1)
@@ -255,7 +245,7 @@ class TestSELinux:
         snap = _snap(se_installed=True, se_mode="Enforcing")
         result = check_mac_policy(snap, t=_t)
         assert "mac_policy.selinux_enforcing" in _keys(result)
-        assert _level(result, "mac_policy.selinux_enforcing") == FindingLevel.OK
+        assert _finding_level(result, "mac_policy.selinux_enforcing") == FindingLevel.OK
 
     def test_selinux_enforcing_no_deduction(self):
         snap = _snap(se_installed=True, se_mode="Enforcing")
@@ -273,7 +263,7 @@ class TestSELinux:
         snap = _snap(se_installed=True, se_mode="Permissive")
         result = check_mac_policy(snap, t=_t)
         assert "mac_policy.no_enforce" in _keys(result)
-        assert _level(result, "mac_policy.no_enforce") == FindingLevel.WARN
+        assert _finding_level(result, "mac_policy.no_enforce") == FindingLevel.WARN
         assert _deduction_points(result) == 1
 
     def test_selinux_permissive_also_shows_info(self):

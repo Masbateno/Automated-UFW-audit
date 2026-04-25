@@ -195,16 +195,19 @@ def check_rules(
     ufw_numbered: str,
     t,
     ipv6_enabled: bool = True,
+    listening_ports: "set[str] | None" = None,
 ) -> "CheckResult":
     """
-    Check UFW rules for duplicates, open-any wildcards, and IPv6 consistency.
+    Check UFW rules for duplicates, open-any wildcards, IPv6 consistency,
+    and orphan rules (ALLOW IN with no listening service).
 
     Args:
-        ufw_verbose:  Output of `ufw status verbose`.
-        ufw_numbered: Output of `ufw status numbered`.
-        t:            Translation function.
-        ipv6_enabled: True if IPv6 is enabled in /etc/default/ufw.
-                      When False, the IPv6 coverage warning is suppressed.
+        ufw_verbose:     Output of `ufw status verbose`.
+        ufw_numbered:    Output of `ufw status numbered`.
+        t:               Translation function.
+        ipv6_enabled:    True if IPv6 is enabled in /etc/default/ufw.
+        listening_ports: Set of "port/proto" strings (e.g. {"22/tcp", "80/tcp"})
+                         from PortsSnapshot. When provided, orphan rules are detected.
 
     Returns:
         CheckResult with rule-level findings and deductions.
@@ -217,6 +220,8 @@ def check_rules(
     _check_duplicates(lines, t, result)
     _check_open_any(lines, t, result)
     _check_ipv6_coverage(lines, t, result, ipv6_enabled)
+    if listening_ports is not None:
+        _check_orphan_rules(lines, listening_ports, t, result)
     return result
 
 
@@ -309,6 +314,37 @@ def _check_open_any(lines: list[str], t, result: CheckResult) -> None:
 
     if not found_open_any:
         result.ok(message=t("rules.no_open_any"), key="rules.no_open_any")
+
+
+def _check_orphan_rules(
+    lines: list[str],
+    listening_ports: "set[str]",
+    t,
+    result: "CheckResult",
+) -> None:
+    """Flag ALLOW IN rules for which no service is currently listening."""
+    _ALLOW_IN_RE  = re.compile(r"\bALLOW\s+IN\b", re.IGNORECASE)
+    _PORT_PROTO_RE = re.compile(r"\b(\d{1,5}/(?:tcp|udp))\b", re.IGNORECASE)
+
+    orphans: set[str] = set()
+    for line in lines:
+        if not _ALLOW_IN_RE.search(line):
+            continue
+        if "(v6)" in line:
+            continue  # skip IPv6 mirrors — covered by their v4 counterpart
+        m = _PORT_PROTO_RE.search(line)
+        if not m:
+            continue  # no specific port (open-any rules, caught by _check_open_any)
+        port_proto = m.group(1).lower()
+        if port_proto not in listening_ports:
+            orphans.add(port_proto)
+
+    for port_proto in sorted(orphans):
+        result.info(
+            message=t("rules.orphan_rule", port=port_proto),
+            cmd=f"sudo ufw delete allow {port_proto}",
+            key="rules.orphan_rule",
+        )
 
 
 def _check_ipv6_coverage(

@@ -465,6 +465,7 @@ def _ksnap(
     running: str = "",
     installed: list[str] | None = None,
     dpkg: bool = True,
+    **kwargs,
 ) -> KernelModulesSnapshot:
     """Build a snapshot focused on the kernel-cleanup sub-check."""
     return KernelModulesSnapshot(
@@ -473,6 +474,7 @@ def _ksnap(
         dpkg_available=dpkg,
         running_kernel=running,
         installed_kernels=installed or [],
+        **kwargs,
     )
 
 
@@ -682,3 +684,77 @@ class TestKernelRetentionByProfile:
         assert finding is not None
         assert "6.8.0-50-generic" in finding.cmd
         assert "6.8.0-55-generic" in finding.cmd
+
+
+# ---------------------------------------------------------------------------
+# Kernel apt update availability
+# ---------------------------------------------------------------------------
+
+class TestKernelAptUpdate:
+    def _snap(self, **kwargs) -> KernelModulesSnapshot:
+        return _ksnap(
+            running="6.8.0-55-generic",
+            installed=["6.8.0-55-generic"],
+            **kwargs,
+        )
+
+    def test_update_available_emits_info(self):
+        result = check_kernel_modules(
+            self._snap(apt_update_available=True, apt_candidate_kernel="6.8.0.56.57")
+        )
+        assert "kernel_modules.kernels_update_available" in _finding_keys(result)
+
+    def test_update_not_available_no_finding(self):
+        result = check_kernel_modules(self._snap(apt_update_available=False))
+        assert "kernel_modules.kernels_update_available" not in _finding_keys(result)
+
+    def test_up_to_date_ok_when_apt_checked(self):
+        result = check_kernel_modules(
+            self._snap(apt_checked=True, apt_update_available=False)
+        )
+        assert _has_finding(result, "kernel_modules.kernels_up_to_date", FindingLevel.OK)
+
+    def test_no_up_to_date_ok_when_apt_not_checked(self):
+        result = check_kernel_modules(
+            self._snap(apt_checked=False, apt_update_available=False)
+        )
+        assert "kernel_modules.kernels_up_to_date" not in _finding_keys(result)
+
+    def test_update_is_info_level(self):
+        result = check_kernel_modules(
+            self._snap(apt_update_available=True, apt_candidate_kernel="6.8.0.56.57")
+        )
+        assert _has_finding(result, "kernel_modules.kernels_update_available", FindingLevel.INFO)
+
+    def test_update_has_apt_cmd(self):
+        result = check_kernel_modules(
+            self._snap(apt_update_available=True, apt_candidate_kernel="6.8.0.56.57")
+        )
+        f = _get_finding(result, "kernel_modules.kernels_update_available")
+        assert f is not None and "apt" in (f.cmd or "")
+
+    def test_update_no_deduction(self):
+        result = check_kernel_modules(
+            self._snap(apt_update_available=True, apt_candidate_kernel="6.8.0.56.57")
+        )
+        assert _deduction_points(result) == 0
+
+    def test_update_shown_alongside_reboot_pending(self):
+        """Both findings coexist when reboot is pending AND apt has a newer kernel."""
+        snap = _ksnap(
+            running="6.8.0-54-generic",
+            installed=["6.8.0-54-generic", "6.8.0-55-generic"],
+            apt_update_available=True,
+            apt_candidate_kernel="6.8.0.56.57",
+        )
+        result = check_kernel_modules(snap)
+        keys = _finding_keys(result)
+        assert "kernel_modules.kernels_reboot_pending" in keys
+        assert "kernel_modules.kernels_update_available" in keys
+
+    def test_update_not_shown_when_candidate_empty(self):
+        """apt_update_available=True but no candidate string → no finding emitted."""
+        result = check_kernel_modules(
+            self._snap(apt_update_available=True, apt_candidate_kernel="")
+        )
+        assert "kernel_modules.kernels_update_available" not in _finding_keys(result)

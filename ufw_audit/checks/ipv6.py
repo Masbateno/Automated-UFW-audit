@@ -90,7 +90,7 @@ class IPv6Snapshot:
 _MAX_PORT_DEDUCTIONS = 3   # cap per-port deductions to avoid score collapse
 
 
-def check_ipv6(snapshot: IPv6Snapshot, t=None) -> CheckResult:
+def check_ipv6(snapshot: IPv6Snapshot, ufw_active: bool = True, t=None) -> CheckResult:
     """
     Check IPv6 firewall consistency.
 
@@ -117,22 +117,31 @@ def check_ipv6(snapshot: IPv6Snapshot, t=None) -> CheckResult:
             listeners_str = ", ".join(snapshot.ipv6_listeners)
             if snapshot.has_global_ipv6:
                 # Real gap: globally-routable IPv6 + listeners + no UFW IPv6 rules.
-                result.warn(
-                    message=_t("ipv6.ufw_disabled_listeners_present",
-                               count=len(snapshot.ipv6_listeners)),
-                    detail=_t("ipv6.listeners_list", ports=listeners_str),
-                    nature="improvement",
-                    cmd="sudo nano /etc/default/ufw  # set IPV6=yes, then: sudo ufw reload",
-                    key="ipv6.ufw_disabled_listeners_present",
-                )
-                result.add_deduction(
-                    reason=_t("ipv6.ufw_disabled_listeners_present",
-                              count=len(snapshot.ipv6_listeners)),
-                    points=2,
-                    context="local",
-                    key="ipv6.ufw_disabled_listeners_present",
-                )
-                found_issue = True
+                # When UFW is completely inactive, downgrade: main issue is UFW being off.
+                if ufw_active:
+                    result.warn(
+                        message=_t("ipv6.ufw_disabled_listeners_present",
+                                   count=len(snapshot.ipv6_listeners)),
+                        detail=_t("ipv6.listeners_list", ports=listeners_str),
+                        nature="improvement",
+                        cmd="sudo nano /etc/default/ufw  # set IPV6=yes, then: sudo ufw reload",
+                        key="ipv6.ufw_disabled_listeners_present",
+                    )
+                    result.add_deduction(
+                        reason=_t("ipv6.ufw_disabled_listeners_present",
+                                  count=len(snapshot.ipv6_listeners)),
+                        points=2,
+                        context="local",
+                        key="ipv6.ufw_disabled_listeners_present",
+                    )
+                    found_issue = True
+                else:
+                    result.info(
+                        message=_t("ipv6.ufw_disabled_listeners_present",
+                                   count=len(snapshot.ipv6_listeners)),
+                        detail=_t("ipv6.listeners_list", ports=listeners_str),
+                        key="ipv6.ufw_disabled_listeners_present",
+                    )
             else:
                 # Link-local / ULA only — machine not reachable via IPv6 from internet.
                 result.info(

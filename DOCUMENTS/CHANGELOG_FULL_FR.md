@@ -6,6 +6,34 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.24.0] — 2026-04-25
+
+### Fonctionnalités
+
+- **CHECK 46 — audit iptables/nftables** (`ufw_audit/checks/iptables_nftables.py`) — nouveau check conditionné sur `not fw_status.active` ; quand UFW est inactif, audite la couche pare-feu sous-jacente : détecte si iptables ou nftables est le backend actif (`nft list ruleset`) ; vérifie la politique par défaut INPUT (`iptables -L INPUT` / `nft list chain`) ; vérifie la politique FORWARD ; contrôle la présence du suivi de connexion conntrack (règle RELATED,ESTABLISHED ACCEPT) ; ⚠ −1 pt pour INPUT permissive ; ⚠ −1 pt pour FORWARD permissive ; ⚠ −1 pt pour conntrack absent ; FORWARD `unknown` → INFO (pas de déduction) ; nouvelle section `IPTABLES / NFTABLES AUDIT` dans runner ; nouvelle section locale `iptables_nft.*` dans en.json / fr.json
+- **Profil d'audit dans le bandeau** — le profil actif (`server` / `desktop` / `container`) est affiché en ℹ [INFO] immédiatement après le bandeau, avant toute section
+- **5 nouveaux services critiques** (`ufw_audit/data/services.json`) — Telnet Server (23/tcp, `inetutils-telnetd` / `telnetd`, binaires `in.telnetd` / `telnetd`) ; RDP/xRDP (3389/tcp, `xrdp`) ; MongoDB (27017/tcp, `mongodb` / `mongodb-org` / `mongodb-server` / `mongodb-server-core`) ; Elasticsearch (9200/tcp, `elasticsearch`) ; Memcached (11211/tcp + 11211/udp, `memcached`) ; le registre passe de 23 à **28 services** ; entrées locale `service_risk` ajoutées pour les 5 (EN + FR)
+- **Services critiques/élevés installés mais inactifs** (`ufw_audit/checks/services.py`, `ufw_audit/runner.py`, `ufw_audit/display.py`) — `_check_single_service` : état `INACTIVE_DISABLED` sur service `is_high_or_critical` émet `result.warn("services.state.installed_inactive_critical")` au lieu de `result.info("services.state.inactive_disabled")` (early return conservé — pas de bruit d'exposition de port) ; `_check_port_exposure` : exposition `NOT_LISTENING` sur service high/critical émet `result.warn()` au lieu de `result.info()` ; `runner.py` : condition contexte de risque étendue de `snap.is_active` à `snap.is_active or (snap.installed and not snap.is_active and snap.service.is_high_or_critical)` ; `display.py` `build_risk_context_entries` mis à jour avec le même garde ; `services.state.installed_inactive_critical` ajouté en.json / fr.json
+
+### Correctifs & améliorations
+
+- **Contexte UFW inactif** (`runner.py`) — quand UFW est inactif : la section services affiche un bandeau INFO `ufw_inactive_context` explicite ; ports NetBIOS rétrogradés de WARN en INFO ; exposition des services correctement évaluée sur la couche sous-jacente ; vérification IPv6 rétrogradée en INFO ; message "tous les ports en écoute couverts" supprimé
+- **Passage qualité `iptables_nftables.py`** — `nft add chain` corrigé en `nft chain` en deux endroits (ligne INPUT 183, FORWARD 246) ; regex conntrack durci de `established` à `ct\s+state\s+[^\n]*\bestablished\b[^\n]*\baccept\b` pour éviter les faux positifs sur les règles DROP ; état FORWARD `unknown` géré avec `result.info(key="iptables_nft.forward_unknown")` au lieu d'être ignoré silencieusement ; assertions cmd dans les tests changées en `startswith` pour une validation indépendante du backend
+- **Disponibilité de mise à jour noyau via apt** (`checks/kernel_modules.py`) — `_query_apt_kernel_update() -> Tuple[bool, bool, str]` retourne `(checked, update_available, candidate)` ; chemin principal : `apt-cache policy linux-image-generic` (Ubuntu/Mint, méta-paquet) ; repli : `apt list --upgradable` avec recherche de lignes `linux-image-\d` (Debian, pas de méta-paquet) ; ✔ [OK] émis quand `apt_checked=True` et `apt_update_available=False` ; champs `apt_update_available`, `apt_candidate_kernel`, `apt_checked` ajoutés à `KernelModulesSnapshot` ; bloc apt placé avant l'early return `len(kernels) <= 1` pour que les systèmes mono-noyau reçoivent aussi le résultat
+
+### Tests
+
+| Fichier | Classe | Modification |
+|---------|--------|-------------|
+| `tests/test_iptables_nftables.py` | nouveau fichier | 51 tests — `TestIPTablesNFTablesSnapshot`, `TestCheckIPTablesNFTables` (politiques INPUT/FORWARD, conntrack, backend nftables), `TestForwardPolicy` (accept + forward), `TestConntrackDetection` (cas limites regex), `TestNFTablesBackend` (cmd nft chain), `TestForwardUnknown` (niveau INFO) |
+| `tests/test_kernel_modules.py` | `TestKernelAptUpdate` | +9 tests — mise à jour disponible, à jour ✔ quand apt consulté, pas de ✔ si apt non consulté, candidat dans le message |
+| `tests/test_services.py` | `TestInactiveDisabled` | +5 tests — `test_warn_for_critical_inactive_disabled`, `test_warn_for_high_inactive_disabled`, `test_no_deduction_for_critical_inactive`, `test_no_port_check_for_critical_inactive` ; `test_info_finding_for_inactive` mis à jour avec `risk="low"` |
+| `tests/test_services.py` | `TestPortExposureFindings` | +4 tests — `test_not_listening_critical_adds_warn`, `test_not_listening_high_adds_warn`, `test_not_listening_critical_no_deduction` ; `test_not_listening_adds_info` mis à jour avec `risk="low"` |
+
+✅ 4134/4134 tests unitaires (+92 depuis v1.23.0)
+
+---
+
 ## [v1.23.0] — 2026-04-24
 
 ### Fonctionnalités

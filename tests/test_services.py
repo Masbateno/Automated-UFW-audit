@@ -21,7 +21,7 @@ from ufw_audit.checks.services import (
 )
 from ufw_audit.registry import Detection, Service
 from ufw_audit.scoring import FindingLevel
-from tests.helpers import levels
+from tests.helpers import _levels
 
 
 # ---------------------------------------------------------------------------
@@ -71,7 +71,7 @@ def make_snapshot(
 
 
 def has_level(result, level: str) -> bool:
-    return level in levels(result)
+    return level in _levels(result)
 
 
 def total_deductions(result) -> int:
@@ -198,24 +198,67 @@ class TestClassifyExposure:
 # ---------------------------------------------------------------------------
 
 class TestInactiveDisabled:
-    def test_info_finding_for_inactive(self):
-        snap = make_snapshot(state=ServiceState.INACTIVE_DISABLED)
+    def test_info_finding_for_low_risk_inactive(self):
+        snap = make_snapshot(
+            service=make_service(risk="low"),
+            state=ServiceState.INACTIVE_DISABLED,
+        )
         result = check_services([snap])
         assert has_level(result, "info")
 
+    def test_warn_for_critical_inactive_disabled(self):
+        """Critical service installed but disabled → WARN, not INFO."""
+        snap = make_snapshot(
+            service=make_service(risk="critical"),
+            state=ServiceState.INACTIVE_DISABLED,
+        )
+        result = check_services([snap])
+        assert has_level(result, "warn")
+        assert not has_level(result, "info")
+
+    def test_warn_for_high_inactive_disabled(self):
+        snap = make_snapshot(
+            service=make_service(risk="high"),
+            state=ServiceState.INACTIVE_DISABLED,
+        )
+        result = check_services([snap])
+        assert has_level(result, "warn")
+
     def test_no_deduction_for_inactive(self):
-        snap = make_snapshot(state=ServiceState.INACTIVE_DISABLED)
+        snap = make_snapshot(
+            service=make_service(risk="low"),
+            state=ServiceState.INACTIVE_DISABLED,
+        )
+        result = check_services([snap])
+        assert total_deductions(result) == 0
+
+    def test_no_deduction_for_critical_inactive(self):
+        snap = make_snapshot(
+            service=make_service(risk="critical"),
+            state=ServiceState.INACTIVE_DISABLED,
+        )
         result = check_services([snap])
         assert total_deductions(result) == 0
 
     def test_no_port_check_for_inactive(self):
-        """No port exposure findings for inactive_disabled services."""
+        """No port exposure findings for inactive_disabled services — early return for all risk levels."""
         snap = make_snapshot(
+            service=make_service(risk="low"),
             state=ServiceState.INACTIVE_DISABLED,
             exposures={"22/tcp": Exposure.OPEN_WORLD},
         )
         result = check_services([snap])
         # Only 1 finding: the inactive info
+        assert len(result.findings) == 1
+
+    def test_no_port_check_for_critical_inactive(self):
+        """Critical inactive_disabled also early-returns — only 1 finding (the warn)."""
+        snap = make_snapshot(
+            service=make_service(risk="critical"),
+            state=ServiceState.INACTIVE_DISABLED,
+            exposures={"22/tcp": Exposure.OPEN_WORLD},
+        )
+        result = check_services([snap])
         assert len(result.findings) == 1
 
 
@@ -333,19 +376,49 @@ class TestPortExposureFindings:
         result = check_services([snap])
         assert total_deductions(result) == 0
 
-    def test_not_listening_adds_info(self):
-        """NOT_LISTENING: registry port not actively listening → INFO finding, no deduction."""
+    def test_not_listening_adds_info_for_low_risk(self):
+        """NOT_LISTENING: low-risk service → INFO finding, no deduction."""
         snap = make_snapshot(
+            service=make_service(risk="low"),
             state=ServiceState.ACTIVE_ENABLED,
             exposures={"8883/tcp": Exposure.NOT_LISTENING},
         )
         result = check_services([snap])
         assert has_level(result, "info")
 
+    def test_not_listening_critical_adds_warn(self):
+        """NOT_LISTENING: critical service installed but port not listening → WARN."""
+        snap = make_snapshot(
+            service=make_service(risk="critical"),
+            state=ServiceState.UNKNOWN,
+            exposures={"23/tcp": Exposure.NOT_LISTENING},
+        )
+        result = check_services([snap])
+        assert has_level(result, "warn")
+
+    def test_not_listening_high_adds_warn(self):
+        snap = make_snapshot(
+            service=make_service(risk="high"),
+            state=ServiceState.UNKNOWN,
+            exposures={"9090/tcp": Exposure.NOT_LISTENING},
+        )
+        result = check_services([snap])
+        assert has_level(result, "warn")
+
     def test_not_listening_no_deduction(self):
         snap = make_snapshot(
+            service=make_service(risk="low"),
             state=ServiceState.ACTIVE_ENABLED,
             exposures={"8883/tcp": Exposure.NOT_LISTENING},
+        )
+        result = check_services([snap])
+        assert total_deductions(result) == 0
+
+    def test_not_listening_critical_no_deduction(self):
+        snap = make_snapshot(
+            service=make_service(risk="critical"),
+            state=ServiceState.UNKNOWN,
+            exposures={"23/tcp": Exposure.NOT_LISTENING},
         )
         result = check_services([snap])
         assert total_deductions(result) == 0
@@ -704,3 +777,37 @@ class TestAutoDetectPort:
         cfg.write_text("not valid json {\n")
         svc = self._make_service_with_config(str(cfg))
         assert _auto_detect_port(svc) is None
+
+
+# ---------------------------------------------------------------------------
+# ufw_active=False — exposure messages
+# ---------------------------------------------------------------------------
+
+# t stub that embeds kwargs in output so we can assert on key selection
+_t_exp = lambda key, **kw: f"{key}({','.join(f'{k}={v}' for k,v in kw.items())})" if kw else key
+
+
+class TestUfwInactiveExposure:
+    def test_no_rule_ufw_inactive_uses_inactive_key(self):
+        snap = make_snapshot(exposures={"22/tcp": Exposure.NO_RULE})
+        result = check_services([snap], ufw_active=False, t=_t_exp)
+        msgs = [f.message for f in result.findings]
+        assert any("no_rule_ufw_inactive" in m for m in msgs)
+
+    def test_no_rule_ufw_active_uses_normal_key(self):
+        snap = make_snapshot(exposures={"22/tcp": Exposure.NO_RULE})
+        result = check_services([snap], ufw_active=True, t=_t_exp)
+        msgs = [f.message for f in result.findings]
+        assert not any("no_rule_ufw_inactive" in m for m in msgs)
+
+    def test_loopback_no_rule_ufw_inactive_uses_inactive_key(self):
+        snap = make_snapshot(exposures={"22/tcp": Exposure.LOOPBACK_NO_RULE})
+        result = check_services([snap], ufw_active=False, t=_t_exp)
+        msgs = [f.message for f in result.findings]
+        assert any("loopback_no_rule_ufw_inactive" in m for m in msgs)
+
+    def test_loopback_no_rule_ufw_active_unaffected(self):
+        snap = make_snapshot(exposures={"22/tcp": Exposure.LOOPBACK_NO_RULE})
+        result = check_services([snap], ufw_active=True, t=_t_exp)
+        msgs = [f.message for f in result.findings]
+        assert not any("loopback_no_rule_ufw_inactive" in m for m in msgs)

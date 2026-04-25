@@ -39,6 +39,7 @@
     "risk_context": "RISK CONTEXT — DETECTED SERVICES",
     "virtualization": "VIRTUALISATION ANALYSIS",
     "firewall_stack": "FIREWALL STACK ANALYSIS",
+    "iptables_nft": "IPTABLES / NFTABLES AUDIT",
     "network_context": "NETWORK CONTEXT",
     "hardening": "SYSTEM HARDENING ANALYSIS",
     "ipv6": "IPv6 CONSISTENCY CHECK",
@@ -99,6 +100,18 @@
     "logging_unknown": "UFW logging level could not be determined",
     "logging_verbose": "UFW logging level {level} — may generate high log volume"
   },
+  "iptables_nft": {
+    "no_backend": "No firewall detected (iptables/nftables absent or inactive)",
+    "ufw_inactive_context": "UFW is installed but inactive — auditing the underlying {backend} layer",
+    "backend_detected": "Active backend: {backend}",
+    "input_accept": "Default INPUT policy: ACCEPT — all incoming traffic is allowed",
+    "input_ok": "Default INPUT policy: {policy} (recommended)",
+    "input_unknown": "Default INPUT policy: undetermined — manual verification recommended",
+    "no_loopback": "No loopback (lo) rule — local services may be unreachable",
+    "no_conntrack": "No ESTABLISHED/RELATED rule — return traffic for outgoing connections may be dropped",
+    "forward_accept": "Default FORWARD policy: ACCEPT — transit traffic is not filtered",
+    "forward_unknown": "Default FORWARD policy: undetermined — manual verification recommended"
+  },
   "rules": {
     "no_duplicates": "No duplicate UFW rules detected",
     "duplicate_found": "Duplicate UFW rule detected: {rule}",
@@ -106,7 +119,8 @@
     "open_any_found": "Rule allowing all incoming connections without port restriction: {rule}",
     "ipv6_ok": "IPv6 configuration consistent with UFW rules",
     "ipv6_missing": "UFW rules exist for IPv4 but no equivalent IPv6 rules found",
-    "ufw_status_detail": "UFW status (verbose):"
+    "ufw_status_detail": "UFW status (verbose):",
+    "orphan_rule": "UFW rule open with no listening service: {port}"
   },
   "firewall_stack": {
     "no_issues": "No additional firewall rules interfering with UFW detected",
@@ -149,6 +163,7 @@
       "active_disabled": "Service is currently active but will not restart automatically",
       "inactive_enabled": "Service is stopped but enabled at boot — may start at next reboot",
       "inactive_disabled": "{label} is installed but stopped and disabled. No immediate risk.",
+      "installed_inactive_critical": "{label} is installed on this system — service is currently stopped, but the presence of this package is a potential attack vector",
       "unknown": "Service installed, state undetermined"
     },
     "exposure": {
@@ -156,8 +171,10 @@
       "open_local": "restricted to local network by UFW rule",
       "deny": "explicitly blocked by a UFW rule",
       "no_rule": "covered by default deny policy (no explicit UFW rule needed)",
+      "no_rule_ufw_inactive": "no active firewall protection (UFW inactive)",
       "loopback": "bound to localhost only — UFW rule has no effect on external access",
       "loopback_no_rule": "bound to localhost only — no UFW rule needed (covered by default deny)",
+      "loopback_no_rule_ufw_inactive": "bound to localhost only — no external exposure",
       "not_listening": "not actively listening — port in registry but not detected on this system"
     },
     "port_from_config": "Port read from configuration: {port}",
@@ -174,7 +191,8 @@
     "listening_detail": "Listening ports detail:",
     "listening_verbose_hint": "Use -v to display the full port table",
     "process_disclaimer": "This port belongs to {process} — blocking it may interrupt the application. Only run the command above if you know exactly what you are doing.",
-    "uncovered_default_deny": "Port {port} listening on all interfaces — no explicit UFW rule, but covered by default deny policy"
+    "uncovered_default_deny": "Port {port} listening on all interfaces — no explicit UFW rule, but covered by default deny policy",
+    "uncovered_ufw_inactive": "Port {port} listening on all interfaces — enable UFW to filter it"
   },
   "logs": {
     "no_logfile": "UFW log file not found (/var/log/ufw.log) and no UFW entries in journald — logging disabled?",
@@ -275,12 +293,12 @@
     "no_logs": "No reports found in {path}",
     "stored_in": "Reports in: {path}",
     "size_label": "KB",
-    "prompt_intro":     "To delete reports, enter their number(s):",
+    "prompt_intro": "To delete reports, enter their number(s):",
     "prompt_ex_single": "delete reports #1 and #3",
-    "prompt_ex_range":  "delete reports #2 through #4",
-    "prompt_ex_all":    "delete all reports",
+    "prompt_ex_range": "delete reports #2 through #4",
+    "prompt_ex_all": "delete all reports",
     "prompt_ex_change": "change the report directory",
-    "prompt_quit":      "Press Enter or 'q' to quit.",
+    "prompt_quit": "Press Enter or 'q' to quit.",
     "change_prompt": "New report storage path (Esc to cancel, Tab to complete)",
     "location_updated": "Location updated: {path}",
     "current_label": "current",
@@ -328,15 +346,15 @@
   "manage_cron": {
     "title": "UFW-AUDIT CRON MANAGEMENT",
     "no_crons": "No UFW-AUDIT cron jobs installed. Run: sudo ufw-audit --install-cron",
-    "prompt_intro":           "Manage your cron jobs:",
-    "prompt_ex_edit":         "edit cron job #1",
-    "prompt_ex_email":        "edit notification email for cron #1",
-    "prompt_ex_delete_one":   "delete cron #1",
-    "prompt_ex_delete_list":  "delete crons #1 and #3",
+    "prompt_intro": "Manage your cron jobs:",
+    "prompt_ex_edit": "edit cron job #1",
+    "prompt_ex_email": "edit notification email for cron #1",
+    "prompt_ex_delete_one": "delete cron #1",
+    "prompt_ex_delete_list": "delete crons #1 and #3",
     "prompt_ex_delete_range": "delete crons #1 through #3",
-    "prompt_ex_delete_all":   "delete all cron jobs",
-    "prompt_ex_email_book":   "manage the email address book",
-    "prompt_quit":            "Press Enter or 'q' to quit.",
+    "prompt_ex_delete_all": "delete all cron jobs",
+    "prompt_ex_email_book": "manage the email address book",
+    "prompt_quit": "Press Enter or 'q' to quit.",
     "email_label": "email",
     "legacy_tag": "legacy",
     "confirm_delete": "Delete cron '{name}'? [y/N]",
@@ -356,13 +374,13 @@
     "invalid": "Unrecognised choice",
     "email_store_title": "EMAIL ADDRESS BOOK",
     "email_store_empty": "No email address saved yet.",
-    "email_store_intro":            "Manage your saved email addresses:",
-    "email_store_ex_delete":        "delete address #1",
-    "email_store_ex_delete_list":   "delete addresses #1 and #3",
-    "email_store_ex_delete_range":  "delete addresses #1 through #3",
-    "email_store_ex_delete_all":    "delete all addresses",
-    "email_store_ex_add":           "add a new address",
-    "email_store_quit":             "Press Enter or 'q' to quit.",
+    "email_store_intro": "Manage your saved email addresses:",
+    "email_store_ex_delete": "delete address #1",
+    "email_store_ex_delete_list": "delete addresses #1 and #3",
+    "email_store_ex_delete_range": "delete addresses #1 through #3",
+    "email_store_ex_delete_all": "delete all addresses",
+    "email_store_ex_add": "add a new address",
+    "email_store_quit": "Press Enter or 'q' to quit.",
     "email_store_enter": "New email address",
     "email_store_invalid_email": "Invalid email address",
     "email_store_added": "Address added: {email}",
@@ -557,6 +575,31 @@
       "level": "MEDIUM",
       "exposure": "Local LLM API server — no authentication by default, designed for local or trusted network use",
       "threat": "Unauthorised model inference, resource exhaustion, potential data exfiltration via model prompts"
+    },
+    "telnet_server": {
+      "level": "CRITICAL",
+      "exposure": "Unencrypted plaintext protocol — credentials, commands and all data transmitted in clear text over the network",
+      "threat": "Credential theft in transit, session hijacking, trivial interception on any network segment — replace with SSH immediately"
+    },
+    "rdp___xrdp": {
+      "level": "CRITICAL",
+      "exposure": "Remote desktop protocol — primary target of ransomware operators and automated scanners (BlueKeep, DejaBlue CVEs)",
+      "threat": "Full graphical desktop access, credential theft, ransomware deployment, lateral movement to other systems"
+    },
+    "mongodb": {
+      "level": "CRITICAL",
+      "exposure": "No authentication by default in older versions — hundreds of thousands of unprotected instances found publicly exposed",
+      "threat": "Full database read/write access, data exfiltration and destruction, potential code execution via server-side JavaScript"
+    },
+    "elasticsearch": {
+      "level": "CRITICAL",
+      "exposure": "No authentication in open-source version by default — frequently misconfigured and indexed publicly by Shodan",
+      "threat": "Full exfiltration of all indexed documents, index deletion, cluster takeover — requires X-Pack Security or equivalent"
+    },
+    "memcached": {
+      "level": "CRITICAL",
+      "exposure": "No authentication, UDP enabled by default — actively abused for DDoS amplification attacks (factor up to 50,000x)",
+      "threat": "Cache poisoning and data exfiltration, amplification DDoS vector against third parties, service disruption"
     }
   },
   "virt": {
@@ -651,8 +694,8 @@
     "no_changes": "No changes detected since last audit",
     "info_decreased": "{delta} info notice(s) resolved since last audit",
     "info_increased": "{delta} new info notice(s) since last audit",
-    "key_appeared": "New finding: {key}",
-    "key_resolved": "Resolved: {key}"
+    "key_appeared": "New finding: {finding}",
+    "key_resolved": "Resolved: {finding}"
   },
   "watch": {
     "header": "ufw-audit --watch  │  Interval: {interval}s  │  Ctrl+C to quit",
@@ -674,6 +717,7 @@
   },
   "audit": {
     "starting": "Starting audit",
+    "audit_profile": "Audit profile: {profile}",
     "report_saved": "Detailed report: {path}",
     "running_checks": "Active checks: {checks}"
   },
@@ -851,7 +895,9 @@
     "kernels_obsolete": "{count} obsolete kernel(s) detected (running: {running}, latest: {recent})",
     "kernels_obsolete_same": "{count} obsolete kernel(s) detected (running: {running})",
     "kernels_obsolete_detail": "Installed : {installed}\nObsolete  : {to_remove}\nThis command removes the kernel image only. Run sudo apt autoremove --purge afterwards to clean up associated headers and modules. Execute only after verifying the system boots correctly on {recent}.",
-    "kernels_listed": "{count} kernel(s) installed: {installed} — no cleanup needed"
+    "kernels_listed": "{count} kernel(s) installed: {installed} — no cleanup needed",
+    "kernels_update_available": "Kernel update available ({candidate} in apt repository)",
+    "kernels_up_to_date": "Kernel {version} — up to date in the apt repository"
   },
   "cron_audit": {
     "pipe_to_shell": "{count} cron job(s) pipe remote content into a shell (curl/wget | sh)",

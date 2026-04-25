@@ -11,6 +11,7 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 
 | Version | Tests | Notes |
 |---------|-------|-------|
+| v1.24.0 | 4134  | +92 tests — `test_iptables_nftables.py` nouveau (51) ; `test_kernel_modules.py` : `TestKernelAptUpdate` (+9) ; `test_services.py` : `TestInactiveDisabled` (+5) + `TestPortExposureFindings` (+4) ; clés locale : `installed_inactive_critical`, `forward_unknown`, `kernels_update_available`, `kernels_up_to_date` |
 | v1.23.0 | 4042  | +35 tests — `test_cli.py` : `TestFormatFlag` (+22) + `TestCheckSkipFlags` (+4) ; `test_manage_logs.py` : `TestExtractSummaryView` (+7) ; qualificateur portée (+2) ; `tests/helpers.py` utilitaires partagés introduit ; 62 fichiers migrés |
 | v1.22.3 | 4007  | +2 tests — `test_ports.py` : split 3-tuple + virbr0 iface + is_all_interfaces scoped ; `test_exposure.py` : UDP éphémère exclu + TCP port élevé affiché ; fonctionnalité : `ufw status verbose` dans la section règles |
 | v1.22.2 | 4004  | +3 tests — `test_exposure.py` : 2 renommés + 3 tests DDNS ; correctifs : filtre snakeoil global, exposition DDNS, port serveur élevé, double préfixe SSH, séparation notes runner |
@@ -47,6 +48,26 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 | v0.18   | 531   | 26 nouveaux tests pour `fixes.py` ; `run_fixes()` entièrement couvert |
 | v0.17   | 505   | 15 échecs préexistants corrigés ; suite entièrement verte |
 | v0.9    | 421   | Première suite complète |
+
+### v1.24.0 — 4134/4134 (2026-04-25)
+
+**Plateforme :** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+4134 passed in 4.71s
+```
+
+#### Nouveaux / tests modifiés (+92)
+
+| Fichier | Changement | Couverture |
+|---------|------------|------------|
+| `tests/test_iptables_nftables.py` | Nouveau fichier — 51 tests | CHECK 46 : audit iptables/nftables quand UFW inactif ; `_get_iptables_backend`, `_parse_iptables_policy`, `_check_conntrack`, `_check_iptables_nftables` ; détection backend (iptables-legacy vs nftables) ; analyse politique INPUT/FORWARD ; conntrack ACCEPT ; FORWARD inconnu→INFO ; chemins dégradé/absent |
+| `tests/test_kernel_modules.py` | +9 tests (`TestKernelAptUpdate`) | `check_kernel_update_available` : chemin principal apt-cache policy ; repli apt list --upgradable ; noyau à jour → `✔ [OK]` ; mise à jour disponible → WARN ; apt indisponible → ignoré ; flag `apt_checked` positionné ; chemins Ubuntu et Debian |
+| `tests/test_services.py` | +5 tests (`TestInactiveDisabled`) | `test_warn_for_critical_inactive_disabled` ; `test_warn_for_high_inactive_disabled` ; `test_no_deduction_for_critical_inactive` ; `test_no_port_check_for_critical_inactive` ; base faible risque préservée (`test_info_finding_for_low_risk_inactive`) |
+| `tests/test_services.py` | +4 tests (`TestPortExposureFindings`) | `test_not_listening_critical_adds_warn` ; `test_not_listening_high_adds_warn` ; `test_not_listening_no_deduction` ; `test_not_listening_critical_no_deduction` ; `test_not_listening_adds_info_for_low_risk` (renommé depuis `test_not_listening_adds_info`) |
+
+---
 
 ### v1.23.0 — 4042/4042 (2026-04-24)
 

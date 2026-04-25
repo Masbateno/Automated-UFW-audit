@@ -218,6 +218,7 @@ def _run(argv=None) -> int:
                             ("system", "host", "kernel", "ufw", "iptables", "nftables", "user", "date")},
                 )
                 output.print_info(t("audit.starting"))
+                output.print_info(t("audit.audit_profile", profile=active_profile.name))
                 if config.check_only or config.skip_checks:
                     _active = [s for s in _ALL_SECTIONS if _se(s, config, active_profile)]
                     output.print_info(t("audit.running_checks", checks=", ".join(_active)))

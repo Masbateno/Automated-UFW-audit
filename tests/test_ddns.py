@@ -18,7 +18,7 @@ from ufw_audit.checks.ddns import (
     ddns_effective_context,
 )
 from ufw_audit.scoring import FindingLevel
-from tests.helpers import levels
+from tests.helpers import _levels
 
 
 # ---------------------------------------------------------------------------
@@ -27,7 +27,7 @@ from tests.helpers import levels
 
 
 def has_level(result, level):
-    return level in levels(result)
+    return level in _levels(result)
 
 
 def total_deductions(result):

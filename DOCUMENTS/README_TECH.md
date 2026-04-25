@@ -1,9 +1,9 @@
 *[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
-# ufw-audit v1.23.0
+# ufw-audit v1.24.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.23.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.24.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -20,7 +20,8 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **UFW status check** — active/inactive, default incoming policy
 - **UFW rule analysis** — duplicate rules, unrestricted `allow from any`, IPv6 consistency
 - **Contextual scoring** — network context detection (direct public IP vs NAT); penalties doubled on internet-exposed machines; firewall inactive caps score at 3/10
-- **Detection of 22 common network services** with UFW exposure analysis and two-axis risk context (exposure + threat) for critical and high-risk services
+- **Detection of 28 common network services** with UFW exposure analysis and two-axis risk context (exposure + threat) for critical and high-risk services; CRITICAL/HIGH services installed but inactive emit ⚠ + risk context block
+- **iptables/nftables audit** — when UFW is inactive, audits the underlying firewall layer: detects active backend (iptables vs nftables); checks INPUT and FORWARD default policies; verifies conntrack stateful filtering (RELATED,ESTABLISHED ACCEPT); WARN −1 pt per permissive policy; gated on `not fw_status.active`
 - **Docker analysis** — iptables bypass detection and list of ports exposed by running containers
 - **Virtualisation analysis** — detects active hypervisors (libvirt/KVM, VirtualBox, VMware, LXD/LXC) and Snap network packages that may create bridge interfaces and manipulate iptables directly, bypassing UFW — same risk pattern as Docker
 - **Listening ports analysis** — unified single-pass analysis; ephemeral and system ports silently skipped; NetBIOS handled with contextual warning
@@ -32,7 +33,7 @@ ufw-audit analyses your UFW configuration, detects exposed network services, cla
 - **Categorised summary** — findings split into three blocks: *Action required* / *Possible improvements* / *Normal configuration*; auto-generated interpretation phrase
 - **Implicit policy note** — flags when high-risk services rely on the default `deny` policy rather than explicit rules
 - **Security score** (0–10) with risk level: LOW / MEDIUM / HIGH / CRITICAL
-- **Services panorama** — compact table of all 22 known services after the services audit (SERVICE / STATUS / PORT(S) / UFW), non-installed services shown dimmed
+- **Services panorama** — compact table of all 28 known services after the services audit (SERVICE / STATUS / PORT(S) / UFW), non-installed services shown dimmed
 - **Bilingual interface** — English by default, French with `--french`
 - **No-colour mode** — `--no-color` for clean output in pipes and log files
 - **Optional detailed report** — timestamped log file with ASCII art header, system info, findings, and recommendations

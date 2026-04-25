@@ -39,6 +39,7 @@
     "risk_context": "CONTEXTE DE RISQUE — SERVICES DÉTECTÉS",
     "virtualization": "ANALYSE DE VIRTUALISATION",
     "firewall_stack": "ANALYSE DE LA PILE PARE-FEU",
+    "iptables_nft": "AUDIT IPTABLES / NFTABLES",
     "network_context": "CONTEXTE RÉSEAU",
     "hardening": "ANALYSE DU DURCISSEMENT SYSTÈME",
     "ipv6": "VÉRIFICATION DE COHÉRENCE IPv6",
@@ -99,6 +100,18 @@
     "logging_unknown": "Impossible de déterminer le niveau de journalisation UFW",
     "logging_verbose": "Niveau de journalisation UFW {level} — peut générer un volume élevé de logs"
   },
+  "iptables_nft": {
+    "no_backend": "Aucun pare-feu détecté (iptables/nftables absent ou inactif)",
+    "ufw_inactive_context": "UFW est installé mais inactif — audit de la couche {backend} sous-jacente",
+    "backend_detected": "Backend actif : {backend}",
+    "input_accept": "Politique INPUT par défaut : ACCEPT — tout le trafic entrant est autorisé",
+    "input_ok": "Politique INPUT par défaut : {policy} (recommandé)",
+    "input_unknown": "Politique INPUT par défaut : indéterminée — vérification manuelle recommandée",
+    "no_loopback": "Aucune règle loopback (lo) — les services locaux peuvent être inaccessibles",
+    "no_conntrack": "Aucune règle ESTABLISHED/RELATED — les connexions sortantes peuvent être bloquées en retour",
+    "forward_accept": "Politique FORWARD par défaut : ACCEPT — le trafic de transit n'est pas filtré",
+    "forward_unknown": "Politique FORWARD par défaut : indéterminée — vérification manuelle recommandée"
+  },
   "rules": {
     "no_duplicates": "Aucune règle UFW en doublon détectée",
     "duplicate_found": "Règle UFW en doublon détectée : {rule}",
@@ -106,7 +119,8 @@
     "open_any_found": "Règle autorisant toutes les connexions entrantes sans restriction de port : {rule}",
     "ipv6_ok": "Configuration IPv6 cohérente avec les règles UFW",
     "ipv6_missing": "Des règles UFW existent en IPv4 mais aucune règle IPv6 équivalente n'a été trouvée",
-    "ufw_status_detail": "État UFW (verbose) :"
+    "ufw_status_detail": "État UFW (verbose) :",
+    "orphan_rule": "Règle UFW ouverte sans service en écoute : {port}"
   },
   "firewall_stack": {
     "no_issues": "Aucune règle de pare-feu supplémentaire interférant avec UFW détectée",
@@ -149,6 +163,7 @@
       "active_disabled": "Le service est actif en ce moment, mais ne redémarrera pas automatiquement.",
       "inactive_enabled": "Le service est arrêté mais activé au démarrage — peut démarrer au prochain redémarrage",
       "inactive_disabled": "{label} est installé mais arrêté et désactivé. Pas de risque immédiat.",
+      "installed_inactive_critical": "{label} est installé sur ce système — le service est arrêté, mais la présence de ce paquet constitue un vecteur d'attaque potentiel",
       "unknown": "Service installé, état indéterminé"
     },
     "exposure": {
@@ -156,8 +171,10 @@
       "open_local": "restreint au réseau local par règle UFW",
       "deny": "bloqué explicitement par règle UFW",
       "no_rule": "couvert par la politique deny par défaut",
+      "no_rule_ufw_inactive": "aucune protection pare-feu active (UFW inactif)",
       "loopback": "lié uniquement sur localhost — la règle UFW n'a aucun effet sur l'accès externe",
       "loopback_no_rule": "lié uniquement sur localhost — aucune règle UFW requise (couvert par refus par défaut)",
+      "loopback_no_rule_ufw_inactive": "lié uniquement sur localhost — pas d'exposition externe",
       "not_listening": "n'écoute pas activement — port présent dans le registre mais non détecté sur ce système"
     },
     "port_from_config": "Port lu depuis la configuration : {port}",
@@ -174,7 +191,8 @@
     "listening_detail": "Détail des ports en écoute :",
     "listening_verbose_hint": "Utilisez -v pour afficher le tableau complet des ports",
     "process_disclaimer": "Ce port appartient à {process} — le bloquer peut interrompre l'application. N'exécutez la commande ci-dessus que si vous savez précisément ce que vous faites.",
-    "uncovered_default_deny": "Port {port} en écoute sur toutes les interfaces — aucune règle UFW explicite, mais couvert par la politique de refus par défaut"
+    "uncovered_default_deny": "Port {port} en écoute sur toutes les interfaces — aucune règle UFW explicite, mais couvert par la politique de refus par défaut",
+    "uncovered_ufw_inactive": "Port {port} en écoute sur toutes les interfaces — activer UFW pour le filtrer"
   },
   "logs": {
     "no_logfile": "Fichier de log UFW introuvable (/var/log/ufw.log) et aucune entrée UFW dans journald — journalisation désactivée ?",
@@ -295,12 +313,12 @@
     "no_logs": "Aucun rapport trouvé dans {path}",
     "stored_in": "Rapports dans : {path}",
     "size_label": "Ko",
-    "prompt_intro":     "Pour supprimer des rapports, entrez leur(s) numéro(s) :",
+    "prompt_intro": "Pour supprimer des rapports, entrez leur(s) numéro(s) :",
     "prompt_ex_single": "supprimer les rapports #1 et #3",
-    "prompt_ex_range":  "supprimer les rapports #2 à #4",
-    "prompt_ex_all":    "supprimer tous les rapports",
+    "prompt_ex_range": "supprimer les rapports #2 à #4",
+    "prompt_ex_all": "supprimer tous les rapports",
     "prompt_ex_change": "changer le répertoire de stockage",
-    "prompt_quit":      "Entrée ou 'q' pour quitter.",
+    "prompt_quit": "Entrée ou 'q' pour quitter.",
     "change_prompt": "Nouveau chemin de stockage des rapports (Échap pour annuler, Tab pour compléter)",
     "location_updated": "Emplacement mis à jour : {path}",
     "current_label": "actuel",
@@ -348,15 +366,15 @@
   "manage_cron": {
     "title": "GESTION DES CRONS UFW-AUDIT",
     "no_crons": "Aucun cron UFW-AUDIT installé. Lancez : sudo ufw-audit --install-cron",
-    "prompt_intro":           "Gérer vos crons :",
-    "prompt_ex_edit":         "modifier le cron n°1",
-    "prompt_ex_email":        "modifier l'email de notification du cron n°1",
-    "prompt_ex_delete_one":   "supprimer le cron n°1",
-    "prompt_ex_delete_list":  "supprimer les crons n°1 et n°3",
+    "prompt_intro": "Gérer vos crons :",
+    "prompt_ex_edit": "modifier le cron n°1",
+    "prompt_ex_email": "modifier l'email de notification du cron n°1",
+    "prompt_ex_delete_one": "supprimer le cron n°1",
+    "prompt_ex_delete_list": "supprimer les crons n°1 et n°3",
     "prompt_ex_delete_range": "supprimer les crons n°1 à n°3",
-    "prompt_ex_delete_all":   "supprimer tous les crons",
-    "prompt_ex_email_book":   "gérer le carnet d'adresses email",
-    "prompt_quit":            "Entrée ou 'q' pour quitter.",
+    "prompt_ex_delete_all": "supprimer tous les crons",
+    "prompt_ex_email_book": "gérer le carnet d'adresses email",
+    "prompt_quit": "Entrée ou 'q' pour quitter.",
     "email_label": "email",
     "legacy_tag": "legacy",
     "confirm_delete": "Supprimer le cron '{name}' ? [y/N]",
@@ -376,13 +394,13 @@
     "invalid": "Choix non reconnu",
     "email_store_title": "CARNET D'ADRESSES EMAIL",
     "email_store_empty": "Aucune adresse email enregistrée.",
-    "email_store_intro":            "Gérer vos adresses email enregistrées :",
-    "email_store_ex_delete":        "supprimer l'adresse n°1",
-    "email_store_ex_delete_list":   "supprimer les adresses n°1 et n°3",
-    "email_store_ex_delete_range":  "supprimer les adresses n°1 à n°3",
-    "email_store_ex_delete_all":    "supprimer toutes les adresses",
-    "email_store_ex_add":           "ajouter une nouvelle adresse",
-    "email_store_quit":             "Entrée ou 'q' pour quitter.",
+    "email_store_intro": "Gérer vos adresses email enregistrées :",
+    "email_store_ex_delete": "supprimer l'adresse n°1",
+    "email_store_ex_delete_list": "supprimer les adresses n°1 et n°3",
+    "email_store_ex_delete_range": "supprimer les adresses n°1 à n°3",
+    "email_store_ex_delete_all": "supprimer toutes les adresses",
+    "email_store_ex_add": "ajouter une nouvelle adresse",
+    "email_store_quit": "Entrée ou 'q' pour quitter.",
     "email_store_enter": "Nouvelle adresse email",
     "email_store_invalid_email": "Adresse email invalide",
     "email_store_added": "Adresse ajoutée : {email}",
@@ -557,6 +575,31 @@
       "level": "MOYEN",
       "exposure": "Serveur d'API LLM local — sans authentification par défaut, conçu pour usage local ou réseau de confiance",
       "threat": "Inférence de modèle non autorisée, épuisement des ressources, exfiltration de données potentielle via les prompts"
+    },
+    "telnet_server": {
+      "level": "CRITIQUE",
+      "exposure": "Protocole en clair non chiffré — identifiants, commandes et données transmis en clair sur le réseau",
+      "threat": "Vol d'identifiants en transit, détournement de session, interception triviale sur tout segment réseau — à remplacer immédiatement par SSH"
+    },
+    "rdp___xrdp": {
+      "level": "CRITIQUE",
+      "exposure": "Protocole bureau à distance — cible principale des opérateurs de ransomware et des scanners automatisés (CVE BlueKeep, DejaBlue)",
+      "threat": "Accès graphique complet au bureau, vol d'identifiants, déploiement de ransomware, mouvement latéral vers d'autres systèmes"
+    },
+    "mongodb": {
+      "level": "CRITIQUE",
+      "exposure": "Pas d'authentification par défaut sur les anciennes versions — centaines de milliers d'instances non protégées exposées publiquement",
+      "threat": "Accès complet en lecture/écriture à la base, exfiltration et destruction de données, exécution de code via JavaScript côté serveur"
+    },
+    "elasticsearch": {
+      "level": "CRITIQUE",
+      "exposure": "Pas d'authentification dans la version open-source par défaut — fréquemment mal configuré et indexé publiquement par Shodan",
+      "threat": "Exfiltration complète de tous les documents indexés, suppression d'index, prise de contrôle du cluster — nécessite X-Pack Security ou équivalent"
+    },
+    "memcached": {
+      "level": "CRITIQUE",
+      "exposure": "Pas d'authentification, UDP activé par défaut — activement exploité pour des attaques DDoS par amplification (facteur jusqu'à 50 000x)",
+      "threat": "Empoisonnement du cache et exfiltration de données, vecteur DDoS par amplification contre des tiers, interruption de service"
     }
   },
   "virt": {
@@ -651,8 +694,8 @@
     "no_changes": "Aucun changement détecté depuis le dernier audit",
     "info_decreased": "{delta} notice(s) informative(s) résolu(e)(s) depuis le dernier audit",
     "info_increased": "{delta} nouvelle(s) notice(s) informative(s) depuis le dernier audit",
-    "key_appeared": "Nouveau finding : {key}",
-    "key_resolved": "Résolu : {key}"
+    "key_appeared": "Nouveau finding : {finding}",
+    "key_resolved": "Résolu : {finding}"
   },
   "watch": {
     "header": "ufw-audit --watch  │  Intervalle : {interval}s  │  Ctrl+C pour quitter",
@@ -674,6 +717,7 @@
   },
   "audit": {
     "starting": "Démarrage de l'audit",
+    "audit_profile": "Profil d'audit : {profile}",
     "report_saved": "Rapport détaillé : {path}",
     "running_checks": "Checks actifs : {checks}"
   },
@@ -851,7 +895,9 @@
     "kernels_obsolete": "{count} noyau(x) obsolète(s) détecté(s) (actif : {running}, récent : {recent})",
     "kernels_obsolete_same": "{count} noyau(x) obsolète(s) détecté(s) (actif : {running})",
     "kernels_obsolete_detail": "Installés  : {installed}\nObsolètes  : {to_remove}\nCette commande supprime uniquement l'image noyau. Exécutez ensuite sudo apt autoremove --purge pour nettoyer les headers et modules associés. À n'exécuter qu'après avoir vérifié que le système démarre correctement sur {recent}.",
-    "kernels_listed": "{count} noyau(x) installé(s) : {installed} — aucun nettoyage nécessaire"
+    "kernels_listed": "{count} noyau(x) installé(s) : {installed} — aucun nettoyage nécessaire",
+    "kernels_update_available": "Mise à jour du noyau disponible ({candidate} dans le dépôt apt)",
+    "kernels_up_to_date": "Noyau {version} — à jour dans le dépôt apt"
   },
   "cron_audit": {
     "pipe_to_shell": "{count} tâche(s) cron envoie(nt) du contenu distant vers un shell (curl/wget | sh)",

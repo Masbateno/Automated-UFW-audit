@@ -28,6 +28,7 @@ from ufw_audit.checks.suid_audit import (
     check_suid_audit,
 )
 from ufw_audit.scoring import FindingLevel
+from tests.helpers import _keys, _deduction_points
 
 
 # ---------------------------------------------------------------------------
@@ -45,14 +46,6 @@ def _snap(**kwargs) -> SuidSnapshot:
     )
     defaults.update(kwargs)
     return SuidSnapshot(**defaults)
-
-
-def _keys(result) -> set[str]:
-    return {f.key for f in result.findings}
-
-
-def _deductions(result) -> int:
-    return sum(d.points for d in result.deductions)
 
 
 def _level(result, key: str) -> FindingLevel:
@@ -86,7 +79,7 @@ class TestScanSkipped:
 
     def test_scan_skipped_no_deduction(self):
         result = check_suid_audit(_snap(scan_skipped=True))
-        assert _deductions(result) == 0
+        assert _deduction_points(result) == 0
 
     def test_scan_skipped_only_one_finding(self):
         result = check_suid_audit(_snap(scan_skipped=True))
@@ -107,7 +100,7 @@ class TestAllSafe:
 
     def test_no_deductions_when_all_safe(self):
         result = check_suid_audit(_snap())
-        assert _deductions(result) == 0
+        assert _deduction_points(result) == 0
 
     def test_ok_message_contains_counts(self):
         result = check_suid_audit(_snap(
@@ -134,14 +127,14 @@ class TestUnexpectedSuid:
         result = check_suid_audit(_snap(
             unexpected_suid=["/opt/custom/backdoor"],
         ))
-        assert _deductions(result) == 1
+        assert _deduction_points(result) == 1
 
     def test_unexpected_suid_deducts_1_regardless_of_count(self):
         """Multiple unexpected SUID binaries still only −1 pt."""
         result = check_suid_audit(_snap(
             unexpected_suid=[f"/opt/bin{i}" for i in range(5)],
         ))
-        assert _deductions(result) == 1
+        assert _deduction_points(result) == 1
 
     def test_unexpected_suid_deduction_key(self):
         result = check_suid_audit(_snap(
@@ -199,7 +192,7 @@ class TestUnexpectedSgid:
         result = check_suid_audit(_snap(
             unexpected_sgid=["/opt/custom/grpbin"],
         ))
-        assert _deductions(result) == 0
+        assert _deduction_points(result) == 0
 
     def test_unexpected_sgid_path_in_cmd(self):
         result = check_suid_audit(_snap(
@@ -241,7 +234,7 @@ class TestCombined:
             unexpected_suid=["/opt/backdoor"],
             unexpected_sgid=["/opt/grpbin"],
         ))
-        assert _deductions(result) == 1
+        assert _deduction_points(result) == 1
 
     def test_no_ok_finding_when_unexpected_suid(self):
         result = check_suid_audit(_snap(unexpected_suid=["/opt/backdoor"]))

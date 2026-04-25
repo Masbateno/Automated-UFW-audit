@@ -13,7 +13,7 @@ from ufw_audit.checks.hardening import (
     HardeningSnapshot,
     check_hardening,
 )
-from tests.helpers import levels, _t
+from tests.helpers import _levels, _t
 
 
 # ---------------------------------------------------------------------------
@@ -40,7 +40,7 @@ def make_snapshot(**overrides) -> HardeningSnapshot:
 
 
 def has_level(result, level: str) -> bool:
-    return level in levels(result)
+    return level in _levels(result)
 
 
 def total_deductions(result) -> int:
@@ -215,7 +215,7 @@ class TestCumulativeDeductions:
         assert total_deductions(result) == 1
 
     def test_mixed_ok_info_warn_all_present(self):
-        """Verify all three levels can coexist in one result."""
+        """Verify all three _levels can coexist in one result."""
         snap = make_snapshot(
             rp_filter=0,          # WARN
             log_martians=False,   # INFO

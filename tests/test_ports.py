@@ -22,7 +22,7 @@ from ufw_audit.checks.ports import (
     check_ports,
 )
 from ufw_audit.scoring import FindingLevel
-from tests.helpers import levels
+from tests.helpers import _levels
 
 
 # ---------------------------------------------------------------------------
@@ -42,7 +42,7 @@ def make_snapshot(ports=None, ufw_rules="", ss_output="") -> PortsSnapshot:
 
 
 def has_level(result, level: str) -> bool:
-    return level in levels(result)
+    return level in _levels(result)
 
 
 def total_deductions(result) -> int:
@@ -434,6 +434,75 @@ class TestCheckPorts:
         )
         result = check_ports(snapshot, default_incoming_policy="unknown")
         assert has_level(result, "alert")
+
+    # ------------------------------------------------------------------
+    # ufw_active=False — port warnings suppressed/downgraded
+    # ------------------------------------------------------------------
+
+    def test_netbios_ufw_inactive_is_info_not_warn(self):
+        """NetBIOS + ufw_active=False → INFO, no WARN."""
+        snapshot = make_snapshot(
+            ports=[make_port(port=137, proto="udp", address="0.0.0.0")],
+            ufw_rules="",
+        )
+        result = check_ports(snapshot, ufw_active=False)
+        assert has_level(result, "info")
+        assert not has_level(result, "warn")
+
+    def test_netbios_ufw_inactive_no_deduction(self):
+        """NetBIOS + ufw_active=False → no deduction."""
+        snapshot = make_snapshot(
+            ports=[make_port(port=137, proto="udp", address="0.0.0.0")],
+            ufw_rules="",
+        )
+        result = check_ports(snapshot, ufw_active=False)
+        assert total_deductions(result) == 0
+
+    def test_uncovered_public_ufw_inactive_is_info(self):
+        """UNCOVERED_PUBLIC + ufw_active=False → INFO, not WARN/ALERT."""
+        snapshot = make_snapshot(
+            ports=[make_port(port=9999, proto="tcp", address="0.0.0.0")],
+            ufw_rules="",
+        )
+        result = check_ports(snapshot, default_incoming_policy="unknown", ufw_active=False)
+        assert has_level(result, "info")
+        assert not has_level(result, "warn")
+        assert not has_level(result, "alert")
+
+    def test_uncovered_public_ufw_inactive_no_deduction(self):
+        """UNCOVERED_PUBLIC + ufw_active=False → no deduction."""
+        snapshot = make_snapshot(
+            ports=[make_port(port=9999, proto="tcp", address="0.0.0.0")],
+            ufw_rules="",
+        )
+        result = check_ports(snapshot, default_incoming_policy="unknown", ufw_active=False)
+        assert total_deductions(result) == 0
+
+    def test_all_covered_ok_suppressed_when_ufw_inactive(self):
+        """all_covered OK not shown when ufw_active=False."""
+        snapshot = make_snapshot(ports=[], ufw_rules="")
+        result = check_ports(snapshot, ufw_active=False)
+        assert not has_level(result, "ok")
+
+    def test_all_covered_ok_shown_when_ufw_active(self):
+        """all_covered OK shown when ufw_active=True and no uncovered ports."""
+        snapshot = make_snapshot(ports=[], ufw_rules="")
+        result = check_ports(snapshot, ufw_active=True, default_incoming_policy="deny")
+        assert has_level(result, "ok")
+
+    def test_uncovered_public_ufw_inactive_uses_inactive_key_not_deny_key(self):
+        """UNCOVERED_PUBLIC + ufw_active=False → uses uncovered_ufw_inactive, not uncovered_default_deny."""
+        from ufw_audit.checks._run import _identity_t
+        _t_fmt = lambda key, **kw: f"{key}({','.join(f'{k}={v}' for k,v in kw.items())})" if kw else key
+        snapshot = make_snapshot(
+            ports=[make_port(port=9999, proto="tcp", address="0.0.0.0")],
+            ufw_rules="",
+        )
+        result = check_ports(snapshot, default_incoming_policy="unknown",
+                             ufw_active=False, t=_t_fmt)
+        info_msgs = [f.message for f in result.findings if f.level.value == "info"]
+        assert any("uncovered_ufw_inactive" in m for m in info_msgs)
+        assert not any("uncovered_default_deny" in m for m in info_msgs)
 
     def test_uncovered_public_with_process_is_warn_not_alert(self):
         """Port with known process + default allow → WARN (improvement), not ALERT (action)."""

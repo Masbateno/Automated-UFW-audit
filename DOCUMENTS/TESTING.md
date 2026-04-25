@@ -11,6 +11,7 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 
 | Version | Tests | Notes |
 |---------|-------|-------|
+| v1.24.0 | 4134  | +92 tests — `test_iptables_nftables.py` new (51); `test_kernel_modules.py`: `TestKernelAptUpdate` (+9); `test_services.py`: `TestInactiveDisabled` (+5) + `TestPortExposureFindings` (+4); locale keys: `installed_inactive_critical`, `forward_unknown`, `kernels_update_available`, `kernels_up_to_date` |
 | v1.23.0 | 4042  | +35 tests — `test_cli.py`: `TestFormatFlag` (+22) + `TestCheckSkipFlags` (+4); `test_manage_logs.py`: `TestExtractSummaryView` (+7); scope qualifier (+2); `tests/helpers.py` shared utilities introduced; 62 test files migrated |
 | v1.22.3 | 4007  | +2 tests — `test_ports.py`: 3-tuple split + virbr0 iface + is_all_interfaces_iface_scoped; `test_exposure.py`: UDP ephemeral excluded + TCP high-port shown; feature: `ufw status verbose` in rules section |
 | v1.22.2 | 4004  | +3 tests — `test_exposure.py`: 2 renamed + 3 DDNS tests; bugfixes: snakeoil global filter, DDNS exposure, high-port server, SSH double-prefix, runner note split |
@@ -47,6 +48,26 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v0.18   | 531   | 26 new tests for `fixes.py`; `run_fixes()` fully covered |
 | v0.17   | 505   | 15 pre-existing failures fixed; suite fully green |
 | v0.9    | 421   | First full suite |
+
+### v1.24.0 — 4134/4134 (2026-04-25)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+4134 passed in 4.71s
+```
+
+#### New / modified tests (+92)
+
+| File | Change | Coverage |
+|------|--------|----------|
+| `tests/test_iptables_nftables.py` | New file — 51 tests | CHECK 46: iptables/nftables audit when UFW inactive; `_get_iptables_backend`, `_parse_iptables_policy`, `_check_conntrack`, `_check_iptables_nftables`; backend detection (iptables-legacy vs nftables); INPUT/FORWARD policy parsing; conntrack ACCEPT; FORWARD unknown→INFO; degraded/absent paths |
+| `tests/test_kernel_modules.py` | +9 tests (`TestKernelAptUpdate`) | `check_kernel_update_available`: apt-cache policy primary path; fallback apt list --upgradable; kernel up-to-date → `✔ [OK]`; update available → WARN; apt unavailable → skipped; `apt_checked` flag set; Ubuntu and Debian paths |
+| `tests/test_services.py` | +5 tests (`TestInactiveDisabled`) | `test_warn_for_critical_inactive_disabled`; `test_warn_for_high_inactive_disabled`; `test_no_deduction_for_critical_inactive`; `test_no_port_check_for_critical_inactive`; low-risk baseline preserved (`test_info_finding_for_low_risk_inactive`) |
+| `tests/test_services.py` | +4 tests (`TestPortExposureFindings`) | `test_not_listening_critical_adds_warn`; `test_not_listening_high_adds_warn`; `test_not_listening_no_deduction`; `test_not_listening_critical_no_deduction`; `test_not_listening_adds_info_for_low_risk` (renamed from `test_not_listening_adds_info`) |
+
+---
 
 ### v1.23.0 — 4042/4042 (2026-04-24)
 

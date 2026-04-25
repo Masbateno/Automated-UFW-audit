@@ -4,7 +4,7 @@ Shared test utilities for ufw-audit tests.
 Centralises helpers that were previously duplicated across test modules.
 Import what you need:
 
-    from tests.helpers import _t, levels, _has_finding, _get_finding
+    from tests.helpers import _t, _levels, _keys, _has_finding, _get_finding
     from tests.helpers import _deduction_keys, _deduction_points
 """
 
@@ -26,7 +26,7 @@ def _t(key: str, **kwargs) -> str:
 # Finding helpers
 # ---------------------------------------------------------------------------
 
-def levels(result) -> list[str]:
+def _levels(result) -> list[str]:
     """Return list of finding level string values from a CheckResult."""
     return [f.level.value for f in result.findings]
 

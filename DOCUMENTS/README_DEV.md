@@ -87,7 +87,7 @@ This separation allows the entire business logic to be tested by instantiating s
 | `file_perms.py` | Sensitive file permissions: /etc/passwd, /etc/shadow, sudoers, SSH host keys |
 | `user_accounts.py` | User account audit: UID 0 non-root, empty passwords, expired accounts |
 | `password_policy.py` | Password policy: PAM quality module, minlen, PASS_MAX_DAYS |
-| `kernel_modules.py` | Risky kernel modules: cramfs, hfs, dccp, sctp, rds, tipc, usb_storage |
+| `kernel_modules.py` | Risky kernel modules: cramfs, hfs, dccp, sctp, rds, tipc, usb_storage; apt kernel update availability (apt-cache policy / apt list --upgradable) |
 | `cron_audit.py` | Cron security: pipe-to-shell, world-writable scripts |
 | `services_state.py` | Service state: security services enabled at boot but currently inactive |
 | `disk.py` | Disk health: SMART health (smartctl), critical SMART attributes, partition usage; NVMe support |
@@ -102,6 +102,7 @@ This separation allows the entire business logic to be tested by instantiating s
 | `ssl_certs.py` | TLS/SSL certificate expiry: Let's Encrypt, `/etc/ssl/private` (snakeoil filtered), nginx/apache2/postfix configs |
 | `systemd_timers.py` | Systemd timer security: pipe-to-shell in ExecStart, world-writable scripts, user-created root timers |
 | `firmware.py` | Firmware & microcode: fwupdmgr pending updates, CPU microcode package via dpkg |
+| `iptables_nftables.py` | CHECK 46: iptables/nftables audit when UFW inactive — INPUT/FORWARD policy, conntrack, backend detection (iptables-legacy vs nftables) |
 | `ipv6.py` | IPv6 listener/UFW-rule consistency; `has_global_ipv6` field; link-local/ULA-only → INFO (not WARN) |
 
 ---
@@ -146,7 +147,7 @@ ufw_audit/
 │   ├── file_perms.py    # FilePermsSnapshot + check_file_perms()
 │   ├── user_accounts.py # UserAccountsSnapshot + check_user_accounts()
 │   ├── password_policy.py # PasswordPolicySnapshot + check_password_policy()
-│   ├── kernel_modules.py # KernelModulesSnapshot + check_kernel_modules()
+│   ├── kernel_modules.py # KernelModulesSnapshot + check_kernel_modules() — risky modules + apt kernel update
 │   ├── cron_audit.py    # CronAuditSnapshot + check_cron_audit()
 │   ├── services_state.py # ServicesStateSnapshot + check_services_state()
 │   ├── disk.py          # DiskSnapshot + check_disk() — SMART, partitions, NVMe
@@ -157,7 +158,8 @@ ufw_audit/
 │   ├── rootkit.py       # RootkitSnapshot + check_rootkit() — rkhunter/chkrootkit
 │   ├── ssl_certs.py     # SslCertsSnapshot + check_ssl_certs() — cert expiry (CHECK 43)
 │   ├── systemd_timers.py # SystemdTimersSnapshot + check_systemd_timers() — timer security (CHECK 44)
-│   └── firmware.py      # FirmwareSnapshot + check_firmware() — fwupd + microcode (CHECK 45)
+│   ├── firmware.py      # FirmwareSnapshot + check_firmware() — fwupd + microcode (CHECK 45)
+│   └── iptables_nftables.py # IptablesNftablesSnapshot + check_iptables_nftables() — raw firewall audit (CHECK 46)
 ├── _tty.py              # read_line() — raw-mode line reader with Esc-to-cancel, TTY fallback to input()
 ├── html_output.py       # build_html_output() — standalone HTML export (--html)
 ├── compare.py           # AuditBaseline (finding_keys) + AuditDelta (new/resolved keys) + comparative report
@@ -169,7 +171,7 @@ ufw_audit/
 ├── domain_scores.py     # compute_domain_scores(), render_domain_scores() — backup→disk
 ├── webhook.py           # build_generic_payload(), build_slack_payload(), send_webhook()
 ├── data/
-│   ├── services.json            # Declarative registry of the 22 services
+│   ├── services.json            # Declarative registry of the 28 services
 │   └── ufw-audit.bash-completion  # Bash completion script
 └── locales/
     ├── en.json          # English translation keys
@@ -224,7 +226,8 @@ tests/
 ├── test_correlation.py
 ├── test_exposure.py
 ├── test_recurrence.py
-└── test_manage_logs.py
+├── test_manage_logs.py
+└── test_iptables_nftables.py
 
 pyproject.toml           # Build config (setuptools, pip/pipx install)
 README.md / README_FR.md           # User documentation (EN/FR)
@@ -271,7 +274,7 @@ python3 -m unittest tests/test_firewall.py
 ### Expected result
 
 ```
-4042 passed in X.XXs
+4134 passed in X.XXs
 ```
 
 Tests make no system calls — all snapshots are built directly in the test files. They can be run without `sudo` and without UFW installed.
@@ -402,8 +405,8 @@ print(f'Missing in FR: {missing if missing else \"none\"}')
 
 Expected output:
 ```
-EN keys: 290
-FR keys: 290
+EN keys: 1527
+FR keys: 1527
 Missing in FR: none
 ```
 

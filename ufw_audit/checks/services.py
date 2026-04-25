@@ -253,6 +253,7 @@ class ServiceSnapshot:
 def check_services(
     snapshots: list[ServiceSnapshot],
     network_context: str = "local",
+    ufw_active: bool = True,
     t=None,
 ) -> CheckResult:
     """
@@ -261,6 +262,7 @@ def check_services(
     Args:
         snapshots:       List of installed ServiceSnapshots.
         network_context: "local" or "public" — affects deduction weight.
+        ufw_active:      False when UFW is inactive — adjusts exposure messages.
         t:               Translation function. If None, key names are used.
 
     Returns:
@@ -270,7 +272,7 @@ def check_services(
     result = CheckResult()
 
     for snap in snapshots:
-        _check_single_service(snap, result, network_context, _t)
+        _check_single_service(snap, result, network_context, ufw_active, _t)
 
     return result
 
@@ -279,15 +281,22 @@ def _check_single_service(
     snap: ServiceSnapshot,
     result: CheckResult,
     network_context: str,
+    ufw_active: bool,
     _t,
 ) -> None:
     """Evaluate a single service snapshot and add findings to result."""
 
-    # Inactive and disabled — low risk, informational only
+    # Inactive and disabled
     if snap.state == ServiceState.INACTIVE_DISABLED:
-        result.info(
-            message=_t("services.state.inactive_disabled", label=snap.label),
-        )
+        if snap.service.is_high_or_critical:
+            result.warn(
+                message=_t("services.state.installed_inactive_critical", label=snap.label),
+                nature="improvement",
+            )
+        else:
+            result.info(
+                message=_t("services.state.inactive_disabled", label=snap.label),
+            )
         return
 
     # Active but not enabled at boot
@@ -307,7 +316,7 @@ def _check_single_service(
 
     # Analyse each port exposure
     for port, exposure in snap.exposures.items():
-        _check_port_exposure(snap, port, exposure, result, network_context, _t)
+        _check_port_exposure(snap, port, exposure, result, network_context, ufw_active, _t)
 
 
 def _check_port_exposure(
@@ -316,12 +325,16 @@ def _check_port_exposure(
     exposure: Exposure,
     result: CheckResult,
     network_context: str,
+    ufw_active: bool,
     _t,
 ) -> None:
     """Add findings for a single port exposure."""
 
-    port_msg = _t("services.port_exposure", port=port,
-                  exposure=_t(f"services.exposure.{exposure.value}"))
+    if not ufw_active and exposure in (Exposure.NO_RULE, Exposure.LOOPBACK_NO_RULE):
+        exp_key = f"services.exposure.{exposure.value}_ufw_inactive"
+    else:
+        exp_key = f"services.exposure.{exposure.value}"
+    port_msg = _t("services.port_exposure", port=port, exposure=_t(exp_key))
 
     if exposure == Exposure.OPEN_WORLD:
         # High/critical services exposed to internet get extra penalty in public context
@@ -370,7 +383,10 @@ def _check_port_exposure(
         result.info(message=port_msg)
 
     elif exposure == Exposure.NOT_LISTENING:
-        result.info(message=port_msg)
+        if snap.service.is_high_or_critical:
+            result.warn(message=port_msg, nature="improvement")
+        else:
+            result.info(message=port_msg)
 
 
 # ---------------------------------------------------------------------------

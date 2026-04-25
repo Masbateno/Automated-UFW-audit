@@ -29,6 +29,7 @@ from ufw_audit.checks.ddns import DdnsSnapshot, check_ddns, ddns_effective_conte
 from ufw_audit.checks.auth_log import AuthLogSnapshot, check_auth_log
 from ufw_audit.checks.docker import DockerSnapshot, check_docker
 from ufw_audit.checks.firewall import FirewallStatus, check_firewall, check_rules, check_ufw_logging
+from ufw_audit.checks.iptables_nftables import IptablesNftSnapshot, check_iptables_nftables
 from ufw_audit.checks.umask import UmaskSnapshot, check_umask
 from ufw_audit.checks.firewall_stack import FirewallStackSnapshot, check_firewall_stack
 from ufw_audit.checks.network_context import NetworkContextSnapshot, check_network_context
@@ -76,7 +77,7 @@ _ALL_SECTIONS: tuple[str, ...] = (
     "log_rotation", "kernel_modules", "mac_policy", "cron_audit", "services_state",
     "updates", "umask", "memory", "disk", "backup", "auditd", "secure_boot",
     "fail2ban", "clamav", "file_integrity", "rootkit", "ntp", "systemd_timers",
-    "ssl_certs", "firmware",
+    "ssl_certs", "firmware", "iptables_nft",
 )
 
 
@@ -190,11 +191,20 @@ def run_checks(
     ufw_numbered = fw_status.numbered_output
     ufw_verbose  = fw_status.ufw_output
 
+    # Collect ports early so orphan-rule detection can cross-reference
+    ports_snapshot        = PortsSnapshot.from_system()
+    loopback_only_ports   = ports_snapshot.loopback_only_ports
+    active_external_ports = ports_snapshot.active_external_ports
+    all_listening_ports   = loopback_only_ports | active_external_ports
+
     if not config.quiet:
         print_section(t("sections.rules"))
     report.write_section(t("sections.rules"))
 
-    rules_result = check_rules(ufw_verbose, ufw_numbered, t, fw_status.ipv6_ufw_enabled)
+    rules_result = check_rules(
+        ufw_verbose, ufw_numbered, t, fw_status.ipv6_ufw_enabled,
+        listening_ports=all_listening_ports,
+    )
     engine.apply(rules_result)
     display_result(rules_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
 
@@ -211,6 +221,18 @@ def run_checks(
     ufw_logging_result = check_ufw_logging(fw_status, t=t)
     engine.apply(ufw_logging_result)
     display_result(ufw_logging_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
+
+    # ---- CHECK 46 — iptables / nftables (UFW inactive only) ----
+    if not fw_status.active and _section_enabled("iptables_nft", config, profile):
+        if not config.quiet:
+            print_section(t("sections.iptables_nft"))
+        report.write_section(t("sections.iptables_nft"))
+        ipt_snapshot  = IptablesNftSnapshot.from_system()
+        ipt_result    = check_iptables_nftables(ipt_snapshot, ufw_installed=fw_status.installed, t=t)
+        engine.apply(ipt_result)
+        display_result(ipt_result, report, config.verbose, quiet=config.quiet, recurrence=_pr)
+        if not config.quiet:
+            print()
 
     # ---- CHECK 2b — Firewall stack analysis ----
     if not config.quiet:
@@ -242,7 +264,7 @@ def run_checks(
         if not config.quiet:
             print_section(t("sections.ipv6"))
         report.write_section(t("sections.ipv6"))
-        ipv6_result = check_ipv6(ipv6_snapshot, t=t)
+        ipv6_result = check_ipv6(ipv6_snapshot, ufw_active=fw_status.active, t=t)
         if profile is not None:
             apply_profile(ipv6_result, profile)
         engine.apply(ipv6_result)
@@ -258,11 +280,6 @@ def run_checks(
     report.write_group(t("groups.exposure_services"))
 
     # ---- CHECK 3 — Network services ----
-    ports_snapshot        = PortsSnapshot.from_system()
-    loopback_only_ports   = ports_snapshot.loopback_only_ports
-    active_external_ports = ports_snapshot.active_external_ports
-    all_listening_ports   = loopback_only_ports | active_external_ports
-
     # Upgrade network_context to "ddns" when DDNS is active with open ports
     # so that service exposure deductions are scored at public-equivalent weight.
     ddns_snapshot = DdnsSnapshot.from_system()
@@ -307,7 +324,7 @@ def run_checks(
         if not config.quiet:
             print_service_header(snap.label)
         report.write_raw(f"\n  > {snap.label}")
-        if snap.is_active:
+        if snap.is_active or (snap.installed and not snap.is_active and snap.service.is_high_or_critical):
             _risk_note = (
                 t("service_risk.local_exposure_note")
                 if snap.service.id == "ssh" and not _ssh_exposed
@@ -324,7 +341,8 @@ def run_checks(
             if _port_note and not config.quiet:
                 print_info(_port_note)
         svc_result = check_single_service_display(
-            snap, network_context, t, report, config.verbose, quiet=config.quiet,
+            snap, network_context, t, report, config.verbose,
+            quiet=config.quiet, ufw_active=fw_status.active,
         )
         engine.apply(svc_result)
         audited_ports.update(snap.ports)
@@ -343,6 +361,7 @@ def run_checks(
         audited_ports=audited_ports,
         network_context=network_context,
         default_incoming_policy=fw_status.incoming_policy,
+        ufw_active=fw_status.active,
         t=t,
     )
     engine.apply(ports_result)

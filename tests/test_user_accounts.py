@@ -16,7 +16,7 @@ from ufw_audit.checks.user_accounts import (
     _MAX_DEDUCTION_EMPTY_PASSWORD,
 )
 from ufw_audit.scoring import FindingLevel
-from tests.helpers import levels
+from tests.helpers import _levels
 
 
 # ---------------------------------------------------------------------------
@@ -42,7 +42,7 @@ def make_snap(**kwargs) -> UserAccountsSnapshot:
 
 
 def has_level(result, level: str) -> bool:
-    return level in levels(result)
+    return level in _levels(result)
 
 
 def total_deductions(result) -> int:

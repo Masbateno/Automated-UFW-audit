@@ -306,5 +306,75 @@
       "snap": [],
       "config_files": []
     }
+  },
+  {
+    "id": "telnet",
+    "label": "Telnet Server",
+    "packages": ["telnetd", "inetutils-telnetd"],
+    "services": ["inetutils-inetd", "xinetd"],
+    "ports": ["23/tcp"],
+    "risk": "critical",
+    "config_key": "fixed",
+    "detection": {
+      "binary": ["in.telnetd", "telnetd"],
+      "snap": [],
+      "config_files": ["/etc/inetd.conf"]
+    }
+  },
+  {
+    "id": "rdp",
+    "label": "RDP / xRDP",
+    "packages": ["xrdp"],
+    "services": ["xrdp"],
+    "ports": ["3389/tcp"],
+    "risk": "critical",
+    "config_key": "fixed",
+    "detection": {
+      "binary": ["/usr/sbin/xrdp"],
+      "snap": [],
+      "config_files": ["/etc/xrdp/xrdp.ini"]
+    }
+  },
+  {
+    "id": "mongodb",
+    "label": "MongoDB",
+    "packages": ["mongodb", "mongodb-org", "mongodb-server", "mongodb-server-core"],
+    "services": ["mongod", "mongodb"],
+    "ports": ["27017/tcp"],
+    "risk": "critical",
+    "config_key": "fixed",
+    "detection": {
+      "binary": ["mongod"],
+      "snap": [],
+      "config_files": ["/etc/mongod.conf", "/etc/mongodb.conf"]
+    }
+  },
+  {
+    "id": "elasticsearch",
+    "label": "Elasticsearch",
+    "packages": ["elasticsearch"],
+    "services": ["elasticsearch"],
+    "ports": ["9200/tcp"],
+    "risk": "critical",
+    "config_key": "fixed",
+    "detection": {
+      "binary": [],
+      "snap": [],
+      "config_files": ["/etc/elasticsearch/elasticsearch.yml"]
+    }
+  },
+  {
+    "id": "memcached",
+    "label": "Memcached",
+    "packages": ["memcached"],
+    "services": ["memcached"],
+    "ports": ["11211/tcp", "11211/udp"],
+    "risk": "critical",
+    "config_key": "fixed",
+    "detection": {
+      "binary": ["memcached"],
+      "snap": [],
+      "config_files": ["/etc/memcached.conf"]
+    }
   }
 ]

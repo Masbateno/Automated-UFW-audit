@@ -1,9 +1,9 @@
 *[Read in English](README_TECH.md)* · *[Vue d'ensemble](../README_FR.md)*
 
-# ufw-audit v1.23.0
+# ufw-audit v1.24.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.23.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.24.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -20,7 +20,8 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 - **Vérification du statut UFW** — actif/inactif, politique par défaut entrante
 - **Analyse des règles UFW** — règles en doublon, `allow from any` sans restriction de port, cohérence IPv6
 - **Score contextuel** — détection du contexte réseau (IP publique directe vs NAT) ; pénalités doublées sur les machines exposées sur internet ; pare-feu inactif plafonne le score à 3/10
-- **Détection de 22 services réseau courants** avec analyse de leur exposition UFW et contexte de risque à deux axes (exposition + menace) pour les services critiques et élevés
+- **Détection de 28 services réseau courants** avec analyse de leur exposition UFW et contexte de risque à deux axes (exposition + menace) pour les services critiques et élevés ; services CRITICAL/HIGH installés mais inactifs émettent ⚠ + bloc de contexte de risque
+- **Audit iptables/nftables** — quand UFW est inactif, audite la couche pare-feu sous-jacente : détecte le backend actif (iptables vs nftables) ; vérifie les politiques par défaut INPUT et FORWARD ; contrôle la présence du suivi de connexion conntrack ; ⚠ −1 pt par politique permissive ; conditionné sur `not fw_status.active`
 - **Docker** — détection du contournement iptables et liste des ports exposés par les containers en cours d'exécution
 - **Virtualisation** — détecte les hyperviseurs actifs (libvirt/KVM, VirtualBox, VMware, LXD/LXC) et les paquets Snap réseau qui peuvent créer des interfaces bridge et manipuler iptables directement, contournant UFW — même risque que Docker
 - **Ports en écoute** — passe unique unifiée ; ports éphémères et système ignorés proprement ; NetBIOS géré avec avertissement contextuel
@@ -32,7 +33,7 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 - **Résumé catégorisé** — findings répartis en trois blocs : *Action requise* / *Améliorations possibles* / *Configuration normale* ; phrase d'interprétation automatique
 - **Note de politique implicite** — signale quand des services à risque élevé s'appuient sur la politique `deny` par défaut plutôt que sur des règles explicites
 - **Score de sécurité** (0–10) avec niveau de risque : FAIBLE / MOYEN / ÉLEVÉ / CRITIQUE
-- **Panorama des services** — tableau compact de l'ensemble des 22 services connus après l'audit services (SERVICE / STATUT / PORT(S) / UFW), services non installés affichés en grisé
+- **Panorama des services** — tableau compact de l'ensemble des 28 services connus après l'audit services (SERVICE / STATUT / PORT(S) / UFW), services non installés affichés en grisé
 - **Interface bilingue** — anglais par défaut, français avec `--french`
 - **Mode sans couleur** — `--no-color` pour une sortie propre dans les pipes et fichiers log
 - **Rapport détaillé optionnel** — fichier log horodaté avec en-tête ASCII art, informations système, findings et recommandations
@@ -448,96 +449,6 @@ Exemple cron — audit quotidien à 6h, mail en cas de problème :
 ## Précision importante
 
 ufw-audit est un outil d'audit et de diagnostic, pas un bouclier de sécurité. Il analyse votre configuration et vous signale les problèmes — mais il ne les corrige pas automatiquement sans votre accord, et il ne peut pas tout détecter. Certains logiciels comme Docker peuvent contourner UFW en manipulant directement iptables : ufw-audit détecte ce cas spécifique et vous le signale, mais il existe d'autres vecteurs similaires qui sortent du périmètre actuel du projet. En résumé : ufw-audit vous aide à voir plus clair, il ne se substitue pas à une bonne hygiène de sécurité générale.
-
----
-
-## Roadmap
-
-**v0.9** — Réécriture complète en Python, 421 tests unitaires, installateur transparent avec manifeste, autocomplétion bash, bilingue EN/FR, 22 services avec contexte de risque à deux axes
-
-**v0.10** — Géolocalisation GeoIP2 optionnelle, suppression whois, options courtes CLI, autocomplétion install.sh, note de périmètre du score
-
-**v0.11** — Consolidation CLI & tests terrain (Mint/Debian/Kali), mode non-interactif (`--quiet`, codes de sortie 0-3), `check_virtualization()`, déduplication des ports, corrections de scoring
-
-**v0.11.1** — Patch sécurité : 20 vulnérabilités corrigées (injection shell, injection ANSI, traversée de chemins, attaques symlink, ReDoS, JSON bomb, durcissement des permissions fichiers)
-
-**v0.11.2** — Passe UX/output : bandeau redessiné (art bloc "UFW-AUDIT" complet, largeur 80 chars, étage version), verdict log, corrections de cohérence des sections dans le rapport, corrections grammaticales des locales
-
-**v0.11.3** — Prompt emplacement des logs, panorama des services, `--manage-logs`, `--install-cron` / `--remove-cron`, en-tête ASCII art dans les rapports, bannière auto-fix et résumé des commandes, `AUTOMATION.md`
-
-**v0.11.4** — Patch correctifs : détection wildcards open-any (espaces trailing, variantes `/tcp`/`/udp`), doublons sémantiques (`PORT/proto` vs `PORT`), ignorance des commentaires, services CRITICAL/HIGH exposés → alerte, règles bare port DDNS, `TESTING.md`
-
-**v0.12** — Rapports email markdown : conversion HTML zéro-dépendance, emails MIME multipart (plaintext + HTML), rendu HTML dans nightly script, nettoyage des boîtes UTF-8
-
-**v0.13** — Planificateur multi-cron : crons nommés, wizard de planification en 4 étapes (tous les jours / jours de la semaine / jours du mois / expression personnalisée), TUI `--manage-cron`, `--remove-cron` avec sélection explicite, module `cron.py` isolé
-
-**v0.14** — Refactoring : `__main__.py` réduit de ~1820 à ~481 lignes ; nouveaux modules dédiés : `display.py`, `fixes.py`, `manage_logs.py`, `panorama.py`, `sysinfo.py` ; `check_rules()` déplacé vers `checks/firewall.py` ; orchestrateur pur sans logique métier
-
-**v0.14.1** *(stable)* — Corrections post-sortie : faux positif ALERT pour services liés au loopback (Redis/6379), faux positifs DDNS (ports système, règles orphelines, règles bare), `--remove-cron` non supprimé à la sortie, bannière VERSION affichant `v0.13.0b`
-
-**v0.15** — Durcissement sécurité (validation des entrées, permissions fichiers, surfaces d'appel shell, gestion d'erreurs) ; refactoring DRY (`checks/_run.py`, `_paths.py`, `_truncate`) ; corrections install script (copie `__init__.py`, vérification version Python, glob locales/docs, nouveaux modules) ; correction bug détection wildcard IPv6 (`open_any_pattern` couvre désormais les lignes `Anywhere (v6)`) ; correction message port loopback (clé `ports.uncovered_local`) ; suite de tests de régression complète validée en direct
-
-**v0.15.1** — Robustesse install script : trap + rollback en cas d'échec partiel, suppression du dead code `do_copy_dir` ; correction bug : open-any sans index `[N]` ne produit plus de commande de fix invalide ; nettoyage sortie UI fix (`capture_output`) ; `_meta.version` des locales corrigé ; choix d'installation documenté dans README_TECH
-
-**v0.16** — Deux corrections de faux positifs panorama : `Exposure.NOT_LISTENING` (port du registre non en écoute → panorama ✔, aucun message) et `Exposure.LOOPBACK_NO_RULE` (port loopback sans règle UFW → panorama ✔, message INFO) ; suite de régression complète (C6 × 9 services, C8 OPEN_LOCAL, E1 loopback)
-
-**v0.17** — Suite de tests unitaires entièrement verte : 505/505 ; 15 échecs préexistants corrigés dans 6 fichiers de tests ; deux corrections de code (`_extract_duckdns_domain` parsing paramètre query, garde plage DOW dans `cron_to_human`)
-
-**v0.18** — 26 nouveaux tests unitaires pour `fixes.py` (`run_fixes()`) : classification des items, ordre de suppression UFW, chemins subprocess, mode interactif, mode auto (`--yes`), résumé automatique ; suite atteint 531/531
-
-**v0.19** — CI GitHub Actions : pytest sur chaque push/PR, matrice Python 3.8 / 3.10 / 3.12
-
-**v0.20** — 17 tests en mode dégradé (`tests/test_degraded.py`) : `ss` absent, règles UFW vides, fichier de log manquant, dégradation multi-modules combinée ; suite atteint 548/548
-
-**v0.21** — Passe qualité pré-v1.0 : 78 nouveaux tests + 3 corrections ; `virtualization.py` entièrement couvert ; faux positif CGNAT/IPv6 corrigé ; lignes de config commentées non détectées ; exclusion des modes CLI appliquée ; carnet d'adresses email dans `--manage-cron` (ajout/suppression/tout effacer) ; suite atteint 619/619
-
-**v0.22** — Passe qualité interne : 5 modules refactorisés (`__main__`, `firewall`, `services`, `scoring`, `output`) ; alignement des cadres corrigé sur toutes les interfaces ; `meta: dict` supprimé de `CheckResult` → `open_ports: List[str]` typé
-
-**v0.22.1** — Hotfix : pare-feu détecté comme inactif sur les locales non-anglaises ; variable `LANGUAGE` maintenant vidée avec `LC_ALL=C`
-
-**v1.0** — Version stable ; `pipx install ufw-audit` comme méthode d'installation principale ; `--install-completion` crée l'autocomplétion bash et le lien symbolique sudo PATH ; Python 3.9 minimum ; matrice CI mise à jour (3.9 / 3.10 / 3.12) ; clé locale `not_listening` ajoutée ; install.sh déprécié
-
-**v1.2.0** — Passe qualité : 12 corrections défensives sur 8 modules ; regex IPv4 privée `172.x` corrigée ; `Deduction.context` validé ; cap visible dans le breakdown du score ; 639/639
-
-**v1.2.1** — Nettoyage packaging : `install.sh` supprimé ; corrections `pyproject.toml` (LICENSE, classifier, URL Issues)
-
-**v1.3.0** — i18n complète : toutes les raisons de déduction traduites via `t()` ; flag `--offline`/`-o` ; détection d'adresse IPv6 publique ; chaîne de fallback 3 providers ; 652/652
-
-**v1.4.0** — Système de plugins (`services.d/*.json`) ; findings ports avec processus identifié (WARN + note au lieu d'ALERT) ; sortie JSON SIEM (`--json` / `--json-full`) ; correction crash GeoIP2 (`AddressNotFoundError`) ; sujet email cron enrichi hostname + score ; prise en compte de la politique de refus par défaut UFW (ports non couverts rétrogradés en INFO si policy = deny/reject) ; 676/676
-
-**v1.4.1** — Hotfix : `--install-completion` absent des suggestions TAB de la complétion bash (liste `long_opts` mise à jour)
-
-**v1.4.2** — Hotfix : ports NetBIOS 137/138 encore signalés malgré une règle UFW explicite ; `_is_covered_by_ufw()` déplacé avant la branche NetBIOS dans `_categorize_port()` ; 677/677
-
-**v1.5.0** — Bannière enrichie (noyau, version iptables + backend, version nftables) ; nouvelle section ANALYSE DE LA PILE PARE-FEU (contournement iptables brut, nftables parallèle, ip_forward) ; nouvelle section CONTEXTE RÉSEAU (tableau interfaces, connexions établies) ; 766/766
-
-**v1.6.0** — Nouvelle section DURCISSEMENT (fail2ban, mises à jour auto, AppArmor, rp_filter, redirections ICMP, log_martians, broadcast ICMP) ; nouvelle section COHÉRENCE IPv6 ; rapport comparatif (delta de baseline) ; API plugin de vérification ; 928/928
-
-**v1.7.0** — Profils d'audit (`server`/`workstation`/`container`, format INI, héritage `extends`, `--profile=NAME`) ; `Deduction.key` pour correspondance d'override déterministe ; notifications cron multi-email ; suppression cron en lot (`d:1,3` / `d:1-3` / `d:all`) ; filtre des ports éphémères dans le rapport comparatif ; `--reset-baseline` ; 966/966
-
-**v1.8.0** — Audit sécurité SSH (15 directives, clés privées, authorized_keys, known_hosts) ; fichiers sensibles & sudoers (monde-écriture, trop-permissif, NOPASSWD:ALL) ; ciblage home `SUDO_USER` ; suggestions distro-aware ; correctif i18n (`recommendation_label`) ; détail INFO en verbose ; 1104/1104
-
-**v1.9.0** — Audit mises à jour système (CHECK 13 : apt en attente, unattended-upgrades, −2/−1 pts composés) ; `--explain KEY` avec WHY/HOW/CIS Ubuntu 22.04 (20 clés) ; webhooks (`--webhook`, générique + Slack, non-fatal) ; scores par domaine (5 domaines, barre, JSON/webhook) ; mode `--diff` ; passage qualité ; 1332/1332
-
-**v1.10.0** — Suggestion `--explain` dans le résumé (Phase A1) ; audit modules noyau (CHECK 14 : cramfs/hfs/squashfs/usb_storage/dccp/sctp/rds/tipc, −1 pt/catégorie) ; audit tâches cron (CHECK 15 : pipe-to-shell −2 pts, scripts accessibles en écriture −1 pt ; /etc/cron.d parsé en format crontab) ; audit état des services (CHECK 16 : requête systemctl en deux étapes, services de sécurité inactifs, −1 pt/service max −3) ; passage qualité (shlex.quote dans les cmds de correction, key= sur tous les findings firewall.py, 9 fichiers de tests étendus) ; 1541/1541
-
-**v1.11.0** — `--explain` A2 (20→33 clés : 11 SSH + fail2ban + 2 modules noyau + pipe_to_shell + enabled_inactive) ; audit comptes utilisateurs (CHECK 17 : UID 0 −3 pts, mot de passe vide −2 pts, expirés INFO) ; audit politique de mots de passe (CHECK 18 : absence module PAM −1 pt, minlen faible −1 pt, PASS_MAX_DAYS≥365 INFO) ; passage qualité ; 1675/1675
-
-**v1.12.0** — Refonte `--help` (7 sections) ; 6 nouvelles options courtes (-J -C -p -e -D -w) ; correctifs autocomplétion bash ; 4 correctifs Debian VM (contexte risque tous services, GeoIP mkdir, unattended workstation, dates expiration avec filtre UID) ; 1703/1703
-
-**v1.13.0** — audit santé disques (CHECK 22 : SMART + partitions, support NVMe, nouveau domaine `disk`) ; audit mémoire & swap (CHECK 23 : usure SSD, swap injustifié 3 conditions, swappiness adapté au profil) ; tableau partitions avec barres de progression colorées ; conseils SMART ; `--explain` 33→63 clés (15 groupes) ; passages qualité (disk.py + memory.py) ; 1890/1890
-
-**v1.14.0** — audit sécurité Samba (CHECK 24 : SMB1 −2, mots de passe nuls −3, signature serveur −1, partage invité écriture −2/partage, lecture −1/partage, map_to_guest −1 ; domaine samba) ; audit antivirus ClamAV (CHECK 25 : fraîcheur BD, statut démon, âge dernier scan) ; correctif `--diff` info_count ; `--explain` 63→73 clés (17 groupes) ; 2045/2045
-
-**v1.15.0** — CHECK 26 dominance source locale IoT (≥ 70 % trafic bloqué depuis une IP privée, WARN −1 pt) ; CHECK 27 exposition SMTP locale (Postfix/Exim/Sendmail sur 0.0.0.0:25, WARN −1 pt) ; `--fix` aperçu par défaut + `--apply` pour exécuter ; `--target N` objectif de score dans la boîte de synthèse ; TUI `--explain` navigation bloquée + écran détail in-curses ; annulation wizard avec `q` ; `--explain` 73→77 clés ; passage qualité smtp.py ; 2139/2139
-
-**v1.15.1** *(actuel)* — Hotfix autocomplétion bash : `--explain` sans `=` parasite ; `compopt -o nospace` pour les options à valeur
-- `--diff` — comparer l'audit courant avec un précédent export `--json` pour détecter les nouveaux ports/services (dérive d'audit)
-- `--fix --safe` — mode auto-fix restreint aux findings LOW/MEDIUM uniquement ; les findings CRITICAL/HIGH ne sont jamais appliqués sans confirmation explicite
-
-**Post v1.0**
-- Interface Web (`--gui`) — interface graphique pour utilisateurs non-techniques, approche pédagogique, périmètre simplifié
-- PPA Launchpad / paquet `.deb` — le répertoire de plugins migrera vers `/etc/ufw-audit/services.d/`
 
 ---
 

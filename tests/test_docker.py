@@ -14,7 +14,7 @@ from ufw_audit.checks.docker import (
     check_docker,
 )
 from ufw_audit.scoring import FindingLevel
-from tests.helpers import levels
+from tests.helpers import _levels
 
 
 # ---------------------------------------------------------------------------
@@ -38,7 +38,7 @@ def make_port(
 
 
 def has_level(result, level):
-    return level in levels(result)
+    return level in _levels(result)
 
 
 def total_deductions(result):

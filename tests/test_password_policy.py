@@ -17,7 +17,7 @@ from ufw_audit.checks.password_policy import (
     _DEDUCTION_WEAK_MINLEN,
 )
 from ufw_audit.scoring import FindingLevel
-from tests.helpers import levels
+from tests.helpers import _levels
 
 
 # ---------------------------------------------------------------------------
@@ -44,7 +44,7 @@ def make_snap(**kwargs) -> PasswordPolicySnapshot:
 
 
 def has_level(result, level: str) -> bool:
-    return level in levels(result)
+    return level in _levels(result)
 
 
 def total_deductions(result) -> int:

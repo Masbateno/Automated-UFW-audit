@@ -92,11 +92,14 @@ class KernelModulesSnapshot:
         running_kernel:     Version string from ``uname -r`` (e.g. "6.8.0-52-generic").
         installed_kernels:  List of installed kernel version strings from dpkg.
     """
-    lsmod_available:   bool       = False
-    loaded_modules:    List[str]  = field(default_factory=list)
-    dpkg_available:    bool       = False
-    running_kernel:    str        = ""
-    installed_kernels: List[str]  = field(default_factory=list)
+    lsmod_available:    bool       = False
+    loaded_modules:     List[str]  = field(default_factory=list)
+    dpkg_available:     bool       = False
+    running_kernel:     str        = ""
+    installed_kernels:  List[str]  = field(default_factory=list)
+    apt_update_available: bool     = False
+    apt_candidate_kernel: str      = ""
+    apt_checked:          bool     = False
 
     @classmethod
     def from_system(cls) -> "KernelModulesSnapshot":
@@ -134,6 +137,12 @@ class KernelModulesSnapshot:
             )
             if dpkg_out:
                 snap.installed_kernels = _parse_installed_kernels(dpkg_out)
+
+        # --- Kernel update availability (apt) --------------------------------
+        checked, available, candidate = _query_apt_kernel_update()
+        snap.apt_checked          = checked
+        snap.apt_update_available = available
+        snap.apt_candidate_kernel = candidate
 
         return snap
 
@@ -231,6 +240,51 @@ def check_kernel_modules(
 # Private helpers — kernel cleanup
 # ---------------------------------------------------------------------------
 
+def _query_apt_kernel_update() -> Tuple[bool, bool, str]:
+    """
+    Check whether a newer kernel is available via apt.
+
+    Primary path  : apt-cache policy linux-image-generic  (Ubuntu, Mint)
+    Fallback path : apt list --upgradable                  (Debian, no meta-package)
+
+    Returns (checked, update_available, candidate_version_string).
+    `checked=True` means apt was reachable and returned a usable answer.
+    Never raises.
+    """
+    if not _command_exists("apt-cache"):
+        return False, False, ""
+
+    def _field(output: str, name: str) -> str:
+        for line in output.splitlines():
+            stripped = line.strip()
+            if stripped.startswith(f"{name}:"):
+                return stripped.split(":", 1)[1].strip()
+        return ""
+
+    # Primary: meta-package (Ubuntu / Mint)
+    out = _run("apt-cache", "policy", "linux-image-generic", timeout=15)
+    if out:
+        installed = _field(out, "Installed")
+        candidate = _field(out, "Candidate")
+        if installed and installed != "(none)" and candidate and candidate != "(none)":
+            update = installed != candidate
+            return True, update, (candidate if update else "")
+
+    # Fallback: scan upgradable list (Debian, no meta-package)
+    if _command_exists("apt"):
+        out = _run("apt", "list", "--upgradable", timeout=20)
+        if out:
+            for line in out.splitlines():
+                # e.g. linux-image-6.8.0-56-generic/noble-updates 6.8.0-56.57 amd64 [upgradable from: ...]
+                if re.match(r"^linux-image-\d", line) and "upgradable from" in line:
+                    parts = line.split()
+                    return True, True, (parts[1] if len(parts) >= 2 else "")
+            # apt ran, no linux-image in upgradable → up to date
+            return True, False, ""
+
+    return False, False, ""
+
+
 def _kernel_sort_key(version: str) -> Tuple[int, int, int, int]:
     """Return a sortable tuple from a kernel version string like '6.8.0-52-generic'."""
     m = _KVER_RE.match(version)
@@ -304,6 +358,21 @@ def _check_installed_kernels(
         else:
             annotated.append(k)
     installed_str = ", ".join(annotated)
+
+    # Kernel update availability (apt)
+    if snapshot.apt_update_available and snapshot.apt_candidate_kernel:
+        result.info(
+            message=_t("kernel_modules.kernels_update_available",
+                       candidate=snapshot.apt_candidate_kernel),
+            cmd="sudo apt upgrade linux-image-generic",
+            cmd_type="action",
+            key="kernel_modules.kernels_update_available",
+        )
+    elif snapshot.apt_checked and not snapshot.apt_update_available:
+        result.ok(
+            message=_t("kernel_modules.kernels_up_to_date", version=most_recent),
+            key="kernel_modules.kernels_up_to_date",
+        )
 
     # Single kernel or custom (non-dpkg) kernel — just list, nothing to clean
     if len(kernels) <= 1 or running not in kernels:

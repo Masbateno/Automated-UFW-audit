@@ -23,7 +23,7 @@ from ufw_audit.checks.samba import (
     _is_yes,
 )
 from ufw_audit.scoring import FindingLevel
-from tests.helpers import levels, _t
+from tests.helpers import _levels, _t
 
 
 # ---------------------------------------------------------------------------

@@ -16,7 +16,7 @@ from ufw_audit.checks.ipv6 import (
     _read_global_ipv6,
     check_ipv6,
 )
-from tests.helpers import levels, _t
+from tests.helpers import _levels, _t
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -37,7 +37,7 @@ def make_snapshot(**overrides) -> IPv6Snapshot:
 
 
 def has_level(result, level: str) -> bool:
-    return level in levels(result)
+    return level in _levels(result)
 
 
 def total_deductions(result) -> int:
@@ -512,3 +512,36 @@ class TestUfwDisabledLinkLocalOnly:
         result = check_ipv6(snap, t=_t)
         keys = [f.key for f in result.findings]
         assert "ipv6.ufw_disabled_listeners_present" in keys
+
+
+# ---------------------------------------------------------------------------
+# check_ipv6 — ufw_active=False contextualization
+# ---------------------------------------------------------------------------
+
+class TestUfwInactiveIPv6:
+    def _snap(self):
+        return make_snapshot(
+            ufw_ipv6_enabled=False,
+            has_global_ipv6=True,
+            ipv6_listeners=["22/tcp"],
+            ufw_v6_covered=[],
+        )
+
+    def test_global_ipv6_ufw_inactive_is_info_not_warn(self):
+        result = check_ipv6(self._snap(), ufw_active=False, t=_t)
+        assert "info" in _levels(result)
+        assert "warn" not in _levels(result)
+
+    def test_global_ipv6_ufw_inactive_no_deduction(self):
+        result = check_ipv6(self._snap(), ufw_active=False, t=_t)
+        assert total_deductions(result) == 0
+
+    def test_global_ipv6_ufw_inactive_key_still_present(self):
+        result = check_ipv6(self._snap(), ufw_active=False, t=_t)
+        keys = [f.key for f in result.findings]
+        assert "ipv6.ufw_disabled_listeners_present" in keys
+
+    def test_global_ipv6_ufw_active_still_warns(self):
+        result = check_ipv6(self._snap(), ufw_active=True, t=_t)
+        assert "warn" in _levels(result)
+        assert total_deductions(result) == 2

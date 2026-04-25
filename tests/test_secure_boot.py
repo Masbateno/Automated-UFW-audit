@@ -18,7 +18,7 @@ from ufw_audit.checks.secure_boot import (
     _STATE_NO_UEFI,
     _STATE_UNKNOWN,
 )
-from tests.helpers import levels, _t
+from tests.helpers import _levels, _t
 
 
 # ---------------------------------------------------------------------------
@@ -31,7 +31,7 @@ def make_snap(state: str = _STATE_ENABLED, method: str = "mokutil") -> SecureBoo
 
 
 def has_level(result, level: str) -> bool:
-    return level in levels(result)
+    return level in _levels(result)
 
 
 def total_deductions(result) -> int:

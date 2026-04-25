@@ -177,7 +177,40 @@ To list and delete generated reports:
 sudo ufw-audit --manage-logs
 ```
 
-### Available actions
+In an interactive terminal, a full curses TUI opens. A plain text fallback is used when stdout is not a TTY (pipes, scripts).
+
+### TUI mode (interactive terminal)
+
+The cursor-based interface shows all reports with their date, size and score. A score history chart is displayed at the top.
+
+**Navigation and actions:**
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Move cursor |
+| `Enter` | Preview the selected report (scrollable viewer) |
+| `Space` | Mark / unmark report for deletion |
+| `a` | Mark all reports |
+| `d` | Delete marked reports (confirmation required) |
+| `u` | Unmark all |
+| `c` | Change storage location |
+| `q` | Quit |
+
+### Report preview viewer
+
+Pressing `Enter` on a report opens a scrollable read-only viewer:
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` / `PgUp` / `PgDn` | Scroll |
+| `g` | Go to top |
+| `G` | Go to bottom |
+| `s` | Toggle between full log and summary view (score + ALERT/WARN findings only) |
+| `Esc` | Return to report list |
+
+### Plain text fallback (non-TTY)
+
+Used automatically when stdout is not a terminal:
 
 | Input | Action |
 |-------|--------|

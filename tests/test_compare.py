@@ -474,3 +474,11 @@ class TestDisplayDelta:
     def test_is_empty_true_when_all_zero(self):
         delta = _make_delta()
         assert delta.is_empty()
+
+    def test_new_finding_key_uses_warn(self):
+        calls = self._run(_make_delta(new_finding_keys=["hardening.rp_filter_disabled"]))
+        assert any("compare.key_appeared" in m for m in calls["warn"])
+
+    def test_resolved_finding_key_uses_ok(self):
+        calls = self._run(_make_delta(resolved_finding_keys=["clamav.db_outdated"]))
+        assert any("compare.key_resolved" in m for m in calls["ok"])

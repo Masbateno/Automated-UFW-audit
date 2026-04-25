@@ -16,7 +16,7 @@ from ufw_audit.checks.virtualization import (
     check_virtualization,
 )
 from ufw_audit.scoring import FindingLevel
-from tests.helpers import levels, _t
+from tests.helpers import _levels, _t
 
 
 # ---------------------------------------------------------------------------
@@ -25,7 +25,7 @@ from tests.helpers import levels, _t
 
 
 def has_level(result, level):
-    return level in levels(result)
+    return level in _levels(result)
 
 
 def total_deductions(result):

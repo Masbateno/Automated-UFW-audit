@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.24.0](#v1240) | 2026-04-25 | CHECK 46 (iptables/nftables audit when UFW inactive); audit profile shown in banner; 5 new critical services (Telnet, RDP, MongoDB, Elasticsearch, Memcached); CRITICAL/HIGH installed-but-inactive → ⚠ + risk context; kernel apt update check; 4134/4134 tests (+92) |
 | [v1.23.0](#v1230) | 2026-04-24 | `--format=FORMAT` unified output; `--check=list`; `--manage-logs` preview + summary mode; `[CRITIQUE • LAN]` scope qualifier; `--install-cron`/`--manage-cron` curses TUI; `_tty.py` raw-mode reader; `compare.py` `None`/`[]` fix; `tests/helpers.py` + 62-file migration; 4042/4042 tests (+35) |
 | [v1.22.3](#v1223) | 2026-04-20 | Bugfixes: interface-scoped ports excluded from exposure (67/udp%virbr0); ephemeral UDP filter in exposure; `ufw status verbose` displayed in rules section (-v mode); 4007/4007 tests (+2) |
 | [v1.22.2](#v1222) | 2026-04-20 | Bugfixes: snakeoil cert filter now covers nginx/apache/postfix paths; DDNS reflected in internet exposure view; high-numbered listen ports shown in exposure table; double `ℹ` prefix removed from SSH notes; 4004/4004 tests (+3) |
@@ -60,6 +61,35 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.24.0
+
+**2026-04-25**
+
+### Features
+
+- **CHECK 46 — iptables/nftables audit** (`checks/iptables_nftables.py`) — when UFW is inactive, audits the underlying firewall layer; detects iptables vs nftables backend; checks INPUT/FORWARD default policies; verifies conntrack stateful filtering; WARN if policies permissive or conntrack absent; gated on `not fw_status.active`
+- **Audit profile in banner** — active profile (`server` / `desktop` / `container`) shown as ℹ [INFO] immediately after the banner header
+- **5 new critical services** (`data/services.json`) — Telnet Server (23/tcp), RDP/xRDP (3389/tcp), MongoDB (27017/tcp), Elasticsearch (9200/tcp), Memcached (11211/tcp+udp); registry now covers **28 services**
+- **Installed-but-inactive critical/high services** — packages installed but port not listening now emit `⚠ [ATTENTION]` (was `ℹ [INFO]`) and display the risk context block; `services.state.installed_inactive_critical` locale key; `runner.py` and `display.py` updated
+
+### Fixes & improvements
+
+- **UFW inactive context** — services section shows explicit context when UFW is off; NetBIOS ports downgraded to INFO; IPv6 check downgraded; "all ports covered" suppressed
+- **`iptables_nftables.py` quality** — `nft add chain` → `nft chain`; conntrack regex requires `\baccept\b`; FORWARD `unknown` state → INFO
+- **Kernel apt update check** (`checks/kernel_modules.py`) — `_query_apt_kernel_update()` checks apt for newer kernel; primary: `apt-cache policy linux-image-generic`; fallback: `apt list --upgradable`; ✔ [OK] when confirmed current; `apt_checked` flag
+
+### Tests
+
+| File | Change |
+|------|--------|
+| `tests/test_iptables_nftables.py` | new — 51 tests: INPUT/FORWARD policies, conntrack, nftables backend, unknown FORWARD, cmd assertions |
+| `tests/test_kernel_modules.py` | `TestKernelAptUpdate` — +9 tests: update available, up-to-date OK, apt not checked |
+| `tests/test_services.py` | `TestInactiveDisabled` (+5) + `TestPortExposureFindings` (+4) — critical/high inactive → warn |
+
+✅ 4134/4134 unit tests (+92 from v1.23.0)
 
 ---
 

@@ -18,7 +18,7 @@ from ufw_audit.checks.memory import (
     _MIN_SWAP_USED_KB,
 )
 from ufw_audit.scoring import FindingLevel
-from tests.helpers import levels, _t
+from tests.helpers import _levels, _t
 
 
 # ---------------------------------------------------------------------------
@@ -45,7 +45,7 @@ def run(snap: MemorySnapshot, **kwargs):
 
 
 def has_level(result, level: str) -> bool:
-    return level in levels(result)
+    return level in _levels(result)
 
 
 def finding_keys(result):
