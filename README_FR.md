@@ -162,7 +162,18 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ---
 
-## 🆕 v1.24.1
+## 🆕 v1.25.0
+
+- 🗂️ **Cartographie CIS inline** — chaque finding dans la boîte de synthèse affiche désormais son code CIS `[CIS:X.Y.Z]` (estompé) ; ref CIS complète affichée estompée en mode `--verbose` après chaque finding WARN/ALERT
+- 🏷️ **Entrées best-practice clarifiées** — 34 entrées sans numéro de section CIS formel utilisent désormais le préfixe `"Best practice — ..."` au lieu d'un label `"CIS..."` trompeur
+- 🔧 **`cis_refs.json` restructuré** — `{"ref": "...", "code": "CIS:X.Y.Z"|null}` par entrée ; 133 entrées (99 CIS formels, 34 best-practice, 4 Docker) ; nouvelle fonction `get_cis_code()`
+- 🧹 **Nettoyage locale** — section `explain_cis` (170 chaînes) supprimée de `en.json` et `fr.json` ; refs CIS servies depuis JSON, indépendantes de la langue
+- 🛡️ **5 nouveaux services** — SMTP/Postfix (25/tcp), NFS (2049/tcp+udp), Jenkins (8080/tcp), OpenVPN (1194/udp), Squid (3128/tcp) ; le registre couvre désormais **32 services**
+- 🐛 **Correctif `_ipt_has_conntrack` ACCEPT** — regex exige désormais `-j ACCEPT` ; `--ctstate ESTABLISHED -j DROP` n'est plus traité comme règle conntrack valide
+- 🔧 **FORWARD DROP/REJECT → ✔ OK** — symétrique avec INPUT ; était silencieux auparavant
+- ✅ 4200/4200 tests unitaires (+60)
+
+### v1.24.1
 
 - 🐛 **Hotfix parsing noyau Debian** — `_KVER_RE` gère désormais le format `6.12.74+deb13+1-amd64` (séparateur `+`) ; `_query_apt_kernel_update` ajoute le chemin `linux-image-$(uname -r)` pour Debian (pas de méta-paquet `linux-image-generic`) ; groupe ABI optionnel dans le tri
 - ✨ **CHECK 46 — audit iptables/nftables** — quand UFW est inactif, audite la couche pare-feu sous-jacente (politiques INPUT/FORWARD, conntrack, backend iptables vs nftables) ; INPUT ACCEPT → ALERTE −3 pts

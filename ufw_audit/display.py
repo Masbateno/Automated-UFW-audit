@@ -7,6 +7,8 @@ log analysis, and the final audit summary.
 
 from __future__ import annotations
 
+from ufw_audit.cis_refs import get_cis_ref, get_cis_code
+
 
 def _print_recurrence(prev_count: int) -> None:
     """Print a ↩ N× annotation when a finding has been seen in previous audits."""
@@ -68,8 +70,8 @@ def display_result(
     """Print all findings from a CheckResult to terminal and report."""
     from ufw_audit.scoring import FindingLevel
     from ufw_audit.output import (
-        print_ok, print_warn, print_alert, print_info, print_recommendation, print_check_cmd,
-        _passes_threshold,
+        print_ok, print_warn, print_alert, print_info, print_dim, print_recommendation,
+        print_check_cmd, _passes_threshold,
     )
 
     for finding in result.findings:
@@ -100,6 +102,10 @@ def display_result(
                         print_recommendation(detail, finding.cmd.splitlines())
                 elif detail:
                     print_recommendation(detail)
+                if finding.key:
+                    _cis = get_cis_ref(finding.key)
+                    if _cis:
+                        print_dim(_cis)
         elif finding.level == FindingLevel.ALERT:
             report.write_finding("ALERT", finding.message)
             if not _passes_threshold("alert"):
@@ -119,6 +125,10 @@ def display_result(
                 print_recommendation(detail)
             if finding.note and verbose:
                 print_info(finding.note)
+            if verbose and finding.key:
+                _cis = get_cis_ref(finding.key)
+                if _cis:
+                    print_dim(_cis)
         elif finding.level == FindingLevel.INFO:
             report.write_finding("INFO", finding.message)
             if not _passes_threshold("info"):
@@ -441,6 +451,10 @@ def print_audit_summary(engine, network_context, public_ip, config, t,
             note_prefix = " " * len(icon_prefix) + "ℹ "
             lines.extend(_wrap_for_box(note_prefix, item.note, inner))
         if item.key:
+            cis_code = get_cis_code(item.key)
+            if cis_code:
+                code_prefix = " " * len(icon_prefix)
+                lines.append((f"{code_prefix}{_oc.dim}[{cis_code}]{_oc.reset}", ""))
             norm = _norm_key(item.key)
             if norm in EXPLAIN_KEYS:
                 hint_prefix = " " * len(icon_prefix) + "? "

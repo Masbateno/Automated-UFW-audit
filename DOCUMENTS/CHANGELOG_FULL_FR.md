@@ -6,6 +6,46 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.25.0] — 2026-04-26
+
+### Fonctionnalités
+
+- **Cartographie CIS inline** (`ufw_audit/display.py`, `ufw_audit/cis_refs.py`) — chaque finding disposant d'un code CIS formel affiche désormais ce code machine-readable `[CIS:X.Y.Z]` (estompé, sous la ligne du finding) dans la boîte de synthèse ; le code est récupéré via `get_cis_code(item.key)` et injecté par `_add_finding_lines()` avant le hint `--explain` ; les entrées sans numéro de section CIS formel (règles best-practice) sont laissées sans étiquette pour ne pas alourdir la boîte pour les 34 règles ne correspondant pas à une section de benchmark CIS spécifique
+
+- **Ref CIS complète en `--verbose`** (`ufw_audit/display.py`) — en mode verbose, chaque finding WARN/ALERT émettait déjà la chaîne de référence CIS complète estompée via `print_dim(cis)` ; les entrées best-practice (ex. `Best practice — Ensure bridge interfaces do not bypass UFW FORWARD rules`) sont désormais correctement incluses — auparavant elles portaient un préfixe `"CIS..."` trompeur dans `cis_refs.json` et étaient affichées comme s'il s'agissait de contrôles CIS formels
+
+- **Entrées best-practice renommées** (`ufw_audit/data/cis_refs.json`) — 34 entrées décrivant des recommandations de durcissement sans numéro de section de benchmark CIS formel utilisent désormais le préfixe `"Best practice — ..."` au lieu de `"CIS Ubuntu 22.04 — ..."` ou `"CIS: ..."`, évitant la confusion avec les entrées disposant d'une vraie section de benchmark ; catégories concernées : contournement bridge virtualisation, authentification SSH par clé publique, comptabilité des processus, login.defs, historique mots de passe PAM, durcissement Samba, SMART disque, et autres ; `get_cis_ref()` retourne la chaîne appropriée selon la catégorie
+
+- **`cis_refs.json` restructuré** (`ufw_audit/data/cis_refs.json`) — le format plat `"clé": "chaîne ref CIS"` est remplacé par `"clé": {"ref": "...", "code": "CIS:X.Y.Z"|null}` ; 133 entrées au total : 99 CIS Ubuntu 22.04 (avec `code: "CIS:X.Y.Z"`), 4 CIS Docker (avec `code: "CIS Docker:X.Y"`), 34 best-practice (avec `code: null` — sans numéro de section de benchmark formel) ; le cache `_load()` et la fonction `get_cis_ref()` dans `cis_refs.py` sont mis à jour en conséquence
+
+- **`get_cis_code()`** (`ufw_audit/cis_refs.py`) — nouvelle fonction publique retournant le code court machine-readable (ex. `"CIS:5.2.7"`, `"CIS:3.5.1.1"`, `"CIS Docker:5.4"`) ou `None` pour les entrées best-practice ; alimentée par le même cache `_load()` que `get_cis_ref()` ; utilisée par `display.py` pour l'injection dans la boîte de synthèse
+
+- **`explain.py` découplé des fichiers locale** (`ufw_audit/explain.py`) — `run_explain()` (chemin terminal) et le chemin TUI curses appellent désormais `get_cis_ref(norm)` directement au lieu de `t(f"explain_cis.{norm}")` ; la section `explain_cis` (170 paires clé-valeur) a été supprimée de `ufw_audit/locales/en.json` et `fr.json` ; les fichiers locale sont réduits de ~170 chaînes chacun ; les refs CIS restent indépendantes de la langue (toujours en anglais, tirées du benchmark)
+
+- **5 nouveaux services** (`ufw_audit/data/services.json`) — SMTP/Postfix/Exim (25/tcp, risque=high, paquets : postfix/exim4), NFS Server (2049/tcp+udp, risque=high, paquet : nfs-kernel-server), Jenkins (8080/tcp, risque=high, paquet : jenkins), OpenVPN (1194/udp, risque=medium, paquet : openvpn), Squid Proxy (3128/tcp, risque=medium, paquets : squid/squid3) ; le registre passe de 27 à **32 services**
+
+- **Correctif `_ipt_has_conntrack` ACCEPT** (`ufw_audit/checks/iptables_nftables.py`) — regex modifié de `r"(--state|--ctstate)\s+[A-Z,]*ESTABLISHED"` à `r"(--state|--ctstate)\s+[A-Z,]*ESTABLISHED[^\n]*-j\s+ACCEPT"` ; l'ancien regex retournait True pour toute règle mentionnant ESTABLISHED, y compris `-j DROP` ou `-j REJECT` ; la même correction avait déjà été appliquée au chemin nftables (v1.24.0) où `ct state established drop` était correctement rejeté — le chemin iptables était le seul point manquant, documenté dans CHANGELOG_FULL v1.24.0 comme "à ajouter en v1.25.0"
+
+- **FORWARD DROP/REJECT → `result.ok()`** (`ufw_audit/checks/iptables_nftables.py`) — un nouveau branche `elif snapshot.forward_policy in ("DROP", "REJECT")` émet `result.ok(message=_t("iptables_nft.forward_ok", policy=...), key="iptables_nft.forward_ok")` ; auparavant cet état était silencieux (aucun finding émis), incohérent avec le chemin INPUT qui émet toujours une alerte, un ok ou une info ; clé locale `forward_ok` ajoutée (`"Default FORWARD policy: {policy} (recommended)"`) dans `en.json` et `fr.json`
+
+### Tests
+
+| Fichier | Classe | Modification |
+|---------|--------|-------------|
+| `tests/test_cis_refs.py` | `TestGetCisRef` | nouveau — 12 tests : clé connue, clé iptables/nft, clé kernel_modules, nouvelles clés iptables/kernel, préfixe best-practice, pas de préfixe CIS pour best-practice, clé inconnue/partielle/vide, services_state, mac_policy |
+| `tests/test_cis_refs.py` | `TestGetCisCode` | nouveau — 11 tests : entrée formelle, format code, entrée Docker, best-practice → None, best-practice samba/disk, clé inconnue, code auditd, code iptables_nft forward, format code rejette deux-points seul, format code rejette section alpha |
+| `tests/test_cis_refs.py` | `TestLoadCache` | nouveau — 4 tests : retourne dict, entrées ont ref+code, identité cache, dict vide si fichier absent (monkeypatch) |
+| `tests/test_cis_refs.py` | `TestJsonSchema` | nouveau — 10 tests : pattern clé, refs non-vides, code string/null, refs formelles commencent par CIS, refs best-practice sans préfixe CIS-section, pattern code, count minimum, pas de doublons, plage count best-practice, numéro de section présent dans ref |
+| `tests/test_cis_refs.py` | `TestNoStaleExplainCis` | nouveau — 2 tests : `explain_cis` absent de `en.json` et `fr.json` |
+| `tests/test_domain_scores.py` | `TestCISReferences` | mis à jour — `test_explain_cis_all_keys_resolve` : assertion assouplie pour accepter les refs best-practice (`startswith("Best practice")`) ; `test_explain_cis_locale_independent` renommé |
+| `tests/test_iptables_nftables.py` | `TestIptableParsers` | +2 tests — `test_has_conntrack_drop_action_is_false` (`--ctstate ESTABLISHED -j DROP` → False), `test_has_conntrack_state_form_without_accept_is_false` (`--state ESTABLISHED -j REJECT` → False) |
+| `tests/test_iptables_nftables.py` | `TestForwardPolicy` | +4 tests — `test_ok_when_forward_drop`, `test_ok_when_forward_reject`, `test_forward_ok_is_ok_level`, `test_forward_drop_no_deduction` |
+| `tests/test_services.py` | `TestNewServicesRegistry` | nouveau — 15 tests : smtp (existence/risque/port), nfs (existence/risque/ports), jenkins (existence/risque/port), openvpn (existence/risque/port), squid (existence/risque/port) |
+
+✅ 4200/4200 tests unitaires (+60 depuis v1.24.1)
+
+---
+
 ## [v1.24.1] — 2026-04-25
 
 ### Correctifs

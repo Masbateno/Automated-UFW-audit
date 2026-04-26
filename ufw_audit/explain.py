@@ -21,6 +21,7 @@ import re
 import sys
 
 from ufw_audit import output as _output
+from ufw_audit.cis_refs import get_cis_ref
 
 # ---------------------------------------------------------------------------
 # Available explain keys — organised by group
@@ -300,15 +301,13 @@ def run_explain(key: str, t) -> None:
         print("Run 'sudo ufw-audit --explain list' to see all available keys.")
         return
 
-    _cis_key = f"explain_cis.{norm}"
-    cis_val = t(_cis_key)
-    cis_unknown = cis_val in (_cis_key, f"[{_cis_key}]")
+    cis_val = get_cis_ref(norm)
 
     print()
     print(_DIVIDER_WIDE)
     print(f"  Key:   {norm}")
     print(f"  Title: {title_val}")
-    if not cis_unknown:
+    if cis_val:
         print(f"  CIS:   {cis_val}")
     print(_DIVIDER_WIDE)
 
@@ -392,8 +391,8 @@ def _detail_screen(stdscr, key: str, t) -> None:
     title_val = t(f"explain.{norm}.title")
     why_val   = t(f"explain.{norm}.why")
     how_val   = t(f"explain.{norm}.how")
-    cis_val   = t(f"explain_cis.{norm}")
-    cis_line  = f"  CIS:   {cis_val}" if cis_val != f"explain_cis.{norm}" else ""
+    _cis = get_cis_ref(norm)
+    cis_line  = f"  CIS:   {_cis}" if _cis else ""
 
     def _build_lines(w: int) -> list[tuple[str, int]]:
         """Return (text, attr) pairs for each display line."""

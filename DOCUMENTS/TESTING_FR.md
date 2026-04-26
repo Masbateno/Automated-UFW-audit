@@ -11,6 +11,7 @@ Chaque test vérifie qu'ufw-audit détecte (et corrige) une mauvaise configurati
 
 | Version | Tests | Notes |
 |---------|-------|-------|
+| v1.25.0 | 4200  | +60 tests — `tests/test_cis_refs.py` nouveau (39) : `TestGetCisRef` (12), `TestGetCisCode` (11), `TestLoadCache` (4), `TestJsonSchema` (10), `TestNoStaleExplainCis` (2) ; `test_iptables_nftables.py` : correctif ACCEPT conntrack (+2), forward ok (+4) ; `test_services.py` : `TestNewServicesRegistry` (+15, 5 nouveaux services) ; `test_domain_scores.py` : `TestCISReferences` mis à jour |
 | v1.24.1 | 4140  | +6 tests — `test_kernel_modules.py` : `TestKernelSortKey` (+2, séparateur `+` Debian), `TestParseInstalledKernels` (+2), `TestKernelAptUpdate` (+2, chemins apt Debian) ; correctif parsing noyau Debian (`_KVER_RE`, `_kernel_sort_key`, `_query_apt_kernel_update`) |
 | v1.24.0 | 4134  | +92 tests — `test_iptables_nftables.py` nouveau (51) ; `test_kernel_modules.py` : `TestKernelAptUpdate` (+9) ; `test_services.py` : `TestInactiveDisabled` (+5) + `TestPortExposureFindings` (+4) ; clés locale : `installed_inactive_critical`, `forward_unknown`, `kernels_update_available`, `kernels_up_to_date` |
 | v1.23.0 | 4042  | +35 tests — `test_cli.py` : `TestFormatFlag` (+22) + `TestCheckSkipFlags` (+4) ; `test_manage_logs.py` : `TestExtractSummaryView` (+7) ; qualificateur portée (+2) ; `tests/helpers.py` utilitaires partagés introduit ; 62 fichiers migrés |

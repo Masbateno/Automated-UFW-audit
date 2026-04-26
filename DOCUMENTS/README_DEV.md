@@ -53,7 +53,8 @@ This separation allows the entire business logic to be tested by instantiating s
 | `sysinfo.py` | System info — `collect_system_info()`, `detect_network_context()`, `get_user_home()` |
 | `compare.py` | Comparative report — `AuditBaseline` (with `finding_keys`), `AuditDelta` (with `new_finding_keys`/`resolved_finding_keys`), `build_baseline()`, `save_baseline()`, `load_baseline()`, `compute_delta()`, `display_delta()` |
 | `plugin_checks.py` | Plugin loader — `PluginCheck`, `load_plugin_checks()`, ANSI sanitization |
-| `explain.py` | `--explain KEY` — `normalize_key()`, `run_explain()`, 112-key canonical list in 26 groups, profile variants (17 keys × 3 profiles), CIS reference lookup |
+| `explain.py` | `--explain KEY` — `normalize_key()`, `run_explain()`, 112-key canonical list in 26 groups, profile variants (17 keys × 3 profiles), CIS reference lookup via `cis_refs.py` |
+| `cis_refs.py` | CIS benchmark reference lookup — `get_cis_ref(key)`, `get_cis_code(key)`, `_load()` with `lru_cache`; data from `data/cis_refs.json` (133 entries: 99 formal CIS, 34 best-practice, 4 Docker) |
 | `domain_scores.py` | Per-domain sub-scores — `compute_domain_scores()`, `render_domain_scores()`, 7-domain attribution (`backup` → `disk`) |
 | `webhook.py` | Webhook delivery — `build_generic_payload()`, `build_slack_payload()`, `send_webhook()`, format auto-detection |
 | `correlation.py` | Signal correlation engine — `CorrelationRule` (all_of/any_of frozensets), `CorrelatedFinding`, `run_correlations()`, 5 built-in compound-risk rules |
@@ -171,7 +172,8 @@ ufw_audit/
 ├── domain_scores.py     # compute_domain_scores(), render_domain_scores() — backup→disk
 ├── webhook.py           # build_generic_payload(), build_slack_payload(), send_webhook()
 ├── data/
-│   ├── services.json            # Declarative registry of the 28 services
+│   ├── services.json            # Declarative registry of the 32 services
+│   ├── cis_refs.json            # CIS benchmark references — 133 entries {ref, code}
 │   └── ufw-audit.bash-completion  # Bash completion script
 └── locales/
     ├── en.json          # English translation keys
@@ -227,7 +229,8 @@ tests/
 ├── test_exposure.py
 ├── test_recurrence.py
 ├── test_manage_logs.py
-└── test_iptables_nftables.py
+├── test_iptables_nftables.py
+└── test_cis_refs.py
 
 pyproject.toml           # Build config (setuptools, pip/pipx install)
 README.md / README_FR.md           # User documentation (EN/FR)
@@ -274,7 +277,7 @@ python3 -m unittest tests/test_firewall.py
 ### Expected result
 
 ```
-4134 passed in X.XXs
+4200 passed in X.XXs
 ```
 
 Tests make no system calls — all snapshots are built directly in the test files. They can be run without `sudo` and without UFW installed.

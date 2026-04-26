@@ -811,3 +811,63 @@ class TestUfwInactiveExposure:
         result = check_services([snap], ufw_active=True, t=_t_exp)
         msgs = [f.message for f in result.findings]
         assert not any("loopback_no_rule_ufw_inactive" in m for m in msgs)
+
+
+# ---------------------------------------------------------------------------
+# Service registry — new services (v1.25.0)
+# ---------------------------------------------------------------------------
+
+class TestNewServicesRegistry:
+    """Verify the 5 new v1.25.0 services load correctly from services.json."""
+
+    def _get(self, service_id: str):
+        from ufw_audit.registry import ServiceRegistry
+        reg = ServiceRegistry.load()
+        return next((s for s in reg if s.id == service_id), None)
+
+    def test_smtp_exists(self):
+        assert self._get("smtp") is not None
+
+    def test_smtp_risk_high(self):
+        assert self._get("smtp").risk == "high"
+
+    def test_smtp_port(self):
+        assert "25/tcp" in self._get("smtp").ports
+
+    def test_nfs_exists(self):
+        assert self._get("nfs") is not None
+
+    def test_nfs_risk_high(self):
+        assert self._get("nfs").risk == "high"
+
+    def test_nfs_ports(self):
+        svc = self._get("nfs")
+        assert "2049/tcp" in svc.ports
+        assert "2049/udp" in svc.ports
+
+    def test_jenkins_exists(self):
+        assert self._get("jenkins") is not None
+
+    def test_jenkins_risk_high(self):
+        assert self._get("jenkins").risk == "high"
+
+    def test_jenkins_port(self):
+        assert "8080/tcp" in self._get("jenkins").ports
+
+    def test_openvpn_exists(self):
+        assert self._get("openvpn") is not None
+
+    def test_openvpn_risk_medium(self):
+        assert self._get("openvpn").risk == "medium"
+
+    def test_openvpn_port(self):
+        assert "1194/udp" in self._get("openvpn").ports
+
+    def test_squid_exists(self):
+        assert self._get("squid") is not None
+
+    def test_squid_risk_medium(self):
+        assert self._get("squid").risk == "medium"
+
+    def test_squid_port(self):
+        assert "3128/tcp" in self._get("squid").ports

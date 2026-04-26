@@ -53,7 +53,8 @@ Cette séparation permet de tester toute la logique métier en instanciant direc
 | `sysinfo.py` | Info système — `collect_system_info()`, `detect_network_context()`, `get_user_home()` |
 | `compare.py` | Rapport comparatif — `AuditBaseline` (avec `finding_keys`), `AuditDelta` (avec `new_finding_keys`/`resolved_finding_keys`), `build_baseline()`, `save_baseline()`, `load_baseline()`, `compute_delta()`, `display_delta()` |
 | `plugin_checks.py` | Chargeur de plugins — `PluginCheck`, `load_plugin_checks()`, sanitisation ANSI |
-| `explain.py` | `--explain KEY` — `normalize_key()`, `run_explain()`, 112 clés canoniques dans 26 groupes, variantes par profil (17 clés × 3 profils), lookup référence CIS |
+| `explain.py` | `--explain KEY` — `normalize_key()`, `run_explain()`, 112 clés canoniques dans 26 groupes, variantes par profil (17 clés × 3 profils), lookup référence CIS via `cis_refs.py` |
+| `cis_refs.py` | Lookup référence CIS — `get_cis_ref(key)`, `get_cis_code(key)`, `_load()` avec `lru_cache` ; données dans `data/cis_refs.json` (133 entrées : 99 CIS formels, 34 best-practice, 4 Docker) |
 | `domain_scores.py` | Sous-scores par domaine — `compute_domain_scores()`, `render_domain_scores()`, attribution 7 domaines (`backup` → `disk`) |
 | `webhook.py` | Envoi webhook — `build_generic_payload()`, `build_slack_payload()`, `send_webhook()`, auto-détection format |
 | `correlation.py` | Moteur de corrélation — `CorrelationRule` (frozensets all_of/any_of), `CorrelatedFinding`, `run_correlations()`, 5 règles de risque composé intégrées |
@@ -171,7 +172,8 @@ ufw_audit/
 ├── domain_scores.py     # compute_domain_scores(), render_domain_scores() — backup→disk
 ├── webhook.py           # build_generic_payload(), build_slack_payload(), send_webhook()
 ├── data/
-│   ├── services.json            # Registre déclaratif des 28 services
+│   ├── services.json            # Registre déclaratif des 32 services
+│   ├── cis_refs.json            # Références CIS — 133 entrées {ref, code}
 │   └── ufw-audit.bash-completion  # Script d'autocomplétion bash
 └── locales/
     ├── en.json          # Clés de traduction anglais
@@ -227,7 +229,8 @@ tests/
 ├── test_exposure.py
 ├── test_recurrence.py
 ├── test_manage_logs.py
-└── test_iptables_nftables.py
+├── test_iptables_nftables.py
+└── test_cis_refs.py
 
 pyproject.toml           # Config de build (setuptools, installation pip/pipx)
 README.md / README_FR.md           # Documentation utilisateur (EN/FR)
@@ -274,7 +277,7 @@ python3 -m unittest tests/test_firewall.py
 ### Résultats attendus
 
 ```
-4134 passed in X.XXs
+4200 passed in X.XXs
 ```
 
 Les tests n'effectuent aucun appel système — tous les snapshots sont construits directement dans les tests. Ils peuvent être lancés sans `sudo` et sans UFW installé.

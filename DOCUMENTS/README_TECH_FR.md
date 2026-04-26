@@ -1,9 +1,9 @@
 *[Read in English](README_TECH.md)* · *[Vue d'ensemble](../README_FR.md)*
 
-# ufw-audit v1.24.0
+# ufw-audit v1.25.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/badge/version-v1.24.0-brightgreen)
+![Release](https://img.shields.io/badge/version-v1.25.0-brightgreen)
 ![CI](https://github.com/Masbateno/Automated-UFW-audit/actions/workflows/tests.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu%20%7C%20Mint-informational)
 ![Language](https://img.shields.io/badge/language-Python%203.9%2B-yellow)
@@ -20,7 +20,7 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 - **Vérification du statut UFW** — actif/inactif, politique par défaut entrante
 - **Analyse des règles UFW** — règles en doublon, `allow from any` sans restriction de port, cohérence IPv6
 - **Score contextuel** — détection du contexte réseau (IP publique directe vs NAT) ; pénalités doublées sur les machines exposées sur internet ; pare-feu inactif plafonne le score à 3/10
-- **Détection de 28 services réseau courants** avec analyse de leur exposition UFW et contexte de risque à deux axes (exposition + menace) pour les services critiques et élevés ; services CRITICAL/HIGH installés mais inactifs émettent ⚠ + bloc de contexte de risque
+- **Détection de 32 services réseau courants** avec analyse de leur exposition UFW et contexte de risque à deux axes (exposition + menace) pour les services critiques et élevés ; services CRITICAL/HIGH installés mais inactifs émettent ⚠ + bloc de contexte de risque
 - **Audit iptables/nftables** — quand UFW est inactif, audite la couche pare-feu sous-jacente : détecte le backend actif (iptables vs nftables) ; vérifie les politiques par défaut INPUT et FORWARD ; contrôle la présence du suivi de connexion conntrack ; ⚠ −1 pt par politique permissive ; conditionné sur `not fw_status.active`
 - **Docker** — détection du contournement iptables et liste des ports exposés par les containers en cours d'exécution
 - **Virtualisation** — détecte les hyperviseurs actifs (libvirt/KVM, VirtualBox, VMware, LXD/LXC) et les paquets Snap réseau qui peuvent créer des interfaces bridge et manipuler iptables directement, contournant UFW — même risque que Docker
@@ -33,7 +33,7 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 - **Résumé catégorisé** — findings répartis en trois blocs : *Action requise* / *Améliorations possibles* / *Configuration normale* ; phrase d'interprétation automatique
 - **Note de politique implicite** — signale quand des services à risque élevé s'appuient sur la politique `deny` par défaut plutôt que sur des règles explicites
 - **Score de sécurité** (0–10) avec niveau de risque : FAIBLE / MOYEN / ÉLEVÉ / CRITIQUE
-- **Panorama des services** — tableau compact de l'ensemble des 28 services connus après l'audit services (SERVICE / STATUT / PORT(S) / UFW), services non installés affichés en grisé
+- **Panorama des services** — tableau compact de l'ensemble des 32 services connus après l'audit services (SERVICE / STATUT / PORT(S) / UFW), services non installés affichés en grisé
 - **Interface bilingue** — anglais par défaut, français avec `--french`
 - **Mode sans couleur** — `--no-color` pour une sortie propre dans les pipes et fichiers log
 - **Rapport détaillé optionnel** — fichier log horodaté avec en-tête ASCII art, informations système, findings et recommandations
@@ -93,6 +93,8 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 - **`ufw_audit/_tty.py`** — lecteur ligne mode raw (`read_line()`) : Échap standalone retourne `None` (annuler) ; séquences de touches directionnelles drainées via `select` 50 ms ; repli `input()` en non-TTY (tests, pipes)
 - **Qualificateur de portée du contexte de risque** — `[CRITIQUE • LAN]` (ou `[CRITICAL • LAN]` en anglais) ajouté aux labels de service quand le contexte réseau est local ; évite la confusion entre risque local et exposition internet
 - **Harmonisation barres d'aide TUI** — hints cohérents dans `--explain`, `--manage-logs` et prévisualisation de log : `↑↓: move` pour la navigation, `↑↓ / PgUp/PgDn: scroll` pour le contenu, `Esc: back` pour les sous-écrans
+- **Cartographie CIS inline** — chaque finding dans la boîte de synthèse affiche son code CIS `[CIS:X.Y.Z]` (estompé) ; ref CIS complète affichée estompée en `--verbose` après chaque finding WARN/ALERT ; refs servies depuis `cis_refs.json` (133 entrées : 99 CIS formels, 34 best-practice, 4 Docker), indépendantes de la langue ; API publique `get_cis_ref()` / `get_cis_code()`
+- **5 nouveaux services (v1.25.0)** — SMTP/Postfix (25/tcp, élevé), NFS Server (2049/tcp+udp, élevé), Jenkins (8080/tcp, élevé), OpenVPN (1194/udp, moyen), Squid Proxy (3128/tcp, moyen) ; le registre couvre désormais 32 services
 
 ---
 
@@ -122,6 +124,16 @@ ufw-audit analyse votre configuration UFW, détecte les services réseau exposé
 | Avahi (découverte réseau local)  | 5353/udp             | Faible   | mDNS LAN uniquement ; pas d'accès aux données, découverte seulement                |
 | CUPS (impression réseau)         | 631/tcp              | Faible   | Écoute sur localhost par défaut ; risque négligeable si non exposé                 |
 | Syncthing                        | 8384/tcp, 22000/tcp  | Faible   | UI web sur localhost par défaut ; port de sync potentiellement exposé              |
+| Telnet Server                    | 23/tcp               | Critique | Protocole en clair ; credentials et trafic visibles sur le réseau                  |
+| RDP / xRDP                       | 3389/tcp             | Critique | Bureau à distance ; ciblé par brute-force et exploits de type BlueKeep             |
+| MongoDB                          | 27017/tcp            | Critique | Pas d'auth par défaut (versions anciennes) ; accès DB complet si exposé            |
+| Elasticsearch                    | 9200/tcp             | Critique | Pas d'auth par défaut ; API REST expose l'intégralité des index                    |
+| Memcached                        | 11211/tcp+udp        | Critique | Pas d'auth ; utilisé dans les attaques d'amplification DDoS si exposé              |
+| SMTP / Postfix                   | 25/tcp               | Élevé    | Risque open relay ; source de spam ou pivot si mal configuré                       |
+| NFS Server                       | 2049/tcp+udp         | Élevé    | Conçu pour LAN ; accès filesystem complet si exposé sans auth                      |
+| Jenkins                          | 8080/tcp             | Élevé    | Console CI/CD ; risque RCE via script console ; admin souvent sans auth            |
+| OpenVPN                          | 1194/udp             | Moyen    | Exposition internet intentionnelle ; accès réseau interne complet si clés volées   |
+| Squid Proxy                      | 3128/tcp             | Moyen    | Risque open proxy si non restreint ; peut exposer des services internes            |
 
 > **ℹ Note sur la couverture des services :** La détection et la classification des services suivants ont été validées par des tests réels : SSH, Samba, Avahi, CUPS, Redis, WireGuard, Docker, Mosquitto, Syncthing, Nginx. Les autres services sont implémentés mais pas encore validés par un protocole de test formel. Si vous utilisez l'un de ces services et observez un comportement incorrect, merci d'ouvrir une issue sur GitHub.
 

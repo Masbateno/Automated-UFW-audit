@@ -303,30 +303,33 @@ class TestCISReferences:
         return i18n.t
 
     def test_explain_cis_key_exists_for_ssh_password_auth(self):
-        t = self._make_t()
-        val = t("explain_cis.ssh.password_auth")
-        assert val != "explain_cis.ssh.password_auth"           # key resolved
-        assert "CIS" in val and "." in val                      # looks like a real CIS ref
+        from ufw_audit.cis_refs import get_cis_ref
+        val = get_cis_ref("ssh.password_auth")
+        assert val is not None
+        assert "CIS" in val and "." in val
 
     def test_explain_cis_key_exists_for_updates(self):
-        t = self._make_t()
-        val = t("explain_cis.updates.security_pending")
+        from ufw_audit.cis_refs import get_cis_ref
+        val = get_cis_ref("updates.security_pending")
+        assert val is not None
         assert "CIS" in val and "." in val
 
     def test_explain_cis_key_exists_for_hardening(self):
-        t = self._make_t()
-        val = t("explain_cis.hardening.rp_filter_disabled")
+        from ufw_audit.cis_refs import get_cis_ref
+        val = get_cis_ref("hardening.rp_filter_disabled")
+        assert val is not None
         assert "CIS" in val and "." in val
 
     def test_explain_cis_all_keys_resolve(self):
-        """Every key in EXPLAIN_KEYS must have a CIS reference."""
+        """Every key in EXPLAIN_KEYS must have a CIS or best-practice reference."""
         from ufw_audit.explain import EXPLAIN_KEYS, normalize_key
-        t = self._make_t()
+        from ufw_audit.cis_refs import get_cis_ref
         for key in EXPLAIN_KEYS:
             norm = normalize_key(key)
-            val = t(f"explain_cis.{norm}")
-            assert val != f"explain_cis.{norm}", f"Missing CIS ref for key: {key}"
-            assert "CIS" in val, f"CIS ref for {key!r} does not contain 'CIS': {val!r}"
+            val = get_cis_ref(norm)
+            assert val is not None, f"Missing CIS ref for key: {key!r}"
+            assert val.startswith("CIS") or val.startswith("Best practice"), \
+                f"Unexpected ref prefix for {key!r}: {val!r}"
 
     def test_explain_output_shows_cis_line_with_correct_key(self):
         from ufw_audit.explain import run_explain
@@ -342,13 +345,13 @@ class TestCISReferences:
         assert "CIS" in output
         assert "ssh.password_auth" in output   # key shown in header
 
-    def test_explain_cis_fr_locale(self):
-        from ufw_audit import i18n
-        i18n.init(lang="fr")
-        t = i18n.t
-        val = t("explain_cis.hardening.redirects_enabled")
-        assert val != "explain_cis.hardening.redirects_enabled"
-        assert len(val) > 10   # not an empty or stub value
+    def test_explain_cis_locale_independent(self):
+        """CIS refs come from cis_refs.json, not locale — same result in fr and en."""
+        from ufw_audit.cis_refs import get_cis_ref
+        val = get_cis_ref("hardening.redirects_enabled")
+        assert val is not None
+        assert "CIS" in val
+        assert len(val) > 10
 
 
 # ---------------------------------------------------------------------------

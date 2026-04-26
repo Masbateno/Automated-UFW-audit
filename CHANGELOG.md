@@ -4,6 +4,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| [v1.25.0](#v1250) | 2026-04-26 | CIS compliance mapping inline (`[CIS:X.Y.Z]` per finding, full ref in `--verbose`); best-practice prefix; `cis_refs.json` restructured; `get_cis_code()`; `explain_cis` removed from locales; 5 new services (SMTP, NFS, Jenkins, OpenVPN, Squid); `_ipt_has_conntrack` ACCEPT fix; FORWARD DROP/REJECT → OK; 4200/4200 tests (+60) |
 | [v1.24.1](#v1241) | 2026-04-25 | Hotfix: Debian kernel parsing (`_KVER_RE` `[-+]`, ABI fallback, `linux-image-$(uname -r)` apt path); v1.24.0 changelog correction (INPUT ACCEPT → ALERT −3 pts); 4140/4140 tests (+6) |
 | [v1.24.0](#v1240) | 2026-04-25 | CHECK 46 (iptables/nftables audit when UFW inactive); audit profile shown in banner; 5 new critical services (Telnet, RDP, MongoDB, Elasticsearch, Memcached); CRITICAL/HIGH installed-but-inactive → ⚠ + risk context; kernel apt update check; 4134/4134 tests (+92) |
 | [v1.23.0](#v1230) | 2026-04-24 | `--format=FORMAT` unified output; `--check=list`; `--manage-logs` preview + summary mode; `[CRITIQUE • LAN]` scope qualifier; `--install-cron`/`--manage-cron` curses TUI; `_tty.py` raw-mode reader; `compare.py` `None`/`[]` fix; `tests/helpers.py` + 62-file migration; 4042/4042 tests (+35) |
@@ -62,6 +63,35 @@
 | [v0.11](#v011) | 2026-03-22 | Field-tested (Mint/Debian/Kali), `--quiet`, virtualisation detection |
 | [v0.10](#v010) | — | GeoIP2 geolocation, short CLI flags, score scope disclaimer |
 | [v0.9](#v09) | — | Complete Python rewrite, 421 tests, 22 services, bilingual EN/FR |
+
+---
+
+## v1.25.0
+
+**2026-04-26**
+
+### Features
+
+- **CIS compliance mapping inline** — each finding with a formal CIS code now shows `[CIS:X.Y.Z]` (dimmed) in the summary box; best-practice entries (no formal section number) are left unlabelled
+- **`--verbose` CIS ref text** — full CIS reference string displayed dimmed after each WARN/ALERT finding line (e.g. `CIS Ubuntu 22.04 L1 — 5.2.7 — Ensure SSH MaxAuthTries is set to 4 or less`)
+- **Best-practice entries renamed** — 34 entries without a CIS section number (virtualisation bypass, SSH public-key, etc.) now use the prefix `"Best practice — ..."` instead of the misleading `"CIS ..."` prefix; `get_cis_ref()` returns the appropriate string for each category
+- **`cis_refs.json` restructured** (`data/cis_refs.json`) — each entry is now `{"ref": "...", "code": "CIS:X.Y.Z"|null}` instead of a flat string; 133 entries total: 99 CIS Ubuntu 22.04 (`code: "CIS:X.Y.Z"`), 4 CIS Docker (`code: "CIS Docker:X.Y"`), 34 best-practice (`code: null`)
+- **`get_cis_code()`** (`cis_refs.py`) — new function returning the short machine-readable code (e.g. `"CIS:5.2.7"`, `"CIS Docker:5.4"`) or `None` for best-practice entries
+- **`explain.py` CIS refs decoupled from locale** — `run_explain()` and the curses TUI now call `get_cis_ref(key)` directly instead of `t("explain_cis.{key}")`; the `explain_cis` section (170 strings) has been removed from `en.json` and `fr.json`
+- **5 new services** (`data/services.json`) — SMTP/Postfix/Exim (25/tcp, high), NFS Server (2049/tcp+udp, high), Jenkins (8080/tcp, high), OpenVPN (1194/udp, medium), Squid Proxy (3128/tcp, medium); registry now covers **32 services**
+- **`_ipt_has_conntrack` ACCEPT fix** (`checks/iptables_nftables.py`) — regex extended to require `-j ACCEPT` on the same line; previously `--ctstate ESTABLISHED,RELATED -j DROP` was incorrectly treated as a valid conntrack rule
+- **FORWARD DROP/REJECT → `result.ok()`** (`checks/iptables_nftables.py`) — when FORWARD policy is DROP or REJECT, emits ✔ [OK]; symmetric with INPUT; locale key `forward_ok` added
+
+### Tests
+
+| File | Change |
+|------|--------|
+| `tests/test_cis_refs.py` | new — 39 tests: `TestGetCisRef` (12), `TestGetCisCode` (11), `TestLoadCache` (4), `TestJsonSchema` (10), `TestNoStaleExplainCis` (2) |
+| `tests/test_domain_scores.py` | `TestCISReferences` updated — `test_explain_cis_all_keys_resolve` accepts best-practice refs; `test_explain_cis_locale_independent` renamed |
+| `tests/test_iptables_nftables.py` | `TestIptableParsers` (+2: conntrack DROP action false); `TestForwardPolicy` (+4: forward ok DROP/REJECT, ok level, no deduction) |
+| `tests/test_services.py` | `TestNewServicesRegistry` (+15: smtp/nfs/jenkins/openvpn/squid — exists, risk, ports) |
+
+✅ 4200/4200 unit tests (+60 from v1.24.1)
 
 ---
 

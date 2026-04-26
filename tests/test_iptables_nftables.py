@@ -94,6 +94,15 @@ class TestIptableParsers:
     def test_has_conntrack_false(self):
         assert _ipt_has_conntrack(_IPT_RULES_MINIMAL) is False
 
+    def test_has_conntrack_drop_action_is_false(self):
+        """--ctstate ESTABLISHED with -j DROP must not be mistaken for a valid conntrack rule."""
+        rules = "-A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j DROP\n"
+        assert _ipt_has_conntrack(rules) is False
+
+    def test_has_conntrack_state_form_without_accept_is_false(self):
+        rules = "-A INPUT -m state --state ESTABLISHED,RELATED -j REJECT\n"
+        assert _ipt_has_conntrack(rules) is False
+
 
 # ---------------------------------------------------------------------------
 # Parser — nftables
@@ -320,6 +329,27 @@ class TestForwardPolicy:
         keys = _deduction_keys(result)
         assert "iptables_nft.input_accept" in keys
         assert "iptables_nft.forward_accept" in keys
+
+    def test_ok_when_forward_drop(self):
+        result = check_iptables_nftables(_snap(forward_policy="DROP"), t=_t)
+        keys = [f.key for f in result.findings]
+        assert "iptables_nft.forward_ok" in keys
+
+    def test_ok_when_forward_reject(self):
+        result = check_iptables_nftables(_snap(forward_policy="REJECT"), t=_t)
+        keys = [f.key for f in result.findings]
+        assert "iptables_nft.forward_ok" in keys
+
+    def test_forward_ok_is_ok_level(self):
+        result = check_iptables_nftables(_snap(forward_policy="DROP"), t=_t)
+        f = next(f for f in result.findings if f.key == "iptables_nft.forward_ok")
+        assert f.level == FindingLevel.OK
+
+    def test_forward_drop_no_deduction(self):
+        result = check_iptables_nftables(
+            _snap(input_policy="DROP", forward_policy="DROP"), t=_t
+        )
+        assert _deduction_points(result) == 0
 
 
 # ---------------------------------------------------------------------------

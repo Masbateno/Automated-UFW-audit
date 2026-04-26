@@ -162,7 +162,18 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ---
 
-## 🆕 v1.24.1
+## 🆕 v1.25.0
+
+- 🗂️ **CIS compliance mapping inline** — each finding in the summary box now shows its machine-readable CIS code `[CIS:X.Y.Z]` (dimmed); full CIS ref text shown dimmed in `--verbose` mode after each WARN/ALERT finding
+- 🏷️ **Best-practice entries clarified** — 34 entries without a formal CIS section number now use the `"Best practice — ..."` prefix instead of a misleading `"CIS..."` label
+- 🔧 **`cis_refs.json` restructured** — `{"ref": "...", "code": "CIS:X.Y.Z"|null}` per entry; 133 entries (99 formal CIS, 34 best-practice, 4 Docker); new `get_cis_code()` function
+- 🧹 **Locale cleanup** — `explain_cis` section (170 strings) removed from `en.json` and `fr.json`; CIS refs now served from JSON, language-independent
+- 🛡️ **5 new services** — SMTP/Postfix (25/tcp), NFS (2049/tcp+udp), Jenkins (8080/tcp), OpenVPN (1194/udp), Squid (3128/tcp); registry now covers **32 services**
+- 🐛 **`_ipt_has_conntrack` ACCEPT fix** — regex now requires `-j ACCEPT`; `--ctstate ESTABLISHED -j DROP` no longer treated as valid conntrack rule
+- 🔧 **FORWARD DROP/REJECT → ✔ OK** — symmetric with INPUT; was previously silent
+- ✅ 4200/4200 unit tests (+60)
+
+### v1.24.1
 
 - 🐛 **Debian kernel parsing hotfix** — `_KVER_RE` now handles `6.12.74+deb13+1-amd64` format (`+` separator); `_query_apt_kernel_update` adds `linux-image-$(uname -r)` path for Debian (no `linux-image-generic` meta-package); ABI sort group made optional
 - ✨ **CHECK 46 — iptables/nftables audit** — when UFW is inactive, audits the underlying firewall layer (INPUT/FORWARD policies, conntrack, iptables vs nftables backend); INPUT ACCEPT → ALERT −3 pts

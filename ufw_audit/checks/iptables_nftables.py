@@ -124,7 +124,7 @@ def _ipt_has_loopback(rules: str) -> bool:
 
 def _ipt_has_conntrack(rules: str) -> bool:
     return bool(re.search(
-        r"(--state|--ctstate)\s+[A-Z,]*ESTABLISHED",
+        r"(--state|--ctstate)\s+[A-Z,]*ESTABLISHED[^\n]*-j\s+ACCEPT",
         rules, re.IGNORECASE,
     ))
 
@@ -251,6 +251,11 @@ def check_iptables_nftables(
             reason=_t("iptables_nft.forward_accept"),
             points=1, context="local",
             key="iptables_nft.forward_accept",
+        )
+    elif snapshot.forward_policy in ("DROP", "REJECT"):
+        result.ok(
+            message=_t("iptables_nft.forward_ok", policy=snapshot.forward_policy),
+            key="iptables_nft.forward_ok",
         )
     elif snapshot.forward_policy == "unknown":
         result.info(

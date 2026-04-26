@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.25.0](#v1250) | 2026-04-26 | Cartographie CIS inline (`[CIS:X.Y.Z]` par finding, ref complète en `--verbose`) ; préfixe best-practice ; `cis_refs.json` restructuré ; `get_cis_code()` ; `explain_cis` supprimé des locales ; 5 nouveaux services (SMTP, NFS, Jenkins, OpenVPN, Squid) ; correctif `_ipt_has_conntrack` ACCEPT ; FORWARD DROP/REJECT → OK ; 4200/4200 tests (+60) |
 | [v1.24.1](#v1241) | 2026-04-25 | Hotfix : parsing noyau Debian (`_KVER_RE` `[-+]`, ABI optionnel, chemin apt `linux-image-$(uname -r)`) ; correction changelog v1.24.0 (INPUT ACCEPT → ALERTE −3 pts) ; 4140/4140 tests (+6) |
 | [v1.24.0](#v1240) | 2026-04-25 | CHECK 46 (audit iptables/nftables quand UFW inactif) ; profil d'audit affiché dans le bandeau ; 5 nouveaux services critiques (Telnet, RDP, MongoDB, Elasticsearch, Memcached) ; services CRITICAL/HIGH installés mais inactifs → ⚠ + contexte de risque ; contrôle mise à jour noyau apt ; 4134/4134 tests (+92) |
 | [v1.23.0](#v1230) | 2026-04-24 | `--format=FORMAT` unifié ; `--check=list` ; prévisualisation `--manage-logs` + mode résumé ; `[CRITIQUE • LAN]` portée ; TUI curses `--install-cron`/`--manage-cron` ; `_tty.py` mode raw ; fix `compare.py` `None`/`[]` ; `tests/helpers.py` + migration 62 fichiers ; 4042/4042 tests (+35) |
@@ -62,6 +63,35 @@
 | [v0.11](#v011) | 2026-03-22 | Tests terrain (Mint/Debian/Kali), `--quiet`, détection virtualisation |
 | [v0.10](#v010) | — | Géolocalisation GeoIP2, options courtes CLI, note de périmètre du score |
 | [v0.9](#v09) | — | Réécriture complète Python, 421 tests, 22 services, bilingue EN/FR |
+
+---
+
+## v1.25.0
+
+**2026-04-26**
+
+### Fonctionnalités
+
+- **Cartographie CIS inline** — chaque finding disposant d'un code CIS formel affiche désormais `[CIS:X.Y.Z]` (estompé) dans la boîte de synthèse ; les entrées best-practice (sans numéro de section formel) sont laissées sans étiquette
+- **Ref CIS complète en `--verbose`** — la chaîne de référence CIS complète est affichée estompée après chaque ligne de finding WARN/ALERT (ex. `CIS Ubuntu 22.04 L1 — 5.2.7 — Ensure SSH MaxAuthTries is set to 4 or less`)
+- **Entrées best-practice renommées** — 34 entrées sans numéro de section CIS (contournement virtualisation, authentification par clé SSH, etc.) utilisent désormais le préfixe `"Best practice — ..."` au lieu du préfixe trompeur `"CIS ..."` ; `get_cis_ref()` retourne la chaîne appropriée selon la catégorie
+- **`cis_refs.json` restructuré** (`data/cis_refs.json`) — chaque entrée est désormais `{"ref": "...", "code": "CIS:X.Y.Z"|null}` au lieu d'une chaîne plate ; 133 entrées au total : 99 CIS Ubuntu 22.04 (`code: "CIS:X.Y.Z"`), 4 CIS Docker (`code: "CIS Docker:X.Y"`), 34 best-practice (`code: null`)
+- **`get_cis_code()`** (`cis_refs.py`) — nouvelle fonction retournant le code court machine-readable (ex. `"CIS:5.2.7"`, `"CIS Docker:5.4"`) ou `None` pour les entrées best-practice
+- **`explain.py` refs CIS découplées des fichiers locale** — `run_explain()` et le TUI curses appellent désormais `get_cis_ref(key)` directement au lieu de `t("explain_cis.{key}")` ; la section `explain_cis` (170 chaînes) a été supprimée de `en.json` et `fr.json`
+- **5 nouveaux services** (`data/services.json`) — SMTP/Postfix/Exim (25/tcp, high), NFS Server (2049/tcp+udp, high), Jenkins (8080/tcp, high), OpenVPN (1194/udp, medium), Squid Proxy (3128/tcp, medium) ; le registre couvre désormais **32 services**
+- **Correctif `_ipt_has_conntrack` ACCEPT** (`checks/iptables_nftables.py`) — regex étendu pour exiger `-j ACCEPT` sur la même ligne ; auparavant `--ctstate ESTABLISHED,RELATED -j DROP` était incorrectement traité comme une règle conntrack valide
+- **FORWARD DROP/REJECT → `result.ok()`** (`checks/iptables_nftables.py`) — quand la politique FORWARD est DROP ou REJECT, émet ✔ [OK] ; symétrique avec INPUT ; clé locale `forward_ok` ajoutée
+
+### Tests
+
+| Fichier | Modification |
+|---------|-------------|
+| `tests/test_cis_refs.py` | nouveau — 39 tests : `TestGetCisRef` (12), `TestGetCisCode` (11), `TestLoadCache` (4), `TestJsonSchema` (10), `TestNoStaleExplainCis` (2) |
+| `tests/test_domain_scores.py` | `TestCISReferences` mis à jour — `test_explain_cis_all_keys_resolve` accepte les refs best-practice ; `test_explain_cis_locale_independent` renommé |
+| `tests/test_iptables_nftables.py` | `TestIptableParsers` (+2 : action DROP conntrack fausse) ; `TestForwardPolicy` (+4 : forward ok DROP/REJECT, niveau OK, zéro déduction) |
+| `tests/test_services.py` | `TestNewServicesRegistry` (+15 : smtp/nfs/jenkins/openvpn/squid — existence, risque, ports) |
+
+✅ 4200/4200 tests unitaires (+60 depuis v1.24.1)
 
 ---
 
