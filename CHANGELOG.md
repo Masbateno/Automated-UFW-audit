@@ -90,7 +90,7 @@
 
 ### Features
 
-- **CHECK 46 — iptables/nftables audit** (`checks/iptables_nftables.py`) — when UFW is inactive, audits the underlying firewall layer; detects available firewall layer (nft list ruleset or iptables -S rules); checks INPUT/FORWARD default policies (iptables -S / nft list ruleset); verifies conntrack stateful filtering; INPUT ACCEPT → ALERT −3 pts; FORWARD ACCEPT → WARN −1 pt; conntrack absent → WARN −1 pt; gated on `not fw_status.active`
+- **CHECK 46 — iptables/nftables audit** (`checks/iptables_nftables.py`) — when UFW is inactive, audits the underlying firewall layer; detects available firewall layer (nft list ruleset or iptables -S rules); checks INPUT/FORWARD default policies (iptables -S / nft list ruleset); checks for ESTABLISHED/RELATED conntrack rule; INPUT ACCEPT → ALERT −3 pts; FORWARD ACCEPT → WARN −1 pt; conntrack absent → WARN −1 pt; gated on `not fw_status.active`
 - **Audit profile in banner** — active profile (`server` / `desktop` / `container`) shown as ℹ [INFO] immediately after the banner header
 - **5 new critical services** (`data/services.json`) — Telnet Server (23/tcp), RDP/xRDP (3389/tcp), MongoDB (27017/tcp), Elasticsearch (9200/tcp), Memcached (11211/tcp+udp); registry now covers **28 services**
 - **Installed-but-inactive critical/high services** — packages installed but port not listening now emit `⚠ [ATTENTION]` (was `ℹ [INFO]`) and display the risk context block; `services.state.installed_inactive_critical` locale key; `runner.py` and `display.py` updated
