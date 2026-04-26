@@ -162,14 +162,14 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ---
 
-## 🆕 v1.24.0
+## 🆕 v1.24.1
 
-- ✨ **CHECK 46 — iptables/nftables audit** — when UFW is inactive, audits the underlying firewall layer (INPUT/FORWARD policies, conntrack stateful filtering, iptables vs nftables backend)
+- 🐛 **Debian kernel parsing hotfix** — `_KVER_RE` now handles `6.12.74+deb13+1-amd64` format (`+` separator); `_query_apt_kernel_update` adds `linux-image-$(uname -r)` path for Debian (no `linux-image-generic` meta-package); ABI sort group made optional
+- ✨ **CHECK 46 — iptables/nftables audit** — when UFW is inactive, audits the underlying firewall layer (INPUT/FORWARD policies, conntrack, iptables vs nftables backend); INPUT ACCEPT → ALERT −3 pts
 - ✨ **5 new critical services** — Telnet (23/tcp), RDP/xRDP (3389/tcp), MongoDB (27017/tcp), Elasticsearch (9200/tcp), Memcached (11211/tcp+udp) — registry now covers **28 services**
 - ✨ **Installed-but-inactive critical services** — CRITICAL/HIGH packages installed but not running now show `⚠ [ATTENTION]` + risk context block (was `ℹ [INFO]`)
-- ✨ **Kernel apt update check** — ✔ [OK] when kernel is confirmed current; detects available updates; supports Ubuntu (apt-cache policy) and Debian (apt list --upgradable)
-- ✨ **Audit profile in banner** — active profile (server / desktop / container) shown as INFO after the banner header
-- ✅ 4134/4134 unit tests (+92)
+- ✨ **Kernel apt update check** — ✔ [OK] when kernel is confirmed current; detects available updates; Ubuntu and Debian supported
+- ✅ 4140/4140 unit tests
 
 ### v1.23.0
 

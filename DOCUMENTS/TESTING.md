@@ -11,6 +11,7 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 
 | Version | Tests | Notes |
 |---------|-------|-------|
+| v1.24.1 | 4140  | +6 tests — `test_kernel_modules.py`: `TestKernelSortKey` (+2, Debian `+` separator), `TestParseInstalledKernels` (+2), `TestKernelAptUpdate` (+2, Debian apt paths); Debian kernel parsing fix (`_KVER_RE`, `_kernel_sort_key`, `_query_apt_kernel_update`) |
 | v1.24.0 | 4134  | +92 tests — `test_iptables_nftables.py` new (51); `test_kernel_modules.py`: `TestKernelAptUpdate` (+9); `test_services.py`: `TestInactiveDisabled` (+5) + `TestPortExposureFindings` (+4); locale keys: `installed_inactive_critical`, `forward_unknown`, `kernels_update_available`, `kernels_up_to_date` |
 | v1.23.0 | 4042  | +35 tests — `test_cli.py`: `TestFormatFlag` (+22) + `TestCheckSkipFlags` (+4); `test_manage_logs.py`: `TestExtractSummaryView` (+7); scope qualifier (+2); `tests/helpers.py` shared utilities introduced; 62 test files migrated |
 | v1.22.3 | 4007  | +2 tests — `test_ports.py`: 3-tuple split + virbr0 iface + is_all_interfaces_iface_scoped; `test_exposure.py`: UDP ephemeral excluded + TCP high-port shown; feature: `ufw status verbose` in rules section |
@@ -48,6 +49,25 @@ Each test verifies that ufw-audit correctly detects (and fixes) a specific misco
 | v0.18   | 531   | 26 new tests for `fixes.py`; `run_fixes()` fully covered |
 | v0.17   | 505   | 15 pre-existing failures fixed; suite fully green |
 | v0.9    | 421   | First full suite |
+
+### v1.24.1 — 4140/4140 (2026-04-25)
+
+**Platform:** Linux Mint 22.3 — `so6desktop` — Python 3.12.3, pytest 7.4.4
+
+```
+pytest tests/ -q
+4140 passed in 4.73s
+```
+
+#### New / modified tests (+6)
+
+| File | Change | Coverage |
+|------|--------|----------|
+| `tests/test_kernel_modules.py` | `TestKernelSortKey` +2 | `_kernel_sort_key("6.12.74+deb13+1-amd64")` → `(6, 12, 74, 0)`; Debian sorts correctly against older Ubuntu kernels |
+| `tests/test_kernel_modules.py` | `TestParseInstalledKernels` +2 | `_parse_installed_kernels` handles Debian-style `linux-image-6.12.74+deb13+1-amd64`; mixed Ubuntu+Debian output parsed correctly |
+| `tests/test_kernel_modules.py` | `TestKernelAptUpdate` +2 | Debian-style running kernel `apt_checked=True` + `apt_update_available=False` → `kernels_up_to_date` OK; `apt_update_available=True` → `kernels_update_available` INFO |
+
+---
 
 ### v1.24.0 — 4134/4134 (2026-04-25)
 

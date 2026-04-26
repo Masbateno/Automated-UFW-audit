@@ -405,6 +405,12 @@ class TestKernelSortKey:
     def test_higher_minor_beats_higher_abi(self):
         assert _kernel_sort_key("6.11.0-1-generic") > _kernel_sort_key("6.8.0-99-generic")
 
+    def test_debian_style_version_parseable(self):
+        assert _kernel_sort_key("6.12.74+deb13+1-amd64") == (6, 12, 74, 0)
+
+    def test_debian_sorts_correctly_against_ubuntu(self):
+        assert _kernel_sort_key("6.12.74+deb13+1-amd64") > _kernel_sort_key("6.8.0-99-generic")
+
 
 # ---------------------------------------------------------------------------
 # _parse_installed_kernels
@@ -438,6 +444,20 @@ class TestParseInstalledKernels:
         assert _parse_installed_kernels("  linux-image-6.8.0-52-generic  \n") == [
             "6.8.0-52-generic"
         ]
+
+    def test_parses_debian_style_kernel(self):
+        assert _parse_installed_kernels(
+            "linux-image-6.12.74+deb13+1-amd64\n"
+        ) == ["6.12.74+deb13+1-amd64"]
+
+    def test_parses_mixed_ubuntu_debian(self):
+        output = (
+            "linux-image-6.8.0-52-generic\n"
+            "linux-image-6.12.74+deb13+1-amd64\n"
+        )
+        result = _parse_installed_kernels(output)
+        assert "6.8.0-52-generic" in result
+        assert "6.12.74+deb13+1-amd64" in result
 
 
 # ---------------------------------------------------------------------------
@@ -758,3 +778,25 @@ class TestKernelAptUpdate:
             self._snap(apt_update_available=True, apt_candidate_kernel="")
         )
         assert "kernel_modules.kernels_update_available" not in _finding_keys(result)
+
+    def test_debian_style_kernel_up_to_date(self):
+        """Debian kernel version (+ separator) correctly detected as up to date."""
+        snap = _ksnap(
+            running="6.12.74+deb13+1-amd64",
+            installed=["6.12.74+deb13+1-amd64"],
+            apt_checked=True,
+            apt_update_available=False,
+        )
+        result = check_kernel_modules(snap)
+        assert _has_finding(result, "kernel_modules.kernels_up_to_date", FindingLevel.OK)
+
+    def test_debian_style_kernel_update_available(self):
+        """Debian kernel version with update available emits INFO."""
+        snap = _ksnap(
+            running="6.12.74+deb13+1-amd64",
+            installed=["6.12.74+deb13+1-amd64"],
+            apt_update_available=True,
+            apt_candidate_kernel="6.12.82-1",
+        )
+        result = check_kernel_modules(snap)
+        assert _has_finding(result, "kernel_modules.kernels_update_available", FindingLevel.INFO)

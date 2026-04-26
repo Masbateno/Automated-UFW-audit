@@ -162,14 +162,14 @@ mkdir -p ~/.config/ufw-audit/services.d/
 
 ---
 
-## 🆕 v1.24.0
+## 🆕 v1.24.1
 
-- ✨ **CHECK 46 — audit iptables/nftables** — quand UFW est inactif, audite la couche pare-feu sous-jacente (politiques INPUT/FORWARD, conntrack, backend iptables vs nftables)
+- 🐛 **Hotfix parsing noyau Debian** — `_KVER_RE` gère désormais le format `6.12.74+deb13+1-amd64` (séparateur `+`) ; `_query_apt_kernel_update` ajoute le chemin `linux-image-$(uname -r)` pour Debian (pas de méta-paquet `linux-image-generic`) ; groupe ABI optionnel dans le tri
+- ✨ **CHECK 46 — audit iptables/nftables** — quand UFW est inactif, audite la couche pare-feu sous-jacente (politiques INPUT/FORWARD, conntrack, backend iptables vs nftables) ; INPUT ACCEPT → ALERTE −3 pts
 - ✨ **5 nouveaux services critiques** — Telnet (23/tcp), RDP/xRDP (3389/tcp), MongoDB (27017/tcp), Elasticsearch (9200/tcp), Memcached (11211/tcp+udp) — le registre couvre désormais **28 services**
 - ✨ **Services critiques installés mais inactifs** — les paquets CRITICAL/HIGH installés mais non démarrés affichent désormais `⚠ [ATTENTION]` + bloc de contexte de risque (était `ℹ [INFO]`)
-- ✨ **Contrôle mise à jour noyau apt** — ✔ [OK] quand le noyau est confirmé à jour ; détecte les mises à jour disponibles ; supporte Ubuntu (apt-cache policy) et Debian (apt list --upgradable)
-- ✨ **Profil d'audit dans le bandeau** — le profil actif (server / desktop / container) est affiché en INFO après le bandeau
-- ✅ 4134/4134 tests unitaires (+92)
+- ✨ **Contrôle mise à jour noyau apt** — ✔ [OK] quand le noyau est confirmé à jour ; détecte les mises à jour disponibles ; Ubuntu et Debian supportés
+- ✅ 4140/4140 tests unitaires
 
 ### v1.23.0
 

@@ -65,8 +65,9 @@ _RISKY_NET: frozenset[str] = frozenset({
 
 RISKY_MODULES: frozenset[str] = _RISKY_FS | _RISKY_NET
 
-# Kernel version sort key — parses "MAJOR.MINOR.PATCH-ABI[-flavor]"
-_KVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)-(\d+)")
+# Kernel version sort key — parses Ubuntu "MAJOR.MINOR.PATCH-ABI[-flavor]"
+# and Debian "MAJOR.MINOR.PATCH+debN+N-arch" (separator is + not -)
+_KVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)[-+]")
 
 # Retention policy: minimum number of kernels to keep per profile
 _RETENTION: dict[str, int] = {
@@ -261,7 +262,7 @@ def _query_apt_kernel_update() -> Tuple[bool, bool, str]:
                 return stripped.split(":", 1)[1].strip()
         return ""
 
-    # Primary: meta-package (Ubuntu / Mint)
+    # Primary path 1: meta-package (Ubuntu / Mint)
     out = _run("apt-cache", "policy", "linux-image-generic", timeout=15)
     if out:
         installed = _field(out, "Installed")
@@ -270,7 +271,18 @@ def _query_apt_kernel_update() -> Tuple[bool, bool, str]:
             update = installed != candidate
             return True, update, (candidate if update else "")
 
-    # Fallback: scan upgradable list (Debian, no meta-package)
+    # Primary path 2: running kernel package (Debian — no meta-package)
+    running_kernel = _run("uname", "-r", timeout=5).strip()
+    if running_kernel:
+        out = _run("apt-cache", "policy", f"linux-image-{running_kernel}", timeout=15)
+        if out:
+            installed = _field(out, "Installed")
+            candidate = _field(out, "Candidate")
+            if installed and installed != "(none)" and candidate and candidate != "(none)":
+                update = installed != candidate
+                return True, update, (candidate if update else "")
+
+    # Fallback: scan upgradable list
     if _command_exists("apt"):
         out = _run("apt", "list", "--upgradable", timeout=20)
         if out:
@@ -286,10 +298,16 @@ def _query_apt_kernel_update() -> Tuple[bool, bool, str]:
 
 
 def _kernel_sort_key(version: str) -> Tuple[int, int, int, int]:
-    """Return a sortable tuple from a kernel version string like '6.8.0-52-generic'."""
+    """Return a sortable tuple from a kernel version string.
+
+    Handles Ubuntu "6.8.0-52-generic" and Debian "6.12.74+deb13+1-amd64".
+    """
     m = _KVER_RE.match(version)
     if m:
-        return (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
+        rest = version[m.end():]
+        abi_m = re.match(r"(\d+)", rest)
+        abi = int(abi_m.group(1)) if abi_m else 0
+        return (int(m.group(1)), int(m.group(2)), int(m.group(3)), abi)
     return (0, 0, 0, 0)
 
 
@@ -364,7 +382,7 @@ def _check_installed_kernels(
         result.info(
             message=_t("kernel_modules.kernels_update_available",
                        candidate=snapshot.apt_candidate_kernel),
-            cmd="sudo apt upgrade linux-image-generic",
+            cmd="sudo apt upgrade",
             cmd_type="action",
             key="kernel_modules.kernels_update_available",
         )

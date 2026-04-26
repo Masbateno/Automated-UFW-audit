@@ -4,6 +4,7 @@
 
 | Version | Date | Résumé |
 |---------|------|--------|
+| [v1.24.1](#v1241) | 2026-04-25 | Hotfix : parsing noyau Debian (`_KVER_RE` `[-+]`, ABI optionnel, chemin apt `linux-image-$(uname -r)`) ; correction changelog v1.24.0 (INPUT ACCEPT → ALERTE −3 pts) ; 4140/4140 tests (+6) |
 | [v1.24.0](#v1240) | 2026-04-25 | CHECK 46 (audit iptables/nftables quand UFW inactif) ; profil d'audit affiché dans le bandeau ; 5 nouveaux services critiques (Telnet, RDP, MongoDB, Elasticsearch, Memcached) ; services CRITICAL/HIGH installés mais inactifs → ⚠ + contexte de risque ; contrôle mise à jour noyau apt ; 4134/4134 tests (+92) |
 | [v1.23.0](#v1230) | 2026-04-24 | `--format=FORMAT` unifié ; `--check=list` ; prévisualisation `--manage-logs` + mode résumé ; `[CRITIQUE • LAN]` portée ; TUI curses `--install-cron`/`--manage-cron` ; `_tty.py` mode raw ; fix `compare.py` `None`/`[]` ; `tests/helpers.py` + migration 62 fichiers ; 4042/4042 tests (+35) |
 | [v1.22.3](#v1223) | 2026-04-20 | Correctifs : ports liés à une interface exclue de l'exposition (67/udp%virbr0) ; filtre UDP éphémère dans l'exposition ; `ufw status verbose` affiché dans la section règles (mode -v) ; 4007/4007 tests (+2) |
@@ -64,13 +65,32 @@
 
 ---
 
+## v1.24.1
+
+**2026-04-25**
+
+### Correctifs
+
+- **Parsing noyau Debian** (`checks/kernel_modules.py`) — `_KVER_RE` étendu de `[-]` à `[-+]` pour parser les versions Debian (`6.12.74+deb13+1-amd64`) ; `_kernel_sort_key` réécrit pour gérer l'absence du groupe ABI numérique (Debian sépare avec `+` et non `-ABI`) ; `_query_apt_kernel_update` ajoute `apt-cache policy linux-image-$(uname -r)` comme second chemin principal pour Debian (pas de méta-paquet `linux-image-generic`) ; commande apt upgrade généralisée en `sudo apt upgrade`
+- **Correction changelog v1.24.0** — INPUT ACCEPT → ALERTE −3 pts (pas ⚠ −1 pt) ; FORWARD ACCEPT reste ⚠ −1 pt ; `iptables -S` (pas `-L`) documenté ; "backend actif" → "couche firewall disponible"
+
+### Tests
+
+| Fichier | Modification |
+|---------|-------------|
+| `tests/test_kernel_modules.py` | `TestKernelSortKey` (+2), `TestParseInstalledKernels` (+2), `TestKernelAptUpdate` (+2) — tri version Debian, parsing séparateur `+`, apt à jour sur Debian |
+
+✅ 4140/4140 tests unitaires (+6 depuis v1.24.0)
+
+---
+
 ## v1.24.0
 
 **2026-04-25**
 
 ### Fonctionnalités
 
-- **CHECK 46 — audit iptables/nftables** (`checks/iptables_nftables.py`) — quand UFW est inactif, audite la couche pare-feu sous-jacente ; détecte le backend iptables vs nftables ; vérifie les politiques par défaut INPUT/FORWARD ; contrôle le suivi de connexion (conntrack) ; ⚠ si politiques permissives ou conntrack absent ; section conditionnée sur `not fw_status.active`
+- **CHECK 46 — audit iptables/nftables** (`checks/iptables_nftables.py`) — quand UFW est inactif, audite la couche pare-feu sous-jacente ; détecte la couche firewall disponible (nft list ruleset ou règles iptables -S) ; vérifie les politiques par défaut INPUT/FORWARD (iptables -S / nft list ruleset) ; contrôle la présence de la règle conntrack ESTABLISHED,RELATED ACCEPT ; INPUT ACCEPT → ALERTE −3 pts ; FORWARD ACCEPT → ⚠ −1 pt ; conntrack absent → ⚠ −1 pt ; section conditionnée sur `not fw_status.active`
 - **Profil d'audit dans le bandeau** — le profil actif (`server` / `desktop` / `container`) est affiché en ℹ [INFO] immédiatement après le bandeau d'en-tête
 - **5 nouveaux services critiques** (`data/services.json`) — Telnet Server (23/tcp), RDP/xRDP (3389/tcp), MongoDB (27017/tcp), Elasticsearch (9200/tcp), Memcached (11211/tcp+udp) ; le registre couvre désormais **28 services**
 - **Services critiques/élevés installés mais inactifs** — les paquets installés dont le port n'est pas en écoute émettent désormais `⚠ [ATTENTION]` (était `ℹ [INFO]`) et affichent le bloc de contexte de risque ; nouvelle clé locale `services.state.installed_inactive_critical` ; `runner.py` et `display.py` mis à jour

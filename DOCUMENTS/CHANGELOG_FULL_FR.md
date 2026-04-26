@@ -6,11 +6,30 @@ Toutes les modifications notables du projet sont documentées ici.
 
 ---
 
+## [v1.24.1] — 2026-04-25
+
+### Correctifs
+
+- **Parsing version noyau Debian** (`ufw_audit/checks/kernel_modules.py`) — regex `_KVER_RE` étendu de `^(\d+)\.(\d+)\.(\d+)-(\d+)` à `^(\d+)\.(\d+)\.(\d+)[-+]` pour gérer les versions noyau Debian où le séparateur est `+` et non `-` (ex. `6.12.74+deb13+1-amd64`) ; `_kernel_sort_key` réécrit — après le `[-+]`, la chaîne restante est scannée pour un entier de tête optionnel (numéro ABI) ; les versions Debian n'ayant pas d'entier après `+`, `abi` vaut `0` et le tri reste correct sur Ubuntu et Debian ; `_query_apt_kernel_update` ajoute un second chemin principal : `apt-cache policy linux-image-$(uname -r)` pour les systèmes sans méta-paquet `linux-image-generic` (Debian utilise le nom de paquet versionné complet) ; commande apt upgrade généralisée de `sudo apt upgrade linux-image-generic` à `sudo apt upgrade` ; effet combiné sur Debian 13 : les trois bugs ensemble causaient `installed_kernels` vide → early return → finding apt jamais atteint → pas de ✔ [OK] même noyau à jour
+- **Correction changelog v1.24.0** — CHANGELOG.md, CHANGELOG_FR.md, CHANGELOG_FULL.md, CHANGELOG_FULL_FR.md corrigés : INPUT ACCEPT émet `result.alert(points=3)` — ALERTE −3 pts, pas ⚠ −1 pt ; FORWARD ACCEPT reste ⚠ −1 pt ; `iptables -S` (pas `iptables -L INPUT --line-numbers`) documenté ; "détecte le backend actif" révisé en "détecte la couche firewall disponible"
+
+### Tests
+
+| Fichier | Classe | Modification |
+|---------|--------|-------------|
+| `tests/test_kernel_modules.py` | `TestKernelSortKey` | +2 tests — `test_debian_style_version_parseable` (`6.12.74+deb13+1-amd64` → `(6, 12, 74, 0)`), `test_debian_sorts_correctly_against_ubuntu` (Debian > Ubuntu plus ancien) |
+| `tests/test_kernel_modules.py` | `TestParseInstalledKernels` | +2 tests — `test_parses_debian_style_kernel`, `test_parses_mixed_ubuntu_debian` |
+| `tests/test_kernel_modules.py` | `TestKernelAptUpdate` | +2 tests — `test_debian_style_kernel_up_to_date`, `test_debian_style_kernel_update_available` |
+
+✅ 4140/4140 tests unitaires (+6 depuis v1.24.0)
+
+---
+
 ## [v1.24.0] — 2026-04-25
 
 ### Fonctionnalités
 
-- **CHECK 46 — audit iptables/nftables** (`ufw_audit/checks/iptables_nftables.py`) — nouveau check conditionné sur `not fw_status.active` ; quand UFW est inactif, audite la couche pare-feu sous-jacente : détecte si iptables ou nftables est le backend actif (`nft list ruleset`) ; vérifie la politique par défaut INPUT (`iptables -L INPUT` / `nft list chain`) ; vérifie la politique FORWARD ; contrôle la présence du suivi de connexion conntrack (règle RELATED,ESTABLISHED ACCEPT) ; ⚠ −1 pt pour INPUT permissive ; ⚠ −1 pt pour FORWARD permissive ; ⚠ −1 pt pour conntrack absent ; FORWARD `unknown` → INFO (pas de déduction) ; nouvelle section `IPTABLES / NFTABLES AUDIT` dans runner ; nouvelle section locale `iptables_nft.*` dans en.json / fr.json
+- **CHECK 46 — audit iptables/nftables** (`ufw_audit/checks/iptables_nftables.py`) — nouveau check conditionné sur `not fw_status.active` ; quand UFW est inactif, audite la couche pare-feu sous-jacente : détecte la couche firewall disponible (présence `nft list ruleset` ou règles `iptables -S`) ; vérifie la politique par défaut INPUT (`iptables -S` / `nft list ruleset`) ; vérifie la politique FORWARD ; contrôle la présence de la règle ESTABLISHED,RELATED ACCEPT (conntrack) ; ⛔ ALERTE −3 pts pour INPUT ACCEPT (exposition critique) ; ⚠ −1 pt pour FORWARD ACCEPT ; ⚠ −1 pt pour conntrack absent ; FORWARD `unknown` → INFO (pas de déduction) ; nouvelle section `IPTABLES / NFTABLES AUDIT` dans runner ; nouvelle section locale `iptables_nft.*` dans en.json / fr.json
 - **Profil d'audit dans le bandeau** — le profil actif (`server` / `desktop` / `container`) est affiché en ℹ [INFO] immédiatement après le bandeau, avant toute section
 - **5 nouveaux services critiques** (`ufw_audit/data/services.json`) — Telnet Server (23/tcp, `inetutils-telnetd` / `telnetd`, binaires `in.telnetd` / `telnetd`) ; RDP/xRDP (3389/tcp, `xrdp`) ; MongoDB (27017/tcp, `mongodb` / `mongodb-org` / `mongodb-server` / `mongodb-server-core`) ; Elasticsearch (9200/tcp, `elasticsearch`) ; Memcached (11211/tcp + 11211/udp, `memcached`) ; le registre passe de 23 à **28 services** ; entrées locale `service_risk` ajoutées pour les 5 (EN + FR)
 - **Services critiques/élevés installés mais inactifs** (`ufw_audit/checks/services.py`, `ufw_audit/runner.py`, `ufw_audit/display.py`) — `_check_single_service` : état `INACTIVE_DISABLED` sur service `is_high_or_critical` émet `result.warn("services.state.installed_inactive_critical")` au lieu de `result.info("services.state.inactive_disabled")` (early return conservé — pas de bruit d'exposition de port) ; `_check_port_exposure` : exposition `NOT_LISTENING` sur service high/critical émet `result.warn()` au lieu de `result.info()` ; `runner.py` : condition contexte de risque étendue de `snap.is_active` à `snap.is_active or (snap.installed and not snap.is_active and snap.service.is_high_or_critical)` ; `display.py` `build_risk_context_entries` mis à jour avec le même garde ; `services.state.installed_inactive_critical` ajouté en.json / fr.json
