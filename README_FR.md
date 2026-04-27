@@ -1,5 +1,12 @@
 *[Read in English](README.md)* · *[Documentation technique](DOCUMENTS/README_TECH_FR.md)*
 
+> [!WARNING]
+> **Ce dépôt est déprécié et ne recevra plus aucune mise à jour.**
+>
+> Le développement continue sous un nouveau nom : **[BOB — Bodyguard Of Bits](https://github.com/Masbateno/bodyguard-of-bits)**.
+> Le nouveau dépôt n'est pas encore actif, mais une première release est attendue prochainement.
+> Suivez le nouveau dépôt pour être notifié.
+
 # 🔒 ufw-audit
 
 Audit de sécurité UFW — rapide, lisible, actionnable.

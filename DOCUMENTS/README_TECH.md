@@ -1,5 +1,12 @@
 *[Lire en français](README_TECH_FR.md)* · *[Vue d'ensemble](../README.md)*
 
+> [!WARNING]
+> **This repository is deprecated and will no longer receive updates.**
+>
+> Development continues under a new name: **[BOB — Bodyguard Of Bits](https://github.com/Masbateno/bodyguard-of-bits)**.
+> The new repository is not yet active, but a first release is expected soon.
+> Please watch the new repository for updates.
+
 # ufw-audit v1.25.0
 
 ![License](https://img.shields.io/badge/license-MIT-green)

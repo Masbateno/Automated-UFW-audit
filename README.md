@@ -1,5 +1,12 @@
 *[Lire en français](README_FR.md)* · *[Technical documentation](DOCUMENTS/README_TECH.md)*
 
+> [!WARNING]
+> **This repository is deprecated and will no longer receive updates.**
+>
+> Development continues under a new name: **[BOB — Bodyguard Of Bits](https://github.com/Masbateno/bodyguard-of-bits)**.
+> The new repository is not yet active, but a first release is expected soon.
+> Please watch the new repository for updates.
+
 # 🔒 ufw-audit
 
 Smart UFW security audit — fast, readable, actionable.
